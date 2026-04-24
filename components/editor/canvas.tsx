@@ -4,6 +4,7 @@ import * as React from "react"
 import { RiImage2Line } from "@remixicon/react"
 import { motion } from "motion/react"
 
+import { CornerMarkers } from "@/components/editor/corner-marker"
 import { cn } from "@/lib/utils"
 
 type AspectId = "auto" | "16:9" | "16:10" | "4:3" | "1:1" | "3:4" | "9:16"
@@ -13,13 +14,14 @@ export function Canvas() {
   const [isDragOver, setIsDragOver] = React.useState(false)
 
   return (
-    <section className="relative flex flex-1 items-center justify-center overflow-hidden bg-background px-8 dark:bg-black">
+    <section className="relative flex flex-1 items-center justify-center border-b border-dashed border-border/70 bg-background px-8 dark:bg-black">
+      <CornerMarkers className="text-border" size={12} />
       <motion.div
         initial={{ opacity: 0, scale: 0.985, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
-          "bg-dot-grid relative flex w-full max-w-[1100px] items-center justify-center overflow-hidden rounded-2xl bg-background ring-1 ring-border/60",
+          "bg-dot-grid relative flex w-full max-w-[1100px] items-center justify-center rounded-2xl bg-background ring-1 ring-border/60",
           aspect === "1:1" && "aspect-square max-w-[min(70vh,800px)]",
           aspect === "16:9" && "aspect-[16/9]",
           aspect === "16:10" && "aspect-[16/10]",

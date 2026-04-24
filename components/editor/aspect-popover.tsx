@@ -253,7 +253,8 @@ export function AspectPopover({
         side="right"
         align="start"
         sideOffset={10}
-        className="flex max-h-[min(560px,80vh)] w-[360px] flex-col gap-0 overflow-hidden bg-popover p-0"
+        collisionPadding={12}
+        className="flex max-h-[min(560px,80vh)] w-[min(360px,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden bg-popover p-0"
       >
         {/* Search */}
         <div className="relative shrink-0 border-b border-border/60 p-2">

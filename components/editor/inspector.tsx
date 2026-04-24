@@ -16,14 +16,7 @@ import {
   RiArrowGoBackLine,
   RiUnsplashLine,
   RiMoonClearLine,
-  RiArrowLeftUpLine,
-  RiArrowUpLine,
-  RiArrowRightUpLine,
-  RiArrowLeftLine,
   RiArrowRightLine,
-  RiArrowLeftDownLine,
-  RiArrowDownLine,
-  RiArrowRightDownLine,
   RiFocus3Line,
 } from "@remixicon/react"
 import { AnimatePresence, motion } from "motion/react"
@@ -43,7 +36,7 @@ import { cn } from "@/lib/utils"
 
 export function Inspector({ className }: { className?: string }) {
   return (
-    <aside className={cn("flex h-full min-h-0 w-[308px] shrink-0 flex-col border-l border-border/60 bg-sidebar overflow-hidden", className)}>
+    <aside className={cn("flex h-full min-h-0 w-[308px] shrink-0 flex-col border-l border-dashed border-border/70 bg-sidebar overflow-hidden", className)}>
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-4">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium tracking-tight">
@@ -164,14 +157,14 @@ function BackdropSection() {
   const [selectedPatterns, setSelectedPatterns] = React.useState<number[]>([1])
   const [patternIntensity, setPatternIntensity] = React.useState(50)
   const [patternThickness, setPatternThickness] = React.useState(1)
-  const [patternColor, setPatternColor] = React.useState("#8E51FF")
+  const [patternColor, setPatternColor] = React.useState("#F04462")
 
   const patterns = [
     { id: 1, name: "Dots", cls: "bg-background [background-image:radial-gradient(oklch(from_var(--foreground)_l_c_h_/_0.2)_1px,_transparent_1px)] [background-size:8px_8px]" },
     { id: 2, name: "Grid", cls: "bg-background [background-image:linear-gradient(oklch(from_var(--foreground)_l_c_h_/_0.15)_1px,_transparent_1px),linear-gradient(90deg,oklch(from_var(--foreground)_l_c_h_/_0.15)_1px,_transparent_1px)] [background-size:10px_10px]" },
     { id: 3, name: "Diagonals", cls: "bg-background [background-image:repeating-linear-gradient(-45deg,oklch(from_var(--foreground)_l_c_h_/_0.12)_0_1px,transparent_1px_6px)]" },
     { id: 4, name: "Noise", cls: "bg-background [background-image:radial-gradient(oklch(from_var(--foreground)_l_c_h_/_0.08)_1px,transparent_1px),radial-gradient(oklch(from_var(--foreground)_l_c_h_/_0.05)_1px,transparent_1px)] [background-size:7px_7px,11px_11px] [background-position:0_0,3px_3px]" },
-    { id: 5, name: "Mesh", cls: "bg-[conic-gradient(at_top_left,var(--tw-gradient-stops))] from-indigo-200 via-slate-600 to-indigo-200" },
+    { id: 5, name: "Mesh", cls: "bg-[conic-gradient(at_top_left,var(--tw-gradient-stops))] from-rose-200 via-emerald-400 to-rose-200" },
     { id: 6, name: "Waves", cls: "bg-background [background-image:linear-gradient(30deg,#4466ff_12%,transparent_12.5%,transparent_87%,#4466ff_87.5%,#4466ff),linear-gradient(150deg,#4466ff_12%,transparent_12.5%,transparent_87%,#4466ff_87.5%,#4466ff),linear-gradient(30deg,#4466ff_12%,transparent_12.5%,transparent_87%,#4466ff_87.5%,#4466ff),linear-gradient(150deg,#4466ff_12%,transparent_12.5%,transparent_87%,#4466ff_87.5%,#4466ff),linear-gradient(60deg,#4466ff77_25%,transparent_25.5%,transparent_75%,#4466ff77_75%,#4466ff77),linear-gradient(60deg,#4466ff77_25%,transparent_25.5%,transparent_75%,#4466ff77_75%,#4466ff77)] [background-size:80px_140px]" },
   ]
 
@@ -296,7 +289,7 @@ function BackdropSection() {
             <div>
               <span className="text-[11px] text-muted-foreground block mb-2">Colour</span>
               <div className="flex flex-wrap gap-1.5">
-                {["#8E51FF", "#000000", "#FFFFFF", "#F87171", "#34D399", "#60A5FA"].map((c) => (
+                {["#F04462", "#7FB069", "#000000", "#FFFFFF", "#F87171", "#60A5FA"].map((c) => (
                   <button
                     key={c}
                     onClick={() => setPatternColor(c)}
@@ -386,7 +379,7 @@ function BackgroundSection() {
         <TabsContent value="gradient" className="mt-6">
           <div className="grid grid-cols-4 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <button key={i} className="aspect-square rounded-md border border-border/60 bg-gradient-to-br from-indigo-500 to-purple-500 transition-transform hover:-translate-y-0.5 cursor-pointer" />
+              <button key={i} className="aspect-square rounded-md border border-border/60 bg-gradient-to-br from-rose-400 to-emerald-400 transition-transform hover:-translate-y-0.5 cursor-pointer" />
             ))}
           </div>
         </TabsContent>
@@ -545,7 +538,7 @@ function DegreeRow({
 function ShadowSection() {
   const [type, setType] = React.useState("spread")
   const [intensity, setIntensity] = React.useState(40)
-  const [lightSource, setLightSource] = React.useState("top-left")
+  const [lightSource, setLightSource] = React.useState("0-0")
 
   const types = [
     { id: "none", label: "None", icon: (
@@ -600,35 +593,48 @@ function ShadowSection() {
 
       <div>
         <SubHeader>Light Source</SubHeader>
-        <div className="grid grid-cols-3 gap-1.5 w-full mt-2">
-          {LIGHT_POSITIONS.map((pos) => (
-            <button
-              key={pos.id}
-              onClick={() => setLightSource(pos.id)}
-              className={cn(
-                "flex aspect-square items-center justify-center rounded-md border transition-all cursor-pointer",
-                lightSource === pos.id
-                  ? "border-primary bg-primary text-white"
-                  : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-foreground/30"
-              )}
-            >
-              {pos.icon && <pos.icon className="size-3.5" />}
-            </button>
-          ))}
+        <div className="mt-2 flex justify-center">
+          <div className="grid grid-cols-5 gap-1.5">
+            {LIGHT_POSITIONS.map((pos) => {
+              const isActive = lightSource === pos.id
+              return (
+                <button
+                  key={pos.id}
+                  onClick={() => setLightSource(pos.id)}
+                  className={cn(
+                    "flex size-8 items-center justify-center rounded-md border transition-all cursor-pointer",
+                    isActive
+                      ? "border-primary bg-primary text-white"
+                      : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-foreground/30"
+                  )}
+                >
+                  {pos.isCenter ? (
+                    <RiFocus3Line className="size-3.5" />
+                  ) : (
+                    <RiArrowRightLine
+                      className="size-3.5"
+                      style={{ transform: `rotate(${pos.angle}deg)` }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-const LIGHT_POSITIONS = [
-  { id: "top-left", icon: RiArrowLeftUpLine },
-  { id: "top", icon: RiArrowUpLine },
-  { id: "top-right", icon: RiArrowRightUpLine },
-  { id: "left", icon: RiArrowLeftLine },
-  { id: "center", icon: RiFocus3Line },
-  { id: "right", icon: RiArrowRightLine },
-  { id: "bottom-left", icon: RiArrowLeftDownLine },
-  { id: "bottom", icon: RiArrowDownLine },
-  { id: "bottom-right", icon: RiArrowRightDownLine },
-]
+const LIGHT_POSITIONS = Array.from({ length: 25 }, (_, i) => {
+  const r = Math.floor(i / 5)
+  const c = i % 5
+  const dx = c - 2
+  const dy = r - 2
+  const isCenter = dx === 0 && dy === 0
+  return {
+    id: isCenter ? "center" : `${r}-${c}`,
+    isCenter,
+    angle: isCenter ? 0 : (Math.atan2(dy, dx) * 180) / Math.PI,
+  }
+})

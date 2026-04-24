@@ -48,7 +48,7 @@ export function TopBar() {
   const [name, setName] = React.useState("Untitled capture")
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/60 bg-background px-2 sm:px-3">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-dashed border-border/70 bg-background px-2 sm:px-3">
       {/* Brand */}
       <div className="flex items-center gap-2 pr-1">
         <span className="inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-secondary/70">

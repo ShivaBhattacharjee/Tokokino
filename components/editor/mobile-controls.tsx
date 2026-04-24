@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
 /**
- * Bottom panel shown only on mobile (<md). Stacks under the canvas.
+ * Bottom panel shown on phone + smaller iPad (<lg). Stacks under the canvas.
  * Tabs switch between Design (EffectsSidebar content) and Inspector.
  * Height is roughly 45vh so the canvas still gets the majority of the viewport.
  */
@@ -20,7 +20,7 @@ export function MobileControls() {
   return (
     <div
       className={cn(
-        "flex h-[48svh] min-h-[320px] shrink-0 flex-col border-t border-border/60 bg-sidebar xl:hidden"
+        "flex h-[48svh] min-h-[320px] shrink-0 flex-col border-t border-border/60 bg-sidebar lg:hidden"
       )}
     >
       <Tabs

@@ -11,7 +11,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { PRESETS } from "@/lib/editor/types"
 
-export function EffectsSidebar({ className }: { className?: string }) {
+export function EffectsSidebar({
+  className,
+  stacked = false,
+}: {
+  className?: string
+  stacked?: boolean
+}) {
   const [aspect, setAspect] = React.useState<string>("16-10")
   const [customSize, setCustomSize] = React.useState<{
     w: number
@@ -25,10 +31,15 @@ export function EffectsSidebar({ className }: { className?: string }) {
   const [preset, setPreset] = React.useState<string>("paper-tilt")
 
   return (
-    <aside className={cn("flex h-full min-h-0 w-[268px] shrink-0 flex-col border-r border-border/60 bg-sidebar", className)}>
+    <aside className={cn("flex h-full min-h-0 w-[268px] shrink-0 flex-col border-r border-dashed border-border/70 bg-sidebar", className)}>
       {/* Sticky top: Aspect + Frame — row on mobile/iPad, stacked on desktop */}
       <div className="shrink-0 px-4 pt-5 pb-4">
-        <div className="grid grid-cols-2 gap-3 xl:block xl:gap-0">
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-3 xl:block xl:gap-0",
+            stacked && "!block !gap-0"
+          )}
+        >
           <div>
             <SectionHeader>Aspect</SectionHeader>
             <AspectPopover
@@ -44,7 +55,12 @@ export function EffectsSidebar({ className }: { className?: string }) {
               </p>
             ) : null}
           </div>
-          <div className="xl:mt-5 xl:border-t xl:border-border/60 xl:pt-5">
+          <div
+            className={cn(
+              "xl:mt-5 xl:border-t xl:border-border/60 xl:pt-5",
+              stacked && "!mt-5 !border-t !border-border/60 !pt-5"
+            )}
+          >
             <SectionHeader>Frame</SectionHeader>
             <FramePopover
               value={frame}
@@ -75,7 +91,12 @@ export function EffectsSidebar({ className }: { className?: string }) {
         </div>
 
         <ScrollArea className="min-h-0 flex-1">
-          <ul className="grid grid-cols-3 gap-2 px-4 pb-5 xl:flex xl:flex-col xl:gap-3">
+          <ul
+            className={cn(
+              "grid grid-cols-3 gap-2 px-4 pb-5 xl:flex xl:flex-col xl:gap-3",
+              stacked && "!flex !flex-col !gap-3"
+            )}
+          >
             {PRESETS.map((p) => {
               const isActive = preset === p.id
               return (
@@ -86,7 +107,8 @@ export function EffectsSidebar({ className }: { className?: string }) {
                   >
                     <div
                       className={cn(
-                        "relative flex h-[78px] items-center justify-center overflow-hidden rounded-xl border p-3 transition-colors xl:h-[112px] xl:p-4",
+                        "relative flex aspect-[16/10] items-center justify-center overflow-hidden rounded-xl border p-3 transition-colors xl:aspect-auto xl:h-[112px] xl:p-4",
+                        stacked && "!aspect-auto !h-[112px] !p-4",
                         isActive
                           ? "border-foreground/40"
                           : "border-border/60 hover:border-foreground/20"
@@ -104,6 +126,7 @@ export function EffectsSidebar({ className }: { className?: string }) {
                       <span
                         className={cn(
                           "truncate text-[11px] xl:text-[12px]",
+                          stacked && "!text-[12px]",
                           isActive ? "text-foreground" : "text-foreground/80"
                         )}
                       >
