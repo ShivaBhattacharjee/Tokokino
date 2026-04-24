@@ -41,9 +41,9 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
-export function Inspector() {
+export function Inspector({ className }: { className?: string }) {
   return (
-    <aside className="flex h-full min-h-0 w-[308px] shrink-0 flex-col border-l border-border/60 bg-sidebar overflow-hidden">
+    <aside className={cn("flex h-full min-h-0 w-[308px] shrink-0 flex-col border-l border-border/60 bg-sidebar overflow-hidden", className)}>
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-4">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium tracking-tight">

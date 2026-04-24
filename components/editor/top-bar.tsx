@@ -8,6 +8,7 @@ import {
   RiEyeLine,
   RiFileCopyLine,
   RiFolderOpenLine,
+  RiMoreLine,
   RiRefreshLine,
   RiSaveLine,
   RiShareForwardLine,
@@ -26,6 +27,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -39,96 +48,105 @@ export function TopBar() {
   const [name, setName] = React.useState("Untitled capture")
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/60 bg-background px-3">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/60 bg-background px-2 sm:px-3">
       {/* Brand */}
       <div className="flex items-center gap-2 pr-1">
         <span className="inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-secondary/70">
           <span className="size-3 rounded-[3px] bg-foreground" />
         </span>
-        <span className="text-[14px] font-medium tracking-tight">
-         Pta nhi name
+        <span className="hidden text-[14px] font-medium tracking-tight sm:inline">
+          Pta nhi name
         </span>
       </div>
 
-      {/* File name */}
-      <div className="flex min-w-0 items-center gap-2 pl-2">
+      {/* File name — centered on mobile/iPad, inline on desktop */}
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-2 pl-1 sm:pl-2 xl:flex-none xl:justify-start">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="min-w-12 rounded-md border border-transparent bg-transparent py-1 px-2 text-center text-[14px] font-medium tracking-tight outline-none hover:border-border focus:border-border focus:bg-secondary/60"
+          className="min-w-12 max-w-[14rem] rounded-md border border-transparent bg-transparent py-1 px-2 text-center text-[13px] font-medium tracking-tight outline-none hover:border-border focus:border-border focus:bg-secondary/60 sm:max-w-none sm:text-[14px] xl:text-left"
           spellCheck={false}
           size={Math.max(name.length, 8)}
         />
       </div>
 
-      {/* History cluster */}
-      <div className="ml-2">
+      {/* History cluster — desktop only */}
+      <div className="ml-2 hidden xl:block">
         <IconAction label="Undo" icon={RiArrowGoBackLine} shortcut="⌘Z" />
         <IconAction label="Redo" icon={RiArrowGoForwardLine} shortcut="⌘⇧Z" />
       </div>
 
-      {/* Open + Save */}
-      <OpenProjectDialog />
-      <Button
-        variant="outline"
-        size="lg"
-        onClick={() => toast("Saved")}
-      >
-        <RiSaveLine />
-        Save
-      </Button>
-      <Button
-        variant="outline"
-        size="lg"
-        onClick={() => toast("Reset to defaults")}
-      >
-        <RiRefreshLine />
-        Reset
-      </Button>
-
-      {/* Preview */}
-      <Button variant="outline" size="lg">
-        <RiEyeLine />
-        Preview
-      </Button>
+      {/* Open + Save — desktop only */}
+      <div className="hidden items-center gap-1.5 xl:flex">
+        <OpenProjectDialog />
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={() => toast("Saved")}
+        >
+          <RiSaveLine />
+          Save
+        </Button>
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={() => toast("Reset to defaults")}
+        >
+          <RiRefreshLine />
+          Reset
+        </Button>
+        <Button variant="outline" size="lg">
+          <RiEyeLine />
+          Preview
+        </Button>
+      </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <ThemeToggle />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => toast("Share link copied")}
-            >
-              <RiShareForwardLine />
-              Share
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Copy a shareable link</TooltipContent>
-        </Tooltip>
+        {/* Right cluster — desktop only */}
+        <div className="hidden items-center gap-1.5 xl:flex">
+          <ThemeToggle />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => toast("Share link copied")}
+              >
+                <RiShareForwardLine />
+                Share
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Copy a shareable link
+            </TooltipContent>
+          </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => toast("Image copied to clipboard")}
-            >
-              <RiFileCopyLine />
-              Copy
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Copy as PNG</TooltipContent>
-        </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => toast("Image copied to clipboard")}
+              >
+                <RiFileCopyLine />
+                Copy
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Copy as PNG</TooltipContent>
+          </Tooltip>
+        </div>
 
+        {/* Mobile overflow menu */}
+        <MobileOverflowMenu />
+
+        {/* Export (always visible) */}
         <Button
           size="lg"
           className={cn("h-8 px-3 text-[12px] font-medium text-white")}
           onClick={() => toast("Export coming soon")}
         >
           <RiDownload2Line />
-          Export
+          <span className="hidden sm:inline">Export</span>
         </Button>
       </div>
     </header>
@@ -252,6 +270,70 @@ function SidebarNavItem({ active, onClick, icon: Icon, label, description }: {
         </p>
       </div>
     </button>
+  )
+}
+
+function MobileOverflowMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon-lg"
+          aria-label="More actions"
+          className="xl:hidden"
+        >
+          <RiMoreLine />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
+          File
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => toast("Opening…")}>
+          <RiFolderOpenLine />
+          Open
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast("Saved")}>
+          <RiSaveLine />
+          Save
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast("Reset to defaults")}>
+          <RiRefreshLine />
+          Reset
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <RiEyeLine />
+          Preview
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
+          History
+        </DropdownMenuLabel>
+        <DropdownMenuItem>
+          <RiArrowGoBackLine />
+          Undo
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <RiArrowGoForwardLine />
+          Redo
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
+          Share
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => toast("Share link copied")}>
+          <RiShareForwardLine />
+          Copy link
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast("Image copied to clipboard")}>
+          <RiFileCopyLine />
+          Copy as PNG
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

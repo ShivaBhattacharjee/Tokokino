@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { PRESETS } from "@/lib/editor/types"
 
-export function EffectsSidebar() {
+export function EffectsSidebar({ className }: { className?: string }) {
   const [aspect, setAspect] = React.useState<string>("16-10")
   const [customSize, setCustomSize] = React.useState<{
     w: number
@@ -25,34 +25,37 @@ export function EffectsSidebar() {
   const [preset, setPreset] = React.useState<string>("paper-tilt")
 
   return (
-    <aside className="flex h-full min-h-0 w-[268px] shrink-0 flex-col border-r border-border/60 bg-sidebar">
-      {/* Sticky top: Aspect + Frame */}
+    <aside className={cn("flex h-full min-h-0 w-[268px] shrink-0 flex-col border-r border-border/60 bg-sidebar", className)}>
+      {/* Sticky top: Aspect + Frame — row on mobile/iPad, stacked on desktop */}
       <div className="shrink-0 px-4 pt-5 pb-4">
-        <SectionHeader>Aspect</SectionHeader>
-        <AspectPopover
-          value={aspect}
-          onChange={(id, custom) => {
-            setAspect(id)
-            setCustomSize(custom ?? null)
-          }}
-        />
-        {customSize ? (
-          <p className="mt-1.5 px-0.5 font-mono text-[10px] text-muted-foreground">
-            Custom · {customSize.w} × {customSize.h}
-          </p>
-        ) : null}
-
-        <div className="my-5 h-px bg-border/60" />
-
-        <SectionHeader>Frame</SectionHeader>
-        <FramePopover
-          value={frame}
-          orientation={orientation}
-          onChange={(id, ori) => {
-            setFrame(id)
-            setOrientation(ori)
-          }}
-        />
+        <div className="grid grid-cols-2 gap-3 xl:block xl:gap-0">
+          <div>
+            <SectionHeader>Aspect</SectionHeader>
+            <AspectPopover
+              value={aspect}
+              onChange={(id, custom) => {
+                setAspect(id)
+                setCustomSize(custom ?? null)
+              }}
+            />
+            {customSize ? (
+              <p className="mt-1.5 px-0.5 font-mono text-[10px] text-muted-foreground">
+                Custom · {customSize.w} × {customSize.h}
+              </p>
+            ) : null}
+          </div>
+          <div className="xl:mt-5 xl:border-t xl:border-border/60 xl:pt-5">
+            <SectionHeader>Frame</SectionHeader>
+            <FramePopover
+              value={frame}
+              orientation={orientation}
+              onChange={(id, ori) => {
+                setFrame(id)
+                setOrientation(ori)
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="mx-4 h-px bg-border/60" />
@@ -72,7 +75,7 @@ export function EffectsSidebar() {
         </div>
 
         <ScrollArea className="min-h-0 flex-1">
-          <ul className="flex flex-col gap-3 px-4 pb-5">
+          <ul className="grid grid-cols-3 gap-2 px-4 pb-5 xl:flex xl:flex-col xl:gap-3">
             {PRESETS.map((p) => {
               const isActive = preset === p.id
               return (
@@ -83,7 +86,7 @@ export function EffectsSidebar() {
                   >
                     <div
                       className={cn(
-                        "relative flex h-[112px] items-center justify-center overflow-hidden rounded-xl border p-4 transition-colors",
+                        "relative flex h-[78px] items-center justify-center overflow-hidden rounded-xl border p-3 transition-colors xl:h-[112px] xl:p-4",
                         isActive
                           ? "border-foreground/40"
                           : "border-border/60 hover:border-foreground/20"
@@ -97,10 +100,10 @@ export function EffectsSidebar() {
                         )}
                       />
                     </div>
-                    <div className="mt-1.5 flex items-baseline justify-between">
+                    <div className="mt-1.5 flex items-baseline justify-between gap-2">
                       <span
                         className={cn(
-                          "text-[12px]",
+                          "truncate text-[11px] xl:text-[12px]",
                           isActive ? "text-foreground" : "text-foreground/80"
                         )}
                       >
