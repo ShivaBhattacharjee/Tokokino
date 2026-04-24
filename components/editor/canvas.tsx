@@ -13,21 +13,19 @@ export function Canvas() {
   const [isDragOver, setIsDragOver] = React.useState(false)
 
   return (
-    <section className="bg-checker relative flex flex-1 items-center justify-center overflow-hidden bg-background">
-      <DimensionsBadge aspect={aspect} />
-
+    <section className="relative flex flex-1 items-center justify-center overflow-hidden bg-background px-8 dark:bg-black">
       <motion.div
         initial={{ opacity: 0, scale: 0.985, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
-          "bg-dot-grid relative flex w-[min(60vw,860px)] items-center justify-center overflow-hidden rounded-2xl bg-background ring-1 ring-border/60",
-          aspect === "1:1" && "aspect-square w-[min(52vh,700px)]",
+          "bg-dot-grid relative flex w-full max-w-[1100px] items-center justify-center overflow-hidden rounded-2xl bg-background ring-1 ring-border/60",
+          aspect === "1:1" && "aspect-square max-w-[min(70vh,800px)]",
           aspect === "16:9" && "aspect-[16/9]",
           aspect === "16:10" && "aspect-[16/10]",
           aspect === "4:3" && "aspect-[4/3]",
-          aspect === "3:4" && "aspect-[3/4] w-[min(46vh,620px)]",
-          aspect === "9:16" && "aspect-[9/16] w-[min(40vh,540px)]",
+          aspect === "3:4" && "aspect-[3/4] max-w-[min(65vh,720px)]",
+          aspect === "9:16" && "aspect-[9/16] max-w-[min(60vh,640px)]",
           aspect === "auto" && "aspect-[16/10]"
         )}
       >
@@ -44,7 +42,8 @@ export function Canvas() {
           data-drag-over={isDragOver}
           className={cn(
             "relative m-10 flex h-[72%] w-[78%] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-foreground/15 bg-background/40 text-center backdrop-blur-sm transition-colors",
-            "data-[drag-over=true]:border-foreground/50 data-[drag-over=true]:bg-foreground/5"
+            "data-[drag-over=true]:border-foreground/50 data-[drag-over=true]:bg-foreground/5",
+            "[background-image:repeating-linear-gradient(-45deg,oklch(from_var(--foreground)_l_c_h_/_0.05)_0_1px,transparent_1px_10px)]"
           )}
         >
           <div className="flex size-10 items-center justify-center rounded-xl border border-border/70 bg-background shadow-sm">
@@ -69,19 +68,3 @@ export function Canvas() {
   )
 }
 
-function DimensionsBadge({ aspect }: { aspect: AspectId }) {
-  const dims: Record<AspectId, string> = {
-    auto: "1280 × 800",
-    "16:9": "1920 × 1080",
-    "16:10": "1920 × 1200",
-    "4:3": "1600 × 1200",
-    "1:1": "1200 × 1200",
-    "3:4": "1200 × 1600",
-    "9:16": "1080 × 1920",
-  }
-  return (
-    <span className="absolute top-4 right-4 rounded-md border border-border/60 bg-background/70 px-2 py-1 font-mono text-[10px] tracking-wide text-muted-foreground backdrop-blur-md">
-      {dims[aspect]}
-    </span>
-  )
-}

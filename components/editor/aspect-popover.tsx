@@ -2,11 +2,19 @@
 
 import * as React from "react"
 import {
+  RiAppStoreLine,
   RiArrowRightSLine,
   RiAspectRatioLine,
   RiCropLine,
+  RiDribbbleLine,
+  RiFacebookLine,
+  RiGlobalLine,
+  RiGooglePlayLine,
   RiInstagramLine,
+  RiLinkedinLine,
+  RiRedditLine,
   RiSearchLine,
+  RiThreadsLine,
   RiTiktokLine,
   RiTwitterXLine,
   RiYoutubeLine,
@@ -92,6 +100,91 @@ const SECTIONS: AspectSection[] = [
     icon: RiTiktokLine,
     options: [
       { id: "tt-video", name: "Video", ratio: "9:16", w: 1080, h: 1920 },
+    ],
+  },
+  {
+    id: "li",
+    label: "LinkedIn",
+    icon: RiLinkedinLine,
+    options: [
+      { id: "li-post", name: "Post", ratio: "1.91:1", w: 1200, h: 627 },
+      { id: "li-portrait", name: "Portrait", ratio: "4:5", w: 1080, h: 1350 },
+      { id: "li-banner", name: "Banner", ratio: "4:1", w: 1584, h: 396 },
+    ],
+  },
+  {
+    id: "fb",
+    label: "Facebook",
+    icon: RiFacebookLine,
+    options: [
+      { id: "fb-post", name: "Post", ratio: "1.91:1", w: 1200, h: 630 },
+      { id: "fb-portrait", name: "Portrait", ratio: "4:5", w: 1080, h: 1350 },
+      { id: "fb-cover", name: "Cover", ratio: "2.63:1", w: 820, h: 312 },
+    ],
+  },
+  {
+    id: "th",
+    label: "Threads",
+    icon: RiThreadsLine,
+    options: [
+      { id: "th-post", name: "Post", ratio: "1:1", w: 1080, h: 1080 },
+      { id: "th-story", name: "Story", ratio: "9:16", w: 1080, h: 1920 },
+    ],
+  },
+  {
+    id: "dr",
+    label: "Dribbble",
+    icon: RiDribbbleLine,
+    options: [
+      { id: "dr-shot", name: "Shot", ratio: "4:3", w: 1600, h: 1200 },
+      { id: "dr-mini", name: "Mini Shot", ratio: "4:3", w: 800, h: 600 },
+    ],
+  },
+  {
+    id: "rd",
+    label: "Reddit",
+    icon: RiRedditLine,
+    options: [
+      { id: "rd-post", name: "Post", ratio: "16:9", w: 1920, h: 1080 },
+      { id: "rd-banner", name: "Banner", ratio: "10:3", w: 1920, h: 384 },
+    ],
+  },
+  {
+    id: "og",
+    label: "Open Graph",
+    icon: RiGlobalLine,
+    options: [
+      { id: "og-standard", name: "Standard OG", ratio: "1.91:1", w: 1200, h: 630 },
+      { id: "og-square", name: "Square OG", ratio: "1:1", w: 1200, h: 1200 },
+      { id: "og-x-large", name: "X Large Card", ratio: "2:1", w: 1200, h: 600 },
+      { id: "og-x-small", name: "X Small Card", ratio: "1:1", w: 800, h: 800 },
+    ],
+  },
+  {
+    id: "app-store",
+    label: "App Store",
+    icon: RiAppStoreLine,
+    options: [
+      { id: "as-iphone-69", name: "iPhone 6.9″", ratio: "9:19.5", w: 1290, h: 2796 },
+      { id: "as-iphone-67", name: "iPhone 6.7″", ratio: "9:19.5", w: 1284, h: 2778 },
+      { id: "as-iphone-65", name: "iPhone 6.5″", ratio: "9:19.5", w: 1242, h: 2688 },
+      { id: "as-iphone-55", name: "iPhone 5.5″", ratio: "9:16", w: 1242, h: 2208 },
+      { id: "as-ipad-13", name: "iPad 13″", ratio: "3:4", w: 2064, h: 2752 },
+      { id: "as-ipad-129", name: "iPad 12.9″", ratio: "3:4", w: 2048, h: 2732 },
+      { id: "as-mac", name: "Mac", ratio: "16:10", w: 2880, h: 1800 },
+    ],
+  },
+  {
+    id: "play-store",
+    label: "Play Store",
+    icon: RiGooglePlayLine,
+    options: [
+      { id: "ps-phone-portrait", name: "Phone Portrait", ratio: "9:16", w: 1080, h: 1920 },
+      { id: "ps-phone-landscape", name: "Phone Landscape", ratio: "16:9", w: 1920, h: 1080 },
+      { id: "ps-tablet-7", name: "Tablet 7″", ratio: "10:16", w: 1200, h: 1920 },
+      { id: "ps-tablet-10", name: "Tablet 10″", ratio: "16:10", w: 1920, h: 1200 },
+      { id: "ps-feature", name: "Feature Graphic", ratio: "1024:500", w: 1024, h: 500 },
+      { id: "ps-icon", name: "App Icon", ratio: "1:1", w: 512, h: 512 },
     ],
   },
 ]

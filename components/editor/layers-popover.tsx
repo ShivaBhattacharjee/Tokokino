@@ -31,16 +31,15 @@ import { SAMPLE_LAYERS } from "@/lib/editor/mock-data"
 import type { Layer, LayerKind } from "@/lib/editor/types"
 import { cn } from "@/lib/utils"
 
-const KIND_ICON: Record<
-  LayerKind,
-  React.ComponentType<{ className?: string }>
+const KIND_ICON: Partial<
+  Record<LayerKind, React.ComponentType<{ className?: string }>>
 > = {
   screenshot: RiImage2Line,
   background: RiPaletteLine,
   text: RiText,
 }
 
-const KIND_LABEL: Record<LayerKind, string> = {
+const KIND_LABEL: Partial<Record<LayerKind, string>> = {
   screenshot: "Screenshot",
   background: "Background",
   text: "Text",
@@ -103,9 +102,6 @@ export function LayersPanelContent() {
           </ul>
         </SortableContext>
       </DndContext>
-      <p className="mt-2 px-1.5 font-mono text-[10px] leading-relaxed text-muted-foreground/80">
-        Stack order drives parallax. Top = foreground.
-      </p>
     </div>
   )
 }
@@ -129,7 +125,7 @@ function LayerRow({
     transition,
     isDragging,
   } = useSortable({ id: layer.id })
-  const Icon = KIND_ICON[layer.kind]
+  const Icon = KIND_ICON[layer.kind] ?? RiImage2Line
   return (
     <li
       ref={setNodeRef}
@@ -158,7 +154,7 @@ function LayerRow({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-[12px] leading-tight">{layer.name}</span>
         <span className="tabular flex items-center gap-1 font-mono text-[10px] leading-tight text-muted-foreground">
-          <span>{KIND_LABEL[layer.kind]}</span>
+          <span>{KIND_LABEL[layer.kind] ?? layer.kind}</span>
           {layer.meta ? (
             <>
               <span className="opacity-40">·</span>

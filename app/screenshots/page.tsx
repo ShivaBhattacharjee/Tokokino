@@ -2,7 +2,6 @@ import { Canvas } from "@/components/editor/canvas"
 import { EffectsSidebar } from "@/components/editor/effects-sidebar"
 import { FloatingToolbar } from "@/components/editor/floating-toolbar"
 import { Inspector } from "@/components/editor/inspector"
-import { StatusBar } from "@/components/editor/status-bar"
 import { TopBar } from "@/components/editor/top-bar"
 
 export default function ScreenshotsPage() {
@@ -17,7 +16,6 @@ export default function ScreenshotsPage() {
         </div>
         <Inspector />
       </div>
-      <StatusBar />
     </div>
   )
 }
