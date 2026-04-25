@@ -4,7 +4,6 @@ import * as React from "react"
 import {
   RiArrowRightLine,
   RiArrowRightUpLine,
-  RiCrop2Line,
   RiCursorLine,
   RiDragMove2Line,
   RiFocus3Line,
@@ -49,7 +48,6 @@ export function FloatingToolbar() {
     icon: React.ComponentType<{ className?: string }>
   }[] = [
     { id: "pointer", label: "Select", icon: RiCursorLine },
-    { id: "crop", label: "Crop", icon: RiCrop2Line },
     { id: "text", label: "Text", icon: RiText },
     { id: "arrow", label: "Arrow", icon: RiArrowRightUpLine },
     { id: "position", label: "Position", icon: RiDragMove2Line },
@@ -201,18 +199,6 @@ export function FloatingToolbar() {
           <TooltipContent side="top">Zoom in</TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setCanvasZoom(100)}
-              aria-label="Fit"
-              className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
-            >
-              <RiFullscreenLine className="size-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Fit</TooltipContent>
-        </Tooltip>
       </div>
     </div>
   )

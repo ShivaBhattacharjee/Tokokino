@@ -1797,6 +1797,41 @@ function BorderSection() {
     enabled &&
     !BORDER_PRESETS.some((c) => c.toLowerCase() === currentColor.toLowerCase())
 
+  const thumbBg = "bg-[#d1d5db]"
+  
+  const borderStyles = [
+    { id: "solid" as const, label: "Solid", icon: (
+      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+        <div className="size-full rounded-[3px] border-[3px] border-solid border-gray-500" />
+      </div>
+    )},
+    { id: "dashed" as const, label: "Dashed", icon: (
+      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+        <div className="size-full rounded-[3px] border-[3px] border-dashed border-gray-500" />
+      </div>
+    )},
+    { id: "dotted" as const, label: "Dotted", icon: (
+      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+        <div className="size-full rounded-[3px] border-[3px] border-dotted border-gray-500" />
+      </div>
+    )},
+    { id: "double" as const, label: "Double", icon: (
+      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+        <div className="size-full rounded-[3px] border-[4px] border-double border-gray-500" />
+      </div>
+    )},
+    { id: "groove" as const, label: "Groove", icon: (
+      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+        <div className="size-full rounded-[3px] border-[3px] border-groove border-gray-500" />
+      </div>
+    )},
+    { id: "ridge" as const, label: "Ridge", icon: (
+      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+        <div className="size-full rounded-[3px] border-[3px] border-ridge border-gray-500" />
+      </div>
+    )},
+  ]
+
   return (
     <div className="space-y-4">
       <div>
@@ -1853,6 +1888,27 @@ function BorderSection() {
       </div>
 
       <div>
+        <SubHeader>Style</SubHeader>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {borderStyles.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setBorder({ ...border, style: t.id })}
+              className={cn(
+                "flex flex-col items-center gap-1.5 rounded-lg border p-1.5 transition-all cursor-pointer",
+                (border.style || "solid") === t.id
+                  ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                  : "border-border/60 bg-secondary/20 hover:border-foreground/30"
+              )}
+            >
+              <div className="aspect-square w-full">{t.icon}</div>
+              <span className={cn(
+                "text-[9px] font-medium",
+                (border.style || "solid") === t.id ? "text-primary" : "text-muted-foreground"
+              )}>{t.label}</span>
+            </button>
+          ))}
+        </div>
         <SubHeader>Color</SubHeader>
         <div className="grid grid-cols-3 gap-2 px-1 py-1">
           {BORDER_PRESETS.map((c) => {

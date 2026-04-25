@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { RiAddLine, RiGlobeLine, RiSettings4Line, RiCameraLine, RiCropLine } from "@remixicon/react"
+import { RiAddLine, RiGlobeLine, RiSettings4Line, RiCameraLine, RiCropLine, RiDeleteBinLine } from "@remixicon/react"
 import { motion } from "motion/react"
 import { toast } from "sonner"
 
@@ -39,8 +39,10 @@ export function Canvas() {
     shadow,
     overlay,
     canvasBorderRadius,
+    isPreviewMode,
     setScreenshot,
     setScreenshotOffset,
+    setScreenshotPosition,
   } = useEditor()
   React.useEffect(() => {
     document.documentElement.style.setProperty("--canvas-border-radius", `${canvasBorderRadius}px`)
@@ -193,9 +195,11 @@ export function Canvas() {
   // For portrait ratios, cap width so the canvas never overflows vertically.
   // Formula: maxWidth = (availableVh * aw/ah) where availableVh ≈ 82vh
   const isPortrait = ah > aw
-  const canvasMaxWidth = isPortrait
-    ? `min(${Math.round(82 * aw / ah)}vh, ${Math.round(820 * aw / ah)}px)`
-    : "1100px"
+  const canvasMaxWidth = isPreviewMode
+    ? `min(95vw, calc(90vh * ${aw} / ${ah}))`
+    : isPortrait
+      ? `min(${Math.round(82 * aw / ah)}vh, ${Math.round(820 * aw / ah)}px)`
+      : "1100px"
 
   const computedShadow = shadowCss(shadow)
   const scaleFactor = scale / 100
@@ -224,7 +228,7 @@ export function Canvas() {
     boxShadow: computedShadow,
   }
   if (border.color && border.width > 0) {
-    imgStyle.outline = `${border.width}px solid ${border.color}`
+    imgStyle.outline = `${border.width}px ${border.style || "solid"} ${border.color}`
     imgStyle.outlineOffset = "0px"
   }
 
@@ -292,7 +296,10 @@ export function Canvas() {
   }
 
   return (
-    <section className="relative z-0 flex flex-1 items-center justify-center overflow-hidden border-b border-dashed border-border/70 bg-background px-4 py-4 sm:px-8 dark:bg-black">
+    <section className={cn(
+      "relative z-0 flex flex-1 items-center justify-center overflow-hidden bg-background dark:bg-black transition-all duration-300",
+      isPreviewMode ? "p-0" : "border-b border-dashed border-border/70 px-4 py-4 sm:px-8"
+    )}>
       <CornerMarkers className="text-border" size={12} />
       <input
         ref={fileInputRef}
@@ -308,7 +315,7 @@ export function Canvas() {
 
       <div
         className="flex w-full items-center justify-center transition-transform duration-200 ease-out"
-        style={{ transform: `scale(${canvasZoom / 100})` }}
+        style={{ transform: `scale(${isPreviewMode ? 1 : canvasZoom / 100})` }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.985, y: 6 }}
@@ -451,11 +458,11 @@ export function Canvas() {
                 )}
               />
               
-              {/* Hover Crop Button — tracks image center */}
+              {/* Hover Actions — tracks image center */}
               {activeTool === "pointer" && placementDims && (
                 <div
                   className={cn(
-                    "pointer-events-none absolute z-50 opacity-0 transition-opacity group-hover/screenshot:opacity-100",
+                    "pointer-events-none absolute z-50 flex items-center justify-center gap-3 opacity-0 transition-opacity group-hover/screenshot:opacity-100",
                     isScreenshotDragging || suppressTransitionRef.current
                       ? "transition-none"
                       : "transition-[opacity,left,top] duration-300 ease-out"
@@ -469,8 +476,19 @@ export function Canvas() {
                   <button
                     onClick={() => setIsCropModalOpen(true)}
                     className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
+                    title="Crop image"
                   >
                     <RiCropLine className="size-5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsScreenshotSelected(false)
+                      setScreenshot(null)
+                    }}
+                    className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-red-500/90"
+                    title="Delete image"
+                  >
+                    <RiDeleteBinLine className="size-5" />
                   </button>
                 </div>
               )}

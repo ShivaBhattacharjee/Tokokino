@@ -43,11 +43,22 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 
 export function TopBar() {
   const [name, setName] = React.useState("Untitled capture")
-  const { undo, redo, canUndo, canRedo, reset } = useEditor()
+  const { undo, redo, canUndo, canRedo, reset, setIsPreviewMode } = useEditor()
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-dashed border-border/70 bg-background px-2 sm:px-3">
@@ -101,18 +112,36 @@ export function TopBar() {
           <RiSaveLine />
           Save
         </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={() => {
-            reset()
-            toast("Reset to defaults")
-          }}
-        >
-          <RiRefreshLine />
-          Reset
-        </Button>
-        <Button variant="outline" size="lg">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="lg">
+              <RiRefreshLine />
+              Reset
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reset to defaults?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will discard all your changes and restore the editor to its default state. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                className="cursor-pointer"
+                onClick={() => {
+                  reset()
+                  toast("Reset to defaults")
+                }}
+              >
+                Reset
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <Button variant="outline" size="lg" onClick={() => setIsPreviewMode(true)}>
           <RiEyeLine />
           Preview
         </Button>
@@ -291,8 +320,33 @@ function SidebarNavItem({ active, onClick, icon: Icon, label, description }: {
 }
 
 function MobileOverflowMenu() {
-  const { undo, redo, canUndo, canRedo, reset } = useEditor()
+  const { undo, redo, canUndo, canRedo, reset, setIsPreviewMode } = useEditor()
+  const [showResetAlert, setShowResetAlert] = React.useState(false)
   return (
+    <>
+    <AlertDialog open={showResetAlert} onOpenChange={setShowResetAlert}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Reset to defaults?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will discard all your changes and restore the editor to its default state. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            className="cursor-pointer"
+            onClick={() => {
+              reset()
+              toast("Reset to defaults")
+            }}
+          >
+            Reset
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -317,15 +371,15 @@ function MobileOverflowMenu() {
           Save
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => {
-            reset()
-            toast("Reset to defaults")
+          onClick={(e) => {
+            e.preventDefault()
+            setShowResetAlert(true)
           }}
         >
           <RiRefreshLine />
           Reset
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setIsPreviewMode(true)}>
           <RiEyeLine />
           Preview
         </DropdownMenuItem>
@@ -357,6 +411,7 @@ function MobileOverflowMenu() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   )
 }
 

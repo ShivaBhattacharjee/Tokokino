@@ -12,7 +12,9 @@ export type Background = { type: BgType; value: string }
 
 export type Tilt = { rx: number; ry: number; rz: number }
 
-export type Border = { color: string | null; width: number }
+export type BorderStyle = "solid" | "dashed" | "dotted" | "double" | "groove" | "ridge"
+
+export type Border = { color: string | null; width: number; style?: BorderStyle }
 
 export type BackdropEffects = {
   noise: number
@@ -211,7 +213,8 @@ const DEFAULT_STATE: EditorState = {
   },
   padding: 96,
   borderRadius: 12,
-  border: { color: null, width: 1 },
+  canvasBorderRadius: 16,
+  border: { color: null, width: 1, style: "solid" },
   backdrop: {
     effects: {
       noise: 0,
@@ -248,7 +251,6 @@ const DEFAULT_STATE: EditorState = {
     opacity: 50,
     position: "overlay",
   },
-  canvasBorderRadius: 16,
 }
 
 const HISTORY_LIMIT = 100
@@ -352,6 +354,8 @@ type Ctx = EditorState & {
   redo: () => void
   canUndo: boolean
   canRedo: boolean
+  isPreviewMode: boolean
+  setIsPreviewMode: (p: boolean) => void
 }
 
 const EditorContext = React.createContext<Ctx | null>(null)
@@ -364,6 +368,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     lastGroup: null,
     lastTs: 0,
   })
+  const [isPreviewMode, setIsPreviewMode] = React.useState(false)
 
   const value: Ctx = React.useMemo(() => {
     const set = (patch: Partial<EditorState>, group: string | null) =>
@@ -413,8 +418,10 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       redo: () => dispatch({ type: "REDO" }),
       canUndo: state.past.length > 0,
       canRedo: state.future.length > 0,
+      isPreviewMode,
+      setIsPreviewMode,
     }
-  }, [state])
+  }, [state, isPreviewMode])
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
