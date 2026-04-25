@@ -3,22 +3,23 @@
 import * as React from "react"
 import {
   RiArrowDownSLine,
-  RiLayoutGrid2Line,
-  RiPaletteLine,
-  RiRotateLockLine,
-  RiUpload2Line,
-  RiImageLine,
-  RiGradienterLine,
-  RiSunLine,
-  RiEqualizerLine,
-  RiGridLine,
-  RiFocus2Line,
   RiArrowGoBackLine,
-  RiUnsplashLine,
-  RiMoonClearLine,
   RiArrowRightLine,
-  RiFocus3Line,
   RiBrushLine,
+  RiEqualizerLine,
+  RiFocus2Line,
+  RiFocus3Line,
+  RiGradienterLine,
+  RiGridLine,
+  RiLayoutGrid2Line,
+  RiMoonClearLine,
+  RiPaletteLine,
+  RiRefreshLine,
+  RiRotateLockLine,
+  RiImageLine,
+  RiSunLine,
+  RiUnsplashLine,
+  RiUpload2Line,
 } from "@remixicon/react"
 import { AnimatePresence, motion } from "motion/react"
 
@@ -41,7 +42,14 @@ import {
   GRADIENT_PRESETS,
   IMAGE_PRESETS,
   SOLID_PRESETS,
+  AUTO_PLACEHOLDER_GRADIENT,
+  OVERLAY_COUNT,
+  dynamicPatternColors,
+  generateAutoGradients,
+  overlayThumbUrl,
   patternCssFor,
+  sampleImageColors,
+  sampleImageColorsRaw,
   useEditor,
   type BgType,
 } from "@/lib/editor/store"
@@ -161,96 +169,139 @@ function SubHeader({
   )
 }
 
-function NestedSection({
-  title,
-  defaultOpen = false,
-  children,
-}: {
-  title: string
-  defaultOpen?: boolean
-  children: React.ReactNode
-}) {
-  const [open, setOpen] = React.useState(defaultOpen)
-  return (
-    <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1.5 py-1 text-left cursor-pointer"
-      >
-        <span
-          className="inline-flex size-3.5 items-center justify-center text-muted-foreground transition-transform"
-          style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
-        >
-          <RiArrowDownSLine className="size-3.5" />
-        </span>
-        <span className="label-eyebrow">{title}</span>
-      </button>
-      {open ? <div className="pt-2 pb-1">{children}</div> : null}
-    </div>
-  )
-}
-
 /* -------- Backdrop -------- */
 
-const PATTERN_COLORS = ["#FFFFFF", "#000000", "#F04462", "#7FB069", "#F87171", "#60A5FA"]
-
 function BackdropSection() {
-  const { backdrop, setBackdropEffects, setBackdropPattern } = useEditor()
+  const {
+    backdrop,
+    background,
+    overlay,
+    canvasBorderRadius,
+    setBackdropEffects,
+    setBackdropPattern,
+    setOverlay,
+    setCanvasBorderRadius,
+  } = useEditor()
   const { effects, pattern } = backdrop
+  const [imageColors, setImageColors] = React.useState<string[] | null>(null)
 
-  const [overlayOpacity, setOverlayOpacity] = React.useState(10)
-  const [overlayPosition, setOverlayPosition] = React.useState("overlay")
+  const isImageBackground = background.type === "image"
+
+  React.useEffect(() => {
+    if (!isImageBackground) return
+    let cancelled = false
+    sampleImageColors(background.value)
+      .then((cs) => {
+        if (!cancelled) setImageColors(cs.length ? cs : null)
+      })
+      .catch(() => {
+        if (!cancelled) setImageColors(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isImageBackground, background.value])
+
+  const patternColors = React.useMemo(() => {
+    if (isImageBackground && imageColors?.length) return imageColors
+    return dynamicPatternColors(background)
+  }, [background, isImageBackground, imageColors])
 
   const setEffects = (patch: Partial<typeof effects>) =>
     setBackdropEffects({ ...effects, ...patch })
   const setPattern = (patch: Partial<typeof pattern>) =>
     setBackdropPattern({ ...pattern, ...patch })
+  const setOverlayPatch = (patch: Partial<typeof overlay>) =>
+    setOverlay({ ...overlay, ...patch })
 
-  const shadowPatterns = [
-    { id: 0, cls: "bg-checker" },
-    { id: 1, cls: "bg-gradient-to-br from-white/0 via-black/20 to-black/40" },
-    { id: 2, cls: "bg-gradient-to-r from-black/20 via-transparent to-black/20" },
-    { id: 3, cls: "bg-[radial-gradient(circle,transparent_20%,black_100%)]" },
-    { id: 4, cls: "bg-[linear-gradient(45deg,rgba(0,0,0,0.1)_25%,transparent_25%,transparent_50%,rgba(0,0,0,0.1)_50%,rgba(0,0,0,0.1)_75%,transparent_75%,transparent)] bg-[length:20px_20px]" },
-    { id: 5, cls: "bg-gradient-to-t from-black/30 to-transparent" },
-  ]
+  const overlayIds = React.useMemo(
+    () => Array.from({ length: OVERLAY_COUNT }, (_, i) => i + 1),
+    []
+  )
+
+  const [overlayPopoverOpen, setOverlayPopoverOpen] = React.useState(false)
+  const [overlayHasOpened, setOverlayHasOpened] = React.useState(false)
+  const handleOverlayOpenChange = React.useCallback((open: boolean) => {
+    setOverlayPopoverOpen(open)
+    if (open) setOverlayHasOpened(true)
+  }, [])
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <Popover>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-2">
+      <Popover open={overlayPopoverOpen} onOpenChange={handleOverlayOpenChange}>
         <PopoverTrigger asChild>
           <Button variant="default" size="sm" className="h-9 justify-start gap-2 px-3 font-medium cursor-pointer">
             <RiSunLine className="size-4" />
             <span>Overlay</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent side="left" align="start" className="w-[240px] space-y-4 bg-popover/95 backdrop-blur-md">
+        <PopoverContent
+          side="left"
+          align="start"
+          forceMount={overlayHasOpened ? true : undefined}
+          className="w-[240px] space-y-4 bg-popover/95 backdrop-blur-md [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-medium">Shadow Overlay</span>
-            <Button variant="ghost" size="icon" className="size-6 cursor-pointer">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 cursor-pointer"
+              onClick={() =>
+                setOverlay({ id: null, opacity: 50, position: "overlay" })
+              }
+              title="Reset overlay"
+            >
               <RiArrowGoBackLine className="size-3" />
             </Button>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {shadowPatterns.map((p) => (
-              <button key={p.id} className={cn("aspect-square rounded-md border border-border/60 cursor-pointer", p.cls)} />
-            ))}
-          </div>
-          <Button variant="secondary" size="sm" className="w-full text-[11px] h-8 cursor-pointer">
-            <RiArrowDownSLine className="mr-1 size-3" />
-            Show More
-          </Button>
-          <div className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[11px] text-muted-foreground">Opacity</span>
-              <span className="tabular font-mono text-[11px] text-foreground/80">{overlayOpacity}%</span>
+          <OverlayGrid
+            ids={overlayIds}
+            selectedId={overlay.id}
+            onSelect={(id) => setOverlayPatch({ id })}
+          />
+          <div className="space-y-3 pt-3 border-t border-border/40">
+            <div>
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="text-[11px] text-muted-foreground">Opacity</span>
+                <EditableValue
+                  value={overlay.opacity}
+                  onChange={(v) => setOverlayPatch({ opacity: v })}
+                  min={0}
+                  max={100}
+                  suffix="%"
+                />
+              </div>
+              <Slider
+                value={[overlay.opacity]}
+                onValueChange={([v]) => setOverlayPatch({ opacity: v })}
+                max={100}
+                className="cursor-pointer"
+              />
             </div>
-            <Slider value={[overlayOpacity]} onValueChange={([v]) => setOverlayOpacity(v)} max={100} className="cursor-pointer" />
             <div className="space-y-2">
               <span className="text-[11px] text-muted-foreground">Position</span>
-              <ToggleGroup type="single" value={overlayPosition} onValueChange={(v) => v && setOverlayPosition(v)} className="flex w-full bg-secondary/40 p-1">
-                <ToggleGroupItem value="overlay" className="flex-1 h-7 text-[10px] cursor-pointer">Overlay</ToggleGroupItem>
-                <ToggleGroupItem value="underlay" className="flex-1 h-7 text-[10px] cursor-pointer">Underlay</ToggleGroupItem>
+              <ToggleGroup
+                type="single"
+                value={overlay.position}
+                onValueChange={(v) =>
+                  v && setOverlayPatch({ position: v as "overlay" | "underlay" })
+                }
+                className="flex w-full rounded-md bg-secondary/60 p-1"
+              >
+                <ToggleGroupItem
+                  value="overlay"
+                  className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                >
+                  Overlay
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="underlay"
+                  className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                >
+                  Underlay
+                </ToggleGroupItem>
               </ToggleGroup>
             </div>
           </div>
@@ -313,6 +364,19 @@ function BackdropSection() {
         >
            <span className="text-[13px] font-medium">Patterns</span>
            <div className="grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+            <button
+              key="none"
+              onClick={() => setPattern({ ids: [] })}
+              title="None"
+              className={cn(
+                "relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium text-muted-foreground transition-all cursor-pointer",
+                pattern.ids.length === 0
+                  ? "border-foreground text-foreground ring-1 ring-foreground/30"
+                  : "border-dashed border-border/60 hover:border-foreground/30 hover:text-foreground"
+              )}
+            >
+              None
+            </button>
             {BACKDROP_PATTERNS.map((p) => {
               const selected = pattern.ids.includes(p.id)
               return (
@@ -382,19 +446,23 @@ function BackdropSection() {
 
             <div>
               <span className="text-[11px] text-muted-foreground block mb-2">Colour</span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {PATTERN_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setPattern({ color: c })}
-                    className={cn(
-                      "size-5 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
-                      pattern.color.toLowerCase() === c.toLowerCase() &&
-                        "ring-2 ring-primary ring-offset-1 ring-offset-popover"
-                    )}
-                    style={{ background: c }}
-                  />
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {patternColors.map((c) => {
+                  const isActive =
+                    pattern.color.trim().toLowerCase() === c.trim().toLowerCase()
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setPattern({ color: c })}
+                      className={cn(
+                        "size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
+                        isActive &&
+                          "ring-2 ring-primary ring-offset-1 ring-offset-popover"
+                      )}
+                      style={{ background: c }}
+                    />
+                  )
+                })}
                 <ColorPickerPopover
                   value={pattern.color}
                   onChange={(hex) => setPattern({ color: hex })}
@@ -402,21 +470,25 @@ function BackdropSection() {
                   <button
                     aria-label="Custom pattern color"
                     className={cn(
-                      "relative size-5 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
-                      !PATTERN_COLORS.some(
-                        (c) => c.toLowerCase() === pattern.color.toLowerCase()
+                      "relative size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
+                      !patternColors.some(
+                        (c) =>
+                          c.trim().toLowerCase() ===
+                          pattern.color.trim().toLowerCase()
                       ) && "ring-2 ring-primary ring-offset-1 ring-offset-popover"
                     )}
                     style={{
-                      background: PATTERN_COLORS.some(
-                        (c) => c.toLowerCase() === pattern.color.toLowerCase()
+                      background: patternColors.some(
+                        (c) =>
+                          c.trim().toLowerCase() ===
+                          pattern.color.trim().toLowerCase()
                       )
                         ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
                         : pattern.color,
                     }}
                   >
                     <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
-                      <RiGradienterLine className="size-3" />
+                      <RiGradienterLine className="size-3.5" />
                     </span>
                   </button>
                 </ColorPickerPopover>
@@ -431,8 +503,183 @@ function BackdropSection() {
         <span>Portrait</span>
       </Button>
     </div>
+
+    <div className="pt-2">
+      <EffectSlider
+        label="Canvas Radius"
+        value={canvasBorderRadius}
+        onChange={setCanvasBorderRadius}
+        max={80}
+      />
+    </div>
+  </div>
   )
 }
+
+type ObserveFn = (el: Element, cb: () => void) => void
+type UnobserveFn = (el: Element) => void
+
+const overlayLoadedCache = new Set<number>()
+
+function OverlayGrid({
+  ids,
+  selectedId,
+  onSelect,
+}: {
+  ids: number[]
+  selectedId: number | null
+  onSelect: (id: number | null) => void
+}) {
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const callbacksRef = React.useRef<Map<Element, () => void>>(new Map())
+  const [observer, setObserver] = React.useState<IntersectionObserver | null>(
+    null
+  )
+
+  React.useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          const cb = callbacksRef.current.get(entry.target)
+          if (cb) {
+            cb()
+            callbacksRef.current.delete(entry.target)
+            obs.unobserve(entry.target)
+          }
+        }
+      },
+      { root: scrollRef.current, rootMargin: "200px" }
+    )
+    setObserver(obs)
+    const callbacks = callbacksRef.current
+    return () => {
+      obs.disconnect()
+      callbacks.clear()
+    }
+  }, [])
+
+  const observe = React.useCallback<ObserveFn>(
+    (el, cb) => {
+      if (!observer) return
+      callbacksRef.current.set(el, cb)
+      observer.observe(el)
+    },
+    [observer]
+  )
+
+  const unobserve = React.useCallback<UnobserveFn>(
+    (el) => {
+      callbacksRef.current.delete(el)
+      observer?.unobserve(el)
+    },
+    [observer]
+  )
+
+  const onSelectRef = React.useRef(onSelect)
+  React.useEffect(() => {
+    onSelectRef.current = onSelect
+  }, [onSelect])
+  const stableSelect = React.useCallback((id: number | null) => {
+    onSelectRef.current(id)
+  }, [])
+
+  return (
+    <div
+      ref={scrollRef}
+      className="grid max-h-[240px] grid-cols-3 gap-3 overflow-y-auto px-1 py-1 [contain:layout_paint] [scrollbar-width:thin]"
+    >
+      <button
+        key="none"
+        onClick={() => stableSelect(null)}
+        title="None"
+        className={cn(
+          "relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium transition-colors cursor-pointer",
+          selectedId === null
+            ? "border-foreground text-foreground ring-1 ring-foreground/30"
+            : "border-dashed border-border/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+        )}
+      >
+        None
+      </button>
+      {ids.map((id) => (
+        <OverlayThumb
+          key={id}
+          id={id}
+          observe={observe}
+          unobserve={unobserve}
+          selected={selectedId === id}
+          onSelect={stableSelect}
+        />
+      ))}
+    </div>
+  )
+}
+
+const OverlayThumb = React.memo(function OverlayThumb({
+  id,
+  observe,
+  unobserve,
+  selected,
+  onSelect,
+}: {
+  id: number
+  observe: ObserveFn
+  unobserve: UnobserveFn
+  selected: boolean
+  onSelect: (id: number) => void
+}) {
+  const ref = React.useRef<HTMLButtonElement>(null)
+  const wasCached = overlayLoadedCache.has(id)
+  const [visible, setVisible] = React.useState(wasCached)
+  const [loaded, setLoaded] = React.useState(wasCached)
+
+  React.useEffect(() => {
+    if (visible) return
+    const el = ref.current
+    if (!el) return
+    observe(el, () => setVisible(true))
+    return () => unobserve(el)
+  }, [observe, unobserve, visible])
+
+  const handleClick = React.useCallback(() => onSelect(id), [onSelect, id])
+  const handleLoad = React.useCallback(() => {
+    overlayLoadedCache.add(id)
+    setLoaded(true)
+  }, [id])
+
+  return (
+    <button
+      ref={ref}
+      onClick={handleClick}
+      title={`Overlay ${id}`}
+      className={cn(
+        "relative aspect-square overflow-hidden rounded-md border bg-white cursor-pointer transition-colors [contain:layout_style_paint]",
+        selected
+          ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-popover"
+          : "border-border/60 hover:border-foreground/30"
+      )}
+    >
+      {visible ? (
+        <img
+          src={overlayThumbUrl(id)}
+          alt=""
+          decoding="async"
+          onLoad={handleLoad}
+          className={cn(
+            "h-full w-full object-cover",
+            !loaded && "opacity-0"
+          )}
+        />
+      ) : null}
+      {(!visible || !loaded) && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="size-3 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600" />
+        </span>
+      )}
+    </button>
+  )
+})
 
 function EffectSlider({ label, value, onChange, max = 100 }: { label: string, value: number, onChange: (v: number) => void, max?: number }) {
   return (
@@ -455,8 +702,47 @@ function EffectSlider({ label, value, onChange, max = 100 }: { label: string, va
 /* -------- Background -------- */
 
 function BackgroundSection() {
-  const { background, setBackground } = useEditor()
+  const { background, setBackground, screenshot } = useEditor()
   const fileRef = React.useRef<HTMLInputElement>(null)
+  const [autoResult, setAutoResult] = React.useState<{
+    key: string
+    gradients: string[]
+    error: boolean
+  } | null>(null)
+
+  React.useEffect(() => {
+    if (!screenshot) return
+    let cancelled = false
+    sampleImageColorsRaw(screenshot, 6)
+      .then((colors) => {
+        if (cancelled) return
+        const gradients = generateAutoGradients(colors, 100)
+        setAutoResult({
+          key: screenshot,
+          gradients,
+          error: gradients.length === 0,
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        setAutoResult({ key: screenshot, gradients: [], error: true })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [screenshot])
+
+  const autoGradients =
+    autoResult && screenshot && autoResult.key === screenshot
+      ? autoResult.gradients
+      : []
+  const autoStatus: "idle" | "loading" | "ready" | "error" = !screenshot
+    ? "idle"
+    : !autoResult || autoResult.key !== screenshot
+      ? "loading"
+      : autoResult.error
+        ? "error"
+        : "ready"
 
   const onUpload = (file: File) => {
     if (!file.type.startsWith("image/")) return
@@ -473,6 +759,129 @@ function BackgroundSection() {
     background.type === "solid" && !SOLID_PRESETS.includes(background.value)
       ? background.value
       : null
+  const [gradientOverrides, setGradientOverrides] = React.useState<Record<string, string>>({})
+  const [autoGradientOverrides, setAutoGradientOverrides] = React.useState<Record<string, string>>({})
+  const gradientOptions = React.useMemo(
+    () => withGradientOptions({
+      values: GRADIENT_PRESETS,
+      valuePrefix: "preset",
+      overrides: gradientOverrides,
+    }),
+    [gradientOverrides]
+  )
+  const autoGradientOptions = React.useMemo(
+    () => withGradientOptions({
+      values: autoGradients,
+      valuePrefix: "auto",
+      overrides: autoGradientOverrides,
+    }),
+    [autoGradients, autoGradientOverrides]
+  )
+  const activeGradientOption = React.useMemo(
+    () =>
+      background.type === "gradient"
+        ? gradientOptions.find((option) => option.value === background.value) ?? null
+        : null,
+    [background, gradientOptions]
+  )
+  const activeAutoGradientOption = React.useMemo(
+    () =>
+      background.type === "auto"
+        ? autoGradientOptions.find((option) => option.value === background.value) ?? null
+        : null,
+    [background, autoGradientOptions]
+  )
+  const gradientConfig = React.useMemo(() => {
+    if (background.type !== "gradient" && background.type !== "auto") return null
+    const parsedGradient = parseLinearGradient(background.value)
+    if (!parsedGradient) return null
+    return {
+      angle: parsedGradient.angle,
+      colors: normalizeGradientColors(parsedGradient.colors, 4),
+    }
+  }, [background])
+
+  const setGradientAngle = (angle: number) => {
+    if (background.type !== "gradient" && background.type !== "auto") return
+    const parsedGradient = parseLinearGradient(background.value) ?? DEFAULT_LINEAR_GRADIENT
+    const normalizedColors = normalizeGradientColors(parsedGradient.colors, 4)
+    const nextGradient = buildLinearGradient({
+      angle,
+      colors: normalizedColors,
+    })
+    if (background.type === "gradient") {
+      if (!activeGradientOption) return
+      setGradientOverrides((prev) => ({
+        ...prev,
+        [activeGradientOption.id]: nextGradient,
+      }))
+      setBackground({ type: "gradient", value: nextGradient })
+      return
+    }
+    if (!activeAutoGradientOption) return
+    setAutoGradientOverrides((prev) => ({
+      ...prev,
+      [activeAutoGradientOption.id]: nextGradient,
+    }))
+    setBackground({ type: "auto", value: nextGradient })
+  }
+
+  const setGradientColor = ({
+    colorIndex,
+    colorValue,
+  }: {
+    colorIndex: number
+    colorValue: string
+  }) => {
+    if (background.type !== "gradient" && background.type !== "auto") return
+    const parsedGradient = parseLinearGradient(background.value) ?? DEFAULT_LINEAR_GRADIENT
+    const normalizedColors = normalizeGradientColors(parsedGradient.colors, 4)
+    if (colorIndex < 0 || colorIndex >= normalizedColors.length) return
+    normalizedColors[colorIndex] = colorValue
+    const nextGradient = buildLinearGradient({
+      angle: parsedGradient.angle,
+      colors: normalizedColors,
+    })
+    if (background.type === "gradient") {
+      if (!activeGradientOption) return
+      setGradientOverrides((prev) => ({
+        ...prev,
+        [activeGradientOption.id]: nextGradient,
+      }))
+      setBackground({ type: "gradient", value: nextGradient })
+      return
+    }
+    if (!activeAutoGradientOption) return
+    setAutoGradientOverrides((prev) => ({
+      ...prev,
+      [activeAutoGradientOption.id]: nextGradient,
+    }))
+    setBackground({ type: "auto", value: nextGradient })
+  }
+  const resetGradientEdits = () => {
+    if (background.type !== "gradient" && background.type !== "auto") return
+    if (background.type === "gradient") {
+      if (!activeGradientOption) return
+      setGradientOverrides((prev) => {
+        const next = { ...prev }
+        delete next[activeGradientOption.id]
+        return next
+      })
+      setBackground({ type: "gradient", value: activeGradientOption.baseValue })
+      return
+    }
+    if (!activeAutoGradientOption) return
+    setAutoGradientOverrides((prev) => {
+      const next = { ...prev }
+      delete next[activeAutoGradientOption.id]
+      return next
+    })
+    setBackground({ type: "auto", value: activeAutoGradientOption.baseValue })
+  }
+  const canResetGradient =
+    background.type === "gradient"
+      ? !!(activeGradientOption && activeGradientOption.value !== activeGradientOption.baseValue)
+      : !!(activeAutoGradientOption && activeAutoGradientOption.value !== activeAutoGradientOption.baseValue)
 
   return (
     <div className="flex flex-col gap-6 pt-3">
@@ -505,12 +914,23 @@ function BackgroundSection() {
                   ? background.value
                   : IMAGE_PRESETS[0],
             })
+          else if (type === "auto")
+            setBackground({
+              type,
+              value:
+                background.type === "auto"
+                  ? background.value
+                  : autoGradients[0] ?? AUTO_PLACEHOLDER_GRADIENT,
+            })
         }}
         className="w-full"
       >
         <TabsList className="flex h-auto w-full justify-between bg-transparent p-0">
           <CircularTabTrigger value="none" label="None">
             <div className="size-full bg-checker" />
+          </CircularTabTrigger>
+          <CircularTabTrigger value="auto" label="Auto">
+            <div className="size-full bg-[conic-gradient(from_180deg_at_50%_50%,#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa,#f472b6,#f87171)]" />
           </CircularTabTrigger>
           <CircularTabTrigger value="solid" label="Solid">
             <div className="size-full bg-white" />
@@ -519,7 +939,7 @@ function BackgroundSection() {
             <div className="size-full bg-gradient-to-br from-primary/60 to-primary" />
           </CircularTabTrigger>
           <CircularTabTrigger value="image" label="Image">
-            <RiImageLine className="size-4 text-white group-data-[state=active]:text-white" />
+            <RiImageLine className="size-4 text-muted-foreground group-data-[state=active]:text-primary-foreground" />
           </CircularTabTrigger>
         </TabsList>
 
@@ -551,7 +971,7 @@ function BackgroundSection() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4">
+          <div className="grid grid-cols-3 gap-3 px-1 py-1">
             {IMAGE_PRESETS.map((src, i) => {
               const active =
                 background.type === "image" && background.value === src
@@ -565,16 +985,16 @@ function BackgroundSection() {
                 >
                   <div
                     className={cn(
-                      "aspect-square overflow-hidden rounded-lg border transition-all",
+                      "aspect-square overflow-hidden rounded-lg border",
                       active
-                        ? "border-foreground/60 ring-1 ring-foreground/30"
-                        : "border-border/60 group-hover:border-foreground/40"
+                        ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                        : "border-border/60"
                     )}
                   >
                     <img
                       src={src}
                       alt=""
-                      className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                 </button>
@@ -584,77 +1004,279 @@ function BackgroundSection() {
         </TabsContent>
 
         <TabsContent value="gradient" className="mt-6">
-          <div className="grid grid-cols-4 gap-2">
-            {GRADIENT_PRESETS.map((g) => {
+          <div className="grid grid-cols-3 gap-2 px-1 py-1">
+            {gradientOptions.map((option) => {
               const active =
-                background.type === "gradient" && background.value === g
+                background.type === "gradient" && background.value === option.value
               return (
-                <button
-                  key={g}
-                  onClick={() => setBackground({ type: "gradient", value: g })}
-                  style={{ background: g }}
-                  className={cn(
-                    "aspect-square rounded-md border transition-transform hover:-translate-y-0.5 cursor-pointer",
-                    active
-                      ? "border-foreground ring-1 ring-foreground/40"
-                      : "border-border/60"
-                  )}
-                />
+                <div key={option.id} className="relative">
+                  <button
+                    onClick={() => setBackground({ type: "gradient", value: option.value })}
+                    className={cn(
+                      "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                      active
+                        ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                        : "border-border/60"
+                    )}
+                  >
+                    <span
+                      className="block size-full rounded-[inherit]"
+                      style={{ background: option.value }}
+                    />
+                  </button>
+                  {active && gradientConfig ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          aria-label="Customize gradient"
+                          className="absolute inset-0 z-10 m-auto inline-flex size-7 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur transition-colors hover:bg-black/60 cursor-pointer"
+                        >
+                          <RiEqualizerLine className="size-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="end"
+                        side="bottom"
+                        className="w-[300px] space-y-4 border-border/60 bg-popover/95 p-3"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[11px] text-muted-foreground">Angle</span>
+                            <div className="flex items-center gap-2">
+                              <EditableValue
+                                value={Math.round(gradientConfig.angle)}
+                                onChange={setGradientAngle}
+                                min={0}
+                                max={360}
+                                suffix="deg"
+                              />
+                              <button
+                                aria-label="Reset gradient"
+                                disabled={!canResetGradient}
+                                onClick={resetGradientEdits}
+                                className={cn(
+                                  "inline-flex size-7 items-center justify-center rounded-md border border-border/60 bg-background/30 text-muted-foreground transition-colors",
+                                  canResetGradient
+                                    ? "hover:border-foreground/30 hover:text-foreground cursor-pointer"
+                                    : "opacity-40 cursor-not-allowed"
+                                )}
+                              >
+                                <RiRefreshLine className="size-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <Slider
+                            value={[gradientConfig.angle]}
+                            onValueChange={([value]) => setGradientAngle(value)}
+                            min={0}
+                            max={360}
+                            className="cursor-pointer"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {GRADIENT_COLOR_CONTROLS.map(({ id, label }, colorIndex) => (
+                            <ColorPickerPopover
+                              key={id}
+                              value={gradientConfig.colors[colorIndex]}
+                              onChange={(colorValue) =>
+                                setGradientColor({
+                                  colorIndex,
+                                  colorValue,
+                                })}
+                            >
+                              <button className="flex h-10 items-center justify-between rounded-md border border-border/60 bg-background/40 px-2.5 text-left transition-colors hover:border-foreground/30 cursor-pointer">
+                                <span className="text-[11px] text-muted-foreground">{label}</span>
+                                <span
+                                  className="size-5 rounded-full border border-border/60"
+                                  style={{ background: gradientConfig.colors[colorIndex] }}
+                                />
+                              </button>
+                            </ColorPickerPopover>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : null}
+                </div>
               )
             })}
           </div>
         </TabsContent>
 
         <TabsContent value="solid" className="mt-6">
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 gap-2 px-1 py-1">
             {SOLID_PRESETS.map((c) => {
               const active =
                 background.type === "solid" && background.value === c
               return (
-                <button
-                  key={c}
-                  onClick={() => setBackground({ type: "solid", value: c })}
-                  style={{ background: c }}
-                  className={cn(
-                    "aspect-square rounded-md border transition-transform hover:-translate-y-0.5 cursor-pointer",
-                    active
-                      ? "border-foreground ring-1 ring-foreground/40"
-                      : "border-border/60"
-                  )}
-                />
+                <div key={c} className="relative">
+                  <button
+                    onClick={() => setBackground({ type: "solid", value: c })}
+                    className={cn(
+                      "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                      active
+                        ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                        : "border-border/60"
+                    )}
+                  >
+                    <span
+                      className="block size-full rounded-[inherit]"
+                      style={{ background: c }}
+                    />
+                  </button>
+                </div>
               )
             })}
-            <ColorPickerPopover
-              value={customSolid || "#000000"}
-              onChange={(hex) => setBackground({ type: "solid", value: hex })}
-            >
-              <button
-                className={cn(
-                  "relative aspect-square rounded-md border transition-transform hover:-translate-y-0.5 cursor-pointer",
-                  customSolid
-                    ? "border-foreground ring-1 ring-foreground/40"
-                    : "border-border/60"
-                )}
-                style={{
-                  background: customSolid || "transparent",
-                  backgroundImage: customSolid
-                    ? undefined
-                    : "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)",
-                }}
-                aria-label="Custom color"
+            <div className="relative">
+              <ColorPickerPopover
+                value={customSolid || "#000000"}
+                onChange={(hex) => setBackground({ type: "solid", value: hex })}
               >
-                <span className="absolute inset-0 flex items-center justify-center rounded-md bg-black/35 text-white">
-                  <RiGradienterLine className="size-3.5" />
-                </span>
-              </button>
-            </ColorPickerPopover>
+                <button
+                  className={cn(
+                    "relative aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                    customSolid
+                      ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                      : "border-border/60"
+                  )}
+                  aria-label="Custom color"
+                >
+                  <span
+                    className="block size-full rounded-[inherit]"
+                    style={{
+                      background: customSolid || "transparent",
+                      backgroundImage: customSolid
+                        ? undefined
+                        : "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)",
+                    }}
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/35 text-white">
+                    <RiGradienterLine className="size-3.5" />
+                  </span>
+                </button>
+              </ColorPickerPopover>
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="none" className="mt-6">
-          <p className="rounded-md border border-dashed border-border/60 bg-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground">
+          <p className="rounded-xl border border-dashed border-border/60 bg-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground">
             Transparent background
           </p>
+        </TabsContent>
+
+        <TabsContent value="auto" className="mt-6">
+          {!screenshot ? (
+            <p className="rounded-xl border border-dashed border-border/60 bg-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground">
+              Drop a screenshot to generate matching gradients
+            </p>
+          ) : autoStatus === "loading" ? (
+            <p className="rounded-xl border border-dashed border-border/60 bg-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground">
+              Sampling colours from your screenshot…
+            </p>
+          ) : autoStatus === "error" || autoGradients.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border/60 bg-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground">
+              Couldn&apos;t read colours from this image
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 px-1 py-1">
+              {autoGradientOptions.map((option) => {
+                const active =
+                  background.type === "auto" && background.value === option.value
+                return (
+                  <div key={option.id} className="relative">
+                    <button
+                      onClick={() => setBackground({ type: "auto", value: option.value })}
+                      className={cn(
+                        "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                        active
+                          ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                          : "border-border/60"
+                      )}
+                    >
+                      <span
+                        className="block size-full rounded-[inherit]"
+                        style={{ background: option.value }}
+                      />
+                    </button>
+                    {active && gradientConfig ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            aria-label="Customize auto gradient"
+                            className="absolute inset-0 z-10 m-auto inline-flex size-7 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur transition-colors hover:bg-black/60 cursor-pointer"
+                          >
+                            <RiEqualizerLine className="size-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="end"
+                          side="bottom"
+                          className="w-[300px] space-y-4 border-border/60 bg-popover/95 p-3"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-[11px] text-muted-foreground">Angle</span>
+                              <div className="flex items-center gap-2">
+                                <EditableValue
+                                  value={Math.round(gradientConfig.angle)}
+                                  onChange={setGradientAngle}
+                                  min={0}
+                                  max={360}
+                                  suffix="deg"
+                                />
+                                <button
+                                  aria-label="Reset auto gradient"
+                                  disabled={!canResetGradient}
+                                  onClick={resetGradientEdits}
+                                  className={cn(
+                                    "inline-flex size-7 items-center justify-center rounded-md border border-border/60 bg-background/30 text-muted-foreground transition-colors",
+                                    canResetGradient
+                                      ? "hover:border-foreground/30 hover:text-foreground cursor-pointer"
+                                      : "opacity-40 cursor-not-allowed"
+                                  )}
+                                >
+                                  <RiRefreshLine className="size-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <Slider
+                              value={[gradientConfig.angle]}
+                              onValueChange={([value]) => setGradientAngle(value)}
+                              min={0}
+                              max={360}
+                              className="cursor-pointer"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {GRADIENT_COLOR_CONTROLS.map(({ id, label }, colorIndex) => (
+                              <ColorPickerPopover
+                                key={id}
+                                value={gradientConfig.colors[colorIndex]}
+                                onChange={(colorValue) =>
+                                  setGradientColor({
+                                    colorIndex,
+                                    colorValue,
+                                  })}
+                              >
+                                <button className="flex h-10 items-center justify-between rounded-md border border-border/60 bg-background/40 px-2.5 text-left transition-colors hover:border-foreground/30 cursor-pointer">
+                                  <span className="text-[11px] text-muted-foreground">{label}</span>
+                                  <span
+                                    className="size-5 rounded-full border border-border/60"
+                                    style={{ background: gradientConfig.colors[colorIndex] }}
+                                  />
+                                </button>
+                              </ColorPickerPopover>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -681,6 +1303,97 @@ function CircularTabTrigger({ value, label, children }: { value: string, label: 
       </span>
     </TabsTrigger>
   )
+}
+
+function parseLinearGradient(gradientValue: string): {
+  angle: number
+  colors: string[]
+} | null {
+  if (!gradientValue.startsWith("linear-gradient(") || !gradientValue.endsWith(")")) return null
+  const gradientBody = gradientValue.slice("linear-gradient(".length, -1)
+  const parts = splitByTopLevelComma(gradientBody)
+  if (parts.length < 3) return null
+  const angleMatch = parts[0].trim().match(/(-?\d+(\.\d+)?)deg/)
+  const angle = angleMatch ? Number.parseFloat(angleMatch[1]) : DEFAULT_LINEAR_GRADIENT.angle
+  const colors = parts
+    .slice(1)
+    .map((part) => part.trim().replace(/\s+\d+%$/g, ""))
+    .filter(Boolean)
+  if (colors.length < 2) return null
+  return { angle, colors }
+}
+
+function splitByTopLevelComma(value: string): string[] {
+  const parts: string[] = []
+  let currentValue = ""
+  let depth = 0
+  for (const char of value) {
+    if (char === "(") depth += 1
+    if (char === ")") depth -= 1
+    if (char === "," && depth === 0) {
+      parts.push(currentValue)
+      currentValue = ""
+      continue
+    }
+    currentValue += char
+  }
+  if (currentValue.trim()) parts.push(currentValue)
+  return parts
+}
+
+function normalizeGradientColors(colors: string[], targetLength: number): string[] {
+  const safeColors = colors.length > 0 ? colors.slice(0, targetLength) : [...DEFAULT_LINEAR_GRADIENT.colors]
+  while (safeColors.length < targetLength) {
+    safeColors.push(safeColors[safeColors.length - 1] ?? DEFAULT_LINEAR_GRADIENT.colors[0])
+  }
+  return safeColors
+}
+
+function buildLinearGradient({
+  angle,
+  colors,
+}: {
+  angle: number
+  colors: string[]
+}): string {
+  return `linear-gradient(${Math.round(angle)}deg, ${colors.join(", ")})`
+}
+
+const DEFAULT_LINEAR_GRADIENT = {
+  angle: 135,
+  colors: ["#60a5fa", "#a78bfa", "#34d399", "#f472b6"],
+}
+
+const GRADIENT_COLOR_CONTROLS = [
+  { id: "primary", label: "Primary" },
+  { id: "secondary", label: "Secondary" },
+  { id: "accent", label: "Accent" },
+  { id: "foreground", label: "Foreground" },
+]
+
+function withGradientOptions({
+  values,
+  valuePrefix,
+  overrides,
+}: {
+  values: string[]
+  valuePrefix: string
+  overrides: Record<string, string>
+}): GradientOption[] {
+  return values.map((value, index) => {
+    const id = `${valuePrefix}-${index}`
+    return {
+      id,
+      baseValue: value,
+      value: overrides[id] ?? value,
+    }
+  })
+}
+
+interface GradientOption {
+  id: string
+  baseValue: string
+  value: string
 }
 
 /* -------- Padding -------- */
@@ -729,19 +1442,23 @@ function PaddingSection() {
 /* -------- Border -------- */
 
 const BORDER_PRESETS = [
-  "#ffffff",
-  "#000000",
-  "#f87171",
-  "#fbbf24",
-  "#34d399",
-  "#60a5fa",
+  "#f08a9a", // strawberry
+  "#fde2e4", // strawberry blush
+  "#92b97a", // matcha
+  "#cfe5b8", // matcha mist
+  "#0f172a", // ink
+  "#ffffff", // white
 ]
+
+const DEFAULT_BORDER_COLOR = BORDER_PRESETS[0]
 
 function BorderSection() {
   const { border, setBorder, borderRadius, setBorderRadius } = useEditor()
   const enabled = border.color !== null
-  const currentColor = border.color || "#ffffff"
-  const isCustom = enabled && !BORDER_PRESETS.includes(currentColor)
+  const currentColor = border.color || DEFAULT_BORDER_COLOR
+  const isCustom =
+    enabled &&
+    !BORDER_PRESETS.some((c) => c.toLowerCase() === currentColor.toLowerCase())
 
   return (
     <div className="space-y-4">
@@ -772,56 +1489,10 @@ function BorderSection() {
           size="sm"
           checked={enabled}
           onCheckedChange={(on) =>
-            setBorder({ ...border, color: on ? "#ffffff" : null })
+            setBorder({ ...border, color: on ? DEFAULT_BORDER_COLOR : null })
           }
           className="cursor-pointer"
         />
-      </div>
-
-      <div>
-        <SubHeader>Color</SubHeader>
-        <div className="grid grid-cols-6 gap-2">
-          {BORDER_PRESETS.map((c) => {
-            const active = enabled && currentColor.toLowerCase() === c
-            return (
-              <button
-                key={c}
-                onClick={() => setBorder({ ...border, color: c })}
-                style={{ background: c }}
-                className={cn(
-                  "aspect-square rounded-md border transition-transform hover:-translate-y-0.5 cursor-pointer",
-                  active
-                    ? "border-foreground ring-1 ring-foreground/40"
-                    : "border-border/60"
-                )}
-              />
-            )
-          })}
-          <ColorPickerPopover
-            value={isCustom ? currentColor : "#ffffff"}
-            onChange={(hex) => setBorder({ ...border, color: hex })}
-          >
-            <button
-              className={cn(
-                "relative aspect-square rounded-md border transition-transform hover:-translate-y-0.5 cursor-pointer",
-                isCustom
-                  ? "border-foreground ring-1 ring-foreground/40"
-                  : "border-border/60"
-              )}
-              style={{
-                background: isCustom ? currentColor : "transparent",
-                backgroundImage: isCustom
-                  ? undefined
-                  : "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)",
-              }}
-              aria-label="Custom border color"
-            >
-              <span className="absolute inset-0 flex items-center justify-center rounded-md bg-black/35 text-white">
-                <RiGradienterLine className="size-3.5" />
-              </span>
-            </button>
-          </ColorPickerPopover>
-        </div>
       </div>
 
       <div>
@@ -842,6 +1513,63 @@ function BorderSection() {
           max={12}
           className="cursor-pointer"
         />
+      </div>
+
+      <div>
+        <SubHeader>Color</SubHeader>
+        <div className="grid grid-cols-3 gap-2 px-1 py-1">
+          {BORDER_PRESETS.map((c) => {
+            const active =
+              enabled && currentColor.toLowerCase() === c.toLowerCase()
+            return (
+              <div key={c} className="relative">
+                <button
+                  onClick={() => setBorder({ ...border, color: c })}
+                  className={cn(
+                    "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                    active
+                      ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                      : "border-border/60"
+                  )}
+                >
+                  <span
+                    className="block size-full rounded-[inherit]"
+                    style={{ background: c }}
+                  />
+                </button>
+              </div>
+            )
+          })}
+          <div className="relative">
+            <ColorPickerPopover
+              value={isCustom ? currentColor : DEFAULT_BORDER_COLOR}
+              onChange={(hex) => setBorder({ ...border, color: hex })}
+            >
+              <button
+                className={cn(
+                  "relative aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                  isCustom
+                    ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                    : "border-border/60"
+                )}
+                aria-label="Custom border color"
+              >
+                <span
+                  className="block size-full rounded-[inherit]"
+                  style={{
+                    background: isCustom ? currentColor : "transparent",
+                    backgroundImage: isCustom
+                      ? undefined
+                      : "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)",
+                  }}
+                />
+                <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/35 text-white">
+                  <RiGradienterLine className="size-3.5" />
+                </span>
+              </button>
+            </ColorPickerPopover>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -921,30 +1649,39 @@ function DegreeRow({
   )
 }
 
-/* -------- Shadow (placeholder / dummy UI) -------- */
+/* -------- Shadow -------- */
 
 function ShadowSection() {
-  const [type, setType] = React.useState("spread")
-  const [intensity, setIntensity] = React.useState(40)
-  const [lightSource, setLightSource] = React.useState("0-0")
+  const { shadow, setShadow } = useEditor()
+  const { type, intensity, lightSource } = shadow
+
+  const setType = (t: "none" | "drop" | "glow") =>
+    setShadow({ ...shadow, type: t })
+  const setIntensity = (n: number) =>
+    setShadow({ ...shadow, intensity: n })
+  const setLightSource = (id: string) =>
+    setShadow({ ...shadow, lightSource: id })
 
   const types = [
-    { id: "none", label: "None", icon: (
+    { id: "none" as const, label: "None", icon: (
       <div className="size-full rounded-sm bg-background p-1.5">
          <div className="size-full rounded-sm border-2 border-dashed border-border" />
       </div>
     )},
-    { id: "spread", label: "Spread", icon: (
+    { id: "drop" as const, label: "Drop", icon: (
       <div className="size-full rounded-sm bg-background p-1.5 shadow-[4px_4px_8px_-2px_rgba(0,0,0,0.2)]">
         <div className="size-full rounded-sm bg-white border border-border/20" />
       </div>
     )},
-    { id: "hug", label: "Hug", icon: (
+    { id: "glow" as const, label: "Glow", icon: (
       <div className="size-full rounded-sm bg-background p-1.5 shadow-[0_0_12px_-2px_rgba(0,0,0,0.3)]">
         <div className="size-full rounded-sm bg-white border border-border/20" />
       </div>
     )},
   ]
+
+  const isDisabled = type === "none"
+  const lightSourceDisabled = isDisabled || type === "glow"
 
   return (
     <div className="space-y-4">
@@ -971,7 +1708,7 @@ function ShadowSection() {
         ))}
       </div>
 
-      <div>
+      <div className={cn(isDisabled && "pointer-events-none opacity-50")}>
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-[11px] text-muted-foreground">Intensity</span>
           <EditableValue
@@ -985,7 +1722,7 @@ function ShadowSection() {
         <Slider value={[intensity]} onValueChange={([v]) => setIntensity(v)} max={100} className="cursor-pointer" />
       </div>
 
-      <div>
+      <div className={cn(lightSourceDisabled && "pointer-events-none opacity-50")}>
         <SubHeader>Light Source</SubHeader>
         <div className="mt-2 flex justify-center">
           <div className="grid grid-cols-5 gap-1.5">

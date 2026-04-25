@@ -10,7 +10,9 @@ import { cn } from "@/lib/utils"
 import {
   backgroundCss,
   effectsFilterCss,
+  overlayUrl,
   patternCssFor,
+  shadowCss,
   useEditor,
 } from "@/lib/editor/store"
 
@@ -28,6 +30,9 @@ export function Canvas() {
     backdrop,
     tilt,
     scale,
+    shadow,
+    overlay,
+    canvasBorderRadius,
     setScreenshot,
   } = useEditor()
   const [isDragOver, setIsDragOver] = React.useState(false)
@@ -88,10 +93,12 @@ export function Canvas() {
     `scale(${scale / 100})`,
   ].join(" ")
 
+  const computedShadow = shadowCss(shadow)
   const imgStyle: React.CSSProperties = {
     borderRadius,
     transform,
     transformStyle: "preserve-3d",
+    boxShadow: computedShadow,
   }
   if (border.color && border.width > 0) {
     imgStyle.outline = `${border.width}px solid ${border.color}`
@@ -121,9 +128,9 @@ export function Canvas() {
         initial={{ opacity: 0, scale: 0.985, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        style={{ aspectRatio }}
+        style={{ aspectRatio, borderRadius: canvasBorderRadius }}
         className={cn(
-          "relative flex w-full max-w-[1100px] items-center justify-center overflow-hidden rounded-2xl ring-1 ring-border/60",
+          "relative flex w-full max-w-[1100px] items-center justify-center overflow-hidden ring-1 ring-border/60",
           ah > aw && "max-w-[min(70vh,720px)]"
         )}
         onDragOver={(e) => {
@@ -177,6 +184,18 @@ export function Canvas() {
           />
         ) : null}
 
+        {/* Underlay (above background, below screenshot) */}
+        {overlay.id !== null && overlay.position === "underlay" ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url("${overlayUrl(overlay.id)}")`,
+              opacity: overlay.opacity / 100,
+            }}
+          />
+        ) : null}
+
         {/* Content */}
         <div
           className="relative flex h-full w-full items-center justify-center"
@@ -194,7 +213,7 @@ export function Canvas() {
                 })
               }}
               style={imgStyle}
-              className="max-h-full max-w-full object-contain shadow-2xl transition-transform"
+              className="max-h-full max-w-full object-contain transition-transform"
             />
           ) : (
             <div
@@ -226,6 +245,18 @@ export function Canvas() {
             </div>
           )}
         </div>
+
+        {/* Overlay (above everything in the canvas) */}
+        {overlay.id !== null && overlay.position === "overlay" ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url("${overlayUrl(overlay.id)}")`,
+              opacity: overlay.opacity / 100,
+            }}
+          />
+        ) : null}
       </motion.div>
     </section>
   )

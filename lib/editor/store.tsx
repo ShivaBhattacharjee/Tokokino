@@ -4,7 +4,7 @@ import * as React from "react"
 
 export type AspectState = { id: string; w: number; h: number }
 
-export type BgType = "none" | "solid" | "gradient" | "image"
+export type BgType = "none" | "solid" | "gradient" | "image" | "auto"
 
 export type Background = { type: BgType; value: string }
 
@@ -32,16 +32,49 @@ export type Backdrop = {
   pattern: BackdropPattern
 }
 
+export type ShadowType = "none" | "drop" | "glow"
+
+export type Shadow = {
+  type: ShadowType
+  intensity: number
+  lightSource: string
+}
+
+export type OverlayPosition = "overlay" | "underlay"
+
+export type Overlay = {
+  id: number | null
+  opacity: number
+  position: OverlayPosition
+}
+
+export const OVERLAY_COUNT = 100
+
 export type EditorState = {
   screenshot: string | null
   aspect: AspectState
   background: Background
   padding: number
   borderRadius: number
+  canvasBorderRadius: number
   border: Border
   backdrop: Backdrop
   tilt: Tilt
   scale: number
+  shadow: Shadow
+  overlay: Overlay
+}
+
+const OVERLAY_BASE_URL =
+  process.env.NEXT_PUBLIC_OVERLAYS_BASE_URL ??
+  "https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev/overlays"
+
+export function overlayUrl(id: number): string {
+  return `${OVERLAY_BASE_URL}/${String(id).padStart(3, "0")}.png`
+}
+
+export function overlayThumbUrl(id: number): string {
+  return `${OVERLAY_BASE_URL}/thumbs/${String(id).padStart(3, "0")}.webp`
 }
 
 export const GRADIENT_PRESETS = [
@@ -64,6 +97,13 @@ export const SOLID_PRESETS = [
   "#60a5fa",
   "#a78bfa",
   "#f472b6",
+  "#ef4444",
+  "#f97316",
+  "#84cc16",
+  "#14b8a6",
+  "#3b82f6",
+  "#6366f1",
+  "#ec4899",
 ]
 
 export const IMAGE_PRESETS = [
@@ -85,7 +125,7 @@ const DEFAULT_STATE: EditorState = {
     type: "gradient",
     value: GRADIENT_PRESETS[2],
   },
-  padding: 64,
+  padding: 96,
   borderRadius: 12,
   border: { color: null, width: 1 },
   backdrop: {
@@ -105,6 +145,17 @@ const DEFAULT_STATE: EditorState = {
   },
   tilt: { rx: 0, ry: 0, rz: 0 },
   scale: 100,
+  shadow: {
+    type: "drop",
+    intensity: 40,
+    lightSource: "center",
+  },
+  overlay: {
+    id: null,
+    opacity: 50,
+    position: "overlay",
+  },
+  canvasBorderRadius: 16,
 }
 
 const HISTORY_LIMIT = 100
@@ -191,11 +242,14 @@ type Ctx = EditorState & {
   setBackground: (b: Background) => void
   setPadding: (n: number) => void
   setBorderRadius: (n: number) => void
+  setCanvasBorderRadius: (n: number) => void
   setBorder: (b: Border) => void
   setBackdropEffects: (e: BackdropEffects) => void
   setBackdropPattern: (p: BackdropPattern) => void
   setTilt: (t: Tilt) => void
   setScale: (n: number) => void
+  setShadow: (s: Shadow) => void
+  setOverlay: (o: Overlay) => void
   reset: () => void
   undo: () => void
   redo: () => void
@@ -224,6 +278,8 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       setBackground: (b) => set({ background: b }, "background"),
       setPadding: (n) => set({ padding: n }, "padding"),
       setBorderRadius: (n) => set({ borderRadius: n }, "borderRadius"),
+      setCanvasBorderRadius: (n) =>
+        set({ canvasBorderRadius: n }, "canvasBorderRadius"),
       setBorder: (b) => set({ border: b }, "border"),
       setBackdropEffects: (e) =>
         set(
@@ -237,6 +293,8 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         ),
       setTilt: (t) => set({ tilt: t }, "tilt"),
       setScale: (n) => set({ scale: n }, "scale"),
+      setShadow: (s) => set({ shadow: s }, "shadow"),
+      setOverlay: (o) => set({ overlay: o }, "overlay"),
       reset: () => dispatch({ type: "RESET" }),
       undo: () => dispatch({ type: "UNDO" }),
       redo: () => dispatch({ type: "REDO" }),
@@ -377,6 +435,222 @@ export function effectsFilterCss(e: BackdropEffects): string | undefined {
   return parts.length ? parts.join(" ") : undefined
 }
 
+export function shadowCss(shadow: Shadow): string | undefined {
+  if (shadow.type === "none" || shadow.intensity <= 0) return undefined
+  const intensity = shadow.intensity / 100
+
+  if (shadow.type === "glow") {
+    const blur = 30 + intensity * 90
+    const spread = intensity * 8
+    const opacity = 0.18 + intensity * 0.42
+    return `0 0 ${blur}px ${spread}px rgba(0, 0, 0, ${opacity.toFixed(3)})`
+  }
+
+  // drop shadow — directional, opposite the light source
+  let dx = 0
+  let dy = 0
+  if (shadow.lightSource !== "center") {
+    const [r, c] = shadow.lightSource.split("-").map(Number)
+    if (Number.isFinite(r) && Number.isFinite(c)) {
+      dx = -(c - 2)
+      dy = -(r - 2)
+    }
+  }
+  const unit = intensity * 16
+  const offsetX = dx * unit
+  const offsetY = dy * unit
+  const blur = 20 + intensity * 60
+  const spread = -2
+  const opacity = 0.15 + intensity * 0.35
+  return `${offsetX.toFixed(1)}px ${offsetY.toFixed(1)}px ${blur.toFixed(
+    1
+  )}px ${spread}px rgba(0, 0, 0, ${opacity.toFixed(3)})`
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
+  const c = hex.replace("#", "")
+  let r: number, g: number, b: number
+  if (c.length === 3) {
+    r = parseInt(c[0] + c[0], 16) / 255
+    g = parseInt(c[1] + c[1], 16) / 255
+    b = parseInt(c[2] + c[2], 16) / 255
+  } else if (c.length === 6 || c.length === 8) {
+    r = parseInt(c.slice(0, 2), 16) / 255
+    g = parseInt(c.slice(2, 4), 16) / 255
+    b = parseInt(c.slice(4, 6), 16) / 255
+  } else {
+    return null
+  }
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0)
+    else if (max === g) h = (b - r) / d + 2
+    else h = (r - g) / d + 4
+    h *= 60
+  }
+  return { h, s: s * 100, l: l * 100 }
+}
+
+const NEUTRAL_PATTERN_COLORS = ["#F5F5F4", "#D6D3D1", "#A8A29E"]
+
+function muteRgb(r: number, g: number, b: number): string {
+  const hex =
+    "#" +
+    [r, g, b]
+      .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0"))
+      .join("")
+  const hsl = hexToHsl(hex)
+  if (!hsl) return hex
+  const sat = Math.min(28, hsl.s * 0.45)
+  const lightness = hsl.l < 50 ? 78 : 82
+  return `hsl(${Math.round(hsl.h)} ${Math.round(sat)}% ${lightness}%)`
+}
+
+export function dynamicPatternColors(bg: Background): string[] {
+  if (bg.type === "image" || bg.type === "none") return NEUTRAL_PATTERN_COLORS
+  const matches = bg.value.match(/#[0-9a-fA-F]{3,8}/g) ?? []
+  const muted: string[] = []
+  for (const hex of matches) {
+    const hsl = hexToHsl(hex)
+    if (!hsl) continue
+    const sat = Math.min(28, hsl.s * 0.45)
+    const lightness = hsl.l < 50 ? 78 : 82
+    const swatch = `hsl(${Math.round(hsl.h)} ${Math.round(sat)}% ${lightness}%)`
+    if (!muted.includes(swatch)) muted.push(swatch)
+  }
+  if (!muted.length) return NEUTRAL_PATTERN_COLORS
+  if (muted.length === 1) return [muted[0], NEUTRAL_PATTERN_COLORS[0]]
+  return muted.slice(0, 3)
+}
+
+type Rgb = { r: number; g: number; b: number }
+
+const dominantColorCache = new Map<string, Rgb[]>()
+
+async function extractDominantRgb(url: string, max: number): Promise<Rgb[]> {
+  const cached = dominantColorCache.get(url)
+  if (cached && cached.length >= max) return cached.slice(0, max)
+  const result = await new Promise<Rgb[]>((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => {
+      try {
+        const size = 64
+        const canvas = document.createElement("canvas")
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return reject(new Error("no ctx"))
+        ctx.drawImage(img, 0, 0, size, size)
+        const { data } = ctx.getImageData(0, 0, size, size)
+        const buckets = new Map<string, Rgb & { n: number }>()
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i]
+          const g = data[i + 1]
+          const b = data[i + 2]
+          const a = data[i + 3]
+          if (a < 128) continue
+          const key = `${r >> 5}-${g >> 5}-${b >> 5}`
+          const bucket = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0 }
+          bucket.r += r
+          bucket.g += g
+          bucket.b += b
+          bucket.n += 1
+          buckets.set(key, bucket)
+        }
+        const sorted = [...buckets.values()]
+          .sort((a, b) => b.n - a.n)
+          .map(({ r, g, b, n }) => ({ r: r / n, g: g / n, b: b / n }))
+        const picked: Rgb[] = []
+        for (const c of sorted) {
+          const distinct = picked.every(
+            (p) =>
+              Math.abs(p.r - c.r) + Math.abs(p.g - c.g) + Math.abs(p.b - c.b) >
+              60
+          )
+          if (distinct) {
+            picked.push(c)
+            if (picked.length >= max) break
+          }
+        }
+        resolve(picked)
+      } catch (err) {
+        reject(err)
+      }
+    }
+    img.onerror = () => reject(new Error("image load failed"))
+    img.src = url
+  })
+  dominantColorCache.set(url, result)
+  return result
+}
+
+function rgbToHex({ r, g, b }: Rgb): string {
+  return (
+    "#" +
+    [r, g, b]
+      .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0"))
+      .join("")
+  )
+}
+
+export async function sampleImageColors(
+  url: string,
+  max = 3
+): Promise<string[]> {
+  const picked = await extractDominantRgb(url, max)
+  return picked.map(({ r, g, b }) => muteRgb(r, g, b))
+}
+
+export async function sampleImageColorsRaw(
+  url: string,
+  max = 6
+): Promise<string[]> {
+  const picked = await extractDominantRgb(url, max)
+  return picked.map(rgbToHex)
+}
+
+export function generateAutoGradients(colors: string[], max = 100): string[] {
+  if (colors.length < 2) return []
+  const out: string[] = []
+  const angles = [0, 45, 90, 135, 180, 225, 270, 315]
+  const pairs: [string, string][] = []
+  for (let i = 0; i < colors.length; i++) {
+    for (let j = i + 1; j < colors.length; j++) {
+      pairs.push([colors[i], colors[j]])
+    }
+  }
+  for (const angle of angles) {
+    for (const [a, b] of pairs) {
+      out.push(`linear-gradient(${angle}deg, ${a}, ${b})`)
+      if (out.length >= max) return out
+    }
+  }
+  for (let i = 0; i < colors.length; i++) {
+    for (let j = 0; j < colors.length; j++) {
+      if (i === j) continue
+      for (let k = 0; k < colors.length; k++) {
+        if (k === i || k === j) continue
+        out.push(
+          `linear-gradient(135deg, ${colors[i]}, ${colors[j]}, ${colors[k]})`
+        )
+        if (out.length >= max) return out
+      }
+    }
+  }
+  for (const [a, b] of pairs) {
+    out.push(`radial-gradient(circle at 30% 30%, ${a}, ${b})`)
+    if (out.length >= max) return out
+  }
+  return out
+}
+
 export function backgroundCss(bg: Background): React.CSSProperties {
   if (bg.type === "none") return {}
   if (bg.type === "image") {
@@ -388,3 +662,6 @@ export function backgroundCss(bg: Background): React.CSSProperties {
   }
   return { background: bg.value }
 }
+
+export const AUTO_PLACEHOLDER_GRADIENT =
+  "linear-gradient(135deg, #1f2937, #4b5563)"
