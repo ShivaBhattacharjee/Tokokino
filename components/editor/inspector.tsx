@@ -1792,8 +1792,6 @@ function BackgroundSection() {
         </TabsContent>
       </Tabs>
 
-      <div className="my-1 h-px bg-border/40" />
-
     </div>
   )
 }
@@ -2592,8 +2590,8 @@ function ShadowSection() {
 
       <div className={cn(lightSourceDisabled && "pointer-events-none opacity-50")}>
         <SubHeader>Light Source</SubHeader>
-        <div className="mt-2 flex justify-center">
-          <div className="grid grid-cols-5 gap-1.5">
+        <div className="mt-2">
+          <div className="grid grid-cols-5 gap-1.5 w-full">
             {LIGHT_POSITIONS.map((pos) => {
               const isActive = lightSource === pos.id
               return (
@@ -2601,7 +2599,7 @@ function ShadowSection() {
                   key={pos.id}
                   onClick={() => setLightSource(pos.id)}
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-md border transition-all cursor-pointer",
+                    "flex w-full aspect-square items-center justify-center rounded-md border transition-all cursor-pointer",
                     isActive
                       ? "border-primary bg-primary text-white"
                       : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-foreground/30"
