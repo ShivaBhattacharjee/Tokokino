@@ -16,6 +16,7 @@ import {
   RiGridLine,
   RiLayoutGrid2Line,
   RiMacLine,
+  RiMagicLine,
   RiMoonClearLine,
   RiPaletteLine,
   RiRefreshLine,
@@ -57,7 +58,9 @@ import {
   patternCssFor,
   sampleImageColors,
   sampleImageColorsRaw,
+  assetFilterCss,
   useEditor,
+  type AssetFilter,
   type BackgroundEntry,
   type BgType,
   type PortraitMode,
@@ -184,13 +187,8 @@ export function Inspector({ className }: { className?: string }) {
   return (
     <aside className={cn("flex h-full min-h-0 w-[308px] shrink-0 flex-col border-l border-dashed border-border/70 bg-sidebar overflow-hidden", className)}>
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium tracking-tight">
-            Inspector
-          </span>
-        </div>
-        <span className="tabular rounded border border-border/60 bg-secondary/60 px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-muted-foreground uppercase">
-          Browser
+        <span className="text-[13px] font-medium tracking-tight">
+          Properties
         </span>
       </div>
 
@@ -306,11 +304,12 @@ function BackdropSection() {
     canvasBorderRadius,
     setBackdropEffects,
     setBackdropPattern,
+    setBackdropFilter,
     setOverlay,
     setPortrait,
     setCanvasBorderRadius,
   } = useEditor()
-  const { effects, pattern } = backdrop
+  const { effects, pattern, filter: backdropFilter = "none" } = backdrop
   const [imageColors, setImageColors] = React.useState<string[] | null>(null)
   const [localRadius, setLocalRadius] = React.useState(canvasBorderRadius)
   React.useEffect(() => { setLocalRadius(canvasBorderRadius) }, [canvasBorderRadius])
@@ -754,6 +753,25 @@ function BackdropSection() {
               />
             </div>
           ) : null}
+        </PopoverContent>
+      </Popover>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <BackdropTile icon={RiMagicLine} label="Filters" active={backdropFilter !== "none"} />
+        </PopoverTrigger>
+        <PopoverContent
+          side="left"
+          align="start"
+          className="w-[260px] space-y-2 bg-popover/95 backdrop-blur-md"
+        >
+          <PopoverHeader
+            title="Filters"
+            description="Apply a colour grade to the background."
+            onReset={() => setBackdropFilter("none")}
+            resetTitle="Reset filter"
+          />
+          <BackdropFilterGrid current={backdropFilter} onChange={setBackdropFilter} />
         </PopoverContent>
       </Popover>
     </div>
@@ -2635,3 +2653,62 @@ const LIGHT_POSITIONS = Array.from({ length: 25 }, (_, i) => {
     angle: isCenter ? 0 : (Math.atan2(dy, dx) * 180) / Math.PI,
   }
 })
+
+const BACKDROP_FILTERS: { id: AssetFilter; label: string }[] = [
+  { id: "none", label: "Original" },
+  { id: "bw", label: "B&W" },
+  { id: "sepia", label: "Sepia" },
+  { id: "vintage", label: "Vintage" },
+  { id: "warm", label: "Warm" },
+  { id: "cool", label: "Cool" },
+  { id: "fade", label: "Fade" },
+  { id: "vivid", label: "Vivid" },
+  { id: "noir", label: "Noir" },
+  { id: "dream", label: "Dream" },
+  { id: "mono", label: "Mono" },
+  { id: "invert", label: "Invert" },
+]
+
+function BackdropFilterGrid({
+  current,
+  onChange,
+}: {
+  current: AssetFilter
+  onChange: (f: AssetFilter) => void
+}) {
+  return (
+    <div className="grid grid-cols-4 gap-1.5">
+      {BACKDROP_FILTERS.map((f) => {
+        const active = current === f.id
+        return (
+          <button
+            key={f.id}
+            onClick={() => onChange(f.id)}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-md border p-1 transition-all cursor-pointer",
+              active
+                ? "border-primary/40 bg-primary/10 ring-1 ring-primary/20"
+                : "border-border/60 bg-secondary/20 hover:border-foreground/30"
+            )}
+          >
+            <div
+              className="aspect-square w-full rounded-sm"
+              style={{
+                background: "linear-gradient(135deg,#6366f1,#ec4899,#f59e0b)",
+                filter: assetFilterCss(f.id),
+              }}
+            />
+            <span
+              className={cn(
+                "text-[9px] font-medium",
+                active ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              {f.label}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}

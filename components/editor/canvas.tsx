@@ -18,6 +18,7 @@ import {
   patternCssFor,
   shadowCss,
   screenshotPositionAnchor,
+  assetFilterCss,
   useEditor,
 } from "@/lib/editor/store"
 
@@ -422,7 +423,7 @@ export function Canvas() {
             )}
             style={{
               ...backgroundCss(background),
-              filter: effectsFilter,
+              filter: [effectsFilter, assetFilterCss(backdrop.filter ?? "none")].filter(Boolean).join(" ") || undefined,
             }}
           />
 

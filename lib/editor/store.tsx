@@ -39,6 +39,7 @@ export type BackdropPattern = {
 export type Backdrop = {
   effects: BackdropEffects
   pattern: BackdropPattern
+  filter: AssetFilter
 }
 
 export type ShadowType = "none" | "drop" | "soft" | "hard" | "glow" | "float"
@@ -456,6 +457,7 @@ const DEFAULT_STATE: EditorState = {
       thickness: 1,
       color: "#FFFFFF",
     },
+    filter: "none",
   },
   tilt: { rx: 0, ry: 0, rz: 0 },
   scale: 100,
@@ -579,6 +581,7 @@ type Ctx = EditorState & {
   setBorder: (b: Border) => void
   setBackdropEffects: (e: BackdropEffects) => void
   setBackdropPattern: (p: BackdropPattern) => void
+  setBackdropFilter: (f: AssetFilter) => void
   setTilt: (t: Tilt) => void
   setScale: (n: number) => void
   setCanvasZoom: (n: number) => void
@@ -670,6 +673,11 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         set(
           { backdrop: { ...state.present.backdrop, pattern: p } },
           "backdrop-pattern"
+        ),
+      setBackdropFilter: (f) =>
+        set(
+          { backdrop: { ...state.present.backdrop, filter: f } },
+          "backdrop-filter"
         ),
       setTilt: (t) => set({ tilt: t }, "tilt"),
       setScale: (n) => set({ scale: n }, "scale"),
