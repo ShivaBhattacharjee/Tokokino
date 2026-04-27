@@ -2454,7 +2454,7 @@ function ShadowSection() {
 
   const setType = (t: typeof shadow.type) => {
     if (t === "hard") {
-      setShadow({ ...shadow, type: t, intensity: 0 })
+      setShadow({ ...shadow, type: t, intensity: 100, lightSource: "2-0" })
       return
     }
     setShadow({ ...shadow, type: t })

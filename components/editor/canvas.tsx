@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { RiAddLine, RiGlobeLine, RiSettings4Line, RiCameraLine, RiCropLine, RiDeleteBinLine } from "@remixicon/react"
+import { RiAddLine, RiGlobeLine, RiSettings4Line, RiCameraLine, RiCropLine, RiDeleteBinLine, RiRefreshLine } from "@remixicon/react"
 import { motion } from "motion/react"
 import { toast } from "sonner"
 
@@ -119,6 +119,7 @@ export function Canvas() {
   const [isScreenshotSelected, setIsScreenshotSelected] = React.useState(false)
   const [isScreenshotDragging, setIsScreenshotDragging] = React.useState(false)
   const [isCropModalOpen, setIsCropModalOpen] = React.useState(false)
+  const replaceInputRef = React.useRef<HTMLInputElement>(null)
   const [centerGuides, setCenterGuides] = React.useState({
     x: false,
     y: false,
@@ -557,12 +558,36 @@ export function Canvas() {
                     transform: "translate(-50%, -50%)",
                   }}
                 >
+                  <input
+                    ref={replaceInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = (ev) => {
+                        const src = ev.target?.result
+                        if (src) setScreenshot(src as string)
+                      }
+                      reader.readAsDataURL(file)
+                      e.target.value = ""
+                    }}
+                  />
                   <button
                     onClick={() => setIsCropModalOpen(true)}
                     className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
                     title="Crop image"
                   >
                     <RiCropLine className="size-5" />
+                  </button>
+                  <button
+                    onClick={() => replaceInputRef.current?.click()}
+                    className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
+                    title="Replace image"
+                  >
+                    <RiRefreshLine className="size-5" />
                   </button>
                   <button
                     onClick={() => {

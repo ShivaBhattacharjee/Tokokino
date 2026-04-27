@@ -182,3 +182,11 @@
     @apply flex items-center gap-0.5 rounded-xl border border-border/60 bg-secondary/60 p-1;
   }
 }
+
+
+@layer base {
+  button:not([disabled]), 
+  [role="button"]:not([disabled]) {
+    cursor: pointer;
+  }
+}

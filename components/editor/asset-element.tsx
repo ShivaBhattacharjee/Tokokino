@@ -11,6 +11,7 @@ import {
   RiFileCopyLine,
   RiMagicLine,
   RiMoreFill,
+  RiRefreshLine,
   RiSendToBack,
 } from "@remixicon/react"
 
@@ -407,8 +408,22 @@ function AssetToolbar({
     bringAssetToFront,
     sendAssetToBack,
     setSelectedAssetId,
+    updateAsset,
   } = useEditor()
   const [moreOpen, setMoreOpen] = React.useState(false)
+  const replaceInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string
+      if (src) updateAsset(asset.id, { src })
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
 
   return (
     <div
@@ -417,6 +432,13 @@ function AssetToolbar({
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
     >
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleReplace}
+      />
       {/* Drag handle */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -471,6 +493,20 @@ function AssetToolbar({
           </button>
         </TooltipTrigger>
         <TooltipContent side="top">Duplicate</TooltipContent>
+      </Tooltip>
+
+      {/* Replace */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => replaceInputRef.current?.click()}
+            aria-label="Replace asset"
+            className={iconBtnClass}
+          >
+            <RiRefreshLine className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Replace</TooltipContent>
       </Tooltip>
 
       <span className="mx-1 h-5 w-px bg-border" />
