@@ -65,6 +65,38 @@ export type Portrait = {
   intensity: number
 }
 
+export type AssetFilter =
+  | "none"
+  | "bw"
+  | "sepia"
+  | "vintage"
+  | "warm"
+  | "cool"
+  | "fade"
+  | "vivid"
+  | "noir"
+  | "dream"
+  | "mono"
+  | "invert"
+
+export type AssetBlendMode =
+  | "normal"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten"
+  | "color-dodge"
+  | "color-burn"
+  | "hard-light"
+  | "soft-light"
+  | "difference"
+  | "exclusion"
+  | "hue"
+  | "saturation"
+  | "color"
+  | "luminosity"
+
 export type AssetElement = {
   id: string
   src: string
@@ -74,6 +106,39 @@ export type AssetElement = {
   heightPct: number | null
   rotation: number
   zIndex: number
+  opacity: number
+  filter: AssetFilter
+  blendMode: AssetBlendMode
+}
+
+export function assetFilterCss(filter: AssetFilter): string | undefined {
+  switch (filter) {
+    case "bw":
+      return "grayscale(1) contrast(1.05)"
+    case "sepia":
+      return "sepia(0.85) saturate(1.1)"
+    case "vintage":
+      return "sepia(0.4) contrast(0.95) saturate(0.9) hue-rotate(-10deg)"
+    case "warm":
+      return "saturate(1.15) hue-rotate(-12deg) brightness(1.04)"
+    case "cool":
+      return "saturate(1.1) hue-rotate(15deg) brightness(1.02)"
+    case "fade":
+      return "contrast(0.85) brightness(1.08) saturate(0.85)"
+    case "vivid":
+      return "saturate(1.5) contrast(1.15)"
+    case "noir":
+      return "grayscale(1) contrast(1.35) brightness(0.9)"
+    case "dream":
+      return "blur(0.5px) saturate(1.2) brightness(1.05) contrast(0.95)"
+    case "mono":
+      return "grayscale(1) sepia(0.3) contrast(1.05)"
+    case "invert":
+      return "invert(1) hue-rotate(180deg)"
+    case "none":
+    default:
+      return undefined
+  }
 }
 
 export type TextAlign = "left" | "center" | "right"
@@ -209,7 +274,10 @@ export type EditorState = {
   portrait: Portrait
   texts: TextElement[]
   assets: AssetElement[]
+  enhance: EnhancePreset
 }
+
+export type EnhancePreset = "off" | "auto" | "vivid" | "soft" | "dramatic" | "sharp"
 
 const OVERLAY_BASE_URL =
   process.env.NEXT_PUBLIC_OVERLAYS_BASE_URL ??
@@ -411,6 +479,7 @@ const DEFAULT_STATE: EditorState = {
   },
   texts: [],
   assets: [],
+  enhance: "off",
 }
 
 const HISTORY_LIMIT = 100
@@ -518,6 +587,7 @@ type Ctx = EditorState & {
   setShadow: (s: Shadow) => void
   setOverlay: (o: Overlay) => void
   setPortrait: (p: Portrait) => void
+  setEnhance: (e: EnhancePreset) => void
   addText: () => string
   updateText: (id: string, patch: Partial<TextElement>) => void
   deleteText: (id: string) => void
@@ -613,6 +683,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       setShadow: (s) => set({ shadow: s }, "shadow"),
       setOverlay: (o) => set({ overlay: o }, "overlay"),
       setPortrait: (p) => set({ portrait: p }, "portrait"),
+      setEnhance: (e) => set({ enhance: e }, "enhance"),
       addText: () => {
         const id = makeId()
         set(
@@ -706,6 +777,9 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
                 heightPct: null,
                 rotation: 0,
                 zIndex: computeNextZ(s.assets),
+                opacity: 100,
+                filter: "none",
+                blendMode: "normal",
               },
             ],
           }),
@@ -890,6 +964,24 @@ export function patternCssFor(
       }
     default:
       return {}
+  }
+}
+
+export function enhanceFilterCss(preset: EnhancePreset): string | undefined {
+  switch (preset) {
+    case "auto":
+      return "brightness(1.04) contrast(1.08) saturate(1.1)"
+    case "vivid":
+      return "brightness(1.05) contrast(1.12) saturate(1.35)"
+    case "soft":
+      return "brightness(1.06) contrast(0.96) saturate(0.9)"
+    case "dramatic":
+      return "brightness(0.98) contrast(1.25) saturate(1.2)"
+    case "sharp":
+      return "brightness(1.02) contrast(1.18) saturate(1.05)"
+    case "off":
+    default:
+      return undefined
   }
 }
 

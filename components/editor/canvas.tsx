@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import {
   backgroundCss,
   effectsFilterCss,
+  enhanceFilterCss,
   overlayUrl,
   patternCssFor,
   shadowCss,
@@ -78,6 +79,7 @@ export function Canvas() {
     shadow,
     overlay,
     portrait,
+    enhance,
     canvasBorderRadius,
     isPreviewMode,
     setScreenshot,
@@ -276,11 +278,13 @@ export function Canvas() {
     typeof positionedStyle?.top === "number"
       ? positionedStyle.top + screenshotOffset.y
       : undefined
+  const enhanceFilter = enhanceFilterCss(enhance)
   const imgStyle: React.CSSProperties = {
     borderRadius,
     transform,
     transformStyle: "preserve-3d",
     boxShadow: computedShadow,
+    filter: enhanceFilter,
   }
   if (border.color && border.width > 0) {
     imgStyle.outline = `${border.width}px ${border.style || "solid"} ${border.color}`
