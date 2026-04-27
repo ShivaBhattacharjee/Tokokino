@@ -7,7 +7,6 @@ import {
   RiCursorLine,
   RiDragMove2Line,
   RiFocus3Line,
-  RiFullscreenLine,
   RiImageAddLine,
   RiSparkling2Line,
   RiStackLine,
@@ -41,45 +40,43 @@ const ENHANCE_PRESETS: {
   swatch: string
   filter?: string
 }[] = [
-  { id: "off", label: "Off", swatch: "linear-gradient(135deg,#888,#555)" },
-  {
-    id: "auto",
-    label: "Auto",
-    swatch: "linear-gradient(135deg,#7dd3fc,#a78bfa)",
-    filter: "brightness(1.04) contrast(1.08) saturate(1.1)",
-  },
-  {
-    id: "vivid",
-    label: "Vivid",
-    swatch: "linear-gradient(135deg,#f43f5e,#f59e0b)",
-    filter: "saturate(1.35) contrast(1.12)",
-  },
-  {
-    id: "soft",
-    label: "Soft",
-    swatch: "linear-gradient(135deg,#fde2e4,#cdb4db)",
-    filter: "brightness(1.06) saturate(0.9)",
-  },
-  {
-    id: "dramatic",
-    label: "Dramatic",
-    swatch: "linear-gradient(135deg,#1f2937,#6b7280)",
-    filter: "contrast(1.25) saturate(1.2)",
-  },
-  {
-    id: "sharp",
-    label: "Sharp",
-    swatch: "linear-gradient(135deg,#10b981,#0ea5e9)",
-    filter: "contrast(1.18)",
-  },
-]
+    { id: "off", label: "Off", swatch: "linear-gradient(135deg,#888,#555)" },
+    {
+      id: "auto",
+      label: "Auto",
+      swatch: "linear-gradient(135deg,#7dd3fc,#a78bfa)",
+      filter: "brightness(1.04) contrast(1.08) saturate(1.1)",
+    },
+    {
+      id: "vivid",
+      label: "Vivid",
+      swatch: "linear-gradient(135deg,#f43f5e,#f59e0b)",
+      filter: "saturate(1.35) contrast(1.12)",
+    },
+    {
+      id: "soft",
+      label: "Soft",
+      swatch: "linear-gradient(135deg,#fde2e4,#cdb4db)",
+      filter: "brightness(1.06) saturate(0.9)",
+    },
+    {
+      id: "dramatic",
+      label: "Dramatic",
+      swatch: "linear-gradient(135deg,#1f2937,#6b7280)",
+      filter: "contrast(1.25) saturate(1.2)",
+    },
+    {
+      id: "sharp",
+      label: "Sharp",
+      swatch: "linear-gradient(135deg,#10b981,#0ea5e9)",
+      filter: "contrast(1.18)",
+    },
+  ]
 
 export function FloatingToolbar() {
   const {
     activeTool,
     setActiveTool,
-    canvasZoom,
-    setCanvasZoom,
     screenshotPosition,
     setScreenshotPosition,
     addText,
@@ -87,9 +84,10 @@ export function FloatingToolbar() {
     addAsset,
     setSelectedAssetId,
     screenshot,
-    background,
     enhance,
     setEnhance,
+    scale,
+    setScale,
   } = useEditor()
   const assetInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -126,13 +124,13 @@ export function FloatingToolbar() {
     label: string
     icon: React.ComponentType<{ className?: string }>
   }[] = [
-    { id: "pointer", label: "Select", icon: RiCursorLine },
-    { id: "text", label: "Text", icon: RiText },
-    { id: "arrow", label: "Arrow", icon: RiArrowRightUpLine },
-    { id: "position", label: "Position", icon: RiDragMove2Line },
-    { id: "layers", label: "Layers", icon: RiStackLine },
-    { id: "enhance", label: "Enhance", icon: RiSparkling2Line },
-  ]
+      { id: "pointer", label: "Select", icon: RiCursorLine },
+      { id: "text", label: "Text", icon: RiText },
+      { id: "arrow", label: "Arrow", icon: RiArrowRightUpLine },
+      { id: "position", label: "Position", icon: RiDragMove2Line },
+      { id: "layers", label: "Layers", icon: RiStackLine },
+      { id: "enhance", label: "Enhance", icon: RiSparkling2Line },
+    ]
 
   return (
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 w-full max-w-[calc(100vw-1.5rem)] -translate-x-1/2 px-3 sm:w-auto sm:px-0">
@@ -338,34 +336,50 @@ export function FloatingToolbar() {
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={() => setCanvasZoom(Math.max(25, canvasZoom - 10))}
+              disabled={!screenshot}
+              onClick={() => setScale(Math.max(10, scale - 10))}
               aria-label="Zoom out"
-              className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+              className={cn(
+                "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
+                !screenshot && "opacity-40 cursor-not-allowed"
+              )}
             >
               <span className="text-base leading-none">−</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top">Zoom out</TooltipContent>
+          <TooltipContent side="top">
+            {screenshot ? "Zoom out" : "Add a screenshot first"}
+          </TooltipContent>
         </Tooltip>
 
         <button
-          onClick={() => setCanvasZoom(100)}
-          className="tabular min-w-[3.25rem] rounded-md px-1 py-1.5 font-mono text-[11px] text-foreground/85 hover:bg-accent cursor-pointer"
+          disabled={!screenshot}
+          onClick={() => setScale(100)}
+          className={cn(
+            "tabular min-w-[3.25rem] rounded-md px-1 py-1.5 font-mono text-[11px] text-foreground/85 hover:bg-accent cursor-pointer",
+            !screenshot && "opacity-40 cursor-not-allowed"
+          )}
         >
-          {canvasZoom}%
+          {scale}%
         </button>
 
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={() => setCanvasZoom(Math.min(200, canvasZoom + 10))}
+              disabled={!screenshot}
+              onClick={() => setScale(Math.min(300, scale + 10))}
               aria-label="Zoom in"
-              className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+              className={cn(
+                "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
+                !screenshot && "opacity-40 cursor-not-allowed"
+              )}
             >
               <span className="text-base leading-none">+</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top">Zoom in</TooltipContent>
+          <TooltipContent side="top">
+            {screenshot ? "Zoom in" : "Add a screenshot first"}
+          </TooltipContent>
         </Tooltip>
 
       </div>

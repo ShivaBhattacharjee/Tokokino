@@ -288,7 +288,7 @@ export function Canvas() {
   }
   if (border.color && border.width > 0) {
     imgStyle.outline = `${border.width}px ${border.style || "solid"} ${border.color}`
-    imgStyle.outlineOffset = "0px"
+    imgStyle.outlineOffset = `${border.padding || 0}px`
   }
 
   const effectsFilter = effectsFilterCss(backdrop.effects)

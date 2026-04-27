@@ -168,17 +168,16 @@ function BackdropTile({
       onClick={onClick}
       data-active={active ? "" : undefined}
       className={cn(
-        "group relative flex h-[58px] flex-col items-center justify-center gap-1 rounded-lg border border-transparent bg-transparent text-foreground/80 transition-colors cursor-pointer hover:bg-background hover:text-foreground hover:border-border/70",
-        "data-[state=open]:bg-background data-[state=open]:text-foreground data-[state=open]:border-border/70 data-[state=open]:shadow-sm",
-        active && "text-foreground"
+        "group relative flex h-[64px] flex-col items-center justify-center gap-1.5 rounded-lg border transition-all cursor-pointer",
+        active
+          ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20 text-primary"
+          : "border-border/60 bg-secondary/20 text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+        "data-[state=open]:border-primary/40 data-[state=open]:bg-primary/5 data-[state=open]:ring-1 data-[state=open]:ring-primary/20 data-[state=open]:text-primary"
       )}
       {...rest}
     >
       <Icon className="size-[18px]" />
       <span className="text-[10px] font-medium tracking-tight">{label}</span>
-      {active ? (
-        <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary shadow-[0_0_0_2px_var(--sidebar)]" />
-      ) : null}
     </button>
   )
 }
@@ -372,7 +371,20 @@ function BackdropSection() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-4 gap-1.5 rounded-xl border border-border/60 bg-secondary/30 p-1.5">
+      <div className="pt-1">
+        <EffectSlider
+          label="Canvas Radius"
+          value={localRadius}
+          onChange={(v) => {
+            setLocalRadius(v)
+            document.documentElement.style.setProperty("--canvas-border-radius", `${v}px`)
+          }}
+          onValueCommit={setCanvasBorderRadius}
+          max={80}
+        />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
       <Popover open={overlayPopoverOpen} onOpenChange={handleOverlayOpenChange}>
         <PopoverTrigger asChild>
           <BackdropTile icon={RiSunLine} label="Overlay" active={overlayActive} />
@@ -776,18 +788,7 @@ function BackdropSection() {
       </Popover>
     </div>
 
-    <div className="pt-2">
-      <EffectSlider
-        label="Canvas Radius"
-        value={localRadius}
-        onChange={(v) => {
-          setLocalRadius(v)
-          document.documentElement.style.setProperty("--canvas-border-radius", `${v}px`)
-        }}
-        onValueCommit={setCanvasBorderRadius}
-        max={80}
-      />
-    </div>
+
   </div>
   )
 }
@@ -2296,12 +2297,36 @@ function BorderSection() {
       </div>
 
       <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-[11px] text-muted-foreground">Inner Padding</span>
+          <EditableValue
+            value={border.padding}
+            onChange={(v) => setBorder({ ...border, padding: v })}
+            min={0}
+            max={80}
+            suffix="px"
+          />
+        </div>
+        <Slider
+          value={[border.padding]}
+          onValueChange={([v]) => setBorder({ ...border, padding: v })}
+          min={0}
+          max={80}
+          className="cursor-pointer"
+        />
+      </div>
+
+      <div>
         <SubHeader>Style</SubHeader>
         <div className="grid grid-cols-3 gap-2 mb-4">
           {borderStyles.map((t) => (
             <button
               key={t.id}
-              onClick={() => setBorder({ ...border, style: t.id })}
+              onClick={() => {
+                const patch: Partial<typeof border> = { style: t.id }
+                if (!border.color) patch.color = "#ffffff"
+                setBorder({ ...border, ...patch })
+              }}
               className={cn(
                 "flex flex-col items-center gap-1.5 rounded-lg border p-1.5 transition-all cursor-pointer",
                 (border.style || "solid") === t.id
@@ -2373,6 +2398,8 @@ function BorderSection() {
           </div>
         </div>
       </div>
+
+
     </div>
   )
 }

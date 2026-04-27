@@ -14,7 +14,7 @@ export type Tilt = { rx: number; ry: number; rz: number }
 
 export type BorderStyle = "solid" | "dashed" | "dotted" | "double" | "groove" | "ridge"
 
-export type Border = { color: string | null; width: number; style?: BorderStyle }
+export type Border = { color: string | null; width: number; style?: BorderStyle; padding: number }
 
 export type BackdropEffects = {
   noise: number
@@ -437,7 +437,7 @@ const DEFAULT_STATE: EditorState = {
   padding: 96,
   borderRadius: 12,
   canvasBorderRadius: 16,
-  border: { color: null, width: 1, style: "solid" },
+  border: { color: null, width: 1, style: "solid", padding: 0 },
   backdrop: {
     effects: {
       noise: 0,
