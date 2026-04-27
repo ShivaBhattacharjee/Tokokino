@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 type Props = {
   text: TextElement
   canvasRef: React.RefObject<HTMLDivElement | null>
+  onCenterGuideChange?: (guides: { x: boolean; y: boolean }) => void
 }
 
 type DragState = {
@@ -54,7 +55,7 @@ type ResizeState = {
 
 const DRAG_THRESHOLD = 4
 
-export function TextElementView({ text, canvasRef }: Props) {
+export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props) {
   const { canvasZoom, selectedTextId, setSelectedTextId, updateText, deleteText, screenshot, background } =
     useEditor()
   const isSelected = selectedTextId === text.id
@@ -64,6 +65,8 @@ export function TextElementView({ text, canvasRef }: Props) {
   const isEditing = isSelected && editingRequested
   const elRef = React.useRef<HTMLDivElement>(null)
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
+  const setToolbarRectRef = React.useRef(setToolbarRect)
+  setToolbarRectRef.current = setToolbarRect
   const editorRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
   const rotateRef = React.useRef<RotateState | null>(null)
@@ -75,6 +78,8 @@ export function TextElementView({ text, canvasRef }: Props) {
   textRef.current = text
   const canvasZoomRef = React.useRef(canvasZoom)
   canvasZoomRef.current = canvasZoom
+  const onCenterGuideChangeRef = React.useRef(onCenterGuideChange)
+  onCenterGuideChangeRef.current = onCenterGuideChange
 
   React.useEffect(() => {
     if (!isEditing) return
@@ -200,8 +205,17 @@ export function TextElementView({ text, canvasRef }: Props) {
     // Apply position directly to DOM for zero-rerender dragging
     const dx = rawDx / pointerScale
     const dy = rawDy / pointerScale
-    const nextX = drag.startXPct + (dx / drag.canvasW) * 100
-    const nextY = drag.startYPct + (dy / drag.canvasH) * 100
+    let nextX = drag.startXPct + (dx / drag.canvasW) * 100
+    let nextY = drag.startYPct + (dy / drag.canvasH) * 100
+
+    // Snap to canvas center (50%)
+    const snapThresholdPct = (8 / drag.canvasW) * 100
+    const snapX = Math.abs(nextX - 50) <= snapThresholdPct
+    const snapY = Math.abs(nextY - 50) <= snapThresholdPct
+    if (snapX) nextX = 50
+    if (snapY) nextY = 50
+    onCenterGuideChangeRef.current?.({ x: snapX, y: snapY })
+
     const clampedX = clamp(nextX, -20, 120)
     const clampedY = clamp(nextY, -20, 120)
 
@@ -209,6 +223,7 @@ export function TextElementView({ text, canvasRef }: Props) {
     if (el) {
       el.style.left = `${clampedX}%`
       el.style.top = `${clampedY}%`
+      setToolbarRectRef.current(el.getBoundingClientRect())
     }
     // Store the latest values for commit
     drag.startXPct = clampedX
@@ -242,6 +257,7 @@ export function TextElementView({ text, canvasRef }: Props) {
     }
     dragRef.current = null
     setIsDragging(false)
+    onCenterGuideChangeRef.current?.({ x: false, y: false })
   }, [updateText, screenshot, background, canvasRef])
 
   /* ---- Rotate ---- */

@@ -121,10 +121,8 @@ export function Canvas() {
   const [isScreenshotDragging, setIsScreenshotDragging] = React.useState(false)
   const [isCropModalOpen, setIsCropModalOpen] = React.useState(false)
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
-  const [centerGuides, setCenterGuides] = React.useState({
-    x: false,
-    y: false,
-  })
+  const [centerGuides, setCenterGuides] = React.useState({ x: false, y: false })
+  const [textCenterGuides, setTextCenterGuides] = React.useState({ x: false, y: false })
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const stageRef = React.useRef<HTMLDivElement>(null)
   const imageRef = React.useRef<HTMLImageElement>(null)
@@ -413,6 +411,18 @@ export function Canvas() {
               className="pointer-events-none absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
             />
           ) : null}
+          {textCenterGuides.x ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-1/2 z-50 -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95"
+            />
+          ) : null}
+          {textCenterGuides.y ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-1/2 z-50 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
+            />
+          ) : null}
 
           {/* Background layer — receives filter effects */}
           <div
@@ -684,7 +694,7 @@ export function Canvas() {
 
         {/* Text elements */}
         {texts.map((t) => (
-          <TextElementView key={t.id} text={t} canvasRef={canvasRef} />
+          <TextElementView key={t.id} text={t} canvasRef={canvasRef} onCenterGuideChange={setTextCenterGuides} />
         ))}
       </motion.div>
       </div>
