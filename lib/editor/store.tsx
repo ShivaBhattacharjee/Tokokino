@@ -58,6 +58,16 @@ export type Overlay = {
   position: OverlayPosition
 }
 
+export type AssetElement = {
+  id: string
+  src: string
+  xPct: number
+  yPct: number
+  widthPct: number
+  rotation: number
+  zIndex: number
+}
+
 export type TextAlign = "left" | "center" | "right"
 
 export type TextElement = {
@@ -189,6 +199,7 @@ export type EditorState = {
   shadow: Shadow
   overlay: Overlay
   texts: TextElement[]
+  assets: AssetElement[]
 }
 
 const OVERLAY_BASE_URL =
@@ -203,16 +214,102 @@ export function overlayThumbUrl(id: number): string {
   return `${OVERLAY_BASE_URL}/thumbs/${String(id).padStart(3, "0")}.webp`
 }
 
-export const GRADIENT_PRESETS = [
-  "linear-gradient(135deg, #f87171, #fbbf24)",
-  "linear-gradient(135deg, #60a5fa, #a78bfa)",
-  "linear-gradient(135deg, #34d399, #60a5fa)",
-  "linear-gradient(135deg, #f472b6, #a78bfa)",
-  "linear-gradient(135deg, #fbbf24, #f472b6)",
-  "linear-gradient(135deg, #111827, #374151)",
-  "linear-gradient(135deg, #fb7185, #fdba74)",
-  "linear-gradient(135deg, #22d3ee, #818cf8)",
+export type GradientCategory = {
+  key: string
+  label: string
+  items: string[]
+}
+
+export const GRADIENT_LIBRARY: GradientCategory[] = [
+  {
+    key: "warm",
+    label: "Warm",
+    items: [
+      "linear-gradient(135deg, #f87171, #fbbf24)",
+      "linear-gradient(135deg, #fb7185, #fdba74)",
+      "linear-gradient(135deg, #ef4444, #f97316)",
+      "linear-gradient(135deg, #f43f5e, #f59e0b)",
+      "linear-gradient(135deg, #fbbf24, #f472b6)",
+      "linear-gradient(135deg, #f97316, #ef4444, #db2777)",
+      "linear-gradient(135deg, #fde68a, #fb923c)",
+      "linear-gradient(135deg, #fda4af, #fbcfe8)",
+      "linear-gradient(135deg, #ff8a65, #ff5252)",
+      "linear-gradient(135deg, #ffd166, #ef476f)",
+      "linear-gradient(135deg, #ff9966, #ff5e62)",
+      "linear-gradient(135deg, #f6d365, #fda085)",
+    ],
+  },
+  {
+    key: "cool",
+    label: "Cool",
+    items: [
+      "linear-gradient(135deg, #60a5fa, #a78bfa)",
+      "linear-gradient(135deg, #34d399, #60a5fa)",
+      "linear-gradient(135deg, #22d3ee, #818cf8)",
+      "linear-gradient(135deg, #06b6d4, #3b82f6)",
+      "linear-gradient(135deg, #1e3a8a, #2563eb)",
+      "linear-gradient(135deg, #0ea5e9, #6366f1)",
+      "linear-gradient(135deg, #2dd4bf, #06b6d4)",
+      "linear-gradient(135deg, #a5f3fc, #60a5fa)",
+      "linear-gradient(135deg, #4f46e5, #06b6d4)",
+      "linear-gradient(135deg, #0f766e, #0ea5e9)",
+      "linear-gradient(135deg, #43e97b, #38f9d7)",
+      "linear-gradient(135deg, #4facfe, #00f2fe)",
+    ],
+  },
+  {
+    key: "vivid",
+    label: "Vivid",
+    items: [
+      "linear-gradient(135deg, #f472b6, #a78bfa)",
+      "linear-gradient(135deg, #ec4899, #f59e0b)",
+      "linear-gradient(135deg, #d946ef, #6366f1)",
+      "linear-gradient(135deg, #ee0979, #ff6a00)",
+      "linear-gradient(135deg, #fa709a, #fee140)",
+      "linear-gradient(135deg, #ff00cc, #333399)",
+      "linear-gradient(135deg, #f857a6, #ff5858)",
+      "linear-gradient(135deg, #c471f5, #fa71cd)",
+      "linear-gradient(135deg, #00c6ff, #0072ff)",
+      "linear-gradient(135deg, #ff5f6d, #ffc371)",
+      "linear-gradient(135deg, #21d4fd, #b721ff)",
+      "linear-gradient(135deg, #08aeea, #2af598)",
+    ],
+  },
+  {
+    key: "mono",
+    label: "Mono",
+    items: [
+      "linear-gradient(135deg, #111827, #374151)",
+      "linear-gradient(135deg, #1f2937, #4b5563)",
+      "linear-gradient(135deg, #f3f4f6, #9ca3af)",
+      "linear-gradient(135deg, #0a0a0a, #404040)",
+      "linear-gradient(135deg, #18181b, #52525b)",
+      "linear-gradient(135deg, #fafafa, #d4d4d4)",
+      "linear-gradient(135deg, #292524, #78716c)",
+      "linear-gradient(135deg, #0c0a09, #1c1917)",
+      "linear-gradient(135deg, #e4e4e7, #71717a)",
+      "linear-gradient(135deg, #1e293b, #64748b)",
+    ],
+  },
+  {
+    key: "pastel",
+    label: "Pastel",
+    items: [
+      "linear-gradient(135deg, #667eea, #764ba2)",
+      "linear-gradient(120deg, #84fab0, #8fd3f4)",
+      "linear-gradient(135deg, #fbc2eb, #a6c1ee)",
+      "linear-gradient(135deg, #fdcbf1, #e6dee9)",
+      "linear-gradient(135deg, #ff9a9e, #fecfef, #fad0c4)",
+      "linear-gradient(135deg, #a8edea, #fed6e3)",
+      "linear-gradient(135deg, #d299c2, #fef9d7)",
+      "linear-gradient(135deg, #89f7fe, #66a6ff)",
+      "linear-gradient(135deg, #fdfcfb, #e2d1c3)",
+      "linear-gradient(135deg, #cfd9df, #e2ebf0)",
+    ],
+  },
 ]
+
+export const GRADIENT_PRESETS = GRADIENT_LIBRARY.flatMap((c) => c.items)
 
 export const SOLID_PRESETS = [
   "#0f172a",
@@ -300,6 +397,7 @@ const DEFAULT_STATE: EditorState = {
     position: "overlay",
   },
   texts: [],
+  assets: [],
 }
 
 const HISTORY_LIMIT = 100
@@ -414,6 +512,13 @@ type Ctx = EditorState & {
   sendTextToBack: (id: string) => void
   selectedTextId: string | null
   setSelectedTextId: (id: string | null) => void
+  addAsset: (src: string) => string
+  updateAsset: (id: string, patch: Partial<AssetElement>) => void
+  deleteAsset: (id: string) => void
+  bringAssetToFront: (id: string) => void
+  sendAssetToBack: (id: string) => void
+  selectedAssetId: string | null
+  setSelectedAssetId: (id: string | null) => void
   reset: () => void
   undo: () => void
   redo: () => void
@@ -435,6 +540,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
   })
   const [isPreviewMode, setIsPreviewMode] = React.useState(false)
   const [selectedTextId, setSelectedTextId] = React.useState<string | null>(null)
+  const [selectedAssetId, setSelectedAssetId] = React.useState<string | null>(null)
 
   const value: Ctx = React.useMemo(() => {
     const set = (patch: SetPatch, group: string | null) =>
@@ -443,10 +549,14 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const computeNextZ = (texts: TextElement[]) =>
-      (texts.length ? Math.max(...texts.map((t) => t.zIndex)) : 0) + 1
-    const computeMinZ = (texts: TextElement[]) =>
-      (texts.length ? Math.min(...texts.map((t) => t.zIndex)) : 1) - 1
+    const computeNextZ = (items: { zIndex: number }[]) => {
+      const max = items.length ? Math.max(...items.map((t) => t.zIndex)) : 0
+      return Math.max(max + 1, 1)
+    }
+    const computeMinZ = (items: { zIndex: number }[]) => {
+      const min = items.length ? Math.min(...items.map((t) => t.zIndex)) : 0
+      return Math.min(min - 1, -1)
+    }
     return {
       ...state.present,
       setActiveTool: (t) => set({ activeTool: t }, null),
@@ -565,6 +675,56 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       },
       selectedTextId,
       setSelectedTextId,
+      addAsset: (src) => {
+        const id = makeId()
+        set(
+          (s) => ({
+            assets: [
+              ...s.assets,
+              {
+                id,
+                src,
+                xPct: 50,
+                yPct: 50,
+                widthPct: 25,
+                rotation: 0,
+                zIndex: computeNextZ(s.assets),
+              },
+            ],
+          }),
+          null
+        )
+        return id
+      },
+      updateAsset: (id, patch) => {
+        set(
+          (s) => ({
+            assets: s.assets.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+          }),
+          `asset-${id}`
+        )
+      },
+      deleteAsset: (id) => {
+        set((s) => ({ assets: s.assets.filter((a) => a.id !== id) }), null)
+      },
+      bringAssetToFront: (id) => {
+        set((s) => {
+          const z = computeNextZ(s.assets)
+          return {
+            assets: s.assets.map((a) => (a.id === id ? { ...a, zIndex: z } : a)),
+          }
+        }, null)
+      },
+      sendAssetToBack: (id) => {
+        set((s) => {
+          const z = computeMinZ(s.assets)
+          return {
+            assets: s.assets.map((a) => (a.id === id ? { ...a, zIndex: z } : a)),
+          }
+        }, null)
+      },
+      selectedAssetId,
+      setSelectedAssetId,
       reset: () => dispatch({ type: "RESET" }),
       undo: () => dispatch({ type: "UNDO" }),
       redo: () => dispatch({ type: "REDO" }),
@@ -573,7 +733,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       isPreviewMode,
       setIsPreviewMode,
     }
-  }, [state, isPreviewMode, selectedTextId])
+  }, [state, isPreviewMode, selectedTextId, selectedAssetId])
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

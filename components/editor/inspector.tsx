@@ -6,7 +6,10 @@ import {
   RiArrowGoBackLine,
   RiArrowRightLine,
   RiBrushLine,
+  RiContrastLine,
+  RiDropLine,
   RiEqualizerLine,
+  RiFlashlightLine,
   RiFocus2Line,
   RiFocus3Line,
   RiGradienterLine,
@@ -43,6 +46,7 @@ import {
   BACKDROP_PATTERNS,
   BACKGROUND_LIBRARY,
   DEFAULT_IMAGE_BACKGROUND,
+  GRADIENT_LIBRARY,
   GRADIENT_PRESETS,
   SOLID_PRESETS,
   AUTO_PLACEHOLDER_GRADIENT,
@@ -246,7 +250,7 @@ function BackdropSection() {
           side="left"
           align="start"
           forceMount={overlayHasOpened ? true : undefined}
-          className="w-[240px] space-y-4 bg-popover/95 backdrop-blur-md [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
+          className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-medium">Shadow Overlay</span>
@@ -321,8 +325,32 @@ function BackdropSection() {
             <span>Effects</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent side="left" align="start" className="w-[240px] space-y-4 bg-popover/95 backdrop-blur-md">
-          <span className="text-[13px] font-medium">Effects</span>
+        <PopoverContent side="left" align="start" className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-medium">Effects</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 cursor-pointer"
+              onClick={() =>
+                setBackdropEffects({
+                  noise: 0,
+                  blur: 0,
+                  brightness: 100,
+                  contrast: 100,
+                  saturation: 100,
+                  hue: 0,
+                  grayscale: 0,
+                  sepia: 0,
+                  invert: 0,
+                  opacity: 100,
+                })
+              }
+              title="Reset effects"
+            >
+              <RiArrowGoBackLine className="size-3" />
+            </Button>
+          </div>
           <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1 [scrollbar-width:thin]">
             <EffectSlider
               label="Brightness"
@@ -395,10 +423,28 @@ function BackdropSection() {
         <PopoverContent
           side="left"
           align="start"
-          className="w-[240px] !gap-3 bg-popover/95 backdrop-blur-md"
+          className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md"
         >
-           <span className="text-[13px] font-medium">Patterns</span>
-           <div className="grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-medium">Patterns</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 cursor-pointer"
+              onClick={() =>
+                setBackdropPattern({
+                  ids: [],
+                  intensity: 50,
+                  thickness: 1,
+                  color: "#FFFFFF",
+                })
+              }
+              title="Reset patterns"
+            >
+              <RiArrowGoBackLine className="size-3" />
+            </Button>
+          </div>
+          <div className="grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
             <button
               key="none"
               onClick={() => setPattern({ ids: [] })}
@@ -892,6 +938,27 @@ function BackgroundSection() {
     }),
     [gradientOverrides]
   )
+  const gradientCategoryOptions = React.useMemo(
+    () => {
+      let cursor = 0
+      return GRADIENT_LIBRARY.map((category) => {
+        const slice = gradientOptions.slice(cursor, cursor + category.items.length)
+        cursor += category.items.length
+        return { key: category.key, label: category.label, options: slice }
+      })
+    },
+    [gradientOptions]
+  )
+  const [gradientCategoryKey, setGradientCategoryKey] = React.useState<string>(() => {
+    if (background.type === "gradient") {
+      const found = GRADIENT_LIBRARY.find((c) =>
+        c.items.includes(background.value)
+      )
+      if (found) return found.key
+    }
+    return GRADIENT_LIBRARY[0]?.key ?? "warm"
+  })
+  const [gradientExpanded, setGradientExpanded] = React.useState(false)
   const autoGradientOptions = React.useMemo(
     () => withGradientOptions({
       values: autoGradients,
@@ -1184,103 +1251,195 @@ function BackgroundSection() {
         </TabsContent>
 
         <TabsContent value="gradient" className="mt-6">
-          <div className="grid grid-cols-3 gap-2 px-1 py-1">
-            {gradientOptions.map((option) => {
-              const active =
-                background.type === "gradient" && background.value === option.value
-              return (
-                <div key={option.id} className="relative">
-                  <button
-                    onClick={() => setBackground({ type: "gradient", value: option.value })}
-                    className={cn(
-                      "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
-                      active
-                        ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
-                        : "border-border/60"
-                    )}
-                  >
-                    <span
-                      className="block size-full rounded-[inherit]"
-                      style={{ background: option.value }}
-                    />
-                  </button>
-                  {active && gradientConfig ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          aria-label="Customize gradient"
-                          className="absolute inset-0 z-10 m-auto inline-flex size-7 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur transition-colors hover:bg-black/60 cursor-pointer"
-                        >
-                          <RiEqualizerLine className="size-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="end"
-                        side="bottom"
-                        className="w-[300px] space-y-4 border-border/60 bg-popover/95 p-3"
+          {(() => {
+            const activeCategory =
+              gradientCategoryOptions.find((c) => c.key === gradientCategoryKey) ??
+              gradientCategoryOptions[0]
+            if (!activeCategory) return null
+            const items = activeCategory.options
+            const visible = gradientExpanded
+              ? items
+              : items.slice(0, GRADIENT_PREVIEW_COUNT)
+            const hidden = items.slice(GRADIENT_PREVIEW_COUNT)
+            const peek = hidden[0] ?? null
+            const showExpandTile = !gradientExpanded && hidden.length > 0
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-1 rounded-md bg-secondary/40 p-1">
+                  {gradientCategoryOptions.map((c) => {
+                    const active = c.key === activeCategory.key
+                    const CategoryIcon = gradientCategoryIcon(c.key)
+                    return (
+                      <button
+                        key={c.key}
+                        onClick={() => {
+                          setGradientCategoryKey(c.key)
+                          setGradientExpanded(false)
+                        }}
+                        className={cn(
+                          "flex h-9 items-center justify-center gap-1.5 rounded-[5px] px-3 text-[11px] font-medium transition-colors cursor-pointer",
+                          active
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
                       >
-                        <div className="space-y-2">
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-[11px] text-muted-foreground">Angle</span>
-                            <div className="flex items-center gap-2">
-                              <EditableValue
-                                value={Math.round(gradientConfig.angle)}
-                                onChange={setGradientAngle}
-                                min={0}
-                                max={360}
-                                suffix="deg"
-                              />
-                              <button
-                                aria-label="Reset gradient"
-                                disabled={!canResetGradient}
-                                onClick={resetGradientEdits}
-                                className={cn(
-                                  "inline-flex size-7 items-center justify-center rounded-md border border-border/60 bg-background/30 text-muted-foreground transition-colors",
-                                  canResetGradient
-                                    ? "hover:border-foreground/30 hover:text-foreground cursor-pointer"
-                                    : "opacity-40 cursor-not-allowed"
-                                )}
-                              >
-                                <RiRefreshLine className="size-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                          <Slider
-                            value={[gradientConfig.angle]}
-                            onValueChange={([value]) => setGradientAngle(value)}
-                            min={0}
-                            max={360}
-                            className="cursor-pointer"
+                        <CategoryIcon className="size-3.5 shrink-0" />
+                        {c.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div
+                  className={cn(
+                    "grid grid-cols-3 gap-2 px-1 py-1",
+                    gradientExpanded &&
+                      "max-h-[280px] overflow-y-auto pr-1 [scrollbar-width:thin]"
+                  )}
+                >
+                  {visible.map((option) => {
+                    const active =
+                      background.type === "gradient" &&
+                      background.value === option.value
+                    return (
+                      <div key={option.id} className="relative">
+                        <button
+                          onClick={() =>
+                            setBackground({ type: "gradient", value: option.value })
+                          }
+                          className={cn(
+                            "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                            active
+                              ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
+                              : "border-border/60"
+                          )}
+                        >
+                          <span
+                            className="block size-full rounded-[inherit]"
+                            style={{ background: option.value }}
                           />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {GRADIENT_COLOR_CONTROLS.map(({ id, label }, colorIndex) => (
-                            <ColorPickerPopover
-                              key={id}
-                              value={gradientConfig.colors[colorIndex]}
-                              onChange={(colorValue) =>
-                                setGradientColor({
-                                  colorIndex,
-                                  colorValue,
-                                })}
-                            >
-                              <button className="flex h-10 items-center justify-between rounded-md border border-border/60 bg-background/40 px-2.5 text-left transition-colors hover:border-foreground/30 cursor-pointer">
-                                <span className="text-[11px] text-muted-foreground">{label}</span>
-                                <span
-                                  className="size-5 rounded-full border border-border/60"
-                                  style={{ background: gradientConfig.colors[colorIndex] }}
-                                />
+                        </button>
+                        {active && gradientConfig ? (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                aria-label="Customize gradient"
+                                className="absolute inset-0 z-10 m-auto inline-flex size-7 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur transition-colors hover:bg-black/60 cursor-pointer"
+                              >
+                                <RiEqualizerLine className="size-3.5" />
                               </button>
-                            </ColorPickerPopover>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="end"
+                              side="bottom"
+                              className="w-[300px] space-y-4 border-border/60 bg-popover/95 p-3"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-baseline justify-between">
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Angle
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <EditableValue
+                                      value={Math.round(gradientConfig.angle)}
+                                      onChange={setGradientAngle}
+                                      min={0}
+                                      max={360}
+                                      suffix="deg"
+                                    />
+                                    <button
+                                      aria-label="Reset gradient"
+                                      disabled={!canResetGradient}
+                                      onClick={resetGradientEdits}
+                                      className={cn(
+                                        "inline-flex size-7 items-center justify-center rounded-md border border-border/60 bg-background/30 text-muted-foreground transition-colors",
+                                        canResetGradient
+                                          ? "hover:border-foreground/30 hover:text-foreground cursor-pointer"
+                                          : "opacity-40 cursor-not-allowed"
+                                      )}
+                                    >
+                                      <RiRefreshLine className="size-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <Slider
+                                  value={[gradientConfig.angle]}
+                                  onValueChange={([value]) => setGradientAngle(value)}
+                                  min={0}
+                                  max={360}
+                                  className="cursor-pointer"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {GRADIENT_COLOR_CONTROLS.map(
+                                  ({ id, label }, colorIndex) => (
+                                    <ColorPickerPopover
+                                      key={id}
+                                      value={gradientConfig.colors[colorIndex]}
+                                      onChange={(colorValue) =>
+                                        setGradientColor({
+                                          colorIndex,
+                                          colorValue,
+                                        })
+                                      }
+                                    >
+                                      <button className="flex h-10 items-center justify-between rounded-md border border-border/60 bg-background/40 px-2.5 text-left transition-colors hover:border-foreground/30 cursor-pointer">
+                                        <span className="text-[11px] text-muted-foreground">
+                                          {label}
+                                        </span>
+                                        <span
+                                          className="size-5 rounded-full border border-border/60"
+                                          style={{
+                                            background:
+                                              gradientConfig.colors[colorIndex],
+                                          }}
+                                        />
+                                      </button>
+                                    </ColorPickerPopover>
+                                  )
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                  {showExpandTile ? (
+                    <button
+                      onClick={() => setGradientExpanded(true)}
+                      title={`Show all ${items.length} ${activeCategory.label.toLowerCase()} gradients`}
+                      className="group relative aspect-square w-full overflow-hidden rounded-xl border border-border/60 cursor-pointer transition-colors hover:border-foreground/30"
+                    >
+                      {peek ? (
+                        <span
+                          className="block size-full scale-110 blur-sm"
+                          style={{ background: peek.value }}
+                        />
+                      ) : (
+                        <span className="block size-full bg-secondary/40" />
+                      )}
+                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/45 text-white">
+                        <RiArrowRightLine className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                        <span className="text-[9px] font-semibold">
+                          +{hidden.length}
+                        </span>
+                      </span>
+                    </button>
                   ) : null}
                 </div>
-              )
-            })}
-          </div>
+
+                {gradientExpanded ? (
+                  <button
+                    onClick={() => setGradientExpanded(false)}
+                    className="text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    Show less
+                  </button>
+                ) : null}
+              </div>
+            )
+          })()}
         </TabsContent>
 
         <TabsContent value="solid" className="mt-6">
@@ -1484,6 +1643,7 @@ function BgTabTrigger({ value, label, children }: { value: string; label: string
 }
 
 const BACKGROUND_PREVIEW_COUNT = 8
+const GRADIENT_PREVIEW_COUNT = 8
 
 function BackgroundLibrary({
   activeUrl,
@@ -1592,6 +1752,23 @@ function BackgroundLibrary({
       ) : null}
     </div>
   )
+}
+
+function gradientCategoryIcon(key: string) {
+  switch (key) {
+    case "warm":
+      return RiSunLine
+    case "cool":
+      return RiMoonClearLine
+    case "vivid":
+      return RiFlashlightLine
+    case "mono":
+      return RiContrastLine
+    case "pastel":
+      return RiDropLine
+    default:
+      return RiGradienterLine
+  }
 }
 
 function backgroundCategoryIcon(key: string) {
@@ -2102,7 +2279,13 @@ function ShadowSection() {
   const { shadow, setShadow } = useEditor()
   const { type, intensity, lightSource, color = "#000000" } = shadow
 
-  const setType = (t: typeof shadow.type) => setShadow({ ...shadow, type: t })
+  const setType = (t: typeof shadow.type) => {
+    if (t === "hard") {
+      setShadow({ ...shadow, type: t, intensity: 0 })
+      return
+    }
+    setShadow({ ...shadow, type: t })
+  }
   const setIntensity = (n: number) => setShadow({ ...shadow, intensity: n })
   const setLightSource = (id: string) => setShadow({ ...shadow, lightSource: id })
   const setColor = (c: string) => setShadow({ ...shadow, color: c })

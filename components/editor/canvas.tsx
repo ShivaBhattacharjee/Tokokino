@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { CornerMarkers } from "@/components/editor/corner-marker"
 import { CropModal } from "@/components/editor/crop-modal"
+import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
 import { cn } from "@/lib/utils"
 import {
@@ -47,6 +48,8 @@ export function Canvas() {
     texts,
     selectedTextId,
     setSelectedTextId,
+    assets,
+    setSelectedAssetId,
   } = useEditor()
   const canvasRef = React.useRef<HTMLDivElement>(null)
 
@@ -338,7 +341,10 @@ export function Canvas() {
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           style={{ aspectRatio, borderRadius: "var(--canvas-border-radius)", maxWidth: canvasMaxWidth }}
           className="relative flex w-full items-center justify-center overflow-hidden ring-1 ring-border/60"
-          onClick={() => setSelectedTextId(null)}
+          onClick={() => {
+            setSelectedTextId(null)
+            setSelectedAssetId(null)
+          }}
           onDragOver={(e) => {
             e.preventDefault()
             setIsDragOver(true)
@@ -415,15 +421,15 @@ export function Canvas() {
           />
         ) : null}
 
-        {/* Content */}
+        {/* Content — wrapper itself is click-through so text layered behind the screenshot can still receive clicks; the image + interactive children opt back in via pointer-events-auto */}
         <div
-          className="relative flex h-full w-full items-center justify-center"
-          style={{ padding }}
+          className="pointer-events-none relative flex h-full w-full items-center justify-center"
+          style={{ padding, zIndex: 20 }}
         >
           {screenshot ? (
             <div
               ref={stageRef}
-              className="relative h-full w-full group/screenshot"
+              className="pointer-events-none relative h-full w-full group/screenshot"
               onPointerDown={(e) => {
                 if (e.target === e.currentTarget) {
                   setIsScreenshotSelected(false)
@@ -470,7 +476,7 @@ export function Canvas() {
                       }),
                 }}
                 className={cn(
-                  "absolute max-h-full max-w-full object-contain select-none",
+                  "pointer-events-auto absolute max-h-full max-w-full object-contain select-none",
                   isScreenshotDragging || suppressTransitionRef.current
                     ? "cursor-grabbing transition-none"
                     : "transition-all duration-300 ease-out",
@@ -520,7 +526,7 @@ export function Canvas() {
             <div
               data-drag-over={isDragOver}
               className={cn(
-                "relative flex h-full w-full flex-col items-center justify-center gap-6 text-center transition-all duration-300",
+                "pointer-events-auto relative flex h-full w-full flex-col items-center justify-center gap-6 text-center transition-all duration-300",
                 "text-white/90",
                 "data-[drag-over=true]:scale-[1.02]"
               )}
@@ -577,7 +583,7 @@ export function Canvas() {
           )}
         </div>
 
-        {/* Overlay (above everything in the canvas) */}
+        {/* Overlay (above the screenshot, below front-layered text) */}
         {overlay.id !== null && overlay.position === "overlay" ? (
           <div
             aria-hidden
@@ -585,9 +591,15 @@ export function Canvas() {
             style={{
               backgroundImage: `url("${overlayUrl(overlay.id)}")`,
               opacity: overlay.opacity / 100,
+              zIndex: 30,
             }}
           />
         ) : null}
+
+        {/* Asset images */}
+        {assets.map((a) => (
+          <AssetElementView key={a.id} asset={a} canvasRef={canvasRef} />
+        ))}
 
         {/* Text elements */}
         {texts.map((t) => (

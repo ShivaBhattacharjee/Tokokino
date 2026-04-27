@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { Canvas } from "@/components/editor/canvas"
 import { EffectsSidebar } from "@/components/editor/effects-sidebar"
 import { FloatingToolbar } from "@/components/editor/floating-toolbar"
@@ -15,6 +16,15 @@ import { motion, AnimatePresence } from "motion/react"
 function EditorLayout() {
   const { isPreviewMode, setIsPreviewMode } = useEditor()
 
+  React.useEffect(() => {
+    if (!isPreviewMode) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsPreviewMode(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [isPreviewMode, setIsPreviewMode])
+
   return (
     <div className="flex h-svh min-h-0 flex-col bg-background">
       {!isPreviewMode && <TopBar />}
@@ -24,21 +34,24 @@ function EditorLayout() {
           <Canvas />
           {!isPreviewMode && <FloatingToolbar />}
           {!isPreviewMode && <IpadProSidebar />}
-          
+
           <AnimatePresence>
             {isPreviewMode && (
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="absolute top-6 left-1/2 -translate-x-1/2 z-50"
+                exit={{ opacity: 0, y: -10 }}
+                className="fixed top-4 right-4 z-50"
               >
-                <Button 
+                <Button
                   onClick={() => setIsPreviewMode(false)}
-                  className="rounded-full shadow-xl bg-black/80 text-white hover:bg-black backdrop-blur-md px-6 cursor-pointer"
+                  className="rounded-full shadow-xl bg-black/80 text-white hover:bg-black backdrop-blur-md px-5 cursor-pointer"
                 >
                   <RiEyeCloseLine className="mr-2 size-4" />
                   Exit Preview
+                  <kbd className="ml-2 rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/80">
+                    Esc
+                  </kbd>
                 </Button>
               </motion.div>
             )}

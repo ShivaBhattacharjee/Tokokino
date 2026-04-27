@@ -7,11 +7,11 @@ import {
   RiAlignLeft,
   RiAlignRight,
   RiBringToFront,
+  RiCheckboxBlankLine,
   RiDeleteBinLine,
   RiDragMove2Line,
   RiFileCopyLine,
   RiFontFamily,
-  RiForbidLine,
   RiMoreFill,
   RiSendToBack,
   RiSubtractLine,
@@ -98,6 +98,8 @@ function TextToolbarBody({
     setSelectedTextId,
   } = useEditor()
 
+  const [moreOpen, setMoreOpen] = React.useState(false)
+
   const setSize = (n: number) =>
     updateText(text.id, { fontSize: Math.max(8, Math.min(200, n)) })
 
@@ -170,13 +172,18 @@ function TextToolbarBody({
       <span className="mx-1 h-5 w-px bg-border" />
 
       {/* Font size controls */}
-      <button
-        onClick={() => setSize(text.fontSize - 1)}
-        aria-label="Decrease font size"
-        className={iconBtnClass}
-      >
-        <RiSubtractLine className="size-4" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => setSize(text.fontSize - 1)}
+            aria-label="Decrease font size"
+            className={iconBtnClass}
+          >
+            <RiSubtractLine className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Decrease size</TooltipContent>
+      </Tooltip>
       <input
         type="number"
         value={text.fontSize}
@@ -185,25 +192,36 @@ function TextToolbarBody({
           if (Number.isFinite(v)) setSize(v)
         }}
         aria-label="Font size"
+        title="Font size"
         className="h-9 w-12 shrink-0 rounded-md bg-secondary/60 text-center font-mono text-[12px] text-foreground outline-none focus:ring-1 focus:ring-ring"
       />
-      <button
-        onClick={() => setSize(text.fontSize + 1)}
-        aria-label="Increase font size"
-        className={iconBtnClass}
-      >
-        <RiAddLine className="size-4" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => setSize(text.fontSize + 1)}
+            aria-label="Increase font size"
+            className={iconBtnClass}
+          >
+            <RiAddLine className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Increase size</TooltipContent>
+      </Tooltip>
 
       <span className="mx-1 h-5 w-px bg-border" />
 
-      {/* Font family — Popover only, no nested Tooltip */}
+      {/* Font family */}
       <Popover>
-        <PopoverTrigger asChild>
-          <button aria-label="Font family" className={iconBtnClass} title="Font">
-            <RiFontFamily className="size-4" />
-          </button>
-        </PopoverTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button aria-label="Font family" className={iconBtnClass}>
+                <RiFontFamily className="size-4" />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top">Font family</TooltipContent>
+        </Tooltip>
         <PopoverContent
           side="top"
           align="center"
@@ -229,7 +247,7 @@ function TextToolbarBody({
         </PopoverContent>
       </Popover>
 
-      {/* Text color — Popover only, no nested Tooltip */}
+      {/* Text color — title only; ColorPickerPopover wraps with PopoverTrigger asChild and won't accept a Tooltip provider as its child */}
       <ColorPickerPopover
         value={text.color}
         side="top"
@@ -238,8 +256,8 @@ function TextToolbarBody({
       >
         <button
           aria-label="Text color"
-          className={cn(iconBtnClass, "relative")}
           title="Text color"
+          className={cn(iconBtnClass, "relative")}
         >
           <span
             className="size-5 rounded-full border border-border/70 shadow-inner"
@@ -248,20 +266,25 @@ function TextToolbarBody({
         </button>
       </ColorPickerPopover>
 
-      {/* Border — direct settings popover */}
+      {/* Border */}
       <Popover>
-        <PopoverTrigger asChild>
-          <button aria-label="Text border" className={iconBtnClass} title="Border">
-            {text.borderColor ? (
-              <span
-                className="size-5 rounded-md border-2"
-                style={{ borderColor: text.borderColor, borderStyle: text.borderStyle || "solid" }}
-              />
-            ) : (
-              <RiForbidLine className="size-4" />
-            )}
-          </button>
-        </PopoverTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button aria-label="Text border" className={iconBtnClass}>
+                {text.borderColor ? (
+                  <span
+                    className="size-5 rounded-md border-2"
+                    style={{ borderColor: text.borderColor, borderStyle: text.borderStyle || "solid" }}
+                  />
+                ) : (
+                  <RiCheckboxBlankLine className="size-4" />
+                )}
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top">Border</TooltipContent>
+        </Tooltip>
         <PopoverContent
           side="top"
           align="center"
@@ -288,13 +311,18 @@ function TextToolbarBody({
         </TooltipContent>
       </Tooltip>
 
-      {/* More options — Popover only, no nested Tooltip */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <button aria-label="More options" className={iconBtnClass} title="More">
-            <RiMoreFill className="size-4" />
-          </button>
-        </PopoverTrigger>
+      {/* More options */}
+      <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button aria-label="More options" className={iconBtnClass}>
+                <RiMoreFill className="size-4" />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top">More options</TooltipContent>
+        </Tooltip>
         <PopoverContent
           side="top"
           align="end"
@@ -303,14 +331,20 @@ function TextToolbarBody({
         >
           <div className="flex flex-col">
             <button
-              onClick={() => bringTextToFront(text.id)}
+              onClick={() => {
+                bringTextToFront(text.id)
+                setMoreOpen(false)
+              }}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-pointer"
             >
               <RiBringToFront className="size-4" />
               Bring to front
             </button>
             <button
-              onClick={() => sendTextToBack(text.id)}
+              onClick={() => {
+                sendTextToBack(text.id)
+                setMoreOpen(false)
+              }}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-pointer"
             >
               <RiSendToBack className="size-4" />

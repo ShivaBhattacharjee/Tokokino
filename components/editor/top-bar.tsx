@@ -57,7 +57,6 @@ import {
 import { cn } from "@/lib/utils"
 
 export function TopBar() {
-  const [name, setName] = React.useState("Untitled capture")
   const { undo, redo, canUndo, canRedo, reset, setIsPreviewMode } = useEditor()
 
   return (
@@ -72,16 +71,7 @@ export function TopBar() {
         </span>
       </div>
 
-      {/* File name — centered on mobile/iPad, inline on desktop */}
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-2 pl-1 sm:pl-2 xl:flex-none xl:justify-start">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="min-w-12 max-w-[14rem] rounded-md border border-transparent bg-transparent py-1 px-2 text-center text-[13px] font-medium tracking-tight outline-none hover:border-border focus:border-border focus:bg-secondary/60 sm:max-w-none sm:text-[14px] xl:text-left"
-          spellCheck={false}
-          size={Math.max(name.length, 8)}
-        />
-      </div>
+      <div className="flex flex-1" />
 
       {/* History cluster — desktop only */}
       <div className="ml-2 hidden xl:block">
@@ -101,7 +91,7 @@ export function TopBar() {
         />
       </div>
 
-      {/* Open + Save — desktop only */}
+      {/* Open + Save + Reset + Preview — desktop only */}
       <div className="hidden items-center gap-1.5 xl:flex">
         <OpenProjectDialog />
         <Button

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { RiRefreshLine } from "@remixicon/react"
 
 import { TextToolbar } from "@/components/editor/text-toolbar"
@@ -62,6 +63,7 @@ export function TextElementView({ text, canvasRef }: Props) {
   const [isRotateSnapped, setIsRotateSnapped] = React.useState(false)
   const isEditing = isSelected && editingRequested
   const elRef = React.useRef<HTMLDivElement>(null)
+  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
   const editorRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
   const rotateRef = React.useRef<RotateState | null>(null)
@@ -122,6 +124,40 @@ export function TextElementView({ text, canvasRef }: Props) {
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [background, screenshot])
+
+  /* ---- Track text bounding rect so the toolbar (rendered in a portal) tracks the text ---- */
+  React.useEffect(() => {
+    if (!isSelected || !elRef.current) {
+      setToolbarRect(null)
+      return
+    }
+    const el = elRef.current
+    const update = () => setToolbarRect(el.getBoundingClientRect())
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener("scroll", update, true)
+    window.addEventListener("resize", update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("scroll", update, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [isSelected])
+
+  React.useEffect(() => {
+    if (!isSelected || !elRef.current) return
+    setToolbarRect(elRef.current.getBoundingClientRect())
+  }, [
+    isSelected,
+    text.xPct,
+    text.yPct,
+    text.rotation,
+    text.fontSize,
+    text.content,
+    text.widthPx,
+    text.heightPx,
+  ])
 
   /* ---- Drag (move) ---- */
 
@@ -451,6 +487,7 @@ export function TextElementView({ text, canvasRef }: Props) {
   const outerHeight = text.heightPx != null ? `${text.heightPx}px` : undefined
 
   return (
+    <>
     <div
       ref={elRef}
       className={cn(
@@ -465,7 +502,7 @@ export function TextElementView({ text, canvasRef }: Props) {
         left: `${text.xPct}%`,
         top: `${text.yPct}%`,
         transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
-        zIndex: 30 + text.zIndex,
+        zIndex: text.zIndex < 0 ? 10 + text.zIndex : 40 + text.zIndex,
         width: outerWidth,
         height: outerHeight,
       }}
@@ -502,21 +539,6 @@ export function TextElementView({ text, canvasRef }: Props) {
             </div>
           )}
 
-          {/* Toolbar */}
-          <div
-            className="absolute bottom-full left-1/2 z-10 mb-3"
-            style={{
-              transform: `translate(-50%, 0) ${counterRotate}`,
-              transformOrigin: "bottom center",
-            }}
-          >
-            <TextToolbar
-              text={text}
-              onDragHandlePointerDown={startDrag}
-              onDragHandlePointerMove={moveDrag}
-              onDragHandlePointerUp={endDrag}
-            />
-          </div>
           {/* Rotate handle */}
           <button
             aria-label="Rotate text"
@@ -641,6 +663,40 @@ export function TextElementView({ text, canvasRef }: Props) {
         </div>
       )}
     </div>
+    {isSelected && toolbarRect && typeof document !== "undefined"
+      ? createPortal(
+          (() => {
+            const flipBelow = toolbarRect.top < 80
+            const top = flipBelow
+              ? toolbarRect.bottom + 12
+              : toolbarRect.top - 12
+            const left = toolbarRect.left + toolbarRect.width / 2
+            return (
+              <div
+                className="pointer-events-none fixed z-[100]"
+                style={{
+                  top,
+                  left,
+                  transform: flipBelow
+                    ? "translate(-50%, 0)"
+                    : "translate(-50%, -100%)",
+                }}
+              >
+                <div className="pointer-events-auto">
+                  <TextToolbar
+                    text={text}
+                    onDragHandlePointerDown={startDrag}
+                    onDragHandlePointerMove={moveDrag}
+                    onDragHandlePointerUp={endDrag}
+                  />
+                </div>
+              </div>
+            )
+          })(),
+          document.body
+        )
+      : null}
+    </>
   )
 }
 

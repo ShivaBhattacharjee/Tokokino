@@ -8,10 +8,12 @@ import {
   RiDragMove2Line,
   RiFocus3Line,
   RiFullscreenLine,
+  RiImageAddLine,
   RiSparkling2Line,
   RiStackLine,
   RiText,
 } from "@remixicon/react"
+import { toast } from "sonner"
 
 import { LayersPanelContent } from "@/components/editor/layers-popover"
 import {
@@ -42,9 +44,29 @@ export function FloatingToolbar() {
     setScreenshotPosition,
     addText,
     setSelectedTextId,
+    addAsset,
+    setSelectedAssetId,
     screenshot,
     background,
   } = useEditor()
+  const assetInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleAssetUpload = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        const id = addAsset(reader.result)
+        setSelectedAssetId(id)
+        setSelectedTextId(null)
+        setActiveTool("pointer")
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const handleToolClick = (id: EditorTool) => {
     if (id === "text") {
@@ -72,7 +94,34 @@ export function FloatingToolbar() {
 
   return (
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 w-full max-w-[calc(100vw-1.5rem)] -translate-x-1/2 px-3 sm:w-auto sm:px-0">
+      <input
+        ref={assetInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = e.target.files
+          if (files) {
+            for (const f of Array.from(files)) handleAssetUpload(f)
+          }
+          e.target.value = ""
+        }}
+      />
       <div className="pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => assetInputRef.current?.click()}
+              aria-label="Add asset"
+              className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+            >
+              <RiImageAddLine className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">Add asset (image)</TooltipContent>
+        </Tooltip>
+        <span className="mx-1 h-5 w-px bg-border" />
         {items.map((it) => {
           const isActive = activeTool === it.id
           const Icon = it.icon
