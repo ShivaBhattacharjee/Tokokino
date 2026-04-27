@@ -24,6 +24,7 @@ import {
   RiRotateLockLine,
   RiImageLine,
   RiSunLine,
+  RiSearchLine,
   RiUnsplashLine,
   RiUpload2Line,
 } from "@remixicon/react"
@@ -385,411 +386,411 @@ function BackdropSection() {
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-      <Popover open={overlayPopoverOpen} onOpenChange={handleOverlayOpenChange}>
-        <PopoverTrigger asChild>
-          <BackdropTile icon={RiSunLine} label="Overlay" active={overlayActive} />
-        </PopoverTrigger>
-        <PopoverContent
-          side="left"
-          align="start"
-          forceMount={overlayHasOpened ? true : undefined}
-          className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
-        >
-          <PopoverHeader
-            title="Shadow Overlay"
-            description="Drape a soft light or shadow texture over the canvas."
-            onReset={() => setOverlay({ id: null, opacity: 50, position: "overlay" })}
-            resetTitle="Reset overlay"
-          />
-          <OverlayGrid
-            ids={overlayIds}
-            selectedId={overlay.id}
-            onSelect={(id) => setOverlayPatch({ id })}
-          />
-          <div className="space-y-3 pt-3 border-t border-border/40">
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[11px] text-muted-foreground">Opacity</span>
-                <EditableValue
-                  value={overlay.opacity}
-                  onChange={(v) => setOverlayPatch({ opacity: v })}
-                  min={0}
+        <Popover open={overlayPopoverOpen} onOpenChange={handleOverlayOpenChange}>
+          <PopoverTrigger asChild>
+            <BackdropTile icon={RiSunLine} label="Overlay" active={overlayActive} />
+          </PopoverTrigger>
+          <PopoverContent
+            side="left"
+            align="start"
+            forceMount={overlayHasOpened ? true : undefined}
+            className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
+          >
+            <PopoverHeader
+              title="Shadow Overlay"
+              description="Drape a soft light or shadow texture over the canvas."
+              onReset={() => setOverlay({ id: null, opacity: 50, position: "overlay" })}
+              resetTitle="Reset overlay"
+            />
+            <OverlayGrid
+              ids={overlayIds}
+              selectedId={overlay.id}
+              onSelect={(id) => setOverlayPatch({ id })}
+            />
+            <div className="space-y-3 pt-3 border-t border-border/40">
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">Opacity</span>
+                  <EditableValue
+                    value={overlay.opacity}
+                    onChange={(v) => setOverlayPatch({ opacity: v })}
+                    min={0}
+                    max={100}
+                    suffix="%"
+                  />
+                </div>
+                <Slider
+                  value={[overlay.opacity]}
+                  onValueChange={([v]) => setOverlayPatch({ opacity: v })}
                   max={100}
-                  suffix="%"
+                  className="cursor-pointer"
                 />
               </div>
-              <Slider
-                value={[overlay.opacity]}
-                onValueChange={([v]) => setOverlayPatch({ opacity: v })}
-                max={100}
-                className="cursor-pointer"
-              />
-            </div>
-            <div className="space-y-2">
-              <span className="text-[11px] text-muted-foreground">Position</span>
-              <ToggleGroup
-                type="single"
-                value={overlay.position}
-                onValueChange={(v) =>
-                  v && setOverlayPatch({ position: v as "overlay" | "underlay" })
-                }
-                className="flex w-full rounded-md bg-secondary/60 p-1"
-              >
-                <ToggleGroupItem
-                  value="overlay"
-                  className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
-                >
-                  Overlay
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="underlay"
-                  className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
-                >
-                  Underlay
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          <BackdropTile icon={RiEqualizerLine} label="Effects" active={effectsDirty} />
-        </PopoverTrigger>
-        <PopoverContent side="left" align="start" className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md">
-          <PopoverHeader
-            title="Effects"
-            description="Color & filter adjustments applied to the backdrop layer."
-            onReset={() =>
-              setBackdropEffects({
-                noise: 0,
-                blur: 0,
-                brightness: 100,
-                contrast: 100,
-                saturation: 100,
-                hue: 0,
-                grayscale: 0,
-                sepia: 0,
-                invert: 0,
-                opacity: 100,
-              })
-            }
-            resetTitle="Reset effects"
-          />
-          <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1 [scrollbar-width:thin]">
-            <EffectSlider
-              label="Brightness"
-              value={effects.brightness}
-              onChange={(v) => setEffects({ brightness: v })}
-              max={200}
-            />
-            <EffectSlider
-              label="Contrast"
-              value={effects.contrast}
-              onChange={(v) => setEffects({ contrast: v })}
-              max={200}
-            />
-            <EffectSlider
-              label="Saturation"
-              value={effects.saturation}
-              onChange={(v) => setEffects({ saturation: v })}
-              max={200}
-            />
-            <EffectSlider
-              label="Hue"
-              value={effects.hue}
-              onChange={(v) => setEffects({ hue: v })}
-              max={360}
-              suffix="°"
-            />
-            <EffectSlider
-              label="Grayscale"
-              value={effects.grayscale}
-              onChange={(v) => setEffects({ grayscale: v })}
-            />
-            <EffectSlider
-              label="Sepia"
-              value={effects.sepia}
-              onChange={(v) => setEffects({ sepia: v })}
-            />
-            <EffectSlider
-              label="Invert"
-              value={effects.invert}
-              onChange={(v) => setEffects({ invert: v })}
-            />
-            <EffectSlider
-              label="Blur"
-              value={effects.blur}
-              onChange={(v) => setEffects({ blur: v })}
-              max={20}
-              suffix="px"
-            />
-            <EffectSlider
-              label="Noise"
-              value={effects.noise}
-              onChange={(v) => setEffects({ noise: v })}
-            />
-            <EffectSlider
-              label="Opacity"
-              value={effects.opacity}
-              onChange={(v) => setEffects({ opacity: v })}
-            />
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          <BackdropTile icon={RiGridLine} label="Pattern" active={patternActive} />
-        </PopoverTrigger>
-        <PopoverContent
-          side="left"
-          align="start"
-          className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md"
-        >
-          <PopoverHeader
-            title="Patterns"
-            description="Layer geometric textures on top of your backdrop."
-            onReset={() =>
-              setBackdropPattern({
-                ids: [],
-                intensity: 50,
-                thickness: 1,
-                color: "#FFFFFF",
-              })
-            }
-            resetTitle="Reset patterns"
-          />
-          <div className="grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
-            <button
-              key="none"
-              onClick={() => setPattern({ ids: [] })}
-              title="None"
-              className={cn(
-                "relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium text-muted-foreground transition-all cursor-pointer",
-                pattern.ids.length === 0
-                  ? "border-foreground text-foreground ring-1 ring-foreground/30"
-                  : "border-dashed border-border/60 hover:border-foreground/30 hover:text-foreground"
-              )}
-            >
-              None
-            </button>
-            {BACKDROP_PATTERNS.map((p) => {
-              const selected = pattern.ids.includes(p.id)
-              return (
-                <button
-                  key={p.id}
-                  onClick={() =>
-                    setPattern({
-                      ids: selected
-                        ? pattern.ids.filter((v) => v !== p.id)
-                        : [...pattern.ids, p.id],
-                    })
+              <div className="space-y-2">
+                <span className="text-[11px] text-muted-foreground">Position</span>
+                <ToggleGroup
+                  type="single"
+                  value={overlay.position}
+                  onValueChange={(v) =>
+                    v && setOverlayPatch({ position: v as "overlay" | "underlay" })
                   }
-                  style={patternCssFor(p.id, pattern.color, pattern.thickness)}
-                  className={cn(
-                    "relative aspect-square overflow-hidden rounded-md border bg-neutral-900 transition-all cursor-pointer",
-                    selected
-                      ? "border-foreground ring-1 ring-foreground/30"
-                      : "border-border/60 hover:border-foreground/30"
-                  )}
-                  title={p.name}
-                />
-              )
-            })}
-          </div>
-
-          <div className="space-y-3 pt-3 border-t border-border/40">
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[11px] text-muted-foreground">Intensity</span>
-                <EditableValue
-                  value={pattern.intensity}
-                  onChange={(v) => setPattern({ intensity: v })}
-                  min={0}
-                  max={100}
-                  suffix="%"
-                />
+                  className="flex w-full rounded-md bg-secondary/60 p-1"
+                >
+                  <ToggleGroupItem
+                    value="overlay"
+                    className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                  >
+                    Overlay
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="underlay"
+                    className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                  >
+                    Underlay
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
-              <Slider
-                value={[pattern.intensity]}
-                onValueChange={([v]) => setPattern({ intensity: v })}
-                max={100}
-                className="cursor-pointer"
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <BackdropTile icon={RiEqualizerLine} label="Effects" active={effectsDirty} />
+          </PopoverTrigger>
+          <PopoverContent side="left" align="start" className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md">
+            <PopoverHeader
+              title="Effects"
+              description="Color & filter adjustments applied to the backdrop layer."
+              onReset={() =>
+                setBackdropEffects({
+                  noise: 0,
+                  blur: 0,
+                  brightness: 100,
+                  contrast: 100,
+                  saturation: 100,
+                  hue: 0,
+                  grayscale: 0,
+                  sepia: 0,
+                  invert: 0,
+                  opacity: 100,
+                })
+              }
+              resetTitle="Reset effects"
+            />
+            <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1 [scrollbar-width:thin]">
+              <EffectSlider
+                label="Brightness"
+                value={effects.brightness}
+                onChange={(v) => setEffects({ brightness: v })}
+                max={200}
+              />
+              <EffectSlider
+                label="Contrast"
+                value={effects.contrast}
+                onChange={(v) => setEffects({ contrast: v })}
+                max={200}
+              />
+              <EffectSlider
+                label="Saturation"
+                value={effects.saturation}
+                onChange={(v) => setEffects({ saturation: v })}
+                max={200}
+              />
+              <EffectSlider
+                label="Hue"
+                value={effects.hue}
+                onChange={(v) => setEffects({ hue: v })}
+                max={360}
+                suffix="°"
+              />
+              <EffectSlider
+                label="Grayscale"
+                value={effects.grayscale}
+                onChange={(v) => setEffects({ grayscale: v })}
+              />
+              <EffectSlider
+                label="Sepia"
+                value={effects.sepia}
+                onChange={(v) => setEffects({ sepia: v })}
+              />
+              <EffectSlider
+                label="Invert"
+                value={effects.invert}
+                onChange={(v) => setEffects({ invert: v })}
+              />
+              <EffectSlider
+                label="Blur"
+                value={effects.blur}
+                onChange={(v) => setEffects({ blur: v })}
+                max={20}
+                suffix="px"
+              />
+              <EffectSlider
+                label="Noise"
+                value={effects.noise}
+                onChange={(v) => setEffects({ noise: v })}
+              />
+              <EffectSlider
+                label="Opacity"
+                value={effects.opacity}
+                onChange={(v) => setEffects({ opacity: v })}
               />
             </div>
+          </PopoverContent>
+        </Popover>
 
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[11px] text-muted-foreground">Thickness</span>
-                <EditableValue
-                  value={pattern.thickness}
-                  onChange={(v) => setPattern({ thickness: v })}
+        <Popover>
+          <PopoverTrigger asChild>
+            <BackdropTile icon={RiGridLine} label="Pattern" active={patternActive} />
+          </PopoverTrigger>
+          <PopoverContent
+            side="left"
+            align="start"
+            className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md"
+          >
+            <PopoverHeader
+              title="Patterns"
+              description="Layer geometric textures on top of your backdrop."
+              onReset={() =>
+                setBackdropPattern({
+                  ids: [],
+                  intensity: 50,
+                  thickness: 1,
+                  color: "#FFFFFF",
+                })
+              }
+              resetTitle="Reset patterns"
+            />
+            <div className="grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+              <button
+                key="none"
+                onClick={() => setPattern({ ids: [] })}
+                title="None"
+                className={cn(
+                  "relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium text-muted-foreground transition-all cursor-pointer",
+                  pattern.ids.length === 0
+                    ? "border-foreground text-foreground ring-1 ring-foreground/30"
+                    : "border-dashed border-border/60 hover:border-foreground/30 hover:text-foreground"
+                )}
+              >
+                None
+              </button>
+              {BACKDROP_PATTERNS.map((p) => {
+                const selected = pattern.ids.includes(p.id)
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() =>
+                      setPattern({
+                        ids: selected
+                          ? pattern.ids.filter((v) => v !== p.id)
+                          : [...pattern.ids, p.id],
+                      })
+                    }
+                    style={patternCssFor(p.id, pattern.color, pattern.thickness)}
+                    className={cn(
+                      "relative aspect-square overflow-hidden rounded-md border bg-neutral-900 transition-all cursor-pointer",
+                      selected
+                        ? "border-foreground ring-1 ring-foreground/30"
+                        : "border-border/60 hover:border-foreground/30"
+                    )}
+                    title={p.name}
+                  />
+                )
+              })}
+            </div>
+
+            <div className="space-y-3 pt-3 border-t border-border/40">
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">Intensity</span>
+                  <EditableValue
+                    value={pattern.intensity}
+                    onChange={(v) => setPattern({ intensity: v })}
+                    min={0}
+                    max={100}
+                    suffix="%"
+                  />
+                </div>
+                <Slider
+                  value={[pattern.intensity]}
+                  onValueChange={([v]) => setPattern({ intensity: v })}
+                  max={100}
+                  className="cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">Thickness</span>
+                  <EditableValue
+                    value={pattern.thickness}
+                    onChange={(v) => setPattern({ thickness: v })}
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    suffix="px"
+                  />
+                </div>
+                <Slider
+                  value={[pattern.thickness]}
+                  onValueChange={([v]) => setPattern({ thickness: v })}
                   min={1}
                   max={10}
                   step={0.5}
-                  suffix="px"
+                  className="cursor-pointer"
                 />
               </div>
-              <Slider
-                value={[pattern.thickness]}
-                onValueChange={([v]) => setPattern({ thickness: v })}
-                min={1}
-                max={10}
-                step={0.5}
-                className="cursor-pointer"
-              />
-            </div>
 
-            <div>
-              <span className="text-[11px] text-muted-foreground block mb-2">Colour</span>
-              <div className="flex flex-wrap items-center gap-2">
-                {patternColors.map((c) => {
-                  const isActive =
-                    pattern.color.trim().toLowerCase() === c.trim().toLowerCase()
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setPattern({ color: c })}
-                      className={cn(
-                        "size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
-                        isActive &&
+              <div>
+                <span className="text-[11px] text-muted-foreground block mb-2">Colour</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {patternColors.map((c) => {
+                    const isActive =
+                      pattern.color.trim().toLowerCase() === c.trim().toLowerCase()
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => setPattern({ color: c })}
+                        className={cn(
+                          "size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
+                          isActive &&
                           "ring-2 ring-primary ring-offset-1 ring-offset-popover"
-                      )}
-                      style={{ background: c }}
-                    />
-                  )
-                })}
-                <ColorPickerPopover
-                  value={pattern.color}
-                  onChange={(hex) => setPattern({ color: hex })}
-                >
-                  <button
-                    aria-label="Custom pattern color"
-                    className={cn(
-                      "relative size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
-                      !patternColors.some(
-                        (c) =>
-                          c.trim().toLowerCase() ===
-                          pattern.color.trim().toLowerCase()
-                      ) && "ring-2 ring-primary ring-offset-1 ring-offset-popover"
-                    )}
-                    style={{
-                      background: patternColors.some(
-                        (c) =>
-                          c.trim().toLowerCase() ===
-                          pattern.color.trim().toLowerCase()
-                      )
-                        ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
-                        : pattern.color,
-                    }}
+                        )}
+                        style={{ background: c }}
+                      />
+                    )
+                  })}
+                  <ColorPickerPopover
+                    value={pattern.color}
+                    onChange={(hex) => setPattern({ color: hex })}
                   >
-                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
-                      <RiGradienterLine className="size-3.5" />
+                    <button
+                      aria-label="Custom pattern color"
+                      className={cn(
+                        "relative size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
+                        !patternColors.some(
+                          (c) =>
+                            c.trim().toLowerCase() ===
+                            pattern.color.trim().toLowerCase()
+                        ) && "ring-2 ring-primary ring-offset-1 ring-offset-popover"
+                      )}
+                      style={{
+                        background: patternColors.some(
+                          (c) =>
+                            c.trim().toLowerCase() ===
+                            pattern.color.trim().toLowerCase()
+                        )
+                          ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
+                          : pattern.color,
+                      }}
+                    >
+                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
+                        <RiGradienterLine className="size-3.5" />
+                      </span>
+                    </button>
+                  </ColorPickerPopover>
+                </div>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <BackdropTile icon={RiFocus2Line} label="Portrait" active={portraitActive} />
+          </PopoverTrigger>
+          <PopoverContent
+            side="left"
+            align="start"
+            className="w-[260px] space-y-2 bg-popover/95 backdrop-blur-md"
+          >
+            <PopoverHeader
+              title="Portrait Mode"
+              description="Cinematic depth — blends a vignette around your screenshot."
+              onReset={() => setPortrait({ mode: "off", intensity: 60 })}
+              resetTitle="Reset portrait"
+            />
+            <div className="grid grid-cols-3 gap-1.5">
+              {PORTRAIT_MODES.map((m) => {
+                const active = portrait.mode === m.id
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setPortrait({ ...portrait, mode: m.id })}
+                    className={cn(
+                      "group relative flex aspect-square flex-col items-center justify-end overflow-hidden rounded-lg border bg-neutral-900 p-1.5 transition-all cursor-pointer",
+                      active
+                        ? "border-foreground ring-1 ring-foreground/30"
+                        : "border-border/60 hover:border-foreground/30"
+                    )}
+                    title={m.label}
+                  >
+                    <span
+                      aria-hidden
+                      className="absolute inset-0"
+                      style={portraitPreviewCss(m.id)}
+                    />
+                    <span
+                      className={cn(
+                        "relative z-10 rounded-sm bg-black/60 px-1 text-[9px] font-medium text-white/95 backdrop-blur-sm",
+                        active && "bg-foreground text-background"
+                      )}
+                    >
+                      {m.label}
                     </span>
                   </button>
-                </ColorPickerPopover>
-              </div>
+                )
+              })}
             </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          <BackdropTile icon={RiFocus2Line} label="Portrait" active={portraitActive} />
-        </PopoverTrigger>
-        <PopoverContent
-          side="left"
-          align="start"
-          className="w-[260px] space-y-2 bg-popover/95 backdrop-blur-md"
-        >
-          <PopoverHeader
-            title="Portrait Mode"
-            description="Cinematic depth — blends a vignette around your screenshot."
-            onReset={() => setPortrait({ mode: "off", intensity: 60 })}
-            resetTitle="Reset portrait"
-          />
-          <div className="grid grid-cols-3 gap-1.5">
-            {PORTRAIT_MODES.map((m) => {
-              const active = portrait.mode === m.id
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => setPortrait({ ...portrait, mode: m.id })}
-                  className={cn(
-                    "group relative flex aspect-square flex-col items-center justify-end overflow-hidden rounded-lg border bg-neutral-900 p-1.5 transition-all cursor-pointer",
-                    active
-                      ? "border-foreground ring-1 ring-foreground/30"
-                      : "border-border/60 hover:border-foreground/30"
-                  )}
-                  title={m.label}
-                >
-                  <span
-                    aria-hidden
-                    className="absolute inset-0"
-                    style={portraitPreviewCss(m.id)}
+            {portrait.mode !== "off" ? (
+              <div className="space-y-2 pt-2 border-t border-border/40">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">Intensity</span>
+                  <EditableValue
+                    value={portrait.intensity}
+                    onChange={(v) => setPortrait({ ...portrait, intensity: v })}
+                    min={0}
+                    max={100}
+                    suffix="%"
                   />
-                  <span
-                    className={cn(
-                      "relative z-10 rounded-sm bg-black/60 px-1 text-[9px] font-medium text-white/95 backdrop-blur-sm",
-                      active && "bg-foreground text-background"
-                    )}
-                  >
-                    {m.label}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          {portrait.mode !== "off" ? (
-            <div className="space-y-2 pt-2 border-t border-border/40">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[11px] text-muted-foreground">Intensity</span>
-                <EditableValue
-                  value={portrait.intensity}
-                  onChange={(v) => setPortrait({ ...portrait, intensity: v })}
-                  min={0}
+                </div>
+                <Slider
+                  value={[portrait.intensity]}
+                  onValueChange={([v]) =>
+                    setPortrait({ ...portrait, intensity: v })
+                  }
                   max={100}
-                  suffix="%"
+                  className="cursor-pointer"
                 />
               </div>
-              <Slider
-                value={[portrait.intensity]}
-                onValueChange={([v]) =>
-                  setPortrait({ ...portrait, intensity: v })
-                }
-                max={100}
-                className="cursor-pointer"
-              />
-            </div>
-          ) : null}
-        </PopoverContent>
-      </Popover>
+            ) : null}
+          </PopoverContent>
+        </Popover>
 
-      <Popover>
-        <PopoverTrigger asChild>
-          <BackdropTile icon={RiMagicLine} label="Filters" active={backdropFilter !== "none"} />
-        </PopoverTrigger>
-        <PopoverContent
-          side="left"
-          align="start"
-          className="w-[260px] space-y-2 bg-popover/95 backdrop-blur-md"
-        >
-          <PopoverHeader
-            title="Filters"
-            description="Apply a colour grade to the background."
-            onReset={() => setBackdropFilter("none")}
-            resetTitle="Reset filter"
-          />
-          <BackdropFilterGrid current={backdropFilter} onChange={setBackdropFilter} />
-        </PopoverContent>
-      </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <BackdropTile icon={RiMagicLine} label="Filters" active={backdropFilter !== "none"} />
+          </PopoverTrigger>
+          <PopoverContent
+            side="left"
+            align="start"
+            className="w-[260px] space-y-2 bg-popover/95 backdrop-blur-md"
+          >
+            <PopoverHeader
+              title="Filters"
+              description="Apply a colour grade to the background."
+              onReset={() => setBackdropFilter("none")}
+              resetTitle="Reset filter"
+            />
+            <BackdropFilterGrid current={backdropFilter} onChange={setBackdropFilter} />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+
     </div>
-
-
-  </div>
   )
 }
 
@@ -1015,7 +1016,7 @@ type UnsplashResult = {
 function BackgroundSection() {
   const { background, setBackground, screenshot } = useEditor()
   const fileRef = React.useRef<HTMLInputElement>(null)
-  const [unsplashQuery, setUnsplashQuery] = React.useState("abstract gradient")
+  const [unsplashQuery, setUnsplashQuery] = React.useState("")
   const [unsplashStatus, setUnsplashStatus] = React.useState<
     "idle" | "loading" | "ready" | "error"
   >("idle")
@@ -1075,8 +1076,8 @@ function BackgroundSection() {
     reader.readAsDataURL(file)
   }
 
-  const searchUnsplash = async () => {
-    const query = unsplashQuery.trim()
+  const searchUnsplash = async (overrideQuery?: string) => {
+    const query = (overrideQuery ?? unsplashQuery).trim()
     if (!query) return
 
     setUnsplashStatus("loading")
@@ -1353,7 +1354,7 @@ function BackgroundSection() {
                 side="left"
                 align="start"
                 sideOffset={10}
-                className="w-[320px] space-y-3 border-border/60 bg-popover/95 p-3 backdrop-blur-md"
+                className="w-[320px] space-y-1.5 border-border/60 bg-popover/95 p-3 backdrop-blur-md"
               >
                 <div>
                   <p className="text-[12px] font-medium">Search Unsplash</p>
@@ -1361,67 +1362,83 @@ function BackgroundSection() {
                     Pick a landscape photo as the canvas background.
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    value={unsplashQuery}
-                    onChange={(e) => setUnsplashQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void searchUnsplash()
-                    }}
-                    placeholder="Search backgrounds"
-                    className="h-9 min-w-0 flex-1 rounded-md border border-border/60 bg-secondary/30 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground focus:border-[#9BCD64]/70"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 min-w-[92px] cursor-pointer disabled:cursor-not-allowed"
-                    onClick={searchUnsplash}
-                    disabled={unsplashStatus === "loading"}
-                  >
-                    {unsplashStatus === "loading" ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <RiLoader4Line className="size-3.5 animate-spin" />
-                        Searching...
-                      </span>
-                    ) : (
-                      "Search"
-                    )}
-                  </Button>
-                </div>
-                {unsplashStatus === "error" ? (
-                  <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive">
-                    {unsplashError}
-                  </p>
-                ) : null}
-                <div className="grid max-h-[300px] grid-cols-3 gap-2 overflow-y-auto px-1 py-1 [scrollbar-width:thin]">
-                  {unsplashResults.length > 0 ? (
-                    unsplashResults.map((photo) => (
+                <div className="space-y-1.5">
+                  <div className="flex gap-1.5">
+                    <input
+                      value={unsplashQuery}
+                      onChange={(e) => setUnsplashQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void searchUnsplash()
+                      }}
+                      placeholder="Search backgrounds"
+                      className="h-9 min-w-0 flex-1 rounded-md border border-border/60 bg-secondary/30 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground focus:border-[#9BCD64]/70"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                      onClick={() => searchUnsplash()}
+                      disabled={unsplashStatus === "loading"}
+                    >
+                      {unsplashStatus === "loading" ? (
+                        <RiLoader4Line className="size-4 animate-spin" />
+                      ) : (
+                        <RiSearchLine className="size-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Abstract", "Minimal", "Nature", "Gradient", "Space"].map((q) => (
                       <button
-                        key={photo.id}
-                        onClick={() => selectUnsplashImage(photo)}
-                        title={`Photo by ${photo.photographer}`}
+                        key={q}
+                        onClick={() => {
+                          setUnsplashQuery(q)
+                          void searchUnsplash(q)
+                        }}
                         className={cn(
-                          "aspect-square overflow-hidden rounded-lg border cursor-pointer transition-colors",
-                          background.type === "image" &&
-                            background.value === photo.full
-                            ? "border-transparent ring-1 ring-[#9BCD64]/60 ring-offset-1 ring-offset-popover"
-                            : "border-border/60 hover:border-foreground/30"
+                          "rounded-md border border-border/60 bg-secondary/30 px-2 py-1 text-[10px] font-medium transition-all cursor-pointer hover:bg-[#9BCD64]/10 hover:border-[#9BCD64]/40 hover:text-foreground",
+                          unsplashQuery === q && "border-[#9BCD64]/50 bg-[#9BCD64]/10 text-[#9BCD64] ring-1 ring-[#9BCD64]/20"
                         )}
                       >
-                        <img
-                          src={photo.thumb}
-                          alt={photo.alt}
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover"
-                        />
+                        {q}
                       </button>
-                    ))
-                  ) : (
-                    <p className="col-span-3 rounded-lg border border-dashed border-border/60 px-3 py-8 text-center text-[11px] text-muted-foreground">
-                      Search to load Unsplash photos.
+                    ))}
+                  </div>
+                  {unsplashStatus === "error" ? (
+                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive">
+                      {unsplashError}
                     </p>
-                  )}
+                  ) : null}
+                  <div className="grid max-h-[300px] grid-cols-3 gap-2 overflow-y-auto px-1 [scrollbar-width:thin]">
+                    {unsplashResults.length > 0 ? (
+                      unsplashResults.map((photo) => (
+                        <button
+                          key={photo.id}
+                          onClick={() => selectUnsplashImage(photo)}
+                          title={`Photo by ${photo.photographer}`}
+                          className={cn(
+                            "aspect-square overflow-hidden rounded-lg border cursor-pointer transition-colors",
+                            background.type === "image" &&
+                              background.value === photo.full
+                              ? "border-transparent ring-1 ring-[#9BCD64]/60 ring-offset-1 ring-offset-popover"
+                              : "border-border/60 hover:border-foreground/30"
+                          )}
+                        >
+                          <img
+                            src={photo.thumb}
+                            alt={photo.alt}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      ))
+                    ) : (
+                      <div className="col-span-3 flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+                        <p className="text-[11px]">Select a topic or search to load photos.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -1486,7 +1503,7 @@ function BackgroundSection() {
                   className={cn(
                     "grid grid-cols-3 gap-2 px-1 py-1",
                     gradientExpanded &&
-                      "max-h-[280px] overflow-y-auto pr-1 [scrollbar-width:thin]"
+                    "max-h-[280px] overflow-y-auto pr-1 [scrollbar-width:thin]"
                   )}
                 >
                   {visible.map((option) => {
@@ -2207,38 +2224,50 @@ function BorderSection() {
     !finalPresets.some((c) => c.toLowerCase() === currentColor.toLowerCase())
 
   const thumbBg = "bg-[#d1d5db]"
-  
+
   const borderStyles = [
-    { id: "solid" as const, label: "Solid", icon: (
-      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
-        <div className="size-full rounded-[3px] border-[3px] border-solid border-gray-500" />
-      </div>
-    )},
-    { id: "dashed" as const, label: "Dashed", icon: (
-      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
-        <div className="size-full rounded-[3px] border-[3px] border-dashed border-gray-500" />
-      </div>
-    )},
-    { id: "dotted" as const, label: "Dotted", icon: (
-      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
-        <div className="size-full rounded-[3px] border-[3px] border-dotted border-gray-500" />
-      </div>
-    )},
-    { id: "double" as const, label: "Double", icon: (
-      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
-        <div className="size-full rounded-[3px] border-[4px] border-double border-gray-500" />
-      </div>
-    )},
-    { id: "groove" as const, label: "Groove", icon: (
-      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
-        <div className="size-full rounded-[3px] border-[3px] border-groove border-gray-500" />
-      </div>
-    )},
-    { id: "ridge" as const, label: "Ridge", icon: (
-      <div className={cn("size-full rounded-sm p-2", thumbBg)}>
-        <div className="size-full rounded-[3px] border-[3px] border-ridge border-gray-500" />
-      </div>
-    )},
+    {
+      id: "solid" as const, label: "Solid", icon: (
+        <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+          <div className="size-full rounded-[3px] border-[3px] border-solid border-gray-500" />
+        </div>
+      )
+    },
+    {
+      id: "dashed" as const, label: "Dashed", icon: (
+        <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+          <div className="size-full rounded-[3px] border-[3px] border-dashed border-gray-500" />
+        </div>
+      )
+    },
+    {
+      id: "dotted" as const, label: "Dotted", icon: (
+        <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+          <div className="size-full rounded-[3px] border-[3px] border-dotted border-gray-500" />
+        </div>
+      )
+    },
+    {
+      id: "double" as const, label: "Double", icon: (
+        <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+          <div className="size-full rounded-[3px] border-[4px] border-double border-gray-500" />
+        </div>
+      )
+    },
+    {
+      id: "groove" as const, label: "Groove", icon: (
+        <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+          <div className="size-full rounded-[3px] border-[3px] border-groove border-gray-500" />
+        </div>
+      )
+    },
+    {
+      id: "ridge" as const, label: "Ridge", icon: (
+        <div className={cn("size-full rounded-sm p-2", thumbBg)}>
+          <div className="size-full rounded-[3px] border-[3px] border-ridge border-gray-500" />
+        </div>
+      )
+    },
   ]
 
   return (
@@ -2510,36 +2539,48 @@ function ShadowSection() {
   const thumbCard = "rounded-[3px] bg-white"
 
   const types = [
-    { id: "none" as const, label: "None", icon: (
-      <div className={cn("size-full rounded-sm p-3", thumbBg)}>
-        <div className="size-full rounded-[3px] border-2 border-dashed border-gray-400" />
-      </div>
-    )},
-    { id: "drop" as const, label: "Drop", icon: (
-      <div className={cn("size-full rounded-sm p-3 pb-4 pr-4", thumbBg)}>
-        <div className={cn("size-full shadow-[5px_5px_8px_0px_rgba(0,0,0,0.45)]", thumbCard)} />
-      </div>
-    )},
-    { id: "soft" as const, label: "Soft", icon: (
-      <div className={cn("size-full rounded-sm px-3 pt-2 pb-5", thumbBg)}>
-        <div className={cn("size-full shadow-[0_8px_20px_2px_rgba(0,0,0,0.3)]", thumbCard)} />
-      </div>
-    )},
-    { id: "hard" as const, label: "Hard", icon: (
-      <div className={cn("size-full rounded-sm p-3 pb-4 pr-4", thumbBg)}>
-        <div className={cn("size-full shadow-[5px_5px_0px_0px_rgba(0,0,0,0.75)]", thumbCard)} />
-      </div>
-    )},
-    { id: "glow" as const, label: "Glow", icon: (
-      <div className={cn("size-full rounded-sm p-3", thumbBg)}>
-        <div className={cn("size-full shadow-[0_0_14px_3px_rgba(0,0,0,0.35)]", thumbCard)} />
-      </div>
-    )},
-    { id: "float" as const, label: "Float", icon: (
-      <div className={cn("size-full rounded-sm px-3 pt-2 pb-5", thumbBg)}>
-        <div className={cn("size-full shadow-[0_4px_6px_0px_rgba(0,0,0,0.25),0_12px_20px_0px_rgba(0,0,0,0.2)]", thumbCard)} />
-      </div>
-    )},
+    {
+      id: "none" as const, label: "None", icon: (
+        <div className={cn("size-full rounded-sm p-3", thumbBg)}>
+          <div className="size-full rounded-[3px] border-2 border-dashed border-gray-400" />
+        </div>
+      )
+    },
+    {
+      id: "drop" as const, label: "Drop", icon: (
+        <div className={cn("size-full rounded-sm p-3 pb-4 pr-4", thumbBg)}>
+          <div className={cn("size-full shadow-[5px_5px_8px_0px_rgba(0,0,0,0.45)]", thumbCard)} />
+        </div>
+      )
+    },
+    {
+      id: "soft" as const, label: "Soft", icon: (
+        <div className={cn("size-full rounded-sm px-3 pt-2 pb-5", thumbBg)}>
+          <div className={cn("size-full shadow-[0_8px_20px_2px_rgba(0,0,0,0.3)]", thumbCard)} />
+        </div>
+      )
+    },
+    {
+      id: "hard" as const, label: "Hard", icon: (
+        <div className={cn("size-full rounded-sm p-3 pb-4 pr-4", thumbBg)}>
+          <div className={cn("size-full shadow-[5px_5px_0px_0px_rgba(0,0,0,0.75)]", thumbCard)} />
+        </div>
+      )
+    },
+    {
+      id: "glow" as const, label: "Glow", icon: (
+        <div className={cn("size-full rounded-sm p-3", thumbBg)}>
+          <div className={cn("size-full shadow-[0_0_14px_3px_rgba(0,0,0,0.35)]", thumbCard)} />
+        </div>
+      )
+    },
+    {
+      id: "float" as const, label: "Float", icon: (
+        <div className={cn("size-full rounded-sm px-3 pt-2 pb-5", thumbBg)}>
+          <div className={cn("size-full shadow-[0_4px_6px_0px_rgba(0,0,0,0.25),0_12px_20px_0px_rgba(0,0,0,0.2)]", thumbCard)} />
+        </div>
+      )
+    },
   ]
 
   const isDisabled = type === "none"
@@ -2704,7 +2745,7 @@ function BackdropFilterGrid({
   onChange: (f: AssetFilter) => void
 }) {
   return (
-    <div className="grid grid-cols-4 gap-1.5">
+    <div className="grid max-h-[240px] grid-cols-3 gap-1.5 overflow-y-auto px-1 py-1 [scrollbar-width:thin]">
       {BACKDROP_FILTERS.map((f) => {
         const active = current === f.id
         return (
