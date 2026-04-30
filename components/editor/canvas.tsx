@@ -73,6 +73,8 @@ export function Canvas() {
   const {
     activeTool,
     screenshot,
+    originalScreenshot,
+    lastCropRegion,
     aspect,
     background,
     padding,
@@ -91,6 +93,7 @@ export function Canvas() {
     canvasBorderRadius,
     isPreviewMode,
     setScreenshot,
+    applyCroppedScreenshot,
     setScreenshotOffset,
     texts,
     selectedTextId,
@@ -720,8 +723,9 @@ export function Canvas() {
       <CropModal
         open={isCropModalOpen}
         onOpenChange={setIsCropModalOpen}
-        screenshotUrl={screenshot}
-        onCrop={setScreenshot}
+        screenshotUrl={originalScreenshot ?? screenshot}
+        initialRegion={lastCropRegion}
+        onCrop={applyCroppedScreenshot}
       />
     </section>
   )

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { RiCropLine } from "@remixicon/react"
+import type { PercentCrop } from "react-image-crop"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
   ImageCrop,
@@ -9,11 +9,12 @@ import {
 } from "@/components/kibo-ui/image-crop"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import type { CropRegion } from "@/lib/editor/store"
 
 function dataURLtoFile(dataurl: string, filename: string) {
-  const arr = dataurl.split(',')
+  const arr = dataurl.split(",")
   const mimeMatch = arr[0].match(/:(.*?);/)
-  const mime = mimeMatch ? mimeMatch[1] : 'image/png'
+  const mime = mimeMatch ? mimeMatch[1] : "image/png"
   const bstr = atob(arr[1])
   let n = bstr.length
   const u8arr = new Uint8Array(n)
@@ -23,27 +24,31 @@ function dataURLtoFile(dataurl: string, filename: string) {
   return new File([u8arr], filename, { type: mime })
 }
 
-const PRESETS: { label: string; aspect: number | undefined }[] = [
-  { label: "Freeform", aspect: undefined },
-  { label: "4:3", aspect: 4 / 3 },
-  { label: "16:9", aspect: 16 / 9 },
-  { label: "16:10", aspect: 16 / 10 },
-  { label: "3:2", aspect: 3 / 2 },
-  { label: "5:4", aspect: 5 / 4 },
-  { label: "4:5", aspect: 4 / 5 },
-  { label: "1:1", aspect: 1 },
+type Preset = { label: string; aspect: number | undefined; w: number; h: number }
+
+const PRESETS: Preset[] = [
+  { label: "Free", aspect: undefined, w: 18, h: 12 },
+  { label: "1:1", aspect: 1, w: 14, h: 14 },
+  { label: "4:3", aspect: 4 / 3, w: 18, h: 13.5 },
+  { label: "3:2", aspect: 3 / 2, w: 18, h: 12 },
+  { label: "16:10", aspect: 16 / 10, w: 18, h: 11.25 },
+  { label: "16:9", aspect: 16 / 9, w: 18, h: 10.125 },
+  { label: "5:4", aspect: 5 / 4, w: 16, h: 12.8 },
+  { label: "4:5", aspect: 4 / 5, w: 12.8, h: 16 },
 ]
 
 export function CropModal({
   open,
   onOpenChange,
   screenshotUrl,
+  initialRegion,
   onCrop,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   screenshotUrl: string | null
-  onCrop: (croppedBase64: string) => void
+  initialRegion?: CropRegion | null
+  onCrop: (croppedBase64: string, region: CropRegion) => void
 }) {
   const [aspect, setAspect] = React.useState<number | undefined>(undefined)
 
@@ -60,78 +65,122 @@ export function CropModal({
     return dataURLtoFile(screenshotUrl, "screenshot.png")
   }, [open, screenshotUrl])
 
+  const initialPercentCrop = React.useMemo<PercentCrop | undefined>(() => {
+    if (!initialRegion) return undefined
+    return { unit: "%", ...initialRegion }
+  }, [initialRegion])
+
   if (!file) return null
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        showCloseButton
-        className="flex max-w-[680px] flex-col gap-0 overflow-hidden rounded-2xl border-border/60 bg-popover p-0 shadow-2xl sm:max-w-[680px] [&_[data-slot=dialog-close]]:transition-none [&_[data-slot=dialog-close]]:active:translate-y-0 [&_[data-slot=dialog-close]]:hover:bg-transparent"
+        showCloseButton={false}
+        className="flex max-w-[760px] flex-col gap-0 overflow-hidden rounded-2xl border border-border/60 bg-popover p-0 shadow-2xl sm:max-w-[760px]"
       >
         <DialogTitle className="sr-only">Crop screenshot</DialogTitle>
-        {/* Cropper Area */}
-        <div className="flex flex-1 flex-col items-center justify-center bg-secondary/30 p-6">
-          {/* Key on aspect to force remount & recalculate crop when preset changes */}
-          <ImageCrop
-            key={aspect ?? "free"}
-            file={file}
-            aspect={aspect}
-            onCrop={(croppedImage) => {
-              onCrop(croppedImage)
-            }}
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border/50 px-5 py-3">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-semibold tracking-tight text-foreground">
+              Crop screenshot
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              Drag the handles or pick a preset ratio
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleOpenChange(false)}
+            className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label="Close"
           >
-            <div className="flex w-full flex-col items-center justify-center">
-              <ImageCropContent className="max-h-[380px] max-w-full" />
-              <div className="mt-5 flex items-center justify-center gap-3">
-                <ImageCropReset asChild>
-                  <Button
-                    variant="outline"
-                    className="h-9 cursor-pointer rounded-lg border-border/60 px-5 text-xs"
-                  >
-                    Reset
-                  </Button>
-                </ImageCropReset>
-                <ImageCropApply
-                  asChild
-                  onClick={() => handleOpenChange(false)}
-                >
-                  <Button className="h-9 cursor-pointer rounded-lg bg-primary px-6 text-xs text-primary-foreground hover:bg-primary/90">
-                    Apply Crop
-                  </Button>
-                </ImageCropApply>
-              </div>
-            </div>
-          </ImageCrop>
+            <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
         </div>
 
-        {/* Presets Row at Bottom */}
-        <div className="flex flex-col gap-2 border-t border-border/50 bg-popover px-4 py-3">
-          <span className="text-[11px] font-medium text-muted-foreground tracking-tight">
-            Aspect Ratio
-          </span>
-          <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
-            {PRESETS.map((p) => {
-              const isActive = aspect === p.aspect
-              return (
-                <button
-                  key={p.label}
-                  onClick={() => setAspect(p.aspect)}
-                  className={cn(
-                    "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors cursor-pointer",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-secondary/60 text-foreground/80 hover:bg-secondary hover:text-foreground"
-                  )}
-                >
-                  {p.label === "Freeform" && (
-                    <RiCropLine className="size-3.5" />
-                  )}
-                  {p.label}
-                </button>
-              )
-            })}
+        <ImageCrop
+          key={aspect ?? "free"}
+          file={file}
+          aspect={aspect}
+          initialCrop={aspect === undefined ? initialPercentCrop : undefined}
+          onCrop={(croppedImage, region) => {
+            onCrop(croppedImage, {
+              x: region.x,
+              y: region.y,
+              width: region.width,
+              height: region.height,
+            })
+            handleOpenChange(false)
+          }}
+        >
+          {/* Cropper Area */}
+          <div
+            className="relative flex flex-1 items-center justify-center px-6 py-8"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, var(--color-border) 1px, transparent 0)",
+              backgroundSize: "14px 14px",
+            }}
+          >
+            <ImageCropContent className="max-h-[420px] max-w-full rounded-lg" />
           </div>
-        </div>
+
+          {/* Action Bar */}
+          <div className="flex items-center justify-between gap-4 border-t border-border/50 bg-background/40 px-4 py-3">
+            {/* Aspect chips */}
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {PRESETS.map((p) => {
+                const isActive = aspect === p.aspect
+                return (
+                  <button
+                    key={p.label}
+                    onClick={() => setAspect(p.aspect)}
+                    className={cn(
+                      "group flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium tracking-tight transition-all cursor-pointer",
+                      isActive
+                        ? "border-foreground/80 bg-foreground text-background"
+                        : "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:bg-secondary/60 hover:text-foreground"
+                    )}
+                    aria-pressed={isActive}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "block shrink-0 rounded-[2px] border transition-colors",
+                        isActive
+                          ? "border-background/70"
+                          : "border-current opacity-70"
+                      )}
+                      style={{ width: `${p.w}px`, height: `${p.h}px` }}
+                    />
+                    <span className="leading-none">{p.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex shrink-0 items-center gap-2 border-l border-border/50 pl-3">
+              <ImageCropReset asChild>
+                <Button
+                  variant="ghost"
+                  className="h-8 cursor-pointer rounded-md px-3 text-[12px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                >
+                  Reset
+                </Button>
+              </ImageCropReset>
+              <ImageCropApply asChild>
+                <Button className="h-8 cursor-pointer rounded-md bg-primary px-4 text-[12px] font-medium text-primary-foreground hover:bg-primary/90">
+                  Apply crop
+                </Button>
+              </ImageCropApply>
+            </div>
+          </div>
+        </ImageCrop>
       </DialogContent>
     </Dialog>
   )

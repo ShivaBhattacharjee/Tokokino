@@ -6,6 +6,8 @@ import BACKGROUND_DATA from "./backgrounds-data.json"
 
 export type AspectState = { id: string; w: number; h: number }
 
+export type CropRegion = { x: number; y: number; width: number; height: number }
+
 export type BgType = "none" | "solid" | "gradient" | "image" | "auto"
 
 export type Background = { type: BgType; value: string }
@@ -296,6 +298,8 @@ export const OVERLAY_COUNT = 100
 export type EditorState = {
   activeTool: EditorTool
   screenshot: string | null
+  originalScreenshot: string | null
+  lastCropRegion: CropRegion | null
   aspect: AspectState
   background: Background
   padding: number
@@ -495,6 +499,8 @@ export const DEFAULT_IMAGE_BACKGROUND =
 const DEFAULT_STATE: EditorState = {
   activeTool: "pointer",
   screenshot: null,
+  originalScreenshot: null,
+  lastCropRegion: null,
   aspect: { id: "16-10", w: 1920, h: 1200 },
   background: {
     type: "image",
@@ -644,6 +650,7 @@ function reducer(state: HistoryState, action: Action): HistoryState {
 type Ctx = EditorState & {
   setActiveTool: (t: EditorTool) => void
   setScreenshot: (s: string | null) => void
+  applyCroppedScreenshot: (s: string, region: CropRegion) => void
   setAspect: (a: AspectState) => void
   setBackground: (b: Background) => void
   setPadding: (n: number) => void
@@ -726,10 +733,17 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         set(
           {
             screenshot: s,
+            originalScreenshot: s,
+            lastCropRegion: null,
             screenshotPosition: "center",
             screenshotOffset: { x: 0, y: 0 },
           },
           null
+        ),
+      applyCroppedScreenshot: (s, region) =>
+        set(
+          { screenshot: s, lastCropRegion: region },
+          "applyCroppedScreenshot"
         ),
       setAspect: (a) => set({ aspect: a }, "aspect"),
       setBackground: (b) => set({ background: b }, "background"),

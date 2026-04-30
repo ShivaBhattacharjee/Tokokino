@@ -103,7 +103,7 @@ type ImageCropContextType = {
   crop: PercentCrop | undefined;
   completedCrop: PixelCrop | null;
   imgRef: RefObject<HTMLImageElement | null>;
-  onCrop?: (croppedImage: string) => void;
+  onCrop?: (croppedImage: string, region: PercentCrop) => void;
   reactCropProps: Omit<ReactCropProps, "onChange" | "onComplete" | "children">;
   handleChange: (pixelCrop: PixelCrop, percentCrop: PercentCrop) => void;
   handleComplete: (
@@ -128,10 +128,12 @@ const useImageCrop = () => {
 export type ImageCropProps = {
   file: File;
   maxImageSize?: number;
-  onCrop?: (croppedImage: string) => void;
+  onCrop?: (croppedImage: string, region: PercentCrop) => void;
   children: ReactNode;
   onChange?: ReactCropProps["onChange"];
   onComplete?: ReactCropProps["onComplete"];
+  /** Initial crop in percent units. Used in place of the auto-centered crop on first image load. */
+  initialCrop?: PercentCrop;
 } & Omit<ReactCropProps, "onChange" | "onComplete" | "children">;
 
 export const ImageCrop = ({
@@ -141,6 +143,7 @@ export const ImageCrop = ({
   children,
   onChange,
   onComplete,
+  initialCrop: initialCropProp,
   ...reactCropProps
 }: ImageCropProps) => {
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -160,11 +163,17 @@ export const ImageCrop = ({
   const onImageLoad = useCallback(
     (e: SyntheticEvent<HTMLImageElement>) => {
       const { width, height } = e.currentTarget;
-      const newCrop = centerAspectCrop(width, height, reactCropProps.aspect);
-      setCrop(newCrop);
-      setInitialCrop(newCrop);
+      const autoCrop = centerAspectCrop(width, height, reactCropProps.aspect);
+      // Use the caller-provided initial crop only when no aspect lock is set;
+      // when an aspect ratio is active the auto-centered crop must win.
+      const startCrop =
+        initialCropProp && reactCropProps.aspect === undefined
+          ? initialCropProp
+          : autoCrop;
+      setCrop(startCrop);
+      setInitialCrop(autoCrop);
     },
-    [reactCropProps.aspect]
+    [reactCropProps.aspect, initialCropProp]
   );
 
   const handleChange = (pixelCrop: PixelCrop, percentCrop: PercentCrop) => {
@@ -182,16 +191,32 @@ export const ImageCrop = ({
   };
 
   const applyCrop = async () => {
-    if (!(imgRef.current && completedCrop)) {
+    if (!imgRef.current) {
       return;
     }
 
-    const croppedImage = await getCroppedPngImage(
-      imgRef.current,
-      completedCrop
-    );
+    // Fall back to the current crop if the user hasn't dragged yet
+    // (onComplete only fires after a drag, so completedCrop may be null).
+    let pixelCrop: PixelCrop | null = completedCrop;
+    if (!pixelCrop && crop) {
+      const { width, height } = imgRef.current;
+      pixelCrop = {
+        unit: "px",
+        x: (crop.x / 100) * width,
+        y: (crop.y / 100) * height,
+        width: (crop.width / 100) * width,
+        height: (crop.height / 100) * height,
+      };
+    }
+    if (!pixelCrop || pixelCrop.width === 0 || pixelCrop.height === 0) {
+      return;
+    }
 
-    onCrop?.(croppedImage);
+    const croppedImage = await getCroppedPngImage(imgRef.current, pixelCrop);
+
+    if (crop) {
+      onCrop?.(croppedImage, crop);
+    }
   };
 
   const resetCrop = () => {
