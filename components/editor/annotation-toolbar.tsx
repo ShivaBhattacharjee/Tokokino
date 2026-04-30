@@ -18,6 +18,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import {
   ANNOTATION_COLORS,
   ANNOTATION_STROKES,
@@ -124,26 +125,26 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
             </button>
           )
         })}
-        {/* Native picker */}
-        <label
-          className="relative inline-flex size-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-foreground/15 transition-[filter] hover:brightness-110"
-          aria-label="Custom color"
-          title="Custom color"
+        <ColorPickerPopover
+          value={annotation.color}
+          side="top"
+          align="center"
+          onChange={(hex) => setAnnotation({ color: hex })}
         >
-          <span
-            className="absolute inset-0"
-            style={{
-              background:
-                "conic-gradient(#ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ec4899, #ef4444)",
-            }}
-          />
-          <input
-            type="color"
-            value={annotation.color}
-            onChange={(e) => setAnnotation({ color: e.target.value })}
-            className="absolute inset-0 cursor-pointer opacity-0"
-          />
-        </label>
+          <button
+            aria-label="Custom color"
+            title="Custom color"
+            className="relative inline-flex size-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-foreground/15 transition-[filter] hover:brightness-110"
+          >
+            <span
+              className="absolute inset-0"
+              style={{
+                background:
+                  "conic-gradient(#ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ec4899, #ef4444)",
+              }}
+            />
+          </button>
+        </ColorPickerPopover>
       </div>
 
       <Divider />

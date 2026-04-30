@@ -47,10 +47,13 @@ export function CropModal({
 }) {
   const [aspect, setAspect] = React.useState<number | undefined>(undefined)
 
-  // Reset aspect when modal opens
-  React.useEffect(() => {
-    if (open) setAspect(undefined)
-  }, [open])
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) setAspect(undefined)
+      onOpenChange(nextOpen)
+    },
+    [onOpenChange]
+  )
 
   const file = React.useMemo(() => {
     if (!open || !screenshotUrl) return null
@@ -60,7 +63,7 @@ export function CropModal({
   if (!file) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton
         className="flex max-w-[680px] flex-col gap-0 overflow-hidden rounded-2xl border-border/60 bg-popover p-0 shadow-2xl sm:max-w-[680px] [&_[data-slot=dialog-close]]:transition-none [&_[data-slot=dialog-close]]:active:translate-y-0 [&_[data-slot=dialog-close]]:hover:bg-transparent"
@@ -90,7 +93,7 @@ export function CropModal({
                 </ImageCropReset>
                 <ImageCropApply
                   asChild
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => handleOpenChange(false)}
                 >
                   <Button className="h-9 cursor-pointer rounded-lg bg-primary px-6 text-xs text-primary-foreground hover:bg-primary/90">
                     Apply Crop
