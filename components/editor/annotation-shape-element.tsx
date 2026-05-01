@@ -1,13 +1,23 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import {
+  RiBringToFront,
   RiDeleteBinLine,
   RiDragMove2Line,
   RiFileCopyLine,
+  RiMoreFill,
+  RiRefreshLine,
+  RiSendToBack,
 } from "@remixicon/react"
 
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Tooltip,
   TooltipContent,
@@ -45,6 +55,14 @@ type ResizeState = {
   canvasH: number
 }
 
+type RotateState = {
+  pointerId: number
+  centerX: number
+  centerY: number
+  startAngle: number
+  startRotation: number
+}
+
 const iconBtnClass =
   "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer shrink-0"
 
@@ -70,6 +88,41 @@ export function AnnotationShapeElement({
   const elRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
   const resizeRef = React.useRef<ResizeState | null>(null)
+  const rotateRef = React.useRef<RotateState | null>(null)
+  const [isRotateSnapped, setIsRotateSnapped] = React.useState(false)
+  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
+  const rotation = shape.rotation ?? 0
+
+  React.useEffect(() => {
+    if (!isSelected || !elRef.current) {
+      setToolbarRect(null)
+      return
+    }
+    const el = elRef.current
+    const update = () => setToolbarRect(el.getBoundingClientRect())
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener("scroll", update, true)
+    window.addEventListener("resize", update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("scroll", update, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [isSelected])
+
+  React.useEffect(() => {
+    if (!isSelected || !elRef.current) return
+    setToolbarRect(elRef.current.getBoundingClientRect())
+  }, [
+    isSelected,
+    shape.xPct,
+    shape.yPct,
+    shape.widthPct,
+    shape.heightPct,
+    rotation,
+  ])
 
   React.useEffect(() => {
     if (!isSelected) return
@@ -211,6 +264,55 @@ export function AnnotationShapeElement({
     resizeRef.current = null
   }
 
+  const startRotate = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = elRef.current
+    if (!el) return
+    e.stopPropagation()
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    rotateRef.current = {
+      pointerId: e.pointerId,
+      centerX: cx,
+      centerY: cy,
+      startAngle: Math.atan2(e.clientY - cy, e.clientX - cx),
+      startRotation: rotation,
+    }
+  }
+
+  const moveRotate = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const rot = rotateRef.current
+    if (!rot || rot.pointerId !== e.pointerId) return
+    const angle = Math.atan2(e.clientY - rot.centerY, e.clientX - rot.centerX)
+    const delta = ((angle - rot.startAngle) * 180) / Math.PI
+    let next = rot.startRotation + delta
+    next = ((next % 360) + 360) % 360
+    let snapped = false
+    if (e.shiftKey) {
+      next = Math.round(next / 15) * 15
+      if (next % 90 === 0) snapped = true
+    } else {
+      const nearest90 = Math.round(next / 90) * 90
+      if (Math.abs(next - nearest90) < 4 || Math.abs(next - nearest90 + 360) < 4) {
+        next = nearest90 % 360
+        snapped = true
+      }
+    }
+    setIsRotateSnapped(snapped)
+    updateAnnotationShape(shape.id, { rotation: next })
+  }
+
+  const endRotate = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const rot = rotateRef.current
+    if (!rot || rot.pointerId !== e.pointerId) return
+    rotateRef.current = null
+    setIsRotateSnapped(false)
+  }
+
+  const counterRotate = `rotate(${-rotation}deg)`
+
   return (
     <>
       <div
@@ -235,59 +337,100 @@ export function AnnotationShapeElement({
           top: `${shape.yPct}%`,
           width: `${shape.widthPct}%`,
           height: `${shape.heightPct}%`,
-          transform: "translate(-50%, -50%)",
+          transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
           zIndex: 86 + shape.zIndex,
         }}
       >
-        <svg
-          className="h-full w-full overflow-visible"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          {shape.kind === "arrow" ? (
-            <g
-              fill="none"
-              stroke={shape.color}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={shape.strokeWidth}
-              strokeDasharray={dashArray}
-              vectorEffect="non-scaling-stroke"
+        {shape.kind === "arrow" ? (
+          <>
+            <svg
+              className="absolute inset-0 h-full w-full overflow-visible"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
             >
-              <line x1="50" y1="90" x2="50" y2="15" />
-              <polyline points="18,43 50,15 82,43" />
-            </g>
-          ) : shape.kind === "rect" ? (
-            <rect
-              x="4"
-              y="4"
-              width="92"
-              height="92"
-              rx="3"
-              fill="none"
-              stroke={shape.color}
-              strokeWidth={shape.strokeWidth}
-              strokeDasharray={dashArray}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : (
-            <ellipse
-              cx="50"
-              cy="50"
-              rx="46"
-              ry="46"
-              fill="none"
-              stroke={shape.color}
-              strokeWidth={shape.strokeWidth}
-              strokeDasharray={dashArray}
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-        </svg>
+              <line
+                x1="0"
+                y1="50"
+                x2="100"
+                y2="50"
+                fill="none"
+                stroke={shape.color}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={shape.strokeWidth}
+                strokeDasharray={dashArray}
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              viewBox="0 0 10 10"
+              preserveAspectRatio="xMidYMid meet"
+              style={{
+                right: 0,
+                top: "50%",
+                width: `${Math.max(16, shape.strokeWidth * 7)}px`,
+                height: `${Math.max(16, shape.strokeWidth * 7)}px`,
+                transform: "translateY(-50%)",
+                overflow: "visible",
+              }}
+            >
+              <polyline
+                points="1.5,1.5 9.5,5 1.5,8.5"
+                fill="none"
+                stroke={shape.color}
+                strokeWidth={shape.strokeWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+          </>
+        ) : (
+          <svg
+            className="h-full w-full overflow-visible"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            {shape.kind === "rect" ? (
+              <rect
+                x="4"
+                y="4"
+                width="92"
+                height="92"
+                rx="3"
+                fill="none"
+                stroke={shape.color}
+                strokeWidth={shape.strokeWidth}
+                strokeDasharray={dashArray}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : (
+              <ellipse
+                cx="50"
+                cy="50"
+                rx="46"
+                ry="46"
+                fill="none"
+                stroke={shape.color}
+                strokeWidth={shape.strokeWidth}
+                strokeDasharray={dashArray}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+          </svg>
+        )}
 
         {isSelected ? (
           <>
             <div className="pointer-events-none absolute inset-0 border border-dashed border-[#92b97a]/80" />
+            {isRotateSnapped && (
+              <div className="pointer-events-none absolute left-1/2 top-1/2 z-[-1] -translate-x-1/2 -translate-y-1/2">
+                <div className="absolute w-[4000px] -translate-x-1/2 border-t border-dashed border-[#9BCD64]/95" />
+                <div className="absolute h-[4000px] -translate-y-1/2 border-l border-dashed border-[#9BCD64]/95" />
+              </div>
+            )}
             {RESIZE_HANDLES.map((handle) => (
               <button
                 key={handle}
@@ -302,15 +445,57 @@ export function AnnotationShapeElement({
                 onPointerCancel={endResize}
               />
             ))}
-            <AnnotationShapeToolbar
-              shape={shape}
-              onDragPointerDown={startDrag}
-              onDragPointerMove={moveDrag}
-              onDragPointerUp={endDrag}
-            />
+            <button
+              aria-label="Rotate shape"
+              onPointerDown={startRotate}
+              onPointerMove={moveRotate}
+              onPointerUp={endRotate}
+              onPointerCancel={endRotate}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute -bottom-9 left-1/2 z-10 flex size-7 items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md cursor-grab"
+              style={{
+                transform: `translate(-50%, 0) ${counterRotate}`,
+                transformOrigin: "top center",
+              }}
+            >
+              <RiRefreshLine className="size-3.5" />
+            </button>
           </>
         ) : null}
       </div>
+      {isSelected && toolbarRect && typeof document !== "undefined"
+        ? createPortal(
+            (() => {
+              const flipBelow = toolbarRect.top < 80
+              const top = flipBelow
+                ? toolbarRect.bottom + 12
+                : toolbarRect.top - 12
+              const left = toolbarRect.left + toolbarRect.width / 2
+              return (
+                <div
+                  className="pointer-events-none fixed z-[100]"
+                  style={{
+                    top,
+                    left,
+                    transform: flipBelow
+                      ? "translate(-50%, 0)"
+                      : "translate(-50%, -100%)",
+                  }}
+                >
+                  <div className="pointer-events-auto">
+                    <AnnotationShapeToolbar
+                      shape={shape}
+                      onDragPointerDown={startDrag}
+                      onDragPointerMove={moveDrag}
+                      onDragPointerUp={endDrag}
+                    />
+                  </div>
+                </div>
+              )
+            })(),
+            document.body
+          )
+        : null}
     </>
   )
 }
@@ -330,12 +515,15 @@ function AnnotationShapeToolbar({
     updateAnnotationShape,
     deleteAnnotationShape,
     duplicateAnnotationShape,
+    bringAnnotationShapeToFront,
+    sendAnnotationShapeToBack,
     setSelectedAnnotationShapeId,
   } = useEditor()
+  const [moreOpen, setMoreOpen] = React.useState(false)
 
   return (
     <div
-      className="pointer-events-auto absolute left-1/2 top-0 z-[120] flex -translate-x-1/2 -translate-y-[calc(100%+12px)] items-center gap-0.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+      className="flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -429,6 +617,50 @@ function AnnotationShapeToolbar({
           <TooltipContent side="top">{style.label}</TooltipContent>
         </Tooltip>
       ))}
+
+      <span className="mx-1 h-5 w-px bg-border" />
+
+      <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button aria-label="More options" className={iconBtnClass}>
+                <RiMoreFill className="size-4" />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top">More options</TooltipContent>
+        </Tooltip>
+        <PopoverContent
+          side="top"
+          align="end"
+          sideOffset={10}
+          className="w-44 border-border/60 bg-popover/95 p-1 backdrop-blur-md"
+        >
+          <div className="flex flex-col">
+            <button
+              onClick={() => {
+                bringAnnotationShapeToFront(shape.id)
+                setMoreOpen(false)
+              }}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+            >
+              <RiBringToFront className="size-4" />
+              Bring to front
+            </button>
+            <button
+              onClick={() => {
+                sendAnnotationShapeToBack(shape.id)
+                setMoreOpen(false)
+              }}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+            >
+              <RiSendToBack className="size-4" />
+              Send to back
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

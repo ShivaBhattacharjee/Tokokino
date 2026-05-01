@@ -432,6 +432,7 @@ export function Canvas() {
         yPct: startYPct,
         widthPct: 1,
         heightPct: 1,
+        rotation: 0,
         color: annotation.color,
         strokeWidth: annotation.strokeWidth,
         lineStyle: annotation.lineStyle,
@@ -477,17 +478,40 @@ export function Canvas() {
       e.stopPropagation()
       const endXPct = (point.x / layer.clientWidth) * 100
       const endYPct = (point.y / layer.clientHeight) * 100
-      const widthPct = Math.max(1, Math.abs(endXPct - shapeDrag.startXPct))
-      const heightPct = Math.max(1, Math.abs(endYPct - shapeDrag.startYPct))
       const xPct = (shapeDrag.startXPct + endXPct) / 2
       const yPct = (shapeDrag.startYPct + endYPct) / 2
       const snapX = Math.abs(xPct - 50) <= (8 / layer.clientWidth) * 100
       const snapY = Math.abs(yPct - 50) <= (8 / layer.clientHeight) * 100
+
+      const isArrow = annotation.mode === "arrow"
+      let widthPct: number
+      let heightPct: number
+      let rotation: number | undefined
+
+      if (isArrow) {
+        const dxPx =
+          ((endXPct - shapeDrag.startXPct) / 100) * layer.clientWidth
+        const dyPx =
+          ((endYPct - shapeDrag.startYPct) / 100) * layer.clientHeight
+        const distancePx = Math.hypot(dxPx, dyPx)
+        widthPct = Math.max(1, (distancePx / layer.clientWidth) * 100)
+        const arrowHeightPx = Math.max(20, annotation.strokeWidth * 6)
+        heightPct = (arrowHeightPx / layer.clientHeight) * 100
+        rotation =
+          distancePx > 0.5
+            ? (Math.atan2(dyPx, dxPx) * 180) / Math.PI
+            : 0
+      } else {
+        widthPct = Math.max(1, Math.abs(endXPct - shapeDrag.startXPct))
+        heightPct = Math.max(1, Math.abs(endYPct - shapeDrag.startYPct))
+      }
+
       updateAnnotationShape(shapeDrag.shapeId, {
         xPct: snapX ? 50 : xPct,
         yPct: snapY ? 50 : yPct,
         widthPct,
         heightPct,
+        ...(rotation !== undefined ? { rotation } : {}),
       })
       setTextCenterGuides({ x: snapX, y: snapY })
       shapeDrag.moved = true

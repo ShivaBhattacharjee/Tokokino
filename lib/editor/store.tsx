@@ -365,6 +365,7 @@ export type AnnotationShape = {
   yPct: number
   widthPct: number
   heightPct: number
+  rotation: number
   color: string
   strokeWidth: number
   lineStyle: AnnotationLineStyle
@@ -712,6 +713,8 @@ type Ctx = EditorState & {
   updateAnnotationShape: (id: string, patch: Partial<AnnotationShape>) => void
   deleteAnnotationShape: (id: string) => void
   duplicateAnnotationShape: (id: string) => string | null
+  bringAnnotationShapeToFront: (id: string) => void
+  sendAnnotationShapeToBack: (id: string) => void
   clearAnnotations: () => void
   addText: () => string
   updateText: (id: string, patch: Partial<TextElement>) => void
@@ -899,6 +902,26 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
           return { annotationShapes: [...s.annotationShapes, copy] }
         }, null)
         return didCopy ? copyId : null
+      },
+      bringAnnotationShapeToFront: (id) => {
+        set((s) => {
+          const z = computeNextZ(s.annotationShapes)
+          return {
+            annotationShapes: s.annotationShapes.map((shape) =>
+              shape.id === id ? { ...shape, zIndex: z } : shape
+            ),
+          }
+        }, null)
+      },
+      sendAnnotationShapeToBack: (id) => {
+        set((s) => {
+          const z = computeMinZ(s.annotationShapes)
+          return {
+            annotationShapes: s.annotationShapes.map((shape) =>
+              shape.id === id ? { ...shape, zIndex: z } : shape
+            ),
+          }
+        }, null)
       },
       clearAnnotations: () =>
         set({ annotations: [], annotationShapes: [] }, null),
