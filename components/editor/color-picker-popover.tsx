@@ -21,6 +21,7 @@ type Props = {
   value?: string
   onChange: (hex: string) => void
   children: React.ReactNode
+  footer?: React.ReactNode
   side?: "top" | "right" | "bottom" | "left"
   align?: "start" | "center" | "end"
 }
@@ -29,6 +30,7 @@ export function ColorPickerPopover({
   value,
   onChange,
   children,
+  footer,
   side = "left",
   align = "start",
 }: Props) {
@@ -40,10 +42,13 @@ export function ColorPickerPopover({
       <PopoverContent
         side={side}
         align={align}
-        className="w-[260px] p-3 bg-popover/95 backdrop-blur-md"
+        className="w-[260px] bg-popover/95 p-3 backdrop-blur-md"
       >
         {open ? (
-          <PickerBody initial={value || "#000000"} onChange={onChange} />
+          <>
+            <PickerBody initial={value || "#000000"} onChange={onChange} />
+            {footer}
+          </>
         ) : null}
       </PopoverContent>
     </Popover>
@@ -69,23 +74,20 @@ function PickerBody({
   // mount — otherwise we'd push state back into the parent and re-render.
   const firstRef = React.useRef(true)
 
-  const stableOnChange = React.useCallback(
-    (rgba: unknown) => {
-      if (firstRef.current) {
-        firstRef.current = false
-        return
-      }
-      const [r, g, b, a] = rgba as number[]
-      try {
-        const c = Color.rgb(r, g, b).alpha(a)
-        const hex = a < 1 ? c.hexa() : c.hex()
-        onChangeRef.current(hex)
-      } catch {
-        /* ignore */
-      }
-    },
-    []
-  )
+  const stableOnChange = React.useCallback((rgba: unknown) => {
+    if (firstRef.current) {
+      firstRef.current = false
+      return
+    }
+    const [r, g, b, a] = rgba as number[]
+    try {
+      const c = Color.rgb(r, g, b).alpha(a)
+      const hex = a < 1 ? c.hexa() : c.hex()
+      onChangeRef.current(hex)
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   return (
     <ColorPicker

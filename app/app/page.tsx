@@ -28,24 +28,17 @@ function EditorLayout() {
   return (
     <div className="flex h-svh min-h-0 flex-col bg-background">
       {!isPreviewMode && <TopBar />}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        {!isPreviewMode && <EffectsSidebar className="hidden xl:flex" />}
-        <div className="relative isolate flex min-h-0 flex-1 overflow-hidden">
-          <Canvas />
-          {!isPreviewMode && <FloatingToolbar />}
-          {!isPreviewMode && <IpadProSidebar />}
-
           <AnimatePresence>
             {isPreviewMode && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+                className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50"
               >
                 <Button
                   onClick={() => setIsPreviewMode(false)}
-                  className="rounded-full shadow-xl text-white hover:bg-white/20 backdrop-blur-md px-5 cursor-pointer bg-transparent border border-white/20"
+                  className="shadow-xl text-white hover:bg-white/20 backdrop-blur-md px-4 py-4 cursor-pointer bg-transparent border border-white/20"
                 >
                   <RiEyeLine className="mr-2 size-4" />
                   Exit Preview
@@ -56,6 +49,13 @@ function EditorLayout() {
               </motion.div>
             )}
           </AnimatePresence>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        {!isPreviewMode && <EffectsSidebar className="hidden xl:flex" />}
+        <div className="relative isolate flex min-h-0 flex-1 overflow-hidden">
+          <Canvas />
+          {!isPreviewMode && <FloatingToolbar />}
+          {!isPreviewMode && <IpadProSidebar />}
+
         </div>
         {!isPreviewMode && <Inspector className="hidden lg:flex" />}
         {!isPreviewMode && <MobileControls />}

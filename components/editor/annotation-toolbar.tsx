@@ -24,7 +24,6 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import {
-  ANNOTATION_COLORS,
   ANNOTATION_STROKES,
   type AnnotationLineStyle,
   type AnnotationMode,
@@ -63,17 +62,21 @@ const LINE_STYLES: { id: AnnotationLineStyle; label: string }[] = [
   { id: "dotted", label: "Short Dash" },
 ]
 
+const DEFAULT_SHAPE_COLOR = "#ef4444"
+
 export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
-  const {
-    annotation,
-    setAnnotation,
-    clearAnnotations,
-  } = useEditor()
+  const { annotation, setAnnotation, clearAnnotations } = useEditor()
+  const lastShapeColorRef = React.useRef(DEFAULT_SHAPE_COLOR)
   const activeLineStyle = annotation.lineStyle
+  const activeShapeKind = annotationModeToShapeKind(annotation.mode)
   const showColorControls =
-    annotation.mode === "pen" || annotation.mode === "highlight"
+    annotation.mode === "pen" ||
+    annotation.mode === "highlight" ||
+    Boolean(activeShapeKind)
   const showIntensityControls =
-    showColorControls || annotation.mode === "eraser"
+    annotation.mode === "pen" ||
+    annotation.mode === "highlight" ||
+    annotation.mode === "eraser"
   const showLineStyleControls =
     annotation.mode === "arrow" ||
     annotation.mode === "rect" ||
@@ -88,12 +91,9 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
           <button
             onClick={onExit}
             aria-label="Exit annotate mode"
-            className="group inline-flex h-9 items-center gap-1.5 rounded-lg pl-1.5 pr-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+            className="group inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg pr-2 pl-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <RiArrowLeftSLine className="size-4" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
-              Annotate
-            </span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="top">Exit annotate mode</TooltipContent>
@@ -129,13 +129,20 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
               iconOverride={
                 shapeKind ? (
                   <LineStylePreview
-                    style={activeLineStyle}
+                    style="solid"
                     kind={shapeKind}
                     active={annotation.mode === t.id}
                   />
                 ) : undefined
               }
-              onClick={() => setAnnotation({ mode: t.id })}
+              onClick={() => {
+                setAnnotation({
+                  mode: t.id,
+                  ...(shapeKind && !activeShapeKind
+                    ? { color: lastShapeColorRef.current }
+                    : {}),
+                })
+              }}
             />
           )
         })}
@@ -145,43 +152,37 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
       {showColorControls ? (
         <>
           <Divider />
-          <div className="flex items-center gap-1 px-1.5">
-            {ANNOTATION_COLORS.map((c) => {
-              const isActive =
-                annotation.color.toLowerCase() === c.toLowerCase()
-              return (
-                <button
-                  key={c}
-                  onClick={() => setAnnotation({ color: c })}
-                  aria-label={`Color ${c}`}
-                  className="relative size-5 rounded-full cursor-pointer transition-[filter] hover:brightness-110"
-                  style={{ background: c }}
-                >
-                  <span className="absolute inset-0 rounded-full border border-foreground/10" />
-                  {isActive && (
-                    <span className="absolute left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]" />
-                  )}
-                </button>
-              )
-            })}
+          <div className="flex items-center px-1">
             <ColorPickerPopover
               value={annotation.color}
               side="top"
               align="center"
-              onChange={(hex) => setAnnotation({ color: hex })}
+              footer={
+                activeShapeKind ? (
+                  <ShapeThicknessPanel
+                    value={annotation.strokeWidth}
+                    color={annotation.color}
+                    onChange={(strokeWidth) => setAnnotation({ strokeWidth })}
+                  />
+                ) : null
+              }
+              onChange={(hex) => {
+                if (activeShapeKind) lastShapeColorRef.current = hex
+                setAnnotation({ color: hex })
+              }}
             >
               <button
-                aria-label="Custom color"
-                title="Custom color"
-                className="relative inline-flex size-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-foreground/15 transition-[filter] hover:brightness-110"
+                aria-label="Annotation color"
+                title="Annotation color"
+                className="relative inline-flex size-9 cursor-pointer items-center justify-center overflow-visible rounded-lg border border-border/60 bg-secondary/40 transition-colors hover:border-foreground/30 hover:bg-accent"
               >
                 <span
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "conic-gradient(#ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ec4899, #ef4444)",
-                  }}
+                  className="absolute top-1.5 left-1.5 size-6 rounded-full border"
+                  style={{ background: annotation.color }}
                 />
+                <span className="absolute top-1/2 left-1/2 grid size-[18px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-white ring-0">
+                  <RiEqualizerLine className="size-3 translate-y-[0.5px]" />
+                </span>
               </button>
             </ColorPickerPopover>
           </div>
@@ -202,7 +203,7 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
                       onClick={() => setAnnotation({ strokeWidth: w })}
                       aria-label={`Intensity ${w}px`}
                       className={cn(
-                        "inline-flex size-7 items-center justify-center rounded-md transition-colors cursor-pointer hover:bg-accent",
+                        "inline-flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent",
                         isActive && "bg-accent"
                       )}
                     >
@@ -221,6 +222,7 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
             })}
             <IntensitySliderButton
               value={annotation.strokeWidth}
+              label="Intensity"
               onChange={(strokeWidth) => setAnnotation({ strokeWidth })}
             />
           </div>
@@ -240,7 +242,7 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
                     }}
                     aria-label={`${style.label} line`}
                     className={cn(
-                      "inline-flex size-8 items-center justify-center rounded-md transition-colors cursor-pointer hover:bg-accent",
+                      "inline-flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent",
                       activeLineStyle === style.id && "bg-accent"
                     )}
                   >
@@ -266,7 +268,7 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
           <button
             onClick={clearAnnotations}
             aria-label="Clear all annotations"
-            className="group inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500 cursor-pointer"
+            className="group inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
           >
             <RiDeleteBin6Line className="size-4" />
           </button>
@@ -309,8 +311,8 @@ function LineStylePreview({
     >
       {kind === "arrow" ? (
         <>
-          <line x1="4" y1="15" x2="14" y2="5" strokeDasharray={dashArray} />
-          <polyline points="10,5 14,5 14,9" strokeDasharray={dashArray} />
+          <path d="M6 14L14 6" strokeDasharray={dashArray} />
+          <path d="M8 6H14V12" />
         </>
       ) : kind === "rect" ? (
         <rect
@@ -328,21 +330,81 @@ function LineStylePreview({
   )
 }
 
-function IntensitySliderButton({
+function ShapeThicknessPanel({
   value,
+  color,
   onChange,
 }: {
   value: number
+  color: string
   onChange: (value: number) => void
 }) {
+  return (
+    <div className="mt-3 border-t border-border/70 pt-3">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+          Thickness
+        </span>
+        <span className="font-mono text-xs text-foreground/80">{value}px</span>
+      </div>
+      <div className="mb-3 flex items-center gap-1.5">
+        {ANNOTATION_STROKES.map((strokeWidth) => {
+          const isActive = value === strokeWidth
+          return (
+            <button
+              key={strokeWidth}
+              aria-label={`${strokeWidth}px thickness`}
+              onClick={() => onChange(strokeWidth)}
+              className={cn(
+                "grid size-8 cursor-pointer place-items-center rounded-md border border-transparent transition-colors hover:bg-accent",
+                isActive && "border-border bg-accent"
+              )}
+            >
+              <span
+                className="block rounded-full"
+                style={{
+                  width: Math.min(24, strokeWidth * 2 + 6),
+                  height: Math.min(24, strokeWidth * 2 + 6),
+                  background: color,
+                }}
+              />
+            </button>
+          )
+        })}
+      </div>
+      <Slider
+        value={[value]}
+        min={1}
+        max={32}
+        step={1}
+        className="[&_[data-slot=slider-range]]:bg-[var(--annotation-color)]"
+        style={{ "--annotation-color": color } as React.CSSProperties}
+        onValueChange={([next]) => {
+          if (typeof next === "number") onChange(next)
+        }}
+      />
+    </div>
+  )
+}
+
+function IntensitySliderButton({
+  value,
+  label,
+  onChange,
+}: {
+  value: number
+  label: string
+  onChange: (value: number) => void
+}) {
+  const lowerLabel = label.toLowerCase()
   return (
     <Popover>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
             <button
-              aria-label="Custom intensity"
-              className="relative inline-flex size-7 items-center justify-center rounded-md transition-colors cursor-pointer hover:bg-accent"
+              aria-label={`Custom ${lowerLabel}`}
+              className="relative inline-flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent"
             >
               <span
                 className="block rounded-full bg-foreground/60"
@@ -351,24 +413,24 @@ function IntensitySliderButton({
                   height: Math.min(22, Math.max(16, value + 8)),
                 }}
               />
-              <span className="absolute left-1/2 top-1/2 grid size-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white shadow-sm ring-1 ring-white/15 backdrop-blur-sm">
+              <span className="absolute top-1/2 left-1/2 grid size-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-white ring-0 backdrop-blur-sm">
                 <RiEqualizerLine className="size-3" />
               </span>
             </button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent side="top">Custom intensity</TooltipContent>
+        <TooltipContent side="top">Custom {lowerLabel}</TooltipContent>
       </Tooltip>
       <PopoverContent
         side="top"
         align="center"
         sideOffset={10}
-        className="w-48 border-border/60 bg-popover/95 p-3 backdrop-blur-md"
+        className="w-56 border-border/60 bg-popover/95 p-3 backdrop-blur-md"
       >
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Intensity
+            <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+              {label}
             </span>
             <span className="font-mono text-xs text-foreground/80">
               {value}px
@@ -411,7 +473,7 @@ function ToolButton({
           aria-label={tool.label}
           aria-pressed={active}
           className={cn(
-            "relative inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors cursor-pointer",
+            "relative inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors",
             "hover:bg-accent hover:text-foreground",
             active && "bg-foreground/[0.08] text-foreground"
           )}

@@ -114,6 +114,10 @@ export function Canvas() {
   const canvasRef = React.useRef<HTMLDivElement>(null)
   const generatedAnnotationMaskId = React.useId()
   const annotationMaskId = `annotation-mask-${generatedAnnotationMaskId.replace(/:/g, "")}`
+  const sortedAnnotationShapes = React.useMemo(
+    () => [...annotationShapes].sort((a, b) => a.zIndex - b.zIndex),
+    [annotationShapes]
+  )
 
   React.useEffect(() => {
     if (!selectedTextId) return
@@ -494,8 +498,10 @@ export function Canvas() {
         const dyPx =
           ((endYPct - shapeDrag.startYPct) / 100) * layer.clientHeight
         const distancePx = Math.hypot(dxPx, dyPx)
-        widthPct = Math.max(1, (distancePx / layer.clientWidth) * 100)
-        const arrowHeightPx = Math.max(20, annotation.strokeWidth * 6)
+        const minArrowWidthPx = Math.max(56, annotation.strokeWidth * 12)
+        widthPct =
+          (Math.max(minArrowWidthPx, distancePx) / layer.clientWidth) * 100
+        const arrowHeightPx = Math.max(56, annotation.strokeWidth * 14)
         heightPct = (arrowHeightPx / layer.clientHeight) * 100
         rotation =
           distancePx > 0.5
@@ -916,7 +922,7 @@ export function Canvas() {
           <TextElementView key={t.id} text={t} canvasRef={canvasRef} onCenterGuideChange={setTextCenterGuides} />
         ))}
 
-        {annotationShapes.map((shape) => (
+        {sortedAnnotationShapes.map((shape) => (
           <AnnotationShapeElement
             key={shape.id}
             shape={shape}

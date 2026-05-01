@@ -56,7 +56,7 @@ type ResizeState = {
 const DRAG_THRESHOLD = 4
 
 export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props) {
-  const { canvasZoom, selectedTextId, setSelectedTextId, updateText, deleteText, screenshot, background } =
+  const { canvasZoom, selectedTextId, setSelectedTextId, setSelectedAnnotationShapeId, updateText, deleteText, screenshot, background } =
     useEditor()
   const isSelected = selectedTextId === text.id
   const [editingRequested, setEditingRequested] = React.useState(false)
@@ -176,6 +176,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
     e.stopPropagation()
     e.preventDefault()
     setSelectedTextId(t.id)
+    setSelectedAnnotationShapeId(null)
     ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
     const rect = canvas.getBoundingClientRect()
     dragRef.current = {
@@ -189,7 +190,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
       moved: false,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasRef, setSelectedTextId])
+  }, [canvasRef, setSelectedAnnotationShapeId, setSelectedTextId])
 
   const moveDrag = React.useCallback((e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
@@ -520,7 +521,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
         left: `${text.xPct}%`,
         top: `${text.yPct}%`,
         transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
-        zIndex: text.zIndex < 0 ? 10 + text.zIndex : 40 + text.zIndex,
+        zIndex: text.zIndex < 0 ? 82 + text.zIndex : 90 + text.zIndex,
         width: outerWidth,
         height: outerHeight,
       }}
@@ -531,10 +532,12 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
       onClick={(e) => {
         e.stopPropagation()
         setSelectedTextId(text.id)
+        setSelectedAnnotationShapeId(null)
       }}
       onDoubleClick={(e) => {
         e.stopPropagation()
         setSelectedTextId(text.id)
+        setSelectedAnnotationShapeId(null)
         setEditingRequested(true)
       }}
       tabIndex={isSelected && !isEditing ? 0 : undefined}

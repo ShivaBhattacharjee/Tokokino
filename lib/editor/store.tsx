@@ -906,20 +906,28 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       bringAnnotationShapeToFront: (id) => {
         set((s) => {
           const z = computeNextZ(s.annotationShapes)
+          const next = s.annotationShapes.map((shape) =>
+            shape.id === id ? { ...shape, zIndex: z } : shape
+          )
           return {
-            annotationShapes: s.annotationShapes.map((shape) =>
-              shape.id === id ? { ...shape, zIndex: z } : shape
-            ),
+            annotationShapes: [
+              ...next.filter((shape) => shape.id !== id),
+              ...next.filter((shape) => shape.id === id),
+            ],
           }
         }, null)
       },
       sendAnnotationShapeToBack: (id) => {
         set((s) => {
           const z = computeMinZ(s.annotationShapes)
+          const next = s.annotationShapes.map((shape) =>
+            shape.id === id ? { ...shape, zIndex: z } : shape
+          )
           return {
-            annotationShapes: s.annotationShapes.map((shape) =>
-              shape.id === id ? { ...shape, zIndex: z } : shape
-            ),
+            annotationShapes: [
+              ...next.filter((shape) => shape.id === id),
+              ...next.filter((shape) => shape.id !== id),
+            ],
           }
         }, null)
       },

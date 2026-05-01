@@ -6,6 +6,7 @@ import {
   RiBringToFront,
   RiDeleteBinLine,
   RiDragMove2Line,
+  RiEqualizerLine,
   RiFileCopyLine,
   RiMoreFill,
   RiRefreshLine,
@@ -18,12 +19,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Slider } from "@/components/ui/slider"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
+  ANNOTATION_STROKES,
   type AnnotationLineStyle,
   type AnnotationShape,
   useEditor,
@@ -51,6 +54,16 @@ type ResizeState = {
   startYPct: number
   startWidthPct: number
   startHeightPct: number
+  canvasW: number
+  canvasH: number
+}
+
+type ArrowEndpointState = {
+  pointerId: number
+  endpoint: "tail" | "head"
+  oppositeXPct: number
+  oppositeYPct: number
+  arrowHeightPct: number
   canvasW: number
   canvasH: number
 }
@@ -88,18 +101,36 @@ export function AnnotationShapeElement({
   const elRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
   const resizeRef = React.useRef<ResizeState | null>(null)
+  const arrowEndpointRef = React.useRef<ArrowEndpointState | null>(null)
   const rotateRef = React.useRef<RotateState | null>(null)
   const [isRotateSnapped, setIsRotateSnapped] = React.useState(false)
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
+  const [elementSize, setElementSize] = React.useState({
+    width: 120,
+    height: 48,
+  })
   const rotation = shape.rotation ?? 0
 
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) {
-      setToolbarRect(null)
+    if (!elRef.current) {
       return
     }
     const el = elRef.current
-    const update = () => setToolbarRect(el.getBoundingClientRect())
+    const update = () => {
+      const rect = el.getBoundingClientRect()
+      if (isSelected) setToolbarRect(rect)
+      setElementSize((current) => {
+        const width = Math.max(1, el.offsetWidth)
+        const height = Math.max(1, el.offsetHeight)
+        if (
+          Math.abs(current.width - width) < 0.5 &&
+          Math.abs(current.height - height) < 0.5
+        ) {
+          return current
+        }
+        return { width, height }
+      })
+    }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
@@ -216,45 +247,129 @@ export function AnnotationShapeElement({
       }
     }
 
+  const startArrowEndpoint =
+    (endpoint: "tail" | "head") =>
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      e.stopPropagation()
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      const rect = canvas.getBoundingClientRect()
+      const endpoints = getArrowEndpoints(shape, rect.width, rect.height)
+      const opposite = endpoint === "tail" ? endpoints.head : endpoints.tail
+      arrowEndpointRef.current = {
+        pointerId: e.pointerId,
+        endpoint,
+        oppositeXPct: opposite.xPct,
+        oppositeYPct: opposite.yPct,
+        arrowHeightPct: shape.heightPct,
+        canvasW: rect.width,
+        canvasH: rect.height,
+      }
+    }
+
+  const moveArrowEndpoint = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const state = arrowEndpointRef.current
+    if (!state || state.pointerId !== e.pointerId) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    e.preventDefault()
+    const rect = canvas.getBoundingClientRect()
+    const movingXPct = clamp(
+      ((e.clientX - rect.left) / rect.width) * 100,
+      -20,
+      120
+    )
+    const movingYPct = clamp(
+      ((e.clientY - rect.top) / rect.height) * 100,
+      -20,
+      120
+    )
+    const tail =
+      state.endpoint === "tail"
+        ? { xPct: movingXPct, yPct: movingYPct }
+        : { xPct: state.oppositeXPct, yPct: state.oppositeYPct }
+    const head =
+      state.endpoint === "head"
+        ? { xPct: movingXPct, yPct: movingYPct }
+        : { xPct: state.oppositeXPct, yPct: state.oppositeYPct }
+    const dxPx = ((head.xPct - tail.xPct) / 100) * state.canvasW
+    const dyPx = ((head.yPct - tail.yPct) / 100) * state.canvasH
+    const distancePx = Math.hypot(dxPx, dyPx)
+    const minWidthPx = Math.max(56, shape.strokeWidth * 12)
+
+    updateAnnotationShape(shape.id, {
+      xPct: (tail.xPct + head.xPct) / 2,
+      yPct: (tail.yPct + head.yPct) / 2,
+      widthPct: (Math.max(minWidthPx, distancePx) / state.canvasW) * 100,
+      heightPct: state.arrowHeightPct,
+      rotation:
+        distancePx > 0.5
+          ? (Math.atan2(dyPx, dxPx) * 180) / Math.PI
+          : shape.rotation,
+    })
+  }
+
+  const endArrowEndpoint = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const state = arrowEndpointRef.current
+    if (!state || state.pointerId !== e.pointerId) return
+    arrowEndpointRef.current = null
+  }
+
   const moveResize = (e: React.PointerEvent<HTMLButtonElement>) => {
     const rs = resizeRef.current
     if (!rs || rs.pointerId !== e.pointerId) return
     e.preventDefault()
-    const dxPct = ((e.clientX - rs.startX) / rs.canvasW) * 100
-    const dyPct = ((e.clientY - rs.startY) / rs.canvasH) * 100
-    const minSize = 1
-    let nextX = rs.startXPct
-    let nextY = rs.startYPct
-    let nextW = rs.startWidthPct
-    let nextH = rs.startHeightPct
-
-    const left = rs.startXPct - rs.startWidthPct / 2
-    const right = rs.startXPct + rs.startWidthPct / 2
-    const top = rs.startYPct - rs.startHeightPct / 2
-    const bottom = rs.startYPct + rs.startHeightPct / 2
+    const dxPx = e.clientX - rs.startX
+    const dyPx = e.clientY - rs.startY
+    const theta = (rotation * Math.PI) / 180
+    const cos = Math.cos(theta)
+    const sin = Math.sin(theta)
+    const localDxPx = cos * dxPx + sin * dyPx
+    const localDyPx = -sin * dxPx + cos * dyPx
+    const minWidthPx =
+      shape.kind === "arrow" ? Math.max(56, shape.strokeWidth * 12) : 8
+    const minHeightPx =
+      shape.kind === "arrow" ? Math.max(56, shape.strokeWidth * 14) : 8
+    const maxWidthPx = rs.canvasW * 2
+    const maxHeightPx = rs.canvasH * 2
+    const startWidthPx = (rs.startWidthPct / 100) * rs.canvasW
+    const startHeightPx = (rs.startHeightPct / 100) * rs.canvasH
+    let nextWidthPx = startWidthPx
+    let nextHeightPx = startHeightPx
+    let centerLocalXPx = 0
+    let centerLocalYPx = 0
 
     if (rs.handle.includes("l")) {
-      nextW = Math.max(minSize, rs.startWidthPct - dxPct)
-      nextX = right - nextW / 2
+      nextWidthPx = clamp(startWidthPx - localDxPx, minWidthPx, maxWidthPx)
+      centerLocalXPx = -(nextWidthPx - startWidthPx) / 2
     }
     if (rs.handle.includes("r")) {
-      nextW = Math.max(minSize, rs.startWidthPct + dxPct)
-      nextX = left + nextW / 2
+      nextWidthPx = clamp(startWidthPx + localDxPx, minWidthPx, maxWidthPx)
+      centerLocalXPx = (nextWidthPx - startWidthPx) / 2
     }
     if (rs.handle.includes("t")) {
-      nextH = Math.max(minSize, rs.startHeightPct - dyPct)
-      nextY = bottom - nextH / 2
+      nextHeightPx = clamp(startHeightPx - localDyPx, minHeightPx, maxHeightPx)
+      centerLocalYPx = -(nextHeightPx - startHeightPx) / 2
     }
     if (rs.handle.includes("b")) {
-      nextH = Math.max(minSize, rs.startHeightPct + dyPct)
-      nextY = top + nextH / 2
+      nextHeightPx = clamp(startHeightPx + localDyPx, minHeightPx, maxHeightPx)
+      centerLocalYPx = (nextHeightPx - startHeightPx) / 2
     }
+
+    const centerDxPx = cos * centerLocalXPx - sin * centerLocalYPx
+    const centerDyPx = sin * centerLocalXPx + cos * centerLocalYPx
+    const nextX = rs.startXPct + (centerDxPx / rs.canvasW) * 100
+    const nextY = rs.startYPct + (centerDyPx / rs.canvasH) * 100
+    const nextW = (nextWidthPx / rs.canvasW) * 100
+    const nextH = (nextHeightPx / rs.canvasH) * 100
 
     updateAnnotationShape(shape.id, {
       xPct: clamp(nextX, -20, 120),
       yPct: clamp(nextY, -20, 120),
-      widthPct: clamp(nextW, minSize, 200),
-      heightPct: clamp(nextH, minSize, 200),
+      widthPct: clamp(nextW, (minWidthPx / rs.canvasW) * 100, 200),
+      heightPct: clamp(nextH, (minHeightPx / rs.canvasH) * 100, 200),
     })
   }
 
@@ -295,7 +410,10 @@ export function AnnotationShapeElement({
       if (next % 90 === 0) snapped = true
     } else {
       const nearest90 = Math.round(next / 90) * 90
-      if (Math.abs(next - nearest90) < 4 || Math.abs(next - nearest90 + 360) < 4) {
+      if (
+        Math.abs(next - nearest90) < 4 ||
+        Math.abs(next - nearest90 + 360) < 4
+      ) {
         next = nearest90 % 360
         snapped = true
       }
@@ -312,6 +430,14 @@ export function AnnotationShapeElement({
   }
 
   const counterRotate = `rotate(${-rotation}deg)`
+  const arrowGeometry =
+    shape.kind === "arrow"
+      ? getArrowGeometry(
+          elementSize.width,
+          elementSize.height,
+          shape.strokeWidth
+        )
+      : null
 
   return (
     <>
@@ -342,51 +468,37 @@ export function AnnotationShapeElement({
         }}
       >
         {shape.kind === "arrow" ? (
-          <>
+          arrowGeometry ? (
             <svg
               className="absolute inset-0 h-full w-full overflow-visible"
-              viewBox="0 0 100 100"
+              viewBox={`0 0 ${arrowGeometry.width} ${arrowGeometry.height}`}
               preserveAspectRatio="none"
             >
               <line
-                x1="0"
-                y1="50"
-                x2="100"
-                y2="50"
+                x1={arrowGeometry.tailX}
+                y1={arrowGeometry.centerY}
+                x2={arrowGeometry.tipX}
+                y2={arrowGeometry.centerY}
                 fill="none"
                 stroke={shape.color}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={shape.strokeWidth}
-                strokeDasharray={dashArray}
-                vectorEffect="non-scaling-stroke"
+                strokeWidth={arrowGeometry.strokeWidth}
+                strokeDasharray={scaledLineDashArray(
+                  shape.lineStyle,
+                  arrowGeometry.strokeWidth
+                )}
               />
-            </svg>
-            <svg
-              aria-hidden="true"
-              className="pointer-events-none absolute"
-              viewBox="0 0 10 10"
-              preserveAspectRatio="xMidYMid meet"
-              style={{
-                right: 0,
-                top: "50%",
-                width: `${Math.max(16, shape.strokeWidth * 7)}px`,
-                height: `${Math.max(16, shape.strokeWidth * 7)}px`,
-                transform: "translateY(-50%)",
-                overflow: "visible",
-              }}
-            >
               <polyline
-                points="1.5,1.5 9.5,5 1.5,8.5"
+                points={arrowGeometry.headPoints}
                 fill="none"
                 stroke={shape.color}
-                strokeWidth={shape.strokeWidth}
+                strokeWidth={arrowGeometry.strokeWidth}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
               />
             </svg>
-          </>
+          ) : null
         ) : (
           <svg
             className="h-full w-full overflow-visible"
@@ -424,27 +536,44 @@ export function AnnotationShapeElement({
 
         {isSelected ? (
           <>
-            <div className="pointer-events-none absolute inset-0 border border-dashed border-[#92b97a]/80" />
+            {shape.kind !== "arrow" ? (
+              <div className="pointer-events-none absolute inset-0 border border-dashed border-[#92b97a]/80" />
+            ) : null}
             {isRotateSnapped && (
-              <div className="pointer-events-none absolute left-1/2 top-1/2 z-[-1] -translate-x-1/2 -translate-y-1/2">
+              <div className="pointer-events-none absolute top-1/2 left-1/2 z-[-1] -translate-x-1/2 -translate-y-1/2">
                 <div className="absolute w-[4000px] -translate-x-1/2 border-t border-dashed border-[#9BCD64]/95" />
                 <div className="absolute h-[4000px] -translate-y-1/2 border-l border-dashed border-[#9BCD64]/95" />
               </div>
             )}
-            {RESIZE_HANDLES.map((handle) => (
-              <button
-                key={handle}
-                aria-label={`Resize ${handle}`}
-                className={cn(
-                  "absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
-                  HANDLE_CLASS[handle]
-                )}
-                onPointerDown={startResize(handle)}
-                onPointerMove={moveResize}
-                onPointerUp={endResize}
-                onPointerCancel={endResize}
-              />
-            ))}
+            {shape.kind === "arrow"
+              ? ARROW_ENDPOINT_HANDLES.map((handle) => (
+                  <button
+                    key={handle.id}
+                    aria-label={`${handle.id} arrow endpoint`}
+                    className={cn(
+                      "absolute z-10 size-5 rounded-full border-2 border-[#92b97a] bg-background shadow",
+                      handle.className
+                    )}
+                    onPointerDown={startArrowEndpoint(handle.id)}
+                    onPointerMove={moveArrowEndpoint}
+                    onPointerUp={endArrowEndpoint}
+                    onPointerCancel={endArrowEndpoint}
+                  />
+                ))
+              : RESIZE_HANDLES.map((handle) => (
+                  <button
+                    key={handle}
+                    aria-label={`Resize ${handle}`}
+                    className={cn(
+                      "absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
+                      HANDLE_CLASS[handle]
+                    )}
+                    onPointerDown={startResize(handle)}
+                    onPointerMove={moveResize}
+                    onPointerUp={endResize}
+                    onPointerCancel={endResize}
+                  />
+                ))}
             <button
               aria-label="Rotate shape"
               onPointerDown={startRotate}
@@ -452,7 +581,7 @@ export function AnnotationShapeElement({
               onPointerUp={endRotate}
               onPointerCancel={endRotate}
               onClick={(e) => e.stopPropagation()}
-              className="absolute -bottom-9 left-1/2 z-10 flex size-7 items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md cursor-grab"
+              className="absolute -bottom-9 left-1/2 z-10 flex size-7 cursor-grab items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md"
               style={{
                 transform: `translate(-50%, 0) ${counterRotate}`,
                 transformOrigin: "top center",
@@ -581,18 +710,13 @@ function AnnotationShapeToolbar({
         align="center"
         onChange={(color) => updateAnnotationShape(shape.id, { color })}
       >
-        <button
-          aria-label="Shape color"
-          className={cn(iconBtnClass, "mx-1")}
-        >
+        <button aria-label="Shape color" className={cn(iconBtnClass, "mx-1")}>
           <span
             className="block size-5 rounded-full border border-foreground/10"
             style={{ background: shape.color }}
           />
         </button>
       </ColorPickerPopover>
-
-      <span className="mx-1 h-5 w-px bg-border" />
 
       {LINE_STYLES.map((style) => (
         <Tooltip key={style.id}>
@@ -635,7 +759,7 @@ function AnnotationShapeToolbar({
           side="top"
           align="end"
           sideOffset={10}
-          className="w-44 border-border/60 bg-popover/95 p-1 backdrop-blur-md"
+          className="w-56 border-border/60 bg-popover/95 p-1 backdrop-blur-md"
         >
           <div className="flex flex-col">
             <button
@@ -658,6 +782,14 @@ function AnnotationShapeToolbar({
               <RiSendToBack className="size-4" />
               Send to back
             </button>
+            <div className="my-1 h-px bg-border/70" />
+            <ThicknessMenuSection
+              value={shape.strokeWidth}
+              color={shape.color}
+              onChange={(strokeWidth) =>
+                updateAnnotationShape(shape.id, { strokeWidth })
+              }
+            />
           </div>
         </PopoverContent>
       </Popover>
@@ -670,6 +802,62 @@ const LINE_STYLES: { id: AnnotationLineStyle; label: string }[] = [
   { id: "dashed", label: "Dashed" },
   { id: "dotted", label: "Short Dash" },
 ]
+
+function ThicknessMenuSection({
+  value,
+  color,
+  onChange,
+}: {
+  value: number
+  color: string
+  onChange: (value: number) => void
+}) {
+  return (
+    <div className="flex flex-col gap-3 px-2 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-sm">
+          <RiEqualizerLine className="size-4 text-muted-foreground" />
+          Thickness
+        </span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {value}px
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {ANNOTATION_STROKES.map((strokeWidth) => {
+          const isActive = value === strokeWidth
+          return (
+            <button
+              key={strokeWidth}
+              aria-label={`${strokeWidth}px thickness`}
+              onClick={() => onChange(strokeWidth)}
+              className={cn(
+                "grid size-8 cursor-pointer place-items-center rounded-md border border-transparent transition-colors hover:bg-accent",
+                isActive && "border-border bg-accent"
+              )}
+            >
+              <span
+                className="block rounded-full"
+                style={{
+                  width: Math.min(24, strokeWidth * 2 + 6),
+                  height: Math.min(24, strokeWidth * 2 + 6),
+                  background: color,
+                }}
+              />
+            </button>
+          )
+        })}
+      </div>
+      <Slider
+        value={[value]}
+        min={1}
+        max={24}
+        step={1}
+        onValueChange={([next]) => onChange(next)}
+      />
+    </div>
+  )
+}
 
 function LineStylePreview({
   style,
@@ -695,8 +883,8 @@ function LineStylePreview({
     >
       {kind === "arrow" ? (
         <>
-          <line x1="4" y1="15" x2="14" y2="5" strokeDasharray={dashArray} />
-          <polyline points="10,5 14,5 14,9" strokeDasharray={dashArray} />
+          <path d="M6 14L14 6" strokeDasharray={dashArray} />
+          <path d="M8 6H14V12" />
         </>
       ) : kind === "rect" ? (
         <rect
@@ -725,6 +913,22 @@ const RESIZE_HANDLES: ResizeHandleId[] = [
   "br",
 ]
 
+const ARROW_ENDPOINT_HANDLES: {
+  id: "tail" | "head"
+  className: string
+}[] = [
+  {
+    id: "tail",
+    className:
+      "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing",
+  },
+  {
+    id: "head",
+    className:
+      "right-0 top-1/2 translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing",
+  },
+]
+
 const HANDLE_CLASS: Record<ResizeHandleId, string> = {
   tl: "left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize",
   mt: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize",
@@ -736,6 +940,57 @@ const HANDLE_CLASS: Record<ResizeHandleId, string> = {
   br: "bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize",
 }
 
+function getArrowGeometry(width: number, height: number, strokeWidth: number) {
+  const safeWidth = Math.max(1, width)
+  const safeHeight = Math.max(1, height)
+  const visualStrokeWidth = clamp(strokeWidth * 2.8, 8, Math.max(8, safeHeight * 0.58))
+  const pad = Math.max(visualStrokeWidth / 2, 1)
+  const centerY = safeHeight / 2
+  const tipX = Math.max(pad, safeWidth - pad)
+  const tailX = Math.min(pad, tipX - 1)
+  const availableLength = Math.max(1, tipX - tailX)
+  const targetHead = clamp(visualStrokeWidth * 3.2, 28, 72)
+  const headLength = Math.min(targetHead, availableLength * 0.42)
+  const headSpread = Math.min(targetHead * 0.72, Math.max(4, safeHeight / 2 - pad))
+  const headBaseX = Math.max(tailX, tipX - headLength)
+  const topY = clamp(centerY - headSpread, pad, safeHeight - pad)
+  const bottomY = clamp(centerY + headSpread, pad, safeHeight - pad)
+
+  return {
+    width: safeWidth,
+    height: safeHeight,
+    tailX,
+    tipX,
+    centerY,
+    strokeWidth: visualStrokeWidth,
+    headPoints: `${headBaseX},${topY} ${tipX},${centerY} ${headBaseX},${bottomY}`,
+  }
+}
+
+function getArrowEndpoints(
+  shape: AnnotationShape,
+  canvasW: number,
+  canvasH: number
+) {
+  const centerX = (shape.xPct / 100) * canvasW
+  const centerY = (shape.yPct / 100) * canvasH
+  const length = (shape.widthPct / 100) * canvasW
+  const theta = ((shape.rotation ?? 0) * Math.PI) / 180
+  const dx = (Math.cos(theta) * length) / 2
+  const dy = (Math.sin(theta) * length) / 2
+
+  return {
+    tail: {
+      xPct: ((centerX - dx) / canvasW) * 100,
+      yPct: ((centerY - dy) / canvasH) * 100,
+    },
+    head: {
+      xPct: ((centerX + dx) / canvasW) * 100,
+      yPct: ((centerY + dy) / canvasH) * 100,
+    },
+  }
+}
+
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
@@ -743,5 +998,14 @@ function clamp(n: number, min: number, max: number) {
 function lineDashArray(style: AnnotationShape["lineStyle"]) {
   if (style === "dashed") return "5 3"
   if (style === "dotted") return "2.2 2.2"
+  return undefined
+}
+
+function scaledLineDashArray(
+  style: AnnotationShape["lineStyle"],
+  strokeWidth: number
+) {
+  if (style === "dashed") return `${strokeWidth * 2.2} ${strokeWidth * 1.35}`
+  if (style === "dotted") return `0.1 ${strokeWidth * 1.75}`
   return undefined
 }
