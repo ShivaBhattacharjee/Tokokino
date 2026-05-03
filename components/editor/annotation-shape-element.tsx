@@ -465,7 +465,10 @@ export function AnnotationShapeElement({
           width: `${shape.widthPct}%`,
           height: `${shape.heightPct}%`,
           transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-          zIndex: 86 + shape.zIndex,
+          zIndex: 60 + shape.zIndex,
+          opacity: (shape.opacity ?? 100) / 100,
+          mixBlendMode: shape.blendMode ?? "normal",
+          display: shape.hidden ? "none" : undefined,
         }}
       >
         {shape.kind === "arrow" ? (

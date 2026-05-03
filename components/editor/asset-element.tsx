@@ -78,7 +78,9 @@ export function AssetElementView({
     selectedAssetId,
     setSelectedAssetId,
     setSelectedTextId,
+    setSelectedAnnotationShapeId,
     updateAsset,
+    deleteAsset,
   } = useEditor()
   const isSelected = selectedAssetId === asset.id
 
@@ -123,7 +125,33 @@ export function AssetElementView({
     e.stopPropagation()
     setSelectedAssetId(asset.id)
     setSelectedTextId(null)
+    setSelectedAnnotationShapeId(null)
   }
+
+  React.useEffect(() => {
+    if (!isSelected) return
+
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        target?.isContentEditable === true
+      ) {
+        return
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        deleteAsset(asset.id)
+        setSelectedAssetId(null)
+      }
+    }
+
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [asset.id, deleteAsset, isSelected, setSelectedAssetId])
 
   const startDrag = (e: React.PointerEvent<Element>) => {
     if (!canvasRef.current) return
@@ -179,8 +207,7 @@ export function AssetElementView({
   }
 
   const startResize =
-    (handle: ResizeHandleId) =>
-    (e: React.PointerEvent<HTMLButtonElement>) => {
+    (handle: ResizeHandleId) => (e: React.PointerEvent<HTMLButtonElement>) => {
       const canvas = canvasRef.current
       const el = elRef.current
       if (!canvas || !el) return
@@ -215,7 +242,10 @@ export function AssetElementView({
     const dyPct = ((e.clientY - rs.startY) / rs.canvasH) * 100
 
     const isCorner =
-      rs.handle === "tl" || rs.handle === "tr" || rs.handle === "bl" || rs.handle === "br"
+      rs.handle === "tl" ||
+      rs.handle === "tr" ||
+      rs.handle === "bl" ||
+      rs.handle === "br"
 
     if (isCorner) {
       // Proportional scale based on dominant axis, anchor opposite corner
@@ -274,8 +304,7 @@ export function AssetElementView({
     }
   }
 
-  const heightStyle =
-    asset.heightPct != null ? `${asset.heightPct}%` : "auto"
+  const heightStyle = asset.heightPct != null ? `${asset.heightPct}%` : "auto"
 
   return (
     <>
@@ -296,9 +325,9 @@ export function AssetElementView({
           width: `${asset.widthPct}%`,
           height: heightStyle,
           transform: `translate(-50%, -50%) rotate(${asset.rotation}deg)`,
-          zIndex:
-            asset.zIndex < 0 ? 10 + asset.zIndex : 40 + asset.zIndex,
+          zIndex: 60 + asset.zIndex,
           mixBlendMode: asset.blendMode,
+          display: asset.hidden ? "none" : undefined,
         }}
       >
         <img
@@ -311,10 +340,10 @@ export function AssetElementView({
             opacity: asset.opacity / 100,
           }}
           className={cn(
-            "block w-full h-full select-none",
+            "block h-full w-full select-none",
             asset.heightPct != null ? "object-fill" : "object-contain",
             isSelected &&
-              "outline-2 outline-[#9BCD64]/95 outline-dashed outline-offset-2"
+              "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
           )}
         />
         {isSelected ? (
@@ -322,14 +351,62 @@ export function AssetElementView({
             {/* Resize handles - 4 edges + 4 corners */}
             {(
               [
-                ["ml", "top-1/2", "left-0", "-translate-x-1/2 -translate-y-1/2", "ew-resize"],
-                ["mr", "top-1/2", "right-0", "translate-x-1/2 -translate-y-1/2", "ew-resize"],
-                ["mt", "top-0", "left-1/2", "-translate-x-1/2 -translate-y-1/2", "ns-resize"],
-                ["mb", "bottom-0", "left-1/2", "-translate-x-1/2 translate-y-1/2", "ns-resize"],
-                ["tl", "top-0", "left-0", "-translate-x-1/2 -translate-y-1/2", "nwse-resize"],
-                ["tr", "top-0", "right-0", "translate-x-1/2 -translate-y-1/2", "nesw-resize"],
-                ["bl", "bottom-0", "left-0", "-translate-x-1/2 translate-y-1/2", "nesw-resize"],
-                ["br", "bottom-0", "right-0", "translate-x-1/2 translate-y-1/2", "nwse-resize"],
+                [
+                  "ml",
+                  "top-1/2",
+                  "left-0",
+                  "-translate-x-1/2 -translate-y-1/2",
+                  "ew-resize",
+                ],
+                [
+                  "mr",
+                  "top-1/2",
+                  "right-0",
+                  "translate-x-1/2 -translate-y-1/2",
+                  "ew-resize",
+                ],
+                [
+                  "mt",
+                  "top-0",
+                  "left-1/2",
+                  "-translate-x-1/2 -translate-y-1/2",
+                  "ns-resize",
+                ],
+                [
+                  "mb",
+                  "bottom-0",
+                  "left-1/2",
+                  "-translate-x-1/2 translate-y-1/2",
+                  "ns-resize",
+                ],
+                [
+                  "tl",
+                  "top-0",
+                  "left-0",
+                  "-translate-x-1/2 -translate-y-1/2",
+                  "nwse-resize",
+                ],
+                [
+                  "tr",
+                  "top-0",
+                  "right-0",
+                  "translate-x-1/2 -translate-y-1/2",
+                  "nesw-resize",
+                ],
+                [
+                  "bl",
+                  "bottom-0",
+                  "left-0",
+                  "-translate-x-1/2 translate-y-1/2",
+                  "nesw-resize",
+                ],
+                [
+                  "br",
+                  "bottom-0",
+                  "right-0",
+                  "translate-x-1/2 translate-y-1/2",
+                  "nwse-resize",
+                ],
               ] as const
             ).map(([id, vClass, hClass, transformClass, cursor]) => (
               <button
@@ -450,7 +527,7 @@ function AssetToolbar({
             onPointerCancel={onDragHandlePointerUp}
             className={cn(
               iconBtnClass,
-              "rounded-full border border-border/60 cursor-grab active:cursor-grabbing"
+              "cursor-grab rounded-full border border-border/60 active:cursor-grabbing"
             )}
           >
             <RiDragMove2Line className="size-4" />
@@ -520,7 +597,7 @@ function AssetToolbar({
                 aria-label="Filters"
                 className={cn(
                   iconBtnClass,
-                  asset.filter !== "none" && "text-foreground bg-accent/60"
+                  asset.filter !== "none" && "bg-accent/60 text-foreground"
                 )}
               >
                 <RiMagicLine className="size-4" />
@@ -533,7 +610,7 @@ function AssetToolbar({
           side="top"
           align="center"
           sideOffset={10}
-          className="w-72 p-2 border-border/60 bg-popover/95 backdrop-blur-md"
+          className="w-72 border-border/60 bg-popover/95 p-2 backdrop-blur-md"
         >
           <AssetFilterGrid asset={asset} />
         </PopoverContent>
@@ -548,7 +625,7 @@ function AssetToolbar({
                 aria-label="Blend mode"
                 className={cn(
                   iconBtnClass,
-                  asset.blendMode !== "normal" && "text-foreground bg-accent/60"
+                  asset.blendMode !== "normal" && "bg-accent/60 text-foreground"
                 )}
               >
                 <RiBlurOffLine className="size-4" />
@@ -561,7 +638,7 @@ function AssetToolbar({
           side="top"
           align="center"
           sideOffset={10}
-          className="w-72 p-2 border-border/60 bg-popover/95 backdrop-blur-md"
+          className="w-72 border-border/60 bg-popover/95 p-2 backdrop-blur-md"
         >
           <AssetBlendGrid asset={asset} />
         </PopoverContent>
@@ -576,7 +653,7 @@ function AssetToolbar({
                 aria-label="Opacity"
                 className={cn(
                   iconBtnClass,
-                  asset.opacity < 100 && "text-foreground bg-accent/60"
+                  asset.opacity < 100 && "bg-accent/60 text-foreground"
                 )}
               >
                 <RiContrastDropLine className="size-4" />
@@ -589,7 +666,7 @@ function AssetToolbar({
           side="top"
           align="center"
           sideOffset={10}
-          className="w-56 p-3 border-border/60 bg-popover/95 backdrop-blur-md"
+          className="w-56 border-border/60 bg-popover/95 p-3 backdrop-blur-md"
         >
           <AssetOpacitySlider asset={asset} />
         </PopoverContent>
@@ -611,7 +688,7 @@ function AssetToolbar({
           side="top"
           align="end"
           sideOffset={10}
-          className="w-44 p-1 border-border/60 bg-popover/95 backdrop-blur-md"
+          className="w-44 border-border/60 bg-popover/95 p-1 backdrop-blur-md"
         >
           <div className="flex flex-col">
             <button
@@ -619,7 +696,7 @@ function AssetToolbar({
                 bringAssetToFront(asset.id)
                 setMoreOpen(false)
               }}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-pointer"
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
             >
               <RiBringToFront className="size-4" />
               Bring to front
@@ -629,7 +706,7 @@ function AssetToolbar({
                 sendAssetToBack(asset.id)
                 setMoreOpen(false)
               }}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-pointer"
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
             >
               <RiSendToBack className="size-4" />
               Send to back
@@ -660,7 +737,7 @@ function AssetFilterGrid({ asset }: { asset: AssetElement }) {
   const { updateAsset } = useEditor()
   return (
     <div className="flex flex-col gap-2">
-      <span className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
         Filters
       </span>
       <div className="grid grid-cols-4 gap-1.5">
@@ -671,7 +748,7 @@ function AssetFilterGrid({ asset }: { asset: AssetElement }) {
               key={f.id}
               onClick={() => updateAsset(asset.id, { filter: f.id })}
               className={cn(
-                "group flex flex-col items-center gap-1 rounded-md border p-1 transition-all cursor-pointer",
+                "group flex cursor-pointer flex-col items-center gap-1 rounded-md border p-1 transition-all",
                 active
                   ? "border-primary/40 bg-primary/10 ring-1 ring-primary/20"
                   : "border-border/60 bg-secondary/20 hover:border-foreground/30"
@@ -725,7 +802,7 @@ function AssetBlendGrid({ asset }: { asset: AssetElement }) {
   const { updateAsset } = useEditor()
   return (
     <div className="flex flex-col gap-2">
-      <span className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
         Blend
       </span>
       <div className="grid grid-cols-4 gap-1.5">
@@ -736,7 +813,7 @@ function AssetBlendGrid({ asset }: { asset: AssetElement }) {
               key={m.id}
               onClick={() => updateAsset(asset.id, { blendMode: m.id })}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-md border p-1 transition-all cursor-pointer",
+                "flex cursor-pointer flex-col items-center gap-1 rounded-md border p-1 transition-all",
                 active
                   ? "border-primary/40 bg-primary/10 ring-1 ring-primary/20"
                   : "border-border/60 bg-secondary/20 hover:border-foreground/30"
@@ -759,7 +836,7 @@ function AssetBlendGrid({ asset }: { asset: AssetElement }) {
               </div>
               <span
                 className={cn(
-                  "text-[9px] font-medium leading-tight",
+                  "text-[9px] leading-tight font-medium",
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               >
@@ -778,7 +855,7 @@ function AssetOpacitySlider({ asset }: { asset: AssetElement }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
           Opacity
         </span>
         <span className="font-mono text-[11px] text-foreground">

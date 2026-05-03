@@ -87,6 +87,7 @@ export function Canvas() {
     canvasZoom,
     screenshotPosition,
     screenshotOffset,
+    screenshotLayer,
     shadow,
     overlay,
     portrait,
@@ -328,6 +329,8 @@ export function Canvas() {
     transformStyle: "preserve-3d",
     boxShadow: computedShadow,
     filter: enhanceFilter,
+    opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
+    mixBlendMode: screenshotLayer.blendMode,
   }
   if (border.color && border.width > 0) {
     imgStyle.outline = `${border.width}px ${border.style || "solid"} ${border.color}`
@@ -726,7 +729,10 @@ export function Canvas() {
           {/* Content — wrapper itself is click-through so text layered behind the screenshot can still receive clicks; the image + interactive children opt back in via pointer-events-auto */}
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
-            style={{ padding: screenshot ? padding : 0, zIndex: 20 }}
+            style={{
+              padding: screenshot ? padding : 0,
+              zIndex: 60 + screenshotLayer.zIndex,
+            }}
           >
             {screenshot ? (
               <div
@@ -781,6 +787,7 @@ export function Canvas() {
                   }}
                   className={cn(
                     "pointer-events-auto absolute max-h-full max-w-full object-contain select-none",
+                    screenshotLayer.hidden && "pointer-events-none",
                     isScreenshotDragging || suppressTransition
                       ? "cursor-grabbing transition-none"
                       : "transition-all duration-300 ease-out",

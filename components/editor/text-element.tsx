@@ -521,9 +521,12 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
         left: `${text.xPct}%`,
         top: `${text.yPct}%`,
         transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
-        zIndex: text.zIndex < 0 ? 82 + text.zIndex : 90 + text.zIndex,
+        zIndex: 60 + text.zIndex,
         width: outerWidth,
         height: outerHeight,
+        opacity: (text.opacity ?? 100) / 100,
+        mixBlendMode: text.blendMode ?? "normal",
+        display: text.hidden ? "none" : undefined,
       }}
       onPointerDown={isEditing ? undefined : startDrag}
       onPointerMove={moveDrag}

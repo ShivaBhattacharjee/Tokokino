@@ -123,6 +123,14 @@ export type AssetElement = {
   opacity: number
   filter: AssetFilter
   blendMode: AssetBlendMode
+  hidden?: boolean
+}
+
+export type ScreenshotLayer = {
+  zIndex: number
+  opacity: number
+  blendMode: AssetBlendMode
+  hidden: boolean
 }
 
 export function assetFilterCss(filter: AssetFilter): string | undefined {
@@ -177,6 +185,9 @@ export type TextElement = {
   widthPx: number | null
   heightPx: number | null
   autoColor: boolean
+  opacity?: number
+  blendMode?: AssetBlendMode
+  hidden?: boolean
 }
 
 export type FontCategory = "sans" | "serif" | "mono" | "script" | "system"
@@ -734,6 +745,7 @@ export type EditorState = {
   canvasZoom: number
   screenshotPosition: ScreenshotPosition
   screenshotOffset: { x: number; y: number }
+  screenshotLayer: ScreenshotLayer
   shadow: Shadow
   overlay: Overlay
   portrait: Portrait
@@ -811,6 +823,9 @@ export type AnnotationShape = {
   blurEffect?: AnnotationBlurEffect
   blurAmount?: number
   zIndex: number
+  opacity?: number
+  blendMode?: AssetBlendMode
+  hidden?: boolean
 }
 
 export const ANNOTATION_COLORS = [
@@ -1011,6 +1026,12 @@ const DEFAULT_STATE: EditorState = {
   canvasZoom: 100,
   screenshotPosition: "center",
   screenshotOffset: { x: 0, y: 0 },
+  screenshotLayer: {
+    zIndex: 1,
+    opacity: 100,
+    blendMode: "normal",
+    hidden: false,
+  },
   shadow: {
     type: "drop",
     intensity: 40,
@@ -1145,6 +1166,7 @@ type Ctx = EditorState & {
   setCanvasZoom: (n: number) => void
   setScreenshotPosition: (p: ScreenshotPosition) => void
   setScreenshotOffset: (o: { x: number; y: number }) => void
+  updateScreenshotLayer: (patch: Partial<ScreenshotLayer>) => void
   setShadow: (s: Shadow) => void
   setOverlay: (o: Overlay) => void
   setPortrait: (p: Portrait) => void
@@ -1217,23 +1239,88 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       const max = items.length ? Math.max(...items.map((t) => t.zIndex)) : 0
       return Math.max(max + 1, 1)
     }
-    const computeMinZ = (items: { zIndex: number }[]) => {
-      const min = items.length ? Math.min(...items.map((t) => t.zIndex)) : 0
-      return Math.min(min - 1, -1)
+    const getLayerItems = (s: EditorState) => [
+      s.screenshotLayer,
+      ...s.assets,
+      ...s.texts,
+      ...s.annotationShapes,
+    ]
+    const computeNextLayerZ = (s: EditorState) => computeNextZ(getLayerItems(s))
+    const getLayerRefs = (s: EditorState) => [
+      { key: "screenshot", zIndex: s.screenshotLayer.zIndex },
+      ...s.assets.map((asset) => ({
+        key: `asset:${asset.id}`,
+        zIndex: asset.zIndex,
+      })),
+      ...s.texts.map((text) => ({
+        key: `text:${text.id}`,
+        zIndex: text.zIndex,
+      })),
+      ...s.annotationShapes.map((shape) => ({
+        key: `annotation:${shape.id}`,
+        zIndex: shape.zIndex,
+      })),
+    ]
+    const applyLayerOrder = (
+      s: EditorState,
+      refsBottomFirst: { key: string; zIndex: number }[]
+    ): Partial<EditorState> => {
+      const zByKey = new Map(
+        refsBottomFirst.map((layer, index) => [layer.key, index + 1])
+      )
+      return {
+        screenshotLayer: {
+          ...s.screenshotLayer,
+          zIndex: zByKey.get("screenshot") ?? s.screenshotLayer.zIndex,
+        },
+        assets: s.assets.map((asset) => ({
+          ...asset,
+          zIndex: zByKey.get(`asset:${asset.id}`) ?? asset.zIndex,
+        })),
+        texts: s.texts.map((text) => ({
+          ...text,
+          zIndex: zByKey.get(`text:${text.id}`) ?? text.zIndex,
+        })),
+        annotationShapes: s.annotationShapes.map((shape) => ({
+          ...shape,
+          zIndex: zByKey.get(`annotation:${shape.id}`) ?? shape.zIndex,
+        })),
+      }
+    }
+    const moveLayerInStack = (
+      s: EditorState,
+      key: string,
+      position: "front" | "back"
+    ): Partial<EditorState> => {
+      const refs = getLayerRefs(s).sort((a, b) => a.zIndex - b.zIndex)
+      const index = refs.findIndex((layer) => layer.key === key)
+      if (index < 0) return {}
+      const [target] = refs.splice(index, 1)
+      if (position === "front") refs.push(target)
+      else refs.unshift(target)
+      return applyLayerOrder(s, refs)
     }
     return {
       ...DEFAULT_STATE,
       ...state.present,
       setActiveTool: (t) => set({ activeTool: t }, null),
-      setScreenshot: (s) =>
+      setScreenshot: (screenshot) =>
         set(
-          {
-            screenshot: s,
-            originalScreenshot: s,
+          (s) => ({
+            screenshot,
+            originalScreenshot: screenshot,
             lastCropRegion: null,
             screenshotPosition: "center",
             screenshotOffset: { x: 0, y: 0 },
-          },
+            screenshotLayer: {
+              ...s.screenshotLayer,
+              zIndex:
+                screenshot && !s.screenshot
+                  ? computeNextLayerZ(s)
+                  : s.screenshotLayer.zIndex,
+              hidden: false,
+            },
+          }),
           null
         ),
       applyCroppedScreenshot: (s, region) =>
@@ -1273,6 +1360,13 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         ),
       setScreenshotOffset: (o) =>
         set({ screenshotOffset: o }, "screenshotOffset"),
+      updateScreenshotLayer: (patch) =>
+        set(
+          (s) => ({
+            screenshotLayer: { ...s.screenshotLayer, ...patch },
+          }),
+          "screenshotLayer"
+        ),
       setShadow: (s) => set({ shadow: s }, "shadow"),
       setOverlay: (o) => set({ overlay: o }, "overlay"),
       setPortrait: (p) => set({ portrait: p }, "portrait"),
@@ -1307,7 +1401,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
           (s) => ({
             annotationShapes: [
               ...s.annotationShapes,
-              { ...shape, id, zIndex: computeNextZ(s.annotationShapes) },
+              { ...shape, id, zIndex: computeNextLayerZ(s) },
             ],
           }),
           null
@@ -1345,39 +1439,17 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
             id: copyId,
             xPct: Math.min(98, src.xPct + 3),
             yPct: Math.min(98, src.yPct + 3),
-            zIndex: computeNextZ(s.annotationShapes),
+            zIndex: computeNextLayerZ(s),
           }
           return { annotationShapes: [...s.annotationShapes, copy] }
         }, null)
         return didCopy ? copyId : null
       },
       bringAnnotationShapeToFront: (id) => {
-        set((s) => {
-          const z = computeNextZ(s.annotationShapes)
-          const next = s.annotationShapes.map((shape) =>
-            shape.id === id ? { ...shape, zIndex: z } : shape
-          )
-          return {
-            annotationShapes: [
-              ...next.filter((shape) => shape.id !== id),
-              ...next.filter((shape) => shape.id === id),
-            ],
-          }
-        }, null)
+        set((s) => moveLayerInStack(s, `annotation:${id}`, "front"), null)
       },
       sendAnnotationShapeToBack: (id) => {
-        set((s) => {
-          const z = computeMinZ(s.annotationShapes)
-          const next = s.annotationShapes.map((shape) =>
-            shape.id === id ? { ...shape, zIndex: z } : shape
-          )
-          return {
-            annotationShapes: [
-              ...next.filter((shape) => shape.id === id),
-              ...next.filter((shape) => shape.id !== id),
-            ],
-          }
-        }, null)
+        set((s) => moveLayerInStack(s, `annotation:${id}`, "back"), null)
       },
       clearAnnotations: () =>
         set({ annotations: [], annotationShapes: [] }, null),
@@ -1403,10 +1475,12 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
                 borderColor: null,
                 borderWidth: 1,
                 borderStyle: "solid",
-                zIndex: computeNextZ(s.texts),
+                zIndex: computeNextLayerZ(s),
                 widthPx: null,
                 heightPx: null,
                 autoColor: true,
+                opacity: 100,
+                blendMode: "normal",
               },
             ],
           }),
@@ -1435,27 +1509,17 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
             id: copyId,
             xPct: Math.min(95, src.xPct + 4),
             yPct: Math.min(95, src.yPct + 4),
-            zIndex: computeNextZ(s.texts),
+            zIndex: computeNextLayerZ(s),
           }
           return { texts: [...s.texts, copy] }
         }, null)
         return copyId
       },
       bringTextToFront: (id) => {
-        set((s) => {
-          const z = computeNextZ(s.texts)
-          return {
-            texts: s.texts.map((t) => (t.id === id ? { ...t, zIndex: z } : t)),
-          }
-        }, null)
+        set((s) => moveLayerInStack(s, `text:${id}`, "front"), null)
       },
       sendTextToBack: (id) => {
-        set((s) => {
-          const z = computeMinZ(s.texts)
-          return {
-            texts: s.texts.map((t) => (t.id === id ? { ...t, zIndex: z } : t)),
-          }
-        }, null)
+        set((s) => moveLayerInStack(s, `text:${id}`, "back"), null)
       },
       selectedTextId,
       setSelectedTextId,
@@ -1473,10 +1537,11 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
                 widthPct: 25,
                 heightPct: null,
                 rotation: 0,
-                zIndex: computeNextZ(s.assets),
+                zIndex: computeNextLayerZ(s),
                 opacity: 100,
                 filter: "none",
                 blendMode: "normal",
+                hidden: false,
               },
             ],
           }),
@@ -1507,31 +1572,17 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
             id: copyId,
             xPct: Math.min(95, src.xPct + 4),
             yPct: Math.min(95, src.yPct + 4),
-            zIndex: computeNextZ(s.assets),
+            zIndex: computeNextLayerZ(s),
           }
           return { assets: [...s.assets, copy] }
         }, null)
         return didCopy ? copyId : null
       },
       bringAssetToFront: (id) => {
-        set((s) => {
-          const z = computeNextZ(s.assets)
-          return {
-            assets: s.assets.map((a) =>
-              a.id === id ? { ...a, zIndex: z } : a
-            ),
-          }
-        }, null)
+        set((s) => moveLayerInStack(s, `asset:${id}`, "front"), null)
       },
       sendAssetToBack: (id) => {
-        set((s) => {
-          const z = computeMinZ(s.assets)
-          return {
-            assets: s.assets.map((a) =>
-              a.id === id ? { ...a, zIndex: z } : a
-            ),
-          }
-        }, null)
+        set((s) => moveLayerInStack(s, `asset:${id}`, "back"), null)
       },
       selectedAssetId,
       setSelectedAssetId,
