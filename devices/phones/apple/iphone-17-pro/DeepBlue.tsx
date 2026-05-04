@@ -10,21 +10,21 @@ const DeepBlue = () => {
       xmlns="http://www.w3.org/2000/svg"
       xmlnsXlink="http://www.w3.org/1999/xlink"
     >
-      <rect width="450" height="920" fill="url(#pattern0_6316_14139)" />
+      <rect width="450" height="920" fill="url(#pattern0_6316_14146)" />
       <defs>
         <pattern
-          id="pattern0_6316_14139"
+          id="pattern0_6316_14146"
           patternContentUnits="objectBoundingBox"
           width="1"
           height="1"
         >
           <use
-            xlinkHref="#image0_6316_14139"
+            xlinkHref="#image0_6316_14146"
             transform="scale(0.000740741 0.000362319)"
           />
         </pattern>
         <image
-          id="image0_6316_14139"
+          id="image0_6316_14146"
           width="1350"
           height="2760"
           preserveAspectRatio="none"

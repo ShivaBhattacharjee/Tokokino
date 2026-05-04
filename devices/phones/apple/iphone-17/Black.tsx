@@ -10,21 +10,21 @@ const Black = () => {
       xmlns="http://www.w3.org/2000/svg"
       xmlnsXlink="http://www.w3.org/1999/xlink"
     >
-      <rect width="450" height="920" fill="url(#pattern0_6316_14199)" />
+      <rect width="450" height="920" fill="url(#pattern0_6316_14214)" />
       <defs>
         <pattern
-          id="pattern0_6316_14199"
+          id="pattern0_6316_14214"
           patternContentUnits="objectBoundingBox"
           width="1"
           height="1"
         >
           <use
-            xlinkHref="#image0_6316_14199"
+            xlinkHref="#image0_6316_14214"
             transform="scale(0.000740741 0.000362319)"
           />
         </pattern>
         <image
-          id="image0_6316_14199"
+          id="image0_6316_14214"
           width="1350"
           height="2760"
           preserveAspectRatio="none"
