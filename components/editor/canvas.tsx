@@ -103,6 +103,7 @@ export function Canvas() {
     texts,
     selectedTextId,
     setSelectedTextId,
+    updateText,
     assets,
     setSelectedAssetId,
     addAnnotationStroke,
@@ -202,6 +203,27 @@ export function Canvas() {
     shapeId: string
     startXPct: number
     startYPct: number
+    moved: boolean
+  } | null>(null)
+  const annotationShapeMoveRef = React.useRef<{
+    pointerId: number
+    shapeId: string
+    startClientX: number
+    startClientY: number
+    startXPct: number
+    startYPct: number
+    canvasW: number
+    canvasH: number
+  } | null>(null)
+  const annotationTextMoveRef = React.useRef<{
+    pointerId: number
+    textId: string
+    startClientX: number
+    startClientY: number
+    startXPct: number
+    startYPct: number
+    canvasW: number
+    canvasH: number
     moved: boolean
   } | null>(null)
 
@@ -413,8 +435,105 @@ export function Canvas() {
     }
   }
 
+  const getEditorElementAtPoint = React.useCallback(
+    (clientX: number, clientY: number) => {
+      const canvas = canvasRef.current
+      const layer = annotationLayerRef.current
+      if (!canvas || !layer || typeof document === "undefined") return null
+
+      for (const element of document.elementsFromPoint(clientX, clientY)) {
+        if (element === layer) continue
+        if (!canvas.contains(element)) continue
+
+        const shapeElement = element.closest<HTMLElement>(
+          "[data-annotation-shape-id]"
+        )
+        if (shapeElement && canvas.contains(shapeElement)) {
+          return {
+            type: "annotation-shape" as const,
+            id: shapeElement.dataset.annotationShapeId ?? null,
+          }
+        }
+
+        const textElement = element.closest<HTMLElement>("[data-editor-text-id]")
+        if (textElement && canvas.contains(textElement)) {
+          return {
+            type: "text" as const,
+            id: textElement.dataset.editorTextId ?? null,
+          }
+        }
+      }
+
+      return null
+    },
+    []
+  )
+
   const startAnnotation = (e: React.PointerEvent<SVGSVGElement>) => {
     if (activeTool !== "arrow") return
+    const editorElementAtPoint = getEditorElementAtPoint(e.clientX, e.clientY)
+    if (
+      editorElementAtPoint?.type === "annotation-shape" &&
+      editorElementAtPoint.id
+    ) {
+      const canvas = canvasRef.current
+      const shape = annotationShapes.find(
+        (shape) => shape.id === editorElementAtPoint.id
+      )
+      e.preventDefault()
+      e.stopPropagation()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      setSelectedAnnotationShapeId(editorElementAtPoint.id)
+      setSelectedTextId(null)
+      setSelectedAssetId(null)
+      setIsScreenshotSelected(false)
+      if (canvas && shape) {
+        const rect = canvas.getBoundingClientRect()
+        annotationShapeMoveRef.current = {
+          pointerId: e.pointerId,
+          shapeId: editorElementAtPoint.id,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startXPct: shape.xPct,
+          startYPct: shape.yPct,
+          canvasW: rect.width,
+          canvasH: rect.height,
+        }
+      }
+      return
+    }
+    if (editorElementAtPoint?.type === "text" && editorElementAtPoint.id) {
+      const canvas = canvasRef.current
+      const text = texts.find((text) => text.id === editorElementAtPoint.id)
+      e.preventDefault()
+      e.stopPropagation()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      window.dispatchEvent(
+        new CustomEvent("beautiful-screenshots:select-text", {
+          detail: { id: editorElementAtPoint.id },
+        })
+      )
+      setSelectedTextId(editorElementAtPoint.id)
+      setSelectedAnnotationShapeId(null)
+      setSelectedAssetId(null)
+      setIsScreenshotSelected(false)
+      if (canvas && text) {
+        const rect = canvas.getBoundingClientRect()
+        annotationTextMoveRef.current = {
+          pointerId: e.pointerId,
+          textId: editorElementAtPoint.id,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startXPct: text.xPct,
+          startYPct: text.yPct,
+          canvasW: rect.width,
+          canvasH: rect.height,
+          moved: false,
+        }
+      }
+      return
+    }
+
     const point = getAnnotationPoint(e)
     if (!point) return
     const layer = annotationLayerRef.current
@@ -484,6 +603,47 @@ export function Canvas() {
   }
 
   const moveAnnotation = (e: React.PointerEvent<SVGSVGElement>) => {
+    const textMove = annotationTextMoveRef.current
+    if (textMove && textMove.pointerId === e.pointerId) {
+      e.preventDefault()
+      e.stopPropagation()
+      const rawDx = e.clientX - textMove.startClientX
+      const rawDy = e.clientY - textMove.startClientY
+      if (!textMove.moved && Math.hypot(rawDx, rawDy) < 4) return
+      textMove.moved = true
+      let nextX = textMove.startXPct + (rawDx / textMove.canvasW) * 100
+      let nextY = textMove.startYPct + (rawDy / textMove.canvasH) * 100
+      const snapX = Math.abs(nextX - 50) <= (8 / textMove.canvasW) * 100
+      const snapY = Math.abs(nextY - 50) <= (8 / textMove.canvasH) * 100
+      if (snapX) nextX = 50
+      if (snapY) nextY = 50
+      updateText(textMove.textId, {
+        xPct: clamp(nextX, -20, 120),
+        yPct: clamp(nextY, -20, 120),
+      })
+      setTextCenterGuides({ x: snapX, y: snapY })
+      return
+    }
+
+    const shapeMove = annotationShapeMoveRef.current
+    if (shapeMove && shapeMove.pointerId === e.pointerId) {
+      e.preventDefault()
+      e.stopPropagation()
+      const dxPct =
+        ((e.clientX - shapeMove.startClientX) / shapeMove.canvasW) * 100
+      const dyPct =
+        ((e.clientY - shapeMove.startClientY) / shapeMove.canvasH) * 100
+      let nextX = clamp(shapeMove.startXPct + dxPct, -20, 120)
+      let nextY = clamp(shapeMove.startYPct + dyPct, -20, 120)
+      const snapX = Math.abs(nextX - 50) <= (8 / shapeMove.canvasW) * 100
+      const snapY = Math.abs(nextY - 50) <= (8 / shapeMove.canvasH) * 100
+      if (snapX) nextX = 50
+      if (snapY) nextY = 50
+      updateAnnotationShape(shapeMove.shapeId, { xPct: nextX, yPct: nextY })
+      setTextCenterGuides({ x: snapX, y: snapY })
+      return
+    }
+
     const shapeDrag = annotationShapeDragRef.current
     if (shapeDrag && shapeDrag.pointerId === e.pointerId) {
       const point = getAnnotationPoint(e)
@@ -551,6 +711,20 @@ export function Canvas() {
   }
 
   const stopAnnotation = (e: React.PointerEvent<SVGSVGElement>) => {
+    const textMove = annotationTextMoveRef.current
+    if (textMove && textMove.pointerId === e.pointerId) {
+      annotationTextMoveRef.current = null
+      setTextCenterGuides({ x: false, y: false })
+      return
+    }
+
+    const shapeMove = annotationShapeMoveRef.current
+    if (shapeMove && shapeMove.pointerId === e.pointerId) {
+      annotationShapeMoveRef.current = null
+      setTextCenterGuides({ x: false, y: false })
+      return
+    }
+
     const shapeDrag = annotationShapeDragRef.current
     if (shapeDrag && shapeDrag.pointerId === e.pointerId) {
       annotationShapeDragRef.current = null
@@ -984,6 +1158,30 @@ export function Canvas() {
             onPointerMove={moveAnnotation}
             onPointerUp={stopAnnotation}
             onPointerCancel={stopAnnotation}
+            onClick={(e) => {
+              if (isAnnotating) e.stopPropagation()
+            }}
+            onDoubleClick={(e) => {
+              if (!isAnnotating) return
+              const editorElementAtPoint = getEditorElementAtPoint(
+                e.clientX,
+                e.clientY
+              )
+              if (
+                editorElementAtPoint?.type !== "text" ||
+                !editorElementAtPoint.id
+              ) {
+                return
+              }
+
+              e.preventDefault()
+              e.stopPropagation()
+              window.dispatchEvent(
+                new CustomEvent("beautiful-screenshots:edit-text", {
+                  detail: { id: editorElementAtPoint.id },
+                })
+              )
+            }}
           >
             <defs>
               <mask
@@ -1056,6 +1254,10 @@ function annotationPath(points: { x: number; y: number }[]) {
       index === 0 ? `M ${point.x} ${point.y}` : `L ${point.x} ${point.y}`
     )
     .join(" ")
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n))
 }
 
 function screenshotPlacementStyle(

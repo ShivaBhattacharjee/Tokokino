@@ -94,6 +94,31 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
     sel?.addRange(range)
   }, [isEditing, text.content])
 
+  React.useEffect(() => {
+    const selectText = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id !== text.id) return
+      setEditingRequested(false)
+    }
+    const editText = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id !== text.id) return
+      setSelectedTextId(text.id)
+      setSelectedAnnotationShapeId(null)
+      setEditingRequested(true)
+    }
+
+    window.addEventListener("beautiful-screenshots:select-text", selectText)
+    window.addEventListener("beautiful-screenshots:edit-text", editText)
+    return () => {
+      window.removeEventListener(
+        "beautiful-screenshots:select-text",
+        selectText
+      )
+      window.removeEventListener("beautiful-screenshots:edit-text", editText)
+    }
+  }, [setSelectedAnnotationShapeId, setSelectedTextId, text.id])
+
   // Global keyboard listener for delete when selected (toolbar mode)
   React.useEffect(() => {
     if (!isSelected || isEditing) return
@@ -177,6 +202,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
     e.preventDefault()
     setSelectedTextId(t.id)
     setSelectedAnnotationShapeId(null)
+    setEditingRequested(false)
     ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
     const rect = canvas.getBoundingClientRect()
     dragRef.current = {
@@ -532,8 +558,10 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
       onPointerMove={moveDrag}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      data-editor-text-id={text.id}
       onClick={(e) => {
         e.stopPropagation()
+        setEditingRequested(false)
         setSelectedTextId(text.id)
         setSelectedAnnotationShapeId(null)
       }}

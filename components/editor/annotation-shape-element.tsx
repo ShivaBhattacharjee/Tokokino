@@ -459,6 +459,7 @@ export function AnnotationShapeElement({
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
+        data-annotation-shape-id={shape.id}
         style={{
           left: `${shape.xPct}%`,
           top: `${shape.yPct}%`,
@@ -543,65 +544,75 @@ export function AnnotationShapeElement({
             )}
           </svg>
         )}
-
-        {isSelected ? (
-          <>
-            {shape.kind !== "arrow" ? (
-              <div className="pointer-events-none absolute inset-0 border border-dashed border-[#92b97a]/80" />
-            ) : null}
-            {isRotateSnapped && (
-              <div className="pointer-events-none absolute top-1/2 left-1/2 z-[-1] -translate-x-1/2 -translate-y-1/2">
-                <div className="absolute w-[4000px] -translate-x-1/2 border-t border-dashed border-[#9BCD64]/95" />
-                <div className="absolute h-[4000px] -translate-y-1/2 border-l border-dashed border-[#9BCD64]/95" />
-              </div>
-            )}
-            {shape.kind === "arrow"
-              ? ARROW_ENDPOINT_HANDLES.map((handle) => (
-                  <button
-                    key={handle.id}
-                    aria-label={`${handle.id} arrow endpoint`}
-                    className={cn(
-                      "absolute z-10 size-5 rounded-full border-2 border-[#92b97a] bg-background shadow",
-                      handle.className
-                    )}
-                    onPointerDown={startArrowEndpoint(handle.id)}
-                    onPointerMove={moveArrowEndpoint}
-                    onPointerUp={endArrowEndpoint}
-                    onPointerCancel={endArrowEndpoint}
-                  />
-                ))
-              : RESIZE_HANDLES.map((handle) => (
-                  <button
-                    key={handle}
-                    aria-label={`Resize ${handle}`}
-                    className={cn(
-                      "absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
-                      HANDLE_CLASS[handle]
-                    )}
-                    onPointerDown={startResize(handle)}
-                    onPointerMove={moveResize}
-                    onPointerUp={endResize}
-                    onPointerCancel={endResize}
-                  />
-                ))}
-            <button
-              aria-label="Rotate shape"
-              onPointerDown={startRotate}
-              onPointerMove={moveRotate}
-              onPointerUp={endRotate}
-              onPointerCancel={endRotate}
-              onClick={(e) => e.stopPropagation()}
-              className="absolute -bottom-9 left-1/2 z-10 flex size-7 cursor-grab items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md"
-              style={{
-                transform: `translate(-50%, 0) ${counterRotate}`,
-                transformOrigin: "top center",
-              }}
-            >
-              <RiRefreshLine className="size-3.5" />
-            </button>
-          </>
-        ) : null}
       </div>
+      {isSelected ? (
+        <div
+          className="pointer-events-none absolute touch-none select-none"
+          style={{
+            left: `${shape.xPct}%`,
+            top: `${shape.yPct}%`,
+            width: `${shape.widthPct}%`,
+            height: `${shape.heightPct}%`,
+            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+            zIndex: 90 + shape.zIndex,
+            display: shape.hidden ? "none" : undefined,
+          }}
+        >
+          {shape.kind !== "arrow" ? (
+            <div className="pointer-events-none absolute inset-0 border border-dashed border-[#92b97a]/80" />
+          ) : null}
+          {isRotateSnapped && (
+            <div className="pointer-events-none absolute top-1/2 left-1/2 z-[-1] -translate-x-1/2 -translate-y-1/2">
+              <div className="absolute w-[4000px] -translate-x-1/2 border-t border-dashed border-[#9BCD64]/95" />
+              <div className="absolute h-[4000px] -translate-y-1/2 border-l border-dashed border-[#9BCD64]/95" />
+            </div>
+          )}
+          {shape.kind === "arrow"
+            ? ARROW_ENDPOINT_HANDLES.map((handle) => (
+                <button
+                  key={handle.id}
+                  aria-label={`${handle.id} arrow endpoint`}
+                  className={cn(
+                    "pointer-events-auto absolute z-10 size-5 rounded-full border-2 border-[#92b97a] bg-background shadow",
+                    handle.className
+                  )}
+                  onPointerDown={startArrowEndpoint(handle.id)}
+                  onPointerMove={moveArrowEndpoint}
+                  onPointerUp={endArrowEndpoint}
+                  onPointerCancel={endArrowEndpoint}
+                />
+              ))
+            : RESIZE_HANDLES.map((handle) => (
+                <button
+                  key={handle}
+                  aria-label={`Resize ${handle}`}
+                  className={cn(
+                    "pointer-events-auto absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
+                    HANDLE_CLASS[handle]
+                  )}
+                  onPointerDown={startResize(handle)}
+                  onPointerMove={moveResize}
+                  onPointerUp={endResize}
+                  onPointerCancel={endResize}
+                />
+              ))}
+          <button
+            aria-label="Rotate shape"
+            onPointerDown={startRotate}
+            onPointerMove={moveRotate}
+            onPointerUp={endRotate}
+            onPointerCancel={endRotate}
+            onClick={(e) => e.stopPropagation()}
+            className="pointer-events-auto absolute -bottom-9 left-1/2 z-10 flex size-7 cursor-grab items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md"
+            style={{
+              transform: `translate(-50%, 0) ${counterRotate}`,
+              transformOrigin: "top center",
+            }}
+          >
+            <RiRefreshLine className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
       {isSelected && toolbarRect && typeof document !== "undefined"
         ? createPortal(
             (() => {
