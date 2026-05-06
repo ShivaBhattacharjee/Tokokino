@@ -44,6 +44,9 @@ type DragState = {
   startYPct: number
   canvasW: number
   canvasH: number
+  nextXPct: number
+  nextYPct: number
+  moved: boolean
 }
 
 type ResizeState = {
@@ -100,6 +103,7 @@ export function AnnotationShapeElement({
   const isSelected = selectedAnnotationShapeId === shape.id
   const dashArray = lineDashArray(shape.lineStyle)
   const elRef = React.useRef<HTMLDivElement>(null)
+  const selectionChromeRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
   const resizeRef = React.useRef<ResizeState | null>(null)
   const arrowEndpointRef = React.useRef<ArrowEndpointState | null>(null)
@@ -200,6 +204,9 @@ export function AnnotationShapeElement({
       startYPct: shape.yPct,
       canvasW: rect.width,
       canvasH: rect.height,
+      nextXPct: shape.xPct,
+      nextYPct: shape.yPct,
+      moved: false,
     }
   }
 
@@ -216,13 +223,32 @@ export function AnnotationShapeElement({
     if (snapX) nextX = 50
     if (snapY) nextY = 50
     onCenterGuideChange?.({ x: snapX, y: snapY })
-    updateAnnotationShape(shape.id, { xPct: nextX, yPct: nextY })
+    drag.nextXPct = nextX
+    drag.nextYPct = nextY
+    drag.moved = true
+    const el = elRef.current
+    if (el) {
+      el.style.left = `${nextX}%`
+      el.style.top = `${nextY}%`
+      setToolbarRect(el.getBoundingClientRect())
+    }
+    const chrome = selectionChromeRef.current
+    if (chrome) {
+      chrome.style.left = `${nextX}%`
+      chrome.style.top = `${nextY}%`
+    }
   }
 
   const endDrag = (e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
     dragRef.current = null
+    if (drag.moved) {
+      updateAnnotationShape(shape.id, {
+        xPct: drag.nextXPct,
+        yPct: drag.nextYPct,
+      })
+    }
     onCenterGuideChange?.({ x: false, y: false })
   }
 
@@ -547,6 +573,8 @@ export function AnnotationShapeElement({
       </div>
       {isSelected ? (
         <div
+          ref={selectionChromeRef}
+          data-annotation-selection-chrome-id={shape.id}
           className="pointer-events-none absolute touch-none select-none"
           style={{
             left: `${shape.xPct}%`,
@@ -623,6 +651,7 @@ export function AnnotationShapeElement({
               const left = toolbarRect.left + toolbarRect.width / 2
               return (
                 <div
+                  data-editor-floating-toolbar-target={`annotation-shape:${shape.id}`}
                   className="pointer-events-none fixed z-[100]"
                   style={{
                     top,

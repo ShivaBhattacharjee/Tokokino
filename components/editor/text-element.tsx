@@ -65,8 +65,6 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
   const isEditing = isSelected && editingRequested
   const elRef = React.useRef<HTMLDivElement>(null)
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
-  const setToolbarRectRef = React.useRef(setToolbarRect)
-  setToolbarRectRef.current = setToolbarRect
   const editorRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
   const rotateRef = React.useRef<RotateState | null>(null)
@@ -252,7 +250,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
     if (el) {
       el.style.left = `${clampedX}%`
       el.style.top = `${clampedY}%`
-      setToolbarRectRef.current(el.getBoundingClientRect())
+      setToolbarRect(el.getBoundingClientRect())
     }
     // Store the latest values for commit
     drag.startXPct = clampedX
@@ -727,6 +725,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
             const left = toolbarRect.left + toolbarRect.width / 2
             return (
               <div
+                data-editor-floating-toolbar-target={`text:${text.id}`}
                 className="pointer-events-none fixed z-[100]"
                 style={{
                   top,

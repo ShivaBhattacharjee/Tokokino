@@ -189,7 +189,6 @@ export function AssetElementView({
     if (el) {
       el.style.left = `${nextX}%`
       el.style.top = `${nextY}%`
-      // Keep the toolbar following — local component re-render only, no store update
       setToolbarRect(el.getBoundingClientRect())
     }
   }
@@ -315,6 +314,7 @@ export function AssetElementView({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         onClick={select}
+        data-editor-asset-id={asset.id}
         className={cn(
           "absolute select-none",
           isSelected ? "cursor-grabbing" : "cursor-grab"
@@ -440,6 +440,7 @@ export function AssetElementView({
               const left = toolbarRect.left + toolbarRect.width / 2
               return (
                 <div
+                  data-editor-floating-toolbar-target={`asset:${asset.id}`}
                   className="pointer-events-none fixed z-100"
                   style={{
                     top,
