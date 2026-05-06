@@ -211,15 +211,22 @@ export function Canvas() {
   } | null>(null)
   const annotationDragRef = React.useRef<{
     pointerId: number
-    strokeId: string | null
+    strokeId: string
     points: { x: number; y: number }[]
     mode: "pen" | "highlight" | "eraser"
   } | null>(null)
   const annotationShapeDragRef = React.useRef<{
     pointerId: number
     shapeId: string
+    kind: "arrow" | "rect" | "ellipse" | "blur"
+    strokeWidth: number
     startXPct: number
     startYPct: number
+    nextXPct: number
+    nextYPct: number
+    nextWidthPct: number
+    nextHeightPct: number
+    nextRotation: number
     moved: boolean
   } | null>(null)
   const annotationElementMoveRef = React.useRef<{
@@ -588,8 +595,15 @@ export function Canvas() {
       annotationShapeDragRef.current = {
         pointerId: e.pointerId,
         shapeId,
+        kind: annotation.mode,
+        strokeWidth: annotation.strokeWidth,
         startXPct,
         startYPct,
+        nextXPct: startXPct,
+        nextYPct: startYPct,
+        nextWidthPct: 1,
+        nextHeightPct: 1,
+        nextRotation: 0,
         moved: false,
       }
       return
@@ -680,20 +694,20 @@ export function Canvas() {
       const snapX = Math.abs(xPct - 50) <= (8 / layer.clientWidth) * 100
       const snapY = Math.abs(yPct - 50) <= (8 / layer.clientHeight) * 100
 
-      const isArrow = annotation.mode === "arrow"
+      const isArrow = shapeDrag.kind === "arrow"
       let widthPct: number
       let heightPct: number
-      let rotation: number | undefined
+      let rotation = 0
 
       if (isArrow) {
         const dxPx = ((endXPct - shapeDrag.startXPct) / 100) * layer.clientWidth
         const dyPx =
           ((endYPct - shapeDrag.startYPct) / 100) * layer.clientHeight
         const distancePx = Math.hypot(dxPx, dyPx)
-        const minArrowWidthPx = Math.max(56, annotation.strokeWidth * 12)
+        const minArrowWidthPx = Math.max(56, shapeDrag.strokeWidth * 12)
         widthPct =
           (Math.max(minArrowWidthPx, distancePx) / layer.clientWidth) * 100
-        const arrowHeightPx = Math.max(56, annotation.strokeWidth * 14)
+        const arrowHeightPx = Math.max(56, shapeDrag.strokeWidth * 14)
         heightPct = (arrowHeightPx / layer.clientHeight) * 100
         rotation =
           distancePx > 0.5 ? (Math.atan2(dyPx, dxPx) * 180) / Math.PI : 0
@@ -702,13 +716,36 @@ export function Canvas() {
         heightPct = Math.max(1, Math.abs(endYPct - shapeDrag.startYPct))
       }
 
-      updateAnnotationShape(shapeDrag.shapeId, {
-        xPct: snapX ? 50 : xPct,
-        yPct: snapY ? 50 : yPct,
-        widthPct,
-        heightPct,
-        ...(rotation !== undefined ? { rotation } : {}),
-      })
+      shapeDrag.nextXPct = snapX ? 50 : xPct
+      shapeDrag.nextYPct = snapY ? 50 : yPct
+      shapeDrag.nextWidthPct = widthPct
+      shapeDrag.nextHeightPct = heightPct
+      shapeDrag.nextRotation = rotation
+
+      const selector = `[data-annotation-shape-id="${CSS.escape(shapeDrag.shapeId)}"]`
+      const element = canvasRef.current?.querySelector<HTMLElement>(selector)
+      const shapeStyle = {
+        left: `${shapeDrag.nextXPct}%`,
+        top: `${shapeDrag.nextYPct}%`,
+        width: `${widthPct}%`,
+        height: `${heightPct}%`,
+        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+      }
+      if (element) {
+        Object.assign(element.style, shapeStyle)
+        positionFloatingToolbar(
+          `annotation-shape:${shapeDrag.shapeId}`,
+          element.getBoundingClientRect()
+        )
+      }
+
+      const selectionChrome = canvasRef.current?.querySelector<HTMLElement>(
+        `[data-annotation-selection-chrome-id="${CSS.escape(shapeDrag.shapeId)}"]`
+      )
+      if (selectionChrome) {
+        Object.assign(selectionChrome.style, shapeStyle)
+      }
+
       updateTextCenterGuides({ x: snapX, y: snapY })
       shapeDrag.moved = true
       return
@@ -727,9 +764,11 @@ export function Canvas() {
     const dy = point.y - last.y
     if (dx * dx + dy * dy < 1) return
 
-    const points = [...drag.points, point]
-    drag.points = points
-    if (drag.strokeId) updateAnnotationStroke(drag.strokeId, points)
+    drag.points = [...drag.points, point]
+    const path = annotationLayerRef.current?.querySelector<SVGPathElement>(
+      `[data-annotation-stroke-id="${CSS.escape(drag.strokeId)}"]`
+    )
+    if (path) path.setAttribute("d", annotationPath(drag.points))
   }
 
   const stopAnnotation = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -759,6 +798,14 @@ export function Canvas() {
       if (!shapeDrag.moved) {
         deleteAnnotationShape(shapeDrag.shapeId)
         setSelectedAnnotationShapeId(null)
+      } else {
+        updateAnnotationShape(shapeDrag.shapeId, {
+          xPct: shapeDrag.nextXPct,
+          yPct: shapeDrag.nextYPct,
+          widthPct: shapeDrag.nextWidthPct,
+          heightPct: shapeDrag.nextHeightPct,
+          rotation: shapeDrag.nextRotation,
+        })
       }
       updateTextCenterGuides({ x: false, y: false })
       return
@@ -767,6 +814,7 @@ export function Canvas() {
     const drag = annotationDragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
     annotationDragRef.current = null
+    updateAnnotationStroke(drag.strokeId, drag.points)
   }
 
   const isAnnotating = activeTool === "arrow"
@@ -1227,6 +1275,7 @@ export function Canvas() {
                   .map((stroke) => (
                     <path
                       key={stroke.id}
+                      data-annotation-stroke-id={stroke.id}
                       d={annotationPath(stroke.points)}
                       fill="none"
                       stroke="black"
@@ -1243,6 +1292,7 @@ export function Canvas() {
                 .map((stroke) => (
                   <path
                     key={stroke.id}
+                    data-annotation-stroke-id={stroke.id}
                     d={annotationPath(stroke.points)}
                     fill="none"
                     stroke={stroke.color}

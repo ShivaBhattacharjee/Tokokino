@@ -153,7 +153,6 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
                   ...(shapeKind && shapeKind !== "blur" && !activeShapeKind
                     ? { color: lastShapeColorRef.current }
                     : {}),
-                  ...(shapeKind === "blur" ? { color: "#0a0a0a" } : {}),
                 })
               }}
             />
