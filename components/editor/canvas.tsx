@@ -1,14 +1,6 @@
 "use client"
 
 import * as React from "react"
-import {
-  RiAddLine,
-  RiGlobeLine,
-  RiCameraLine,
-  RiCropLine,
-  RiDeleteBinLine,
-  RiRefreshLine,
-} from "@remixicon/react"
 import { motion } from "motion/react"
 import { toast } from "sonner"
 
@@ -19,57 +11,27 @@ import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
 import { cn } from "@/lib/utils"
 import {
-  backgroundCss,
   effectsFilterCss,
   enhanceFilterCss,
   overlayUrl,
-  patternCssFor,
   shadowCss,
   screenshotPositionAnchor,
-  assetFilterCss,
   useEditor,
 } from "@/lib/editor/store"
-import { DEVICE_MOCKUP_SPECS, getDeviceMockup, getDeviceMockupAsset } from "@/lib/mockups"
+import { getDeviceMockup, getDeviceMockupAsset } from "@/lib/mockups"
 
-const NOISE_DATA_URL =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.85'/></svg>\")"
-
-function portraitOverlayCss(
-  mode: import("@/lib/editor/store").PortraitMode,
-  intensity: number
-): React.CSSProperties | null {
-  if (mode === "off") return null
-  const t = Math.max(0, Math.min(100, intensity)) / 100
-  switch (mode) {
-    case "soft":
-      return {
-        background: `radial-gradient(ellipse at center, transparent ${40 + t * 10}%, rgba(0,0,0,${0.45 * t}) 100%)`,
-        mixBlendMode: "multiply",
-      }
-    case "studio":
-      return {
-        background: `radial-gradient(ellipse 70% 60% at 50% 45%, transparent 0%, transparent ${20 + t * 10}%, rgba(0,0,0,${0.85 * t}) 100%)`,
-        mixBlendMode: "multiply",
-      }
-    case "spot":
-      return {
-        background: `radial-gradient(circle at 50% 45%, rgba(255,255,255,${0.18 * t}) 0%, transparent ${25 + t * 15}%), radial-gradient(circle at 50% 45%, transparent ${30 + t * 10}%, rgba(0,0,0,${0.7 * t}) 100%)`,
-        mixBlendMode: "normal",
-      }
-    case "frame":
-      return {
-        boxShadow: `inset 0 0 ${80 * t}px ${30 * t}px rgba(0,0,0,${0.7 * t})`,
-        background: "transparent",
-      }
-    case "iris":
-      return {
-        background: `radial-gradient(circle at 50% 50%, transparent ${35 + t * 15}%, rgba(0,0,0,${0.55 * t}) ${55 + t * 10}%, rgba(0,0,0,${0.95 * t}) 100%)`,
-        mixBlendMode: "multiply",
-      }
-    default:
-      return null
-  }
-}
+import { AnnotationLayer } from "./canvas/annotation-layer"
+import { CanvasBackdrop } from "./canvas/canvas-backdrop"
+import { CanvasEmptyState } from "./canvas/canvas-empty-state"
+import {
+  annotationPath,
+  clamp,
+  deviceMockupSpec,
+  positionFloatingToolbar,
+  screenshotPlacementStyle,
+} from "./canvas/helpers"
+import { ScreenshotBare } from "./canvas/screenshot-bare"
+import { ScreenshotMockup } from "./canvas/screenshot-mockup"
 
 export function Canvas() {
   const {
@@ -153,7 +115,6 @@ export function Canvas() {
   const [isScreenshotSelected, setIsScreenshotSelected] = React.useState(false)
   const [isScreenshotDragging, setIsScreenshotDragging] = React.useState(false)
   const [isCropModalOpen, setIsCropModalOpen] = React.useState(false)
-  const replaceInputRef = React.useRef<HTMLInputElement>(null)
   const [centerGuides, setCenterGuides] = React.useState({ x: false, y: false })
   const [textCenterGuides, setTextCenterGuides] = React.useState({
     x: false,
@@ -346,8 +307,6 @@ export function Canvas() {
   ].join(" ")
   const screenshotAnchor = screenshotPositionAnchor(screenshotPosition)
 
-  // For portrait ratios, cap width so the canvas never overflows vertically.
-  // Formula: maxWidth = (availableVh * aw/ah) where availableVh ≈ 82vh
   const isPortrait = ah > aw
   const canvasMaxWidth = isPreviewMode
     ? `min(95vw, calc(90vh * ${aw} / ${ah}))`
@@ -896,6 +855,20 @@ export function Canvas() {
         ? "cursor-crosshair"
         : "cursor-default"
 
+  const handleScreenshotClickSelect = (e: { stopPropagation: () => void }) => {
+    if (activeTool !== "pointer") return
+    e.stopPropagation()
+    setIsScreenshotSelected(true)
+    setSelectedTextId(null)
+    setSelectedAnnotationShapeId(null)
+  }
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = e.currentTarget
+    setNaturalDims({ w: el.naturalWidth, h: el.naturalHeight })
+    measurePlacement()
+  }
+
   return (
     <section
       className={cn(
@@ -975,77 +948,16 @@ export function Canvas() {
             />
           ) : null}
 
-          {/* Background layer — receives filter effects */}
-          <div
-            aria-hidden
-            className={cn(
-              "absolute inset-0",
-              background.type === "none" && "bg-transparency-checker"
-            )}
-            style={{
-              ...backgroundCss(background),
-              filter:
-                [effectsFilter, assetFilterCss(backdrop.filter ?? "none")]
-                  .filter(Boolean)
-                  .join(" ") || undefined,
-            }}
+          <CanvasBackdrop
+            background={background}
+            backdrop={backdrop}
+            effectsFilter={effectsFilter}
+            noiseEnabled={noiseEnabled}
+            noiseOpacity={noiseOpacity}
+            portrait={portrait}
+            overlay={overlay}
           />
 
-          {/* Pattern overlays */}
-          {backdrop.pattern.ids.map((id) => (
-            <div
-              key={id}
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{
-                ...patternCssFor(
-                  id,
-                  backdrop.pattern.color,
-                  backdrop.pattern.thickness
-                ),
-                opacity: backdrop.pattern.intensity / 100,
-              }}
-            />
-          ))}
-
-          {/* Noise overlay */}
-          {noiseEnabled ? (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 mix-blend-overlay"
-              style={{ backgroundImage: NOISE_DATA_URL, opacity: noiseOpacity }}
-            />
-          ) : null}
-
-          {/* Portrait mode (vignette/spotlight) — sits above background, below screenshot */}
-          {(() => {
-            const portraitStyle = portraitOverlayCss(
-              portrait.mode,
-              portrait.intensity
-            )
-            if (!portraitStyle) return null
-            return (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={portraitStyle}
-              />
-            )
-          })()}
-
-          {/* Underlay (above background, below screenshot) */}
-          {overlay.id !== null && overlay.position === "underlay" ? (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage: `url("${overlayUrl(overlay.id)}")`,
-                opacity: overlay.opacity / 100,
-              }}
-            />
-          ) : null}
-
-          {/* Content — wrapper itself is click-through so text layered behind the screenshot can still receive clicks; the image + interactive children opt back in via pointer-events-auto */}
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
             style={{
@@ -1055,290 +967,80 @@ export function Canvas() {
           >
             {screenshot ? (
               mockupAsset && mockupSpec ? (
-                <div
-                  className="pointer-events-none flex h-full w-full items-center justify-center"
-                  style={{
-                    transform: `translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform}`,
-                  }}
-                >
-                  <div
-                    className={cn(
-                      "pointer-events-auto relative max-h-full max-w-full select-none",
-                      screenshotLayer.hidden && "pointer-events-none",
-                      isScreenshotDragging
-                        ? "cursor-grabbing transition-none"
-                        : "transition-transform duration-300 ease-out",
-                      activeTool === "pointer" && "cursor-grab"
-                    )}
-                    style={{
-                      aspectRatio: mockupSpec.aspectRatio,
-                      height: "100%",
-                      width: "auto",
-                      filter: enhanceFilter,
-                      opacity: screenshotLayer.hidden
-                        ? 0
-                        : screenshotLayer.opacity / 100,
-                      mixBlendMode: screenshotLayer.blendMode,
-                    }}
-                    onClick={(e) => {
-                      if (activeTool !== "pointer") return
-                      e.stopPropagation()
-                      setIsScreenshotSelected(true)
-                      setSelectedTextId(null)
-                      setSelectedAnnotationShapeId(null)
-                    }}
-                    onPointerDown={(e) => {
-                      if (document.activeElement instanceof HTMLElement) {
-                        document.activeElement.blur()
-                      }
-                      startMockupDrag(e)
-                    }}
-                    onPointerMove={moveMockup}
-                    onPointerUp={stopMockupDrag}
-                    onPointerCancel={stopMockupDrag}
-                  >
-                    <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
-                      <div
-                        ref={stageRef}
-                        className="pointer-events-none w-full overflow-clip bg-black"
-                        style={{
-                          aspectRatio: mockupSpec.screen.aspectRatio,
-                          ...mockupScreenClipStyle(
-                            mockupSpec.screen,
-                            placementDims?.stageW
-                          ),
-                          transform: mockupScreenTransform(mockupSpec.screen),
-                        }}
-                      >
-                        <img
-                          ref={imageRef}
-                          src={screenshot}
-                          alt="Screenshot"
-                          draggable={false}
-                          onLoad={(e) => {
-                            const el = e.currentTarget
-                            setNaturalDims({
-                              w: el.naturalWidth,
-                              h: el.naturalHeight,
-                            })
-                            measurePlacement()
-                          }}
-                          className="pointer-events-none h-full w-full max-w-none object-cover object-center select-none"
-                        />
-                      </div>
-                    </div>
-                    <img
-                      src={mockupAsset.src}
-                      alt=""
-                      draggable={false}
-                      className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain select-none"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div
-                  ref={stageRef}
-                  className="group/screenshot pointer-events-none relative h-full w-full"
+                <ScreenshotMockup
+                  screenshot={screenshot}
+                  mockupAsset={mockupAsset}
+                  mockupSpec={mockupSpec}
+                  screenshotLayer={screenshotLayer}
+                  transform={transform}
+                  screenshotOffset={screenshotOffset}
+                  enhanceFilter={enhanceFilter}
+                  isScreenshotDragging={isScreenshotDragging}
+                  activeTool={activeTool}
+                  placementDims={placementDims}
+                  stageRef={stageRef}
+                  imageRef={imageRef}
+                  onSelect={handleScreenshotClickSelect}
                   onPointerDown={(e) => {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur()
+                    }
+                    startMockupDrag(e)
+                  }}
+                  onPointerMove={moveMockup}
+                  onPointerUp={stopMockupDrag}
+                  onImageLoad={handleImageLoad}
+                />
+              ) : (
+                <ScreenshotBare
+                  screenshot={screenshot}
+                  imgStyle={imgStyle}
+                  positionedStyle={positionedStyle}
+                  transform={transform}
+                  screenshotLeft={screenshotLeft}
+                  screenshotTop={screenshotTop}
+                  placementDims={placementDims}
+                  screenshotLayer={screenshotLayer}
+                  isScreenshotSelected={isScreenshotSelected}
+                  isScreenshotDragging={isScreenshotDragging}
+                  suppressTransition={suppressTransition}
+                  activeTool={activeTool}
+                  selectedTextId={selectedTextId}
+                  stageRef={stageRef}
+                  imageRef={imageRef}
+                  onContainerPointerDown={(e) => {
                     if (e.target === e.currentTarget) {
                       setIsScreenshotSelected(false)
                     }
                   }}
-                >
-                  <img
-                    ref={imageRef}
-                    src={screenshot}
-                    alt="Screenshot"
-                    draggable={false}
-                    onLoad={(e) => {
-                      const el = e.currentTarget
-                      setNaturalDims({
-                        w: el.naturalWidth,
-                        h: el.naturalHeight,
-                      })
-                      measurePlacement()
-                    }}
-                    onClick={(e) => {
-                      if (activeTool !== "pointer") return
-                      e.stopPropagation()
-                      setIsScreenshotSelected(true)
-                      setSelectedTextId(null)
-                      setSelectedAnnotationShapeId(null)
-                    }}
-                    onPointerDown={(e) => {
-                      if (document.activeElement instanceof HTMLElement) {
-                        document.activeElement.blur()
-                      }
-                      setSelectedTextId(null)
-                      setSelectedAnnotationShapeId(null)
-                      startScreenshotDrag(e)
-                    }}
-                    onPointerMove={moveScreenshot}
-                    onPointerUp={stopScreenshotDrag}
-                    onPointerCancel={stopScreenshotDrag}
-                    style={{
-                      ...imgStyle,
-                      left: screenshotLeft ?? "50%",
-                      top: screenshotTop ?? "50%",
-                      ...(positionedStyle
-                        ? null
-                        : {
-                            transform: `translate(-50%, -50%) ${transform}`,
-                          }),
-                    }}
-                    className={cn(
-                      "pointer-events-auto absolute max-h-full max-w-full object-contain select-none",
-                      screenshotLayer.hidden && "pointer-events-none",
-                      isScreenshotDragging || suppressTransition
-                        ? "cursor-grabbing transition-none"
-                        : "transition-all duration-300 ease-out",
-                      activeTool === "pointer" && "cursor-grab",
-                      isScreenshotSelected &&
-                        activeTool === "pointer" &&
-                        "ring-2 ring-blue-400/90"
-                    )}
-                  />
-
-                  {/* Hover Actions — tracks image center, hidden during text editing */}
-                  {activeTool === "pointer" &&
-                    placementDims &&
-                    !selectedTextId && (
-                      <div
-                        className={cn(
-                          "pointer-events-none absolute z-50 flex items-center justify-center gap-3 opacity-0 transition-opacity group-hover/screenshot:opacity-100",
-                          isScreenshotDragging || suppressTransition
-                            ? "transition-none"
-                            : "transition-[opacity,left,top] duration-300 ease-out"
-                        )}
-                        style={{
-                          left:
-                            (screenshotLeft ??
-                              placementDims.stageW / 2 -
-                                placementDims.imgW / 2) +
-                            placementDims.imgW / 2,
-                          top:
-                            (screenshotTop ??
-                              placementDims.stageH / 2 -
-                                placementDims.imgH / 2) +
-                            placementDims.imgH / 2,
-                          transform: "translate(-50%, -50%)",
-                        }}
-                      >
-                        <input
-                          ref={replaceInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            const reader = new FileReader()
-                            reader.onload = (ev) => {
-                              const src = ev.target?.result
-                              if (src) setScreenshot(src as string)
-                            }
-                            reader.readAsDataURL(file)
-                            e.target.value = ""
-                          }}
-                        />
-                        <button
-                          onClick={() => setIsCropModalOpen(true)}
-                          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
-                          title="Crop image"
-                        >
-                          <RiCropLine className="size-5" />
-                        </button>
-                        <button
-                          onClick={() => replaceInputRef.current?.click()}
-                          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
-                          title="Replace image"
-                        >
-                          <RiRefreshLine className="size-5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsScreenshotSelected(false)
-                            setScreenshot(null)
-                          }}
-                          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-red-500/90"
-                          title="Delete image"
-                        >
-                          <RiDeleteBinLine className="size-5" />
-                        </button>
-                      </div>
-                    )}
-                </div>
+                  onSelect={handleScreenshotClickSelect}
+                  onPointerDown={(e) => {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur()
+                    }
+                    setSelectedTextId(null)
+                    setSelectedAnnotationShapeId(null)
+                    startScreenshotDrag(e)
+                  }}
+                  onPointerMove={moveScreenshot}
+                  onPointerUp={stopScreenshotDrag}
+                  onImageLoad={handleImageLoad}
+                  onCropClick={() => setIsCropModalOpen(true)}
+                  onReplaceFile={readFile}
+                  onDelete={() => {
+                    setIsScreenshotSelected(false)
+                    setScreenshot(null)
+                  }}
+                />
               )
             ) : (
-              <div
-                data-drag-over={isDragOver}
-                className={cn(
-                  "pointer-events-auto relative flex h-full w-full flex-col items-center justify-center px-4 py-3 text-center text-white transition-all duration-300 sm:px-6 md:px-8",
-                  "data-[drag-over=true]:scale-[1.01]"
-                )}
-              >
-                <button
-                  type="button"
-                  className={cn(
-                    "group relative flex w-full max-w-[520px] flex-col items-center justify-center rounded-[1.35rem] border border-dashed border-white/24 bg-black/12 px-5 py-3.5 backdrop-blur-md transition-all duration-300 focus-visible:border-white/55 focus-visible:ring-2 focus-visible:ring-white/20 sm:max-w-[540px] sm:rounded-[1.75rem] sm:px-7 sm:py-5 md:min-h-[190px] md:max-w-[560px] md:px-9 md:py-7",
-                    "hover:border-white/42 hover:bg-black/18",
-                    "data-[drag-over=true]:border-primary/80 data-[drag-over=true]:bg-primary/10 data-[drag-over=true]:ring-1 data-[drag-over=true]:ring-primary/40"
-                  )}
-                  data-drag-over={isDragOver}
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Browse for an image"
-                >
-                  <span className="mb-2 grid size-8 place-items-center rounded-full border border-white/18 bg-white/10 text-white/78 transition-colors group-hover:bg-white/14 group-hover:text-white sm:size-10 md:mb-3 md:size-11">
-                    <RiAddLine className="size-5 sm:size-7 md:size-8" />
-                  </span>
-                  <span className="space-y-1 sm:space-y-1.5 md:space-y-2">
-                    <span className="block text-xl leading-none font-medium tracking-[-0.055em] text-balance text-white sm:text-2xl md:text-3xl">
-                      Add your screenshot
-                    </span>
-                    <span className="block text-[10px] leading-4 text-white/56 sm:text-xs sm:leading-5 md:text-sm">
-                      Drop an image here, click to browse, or paste from
-                      clipboard.
-                    </span>
-                  </span>
-
-                  <span className="mt-2.5 inline-flex items-center gap-2 rounded-full border border-white/12 bg-black/18 px-2.5 py-1 text-[10px] text-white/58 sm:text-[11px] md:mt-4 md:text-xs">
-                    <kbd className="font-mono text-white/78">⌘V</kbd>
-                    paste
-                  </span>
-                </button>
-
-                <div className="my-2 flex w-full max-w-[400px] items-center gap-4 sm:my-3 md:my-4">
-                  <div className="h-px flex-1 bg-white/16" />
-                  <span className="text-xs text-white/42">or</span>
-                  <div className="h-px flex-1 bg-white/16" />
-                </div>
-
-                <div className="flex w-full max-w-[520px] gap-2 rounded-[1.15rem] border border-white/14 bg-black/14 p-1.5 backdrop-blur-md transition-colors focus-within:border-white/30 sm:max-w-[540px] sm:rounded-[1.35rem] sm:p-2 md:max-w-[560px]">
-                  <label className="flex min-h-10 flex-1 items-center gap-2.5 rounded-[0.9rem] px-3 text-left sm:min-h-11 sm:rounded-[1rem] md:min-h-12 md:rounded-[1.1rem]">
-                    <RiGlobeLine className="size-4 shrink-0 text-white/50 sm:size-5" />
-                    <input
-                      type="text"
-                      inputMode="url"
-                      placeholder="Enter website URL..."
-                      aria-label="Website URL"
-                      className="min-w-0 flex-1 bg-transparent text-sm font-medium text-white placeholder:text-white/44 focus:outline-none sm:text-[15px]"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-[0.9rem] border border-white/14 bg-white/14 px-3 text-[13px] font-semibold tracking-[-0.02em] text-white transition-colors hover:bg-white/20 active:bg-white/24 sm:min-h-11 sm:min-w-[112px] sm:rounded-[1rem] sm:px-4 md:min-h-12 md:min-w-[128px] md:rounded-[1.1rem] md:px-5"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <RiCameraLine className="size-4" />
-                    <span className="hidden sm:inline">Capture</span>
-                  </button>
-                </div>
-              </div>
+              <CanvasEmptyState
+                isDragOver={isDragOver}
+                onBrowse={() => fileInputRef.current?.click()}
+              />
             )}
           </div>
 
-          {/* Overlay (above the screenshot, below front-layered text) */}
           {overlay.id !== null && overlay.position === "overlay" ? (
             <div
               aria-hidden
@@ -1351,12 +1053,10 @@ export function Canvas() {
             />
           ) : null}
 
-          {/* Asset images */}
           {assets.map((a) => (
             <AssetElementView key={a.id} asset={a} canvasRef={canvasRef} />
           ))}
 
-          {/* Text elements */}
           {texts.map((t) => (
             <TextElementView
               key={t.id}
@@ -1375,19 +1075,15 @@ export function Canvas() {
             />
           ))}
 
-          <svg
-            ref={annotationLayerRef}
-            aria-label="Annotation layer"
-            className={cn(
-              "absolute inset-0 z-[80] h-full w-full touch-none",
-              isAnnotating
-                ? `pointer-events-auto ${annotationCursor}`
-                : "pointer-events-none"
-            )}
+          <AnnotationLayer
+            layerRef={annotationLayerRef}
+            annotations={annotations}
+            annotationMaskId={annotationMaskId}
+            isAnnotating={isAnnotating}
+            cursorClass={annotationCursor}
             onPointerDown={startAnnotation}
             onPointerMove={moveAnnotation}
             onPointerUp={stopAnnotation}
-            onPointerCancel={stopAnnotation}
             onClick={(e) => {
               if (isAnnotating) e.stopPropagation()
             }}
@@ -1412,56 +1108,7 @@ export function Canvas() {
                 })
               )
             }}
-          >
-            <defs>
-              <mask
-                id={annotationMaskId}
-                x="0"
-                y="0"
-                width="100%"
-                height="100%"
-                maskUnits="userSpaceOnUse"
-                maskContentUnits="userSpaceOnUse"
-              >
-                <rect x="0" y="0" width="100%" height="100%" fill="white" />
-                {annotations
-                  .filter((stroke) => stroke.mode === "eraser")
-                  .map((stroke) => (
-                    <path
-                      key={stroke.id}
-                      data-annotation-stroke-id={stroke.id}
-                      d={annotationPath(stroke.points)}
-                      fill="none"
-                      stroke="black"
-                      strokeWidth={stroke.strokeWidth}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ))}
-              </mask>
-            </defs>
-            <g mask={`url(#${annotationMaskId})`}>
-              {annotations
-                .filter((stroke) => stroke.mode !== "eraser")
-                .map((stroke) => (
-                  <path
-                    key={stroke.id}
-                    data-annotation-stroke-id={stroke.id}
-                    d={annotationPath(stroke.points)}
-                    fill="none"
-                    stroke={stroke.color}
-                    strokeWidth={stroke.strokeWidth}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={stroke.mode === "highlight" ? 0.42 : 1}
-                    style={{
-                      mixBlendMode:
-                        stroke.mode === "highlight" ? "multiply" : "normal",
-                    }}
-                  />
-                ))}
-            </g>
-          </svg>
+          />
         </motion.div>
       </div>
 
@@ -1474,119 +1121,4 @@ export function Canvas() {
       />
     </section>
   )
-}
-
-function annotationPath(points: { x: number; y: number }[]) {
-  const first = points[0]
-  if (!first) return ""
-  if (points.length === 1)
-    return `M ${first.x} ${first.y} L ${first.x + 0.01} ${first.y + 0.01}`
-  return points
-    .map((point, index) =>
-      index === 0 ? `M ${point.x} ${point.y}` : `L ${point.x} ${point.y}`
-    )
-    .join(" ")
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n))
-}
-
-function positionFloatingToolbar(target: string, rect: DOMRect) {
-  if (typeof document === "undefined") return
-  const toolbar = document.querySelector<HTMLElement>(
-    `[data-editor-floating-toolbar-target="${CSS.escape(target)}"]`
-  )
-  if (!toolbar) return
-
-  const flipBelow = rect.top < 80
-  toolbar.style.top = `${flipBelow ? rect.bottom + 12 : rect.top - 12}px`
-  toolbar.style.left = `${rect.left + rect.width / 2}px`
-  toolbar.style.transform = flipBelow
-    ? "translate(-50%, 0)"
-    : "translate(-50%, -100%)"
-}
-
-function deviceMockupSpec(deviceId: string) {
-  return (
-    DEVICE_MOCKUP_SPECS[deviceId] ?? {
-      aspectRatio: "450 / 920",
-      screen: {
-        aspectRatio: "390 / 844",
-        scale: 0.895,
-        borderRadius: 0,
-      },
-    }
-  )
-}
-
-function mockupScreenTransform(screen: {
-  scale: number
-  offsetX?: number
-  offsetY?: number
-}) {
-  const transforms = [`scale(${screen.scale})`]
-  if (screen.offsetX) transforms.push(`translateX(${screen.offsetX}%)`)
-  if (screen.offsetY) transforms.push(`translateY(${screen.offsetY}%)`)
-  return transforms.join(" ")
-}
-
-function mockupScreenClipStyle(
-  screen: {
-    aspectRatio: string
-    borderRadius: number
-  },
-  stageWidth?: number
-): React.CSSProperties {
-  const supportsCornerShape =
-    typeof CSS !== "undefined" &&
-    CSS.supports?.("corner-shape", "superellipse(1.3)")
-  const radius = supportsCornerShape
-    ? screen.borderRadius
-    : Math.max(0, screen.borderRadius - 10)
-  const screenWidth = mockupScreenAspectWidth(screen.aspectRatio)
-  const borderRadius =
-    stageWidth && screenWidth
-      ? `${(radius / screenWidth) * stageWidth}px`
-      : `calc(${radius / 16} * 1em)`
-
-  return {
-    borderRadius,
-    ...({
-      cornerShape: "var(--theme-corner-shape, superellipse(1.3))",
-    } as React.CSSProperties),
-  }
-}
-
-function mockupScreenAspectWidth(aspectRatio: string) {
-  const [width] = aspectRatio.split("/")
-  const parsed = Number(width?.trim())
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-}
-
-function screenshotPlacementStyle(
-  dims: {
-    stageW: number
-    stageH: number
-    imgW: number
-    imgH: number
-  },
-  scaleFactor: number,
-  positionX: number,
-  positionY: number
-): React.CSSProperties {
-  const visualW = dims.imgW * scaleFactor
-  const visualH = dims.imgH * scaleFactor
-  const overflowX = Math.min(visualW * 0.18, dims.stageW * 0.24)
-  const overflowY = Math.min(visualH * 0.18, dims.stageH * 0.24)
-
-  const visualLeft =
-    -overflowX + (dims.stageW - visualW + overflowX * 2) * positionX
-  const visualTop =
-    -overflowY + (dims.stageH - visualH + overflowY * 2) * positionY
-
-  return {
-    left: visualLeft + (visualW - dims.imgW) / 2,
-    top: visualTop + (visualH - dims.imgH) / 2,
-  }
 }
