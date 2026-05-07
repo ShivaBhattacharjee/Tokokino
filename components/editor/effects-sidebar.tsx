@@ -6,10 +6,7 @@ import {
   AspectPopover,
   findAspectOption,
 } from "@/components/editor/aspect-popover"
-import {
-  FramePopover,
-  type FrameOrientation,
-} from "@/components/editor/frame-popover"
+import { FramePopover } from "@/components/editor/frame-popover"
 import { cn } from "@/lib/utils"
 import { useEditor } from "@/lib/editor/store"
 
@@ -20,19 +17,20 @@ export function EffectsSidebar({
   className?: string
   stacked?: boolean
 }) {
-  const { aspect, setAspect } = useEditor()
+  const { aspect, frame, setAspect, setFrame } = useEditor()
 
   const [customSize, setCustomSize] = React.useState<{
     w: number
     h: number
   } | null>(null)
 
-  const [frame, setFrame] = React.useState<string>("browser")
-  const [orientation, setOrientation] =
-    React.useState<FrameOrientation>("horizontal")
-
   return (
-    <aside className={cn("flex h-full min-h-0 w-[268px] shrink-0 flex-col border-r border-dashed border-border/70 bg-sidebar", className)}>
+    <aside
+      className={cn(
+        "flex h-full min-h-0 w-[268px] shrink-0 flex-col border-r border-dashed border-border/70 bg-sidebar",
+        className
+      )}
+    >
       {/* Sticky top: Aspect + Frame — row on mobile/iPad, stacked on desktop */}
       <div className="shrink-0 px-4 pt-5 pb-4">
         <div
@@ -71,18 +69,10 @@ export function EffectsSidebar({
             )}
           >
             <SectionHeader>Frame</SectionHeader>
-            <FramePopover
-              value={frame}
-              orientation={orientation}
-              onChange={(id, ori) => {
-                setFrame(id)
-                setOrientation(ori)
-              }}
-            />
+            <FramePopover value={frame} onChange={setFrame} />
           </div>
         </div>
       </div>
-
     </aside>
   )
 }

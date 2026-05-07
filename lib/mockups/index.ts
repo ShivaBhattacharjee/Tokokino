@@ -220,3 +220,124 @@ function sortOrientations(a: MockupOrientation, b: MockupOrientation) {
   if (a === b) return 0
   return a === "portrait" ? -1 : 1
 }
+
+export const DEVICE_MOCKUP_SPECS: Record<
+  string,
+  {
+    aspectRatio: string
+    screen: {
+      aspectRatio: string
+      scale: number
+      offsetX?: number
+      offsetY?: number
+      borderRadius: number
+    }
+  }
+> = {
+  apple_watch_10_42mm_aluminum_sport_band: {
+    aspectRatio: "25 / 39",
+    screen: {
+      aspectRatio: "416 / 496",
+      scale: 0.75188,
+      borderRadius: 120,
+    },
+  },
+  apple_watch_ultra_2_natural_alpine: {
+    aspectRatio: "30 / 47",
+    screen: {
+      aspectRatio: "410 / 502",
+      scale: 0.689655,
+      borderRadius: 116,
+    },
+  },
+  galaxy_s24_ultra: {
+    aspectRatio: "1027 / 2097",
+    screen: {
+      aspectRatio: "384 / 824",
+      scale: 0.921659,
+      offsetX: -0.5,
+      borderRadius: 0,
+    },
+  },
+  galaxy_s25_ultra: {
+    aspectRatio: "1027 / 2097",
+    screen: {
+      aspectRatio: "384 / 824",
+      scale: 0.921659,
+      offsetX: -0.5,
+      borderRadius: 0,
+    },
+  },
+  ipad_air: {
+    aspectRatio: "932 / 1292",
+    screen: {
+      aspectRatio: "820 / 1180",
+      scale: 0.884956,
+      borderRadius: 16,
+    },
+  },
+  ipad_mini: {
+    aspectRatio: "744 / 1133",
+    screen: {
+      aspectRatio: "744 / 1180",
+      scale: 0.869565,
+      borderRadius: 18,
+    },
+  },
+  ipad_pro_11_m4: {
+    aspectRatio: "834 / 1210",
+    screen: {
+      aspectRatio: "834 / 1210",
+      scale: 0.890472,
+      borderRadius: 12,
+    },
+  },
+  ipad_pro_13_m4: {
+    aspectRatio: "1032 / 1376",
+    screen: {
+      aspectRatio: "1032 / 1376",
+      scale: 0.9090909090909091,
+      borderRadius: 0,
+    },
+  },
+  iphone_17: {
+    aspectRatio: "151 / 304",
+    screen: {
+      aspectRatio: "402 / 874",
+      scale: 0.9090909090909091,
+      borderRadius: 74,
+    },
+  },
+  iphone_17_pro: {
+    aspectRatio: "45 / 92",
+    screen: {
+      aspectRatio: "402 / 874",
+      scale: 0.9090909090909091,
+      borderRadius: 70,
+    },
+  },
+  iphone_17_pro_max: {
+    aspectRatio: "49 / 100",
+    screen: {
+      aspectRatio: "440 / 956",
+      scale: 0.9090909090909091,
+      borderRadius: 64,
+    },
+  },
+  nothing_phone: {
+    aspectRatio: "468 / 965",
+    screen: {
+      aspectRatio: "393 / 873",
+      scale: 0.911577,
+      borderRadius: 46,
+    },
+  },
+  pixel_7: {
+    aspectRatio: "468 / 965",
+    screen: {
+      aspectRatio: "412 / 892",
+      scale: 0.9090909090909091,
+      borderRadius: 24,
+    },
+  },
+}

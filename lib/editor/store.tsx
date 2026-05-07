@@ -72,6 +72,14 @@ export type Overlay = {
   position: OverlayPosition
 }
 
+export type FrameOrientation = "vertical" | "horizontal"
+
+export type DeviceFrame = {
+  id: string
+  color: string
+  orientation: FrameOrientation
+}
+
 export type PortraitMode = "off" | "soft" | "studio" | "spot" | "frame" | "iris"
 
 export type Portrait = {
@@ -748,6 +756,7 @@ export type EditorState = {
   screenshotLayer: ScreenshotLayer
   shadow: Shadow
   overlay: Overlay
+  frame: DeviceFrame
   portrait: Portrait
   texts: TextElement[]
   assets: AssetElement[]
@@ -1043,6 +1052,11 @@ const DEFAULT_STATE: EditorState = {
     opacity: 50,
     position: "overlay",
   },
+  frame: {
+    id: "none",
+    color: "black",
+    orientation: "vertical",
+  },
   portrait: {
     mode: "off",
     intensity: 60,
@@ -1169,6 +1183,7 @@ type Ctx = EditorState & {
   updateScreenshotLayer: (patch: Partial<ScreenshotLayer>) => void
   setShadow: (s: Shadow) => void
   setOverlay: (o: Overlay) => void
+  setFrame: (f: DeviceFrame) => void
   setPortrait: (p: Portrait) => void
   setEnhance: (e: EnhancePreset) => void
   setAnnotation: (patch: Partial<Annotation>) => void
@@ -1369,6 +1384,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         ),
       setShadow: (s) => set({ shadow: s }, "shadow"),
       setOverlay: (o) => set({ overlay: o }, "overlay"),
+      setFrame: (f) => set({ frame: f }, "frame"),
       setPortrait: (p) => set({ portrait: p }, "portrait"),
       setEnhance: (e) => set({ enhance: e }, "enhance"),
       setAnnotation: (patch) =>

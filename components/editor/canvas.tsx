@@ -29,6 +29,7 @@ import {
   assetFilterCss,
   useEditor,
 } from "@/lib/editor/store"
+import { DEVICE_MOCKUP_SPECS, getDeviceMockupAsset } from "@/lib/mockups"
 
 const NOISE_DATA_URL =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.85'/></svg>\")"
@@ -90,6 +91,7 @@ export function Canvas() {
     screenshotLayer,
     shadow,
     overlay,
+    frame,
     portrait,
     enhance,
     annotation,
@@ -209,6 +211,13 @@ export function Canvas() {
     imgW: number
     imgH: number
   } | null>(null)
+  const mockupDragRef = React.useRef<{
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startOffsetX: number
+    startOffsetY: number
+  } | null>(null)
   const annotationDragRef = React.useRef<{
     pointerId: number
     strokeId: string
@@ -250,8 +259,8 @@ export function Canvas() {
     if (!stage || !image) return
 
     const next = {
-      stageW: stage.clientWidth,
-      stageH: stage.clientHeight,
+      stageW: parseFloat(getComputedStyle(stage).width) || stage.clientWidth,
+      stageH: parseFloat(getComputedStyle(stage).height) || stage.clientHeight,
       imgW: image.offsetWidth,
       imgH: image.offsetHeight,
     }
@@ -380,6 +389,11 @@ export function Canvas() {
   const noiseEnabled = backdrop.effects.noise > 0
   const noiseOpacity = noiseEnabled ? backdrop.effects.noise / 100 : 0
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
+  const mockupAsset =
+    frame.id === "none"
+      ? null
+      : getDeviceMockupAsset(frame.id, frame.color, "portrait")
+  const mockupSpec = mockupAsset ? deviceMockupSpec(frame.id) : null
 
   const startScreenshotDrag = (e: React.PointerEvent<HTMLImageElement>) => {
     if (!canDragScreenshot || !placementDims) return
@@ -439,6 +453,56 @@ export function Canvas() {
     updateCenterGuides({ x: false, y: false })
   }
 
+  const startMockupDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTool !== "pointer") return
+
+    e.preventDefault()
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setIsScreenshotSelected(true)
+    setIsScreenshotDragging(true)
+    setSelectedTextId(null)
+    setSelectedAssetId(null)
+    setSelectedAnnotationShapeId(null)
+    mockupDragRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startOffsetX: screenshotOffset.x,
+      startOffsetY: screenshotOffset.y,
+    }
+  }
+
+  const moveMockup = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = mockupDragRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+
+    e.preventDefault()
+    const pointerScale = canvasZoom / 100
+    let nextX =
+      drag.startOffsetX + (e.clientX - drag.startClientX) / pointerScale
+    let nextY =
+      drag.startOffsetY + (e.clientY - drag.startClientY) / pointerScale
+    const snap = 8
+    const snapX = Math.abs(nextX) <= snap
+    const snapY = Math.abs(nextY) <= snap
+
+    if (snapX) nextX = 0
+    if (snapY) nextY = 0
+
+    updateCenterGuides({ x: snapX, y: snapY })
+    setScreenshotOffset({ x: nextX, y: nextY })
+  }
+
+  const stopMockupDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = mockupDragRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+
+    mockupDragRef.current = null
+    setIsScreenshotDragging(false)
+    updateCenterGuides({ x: false, y: false })
+  }
+
   const getAnnotationPoint = (e: React.PointerEvent<SVGSVGElement>) => {
     const layer = annotationLayerRef.current
     if (!layer) return null
@@ -472,7 +536,9 @@ export function Canvas() {
           }
         }
 
-        const textElement = element.closest<HTMLElement>("[data-editor-text-id]")
+        const textElement = element.closest<HTMLElement>(
+          "[data-editor-text-id]"
+        )
         if (textElement && canvas.contains(textElement)) {
           return {
             type: "text" as const,
@@ -503,7 +569,9 @@ export function Canvas() {
       const canvas = canvasRef.current
       const movable =
         editorElementAtPoint.type === "annotation-shape"
-          ? annotationShapes.find((shape) => shape.id === editorElementAtPoint.id)
+          ? annotationShapes.find(
+              (shape) => shape.id === editorElementAtPoint.id
+            )
           : editorElementAtPoint.type === "text"
             ? texts.find((text) => text.id === editorElementAtPoint.id)
             : assets.find((asset) => asset.id === editorElementAtPoint.id)
@@ -638,10 +706,8 @@ export function Canvas() {
       const rawDy = e.clientY - elementMove.startClientY
       if (!elementMove.moved && Math.hypot(rawDx, rawDy) < 4) return
       elementMove.moved = true
-      let nextX =
-        elementMove.startXPct + (rawDx / elementMove.canvasW) * 100
-      let nextY =
-        elementMove.startYPct + (rawDy / elementMove.canvasH) * 100
+      let nextX = elementMove.startXPct + (rawDx / elementMove.canvasW) * 100
+      let nextY = elementMove.startYPct + (rawDy / elementMove.canvasH) * 100
       const snapX = Math.abs(nextX - 50) <= (8 / elementMove.canvasW) * 100
       const snapY = Math.abs(nextY - 50) <= (8 / elementMove.canvasH) * 100
       if (snapX) nextX = 50
@@ -985,136 +1051,221 @@ export function Canvas() {
             }}
           >
             {screenshot ? (
-              <div
-                ref={stageRef}
-                className="group/screenshot pointer-events-none relative h-full w-full"
-                onPointerDown={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setIsScreenshotSelected(false)
-                  }
-                }}
-              >
-                <img
-                  ref={imageRef}
-                  src={screenshot}
-                  alt="Screenshot"
-                  draggable={false}
-                  onLoad={(e) => {
-                    const el = e.currentTarget
-                    setNaturalDims({
-                      w: el.naturalWidth,
-                      h: el.naturalHeight,
-                    })
-                    measurePlacement()
-                  }}
-                  onClick={(e) => {
-                    if (activeTool !== "pointer") return
-                    e.stopPropagation()
-                    setIsScreenshotSelected(true)
-                    setSelectedTextId(null)
-                    setSelectedAnnotationShapeId(null)
-                  }}
-                  onPointerDown={(e) => {
-                    if (document.activeElement instanceof HTMLElement) {
-                      document.activeElement.blur()
-                    }
-                    setSelectedTextId(null)
-                    setSelectedAnnotationShapeId(null)
-                    startScreenshotDrag(e)
-                  }}
-                  onPointerMove={moveScreenshot}
-                  onPointerUp={stopScreenshotDrag}
-                  onPointerCancel={stopScreenshotDrag}
+              mockupAsset && mockupSpec ? (
+                <div
+                  className="pointer-events-none flex h-full w-full items-center justify-center"
                   style={{
-                    ...imgStyle,
-                    left: screenshotLeft ?? "50%",
-                    top: screenshotTop ?? "50%",
-                    ...(positionedStyle
-                      ? null
-                      : {
-                          transform: `translate(-50%, -50%) ${transform}`,
-                        }),
+                    transform: `translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform}`,
                   }}
-                  className={cn(
-                    "pointer-events-auto absolute max-h-full max-w-full object-contain select-none",
-                    screenshotLayer.hidden && "pointer-events-none",
-                    isScreenshotDragging || suppressTransition
-                      ? "cursor-grabbing transition-none"
-                      : "transition-all duration-300 ease-out",
-                    activeTool === "pointer" && "cursor-grab",
-                    isScreenshotSelected &&
-                      activeTool === "pointer" &&
-                      "ring-2 ring-blue-400/90"
-                  )}
-                />
-
-                {/* Hover Actions — tracks image center, hidden during text editing */}
-                {activeTool === "pointer" &&
-                  placementDims &&
-                  !selectedTextId && (
-                    <div
-                      className={cn(
-                        "pointer-events-none absolute z-50 flex items-center justify-center gap-3 opacity-0 transition-opacity group-hover/screenshot:opacity-100",
-                        isScreenshotDragging || suppressTransition
-                          ? "transition-none"
-                          : "transition-[opacity,left,top] duration-300 ease-out"
-                      )}
-                      style={{
-                        left:
-                          (screenshotLeft ??
-                            placementDims.stageW / 2 - placementDims.imgW / 2) +
-                          placementDims.imgW / 2,
-                        top:
-                          (screenshotTop ??
-                            placementDims.stageH / 2 - placementDims.imgH / 2) +
-                          placementDims.imgH / 2,
-                        transform: "translate(-50%, -50%)",
-                      }}
-                    >
-                      <input
-                        ref={replaceInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (!file) return
-                          const reader = new FileReader()
-                          reader.onload = (ev) => {
-                            const src = ev.target?.result
-                            if (src) setScreenshot(src as string)
-                          }
-                          reader.readAsDataURL(file)
-                          e.target.value = ""
+                >
+                  <div
+                    className={cn(
+                      "pointer-events-auto relative max-h-full max-w-full select-none",
+                      screenshotLayer.hidden && "pointer-events-none",
+                      isScreenshotDragging
+                        ? "cursor-grabbing transition-none"
+                        : "transition-transform duration-300 ease-out",
+                      activeTool === "pointer" && "cursor-grab"
+                    )}
+                    style={{
+                      aspectRatio: mockupSpec.aspectRatio,
+                      height: "100%",
+                      width: "auto",
+                      filter: enhanceFilter,
+                      opacity: screenshotLayer.hidden
+                        ? 0
+                        : screenshotLayer.opacity / 100,
+                      mixBlendMode: screenshotLayer.blendMode,
+                    }}
+                    onClick={(e) => {
+                      if (activeTool !== "pointer") return
+                      e.stopPropagation()
+                      setIsScreenshotSelected(true)
+                      setSelectedTextId(null)
+                      setSelectedAnnotationShapeId(null)
+                    }}
+                    onPointerDown={(e) => {
+                      if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur()
+                      }
+                      startMockupDrag(e)
+                    }}
+                    onPointerMove={moveMockup}
+                    onPointerUp={stopMockupDrag}
+                    onPointerCancel={stopMockupDrag}
+                  >
+                    <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+                      <div
+                        ref={stageRef}
+                        className="pointer-events-none w-full overflow-clip bg-black"
+                        style={{
+                          aspectRatio: mockupSpec.screen.aspectRatio,
+                          ...mockupScreenClipStyle(
+                            mockupSpec.screen,
+                            placementDims?.stageW
+                          ),
+                          transform: mockupScreenTransform(mockupSpec.screen),
                         }}
-                      />
-                      <button
-                        onClick={() => setIsCropModalOpen(true)}
-                        className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
-                        title="Crop image"
                       >
-                        <RiCropLine className="size-5" />
-                      </button>
-                      <button
-                        onClick={() => replaceInputRef.current?.click()}
-                        className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
-                        title="Replace image"
-                      >
-                        <RiRefreshLine className="size-5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsScreenshotSelected(false)
-                          setScreenshot(null)
-                        }}
-                        className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-red-500/90"
-                        title="Delete image"
-                      >
-                        <RiDeleteBinLine className="size-5" />
-                      </button>
+                        <img
+                          ref={imageRef}
+                          src={screenshot}
+                          alt="Screenshot"
+                          draggable={false}
+                          onLoad={(e) => {
+                            const el = e.currentTarget
+                            setNaturalDims({
+                              w: el.naturalWidth,
+                              h: el.naturalHeight,
+                            })
+                            measurePlacement()
+                          }}
+                          className="pointer-events-none h-full w-full max-w-none object-cover object-center select-none"
+                        />
+                      </div>
                     </div>
-                  )}
-              </div>
+                    <img
+                      src={mockupAsset.src}
+                      alt=""
+                      draggable={false}
+                      className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain select-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div
+                  ref={stageRef}
+                  className="group/screenshot pointer-events-none relative h-full w-full"
+                  onPointerDown={(e) => {
+                    if (e.target === e.currentTarget) {
+                      setIsScreenshotSelected(false)
+                    }
+                  }}
+                >
+                  <img
+                    ref={imageRef}
+                    src={screenshot}
+                    alt="Screenshot"
+                    draggable={false}
+                    onLoad={(e) => {
+                      const el = e.currentTarget
+                      setNaturalDims({
+                        w: el.naturalWidth,
+                        h: el.naturalHeight,
+                      })
+                      measurePlacement()
+                    }}
+                    onClick={(e) => {
+                      if (activeTool !== "pointer") return
+                      e.stopPropagation()
+                      setIsScreenshotSelected(true)
+                      setSelectedTextId(null)
+                      setSelectedAnnotationShapeId(null)
+                    }}
+                    onPointerDown={(e) => {
+                      if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur()
+                      }
+                      setSelectedTextId(null)
+                      setSelectedAnnotationShapeId(null)
+                      startScreenshotDrag(e)
+                    }}
+                    onPointerMove={moveScreenshot}
+                    onPointerUp={stopScreenshotDrag}
+                    onPointerCancel={stopScreenshotDrag}
+                    style={{
+                      ...imgStyle,
+                      left: screenshotLeft ?? "50%",
+                      top: screenshotTop ?? "50%",
+                      ...(positionedStyle
+                        ? null
+                        : {
+                            transform: `translate(-50%, -50%) ${transform}`,
+                          }),
+                    }}
+                    className={cn(
+                      "pointer-events-auto absolute max-h-full max-w-full object-contain select-none",
+                      screenshotLayer.hidden && "pointer-events-none",
+                      isScreenshotDragging || suppressTransition
+                        ? "cursor-grabbing transition-none"
+                        : "transition-all duration-300 ease-out",
+                      activeTool === "pointer" && "cursor-grab",
+                      isScreenshotSelected &&
+                        activeTool === "pointer" &&
+                        "ring-2 ring-blue-400/90"
+                    )}
+                  />
+
+                  {/* Hover Actions — tracks image center, hidden during text editing */}
+                  {activeTool === "pointer" &&
+                    placementDims &&
+                    !selectedTextId && (
+                      <div
+                        className={cn(
+                          "pointer-events-none absolute z-50 flex items-center justify-center gap-3 opacity-0 transition-opacity group-hover/screenshot:opacity-100",
+                          isScreenshotDragging || suppressTransition
+                            ? "transition-none"
+                            : "transition-[opacity,left,top] duration-300 ease-out"
+                        )}
+                        style={{
+                          left:
+                            (screenshotLeft ??
+                              placementDims.stageW / 2 -
+                                placementDims.imgW / 2) +
+                            placementDims.imgW / 2,
+                          top:
+                            (screenshotTop ??
+                              placementDims.stageH / 2 -
+                                placementDims.imgH / 2) +
+                            placementDims.imgH / 2,
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      >
+                        <input
+                          ref={replaceInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            const reader = new FileReader()
+                            reader.onload = (ev) => {
+                              const src = ev.target?.result
+                              if (src) setScreenshot(src as string)
+                            }
+                            reader.readAsDataURL(file)
+                            e.target.value = ""
+                          }}
+                        />
+                        <button
+                          onClick={() => setIsCropModalOpen(true)}
+                          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
+                          title="Crop image"
+                        >
+                          <RiCropLine className="size-5" />
+                        </button>
+                        <button
+                          onClick={() => replaceInputRef.current?.click()}
+                          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/90"
+                          title="Replace image"
+                        >
+                          <RiRefreshLine className="size-5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsScreenshotSelected(false)
+                            setScreenshot(null)
+                          }}
+                          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110 hover:bg-red-500/90"
+                          title="Delete image"
+                        >
+                          <RiDeleteBinLine className="size-5" />
+                        </button>
+                      </div>
+                    )}
+                </div>
+              )
             ) : (
               <div
                 data-drag-over={isDragOver}
@@ -1351,6 +1502,63 @@ function positionFloatingToolbar(target: string, rect: DOMRect) {
   toolbar.style.transform = flipBelow
     ? "translate(-50%, 0)"
     : "translate(-50%, -100%)"
+}
+
+function deviceMockupSpec(deviceId: string) {
+  return (
+    DEVICE_MOCKUP_SPECS[deviceId] ?? {
+      aspectRatio: "450 / 920",
+      screen: {
+        aspectRatio: "390 / 844",
+        scale: 0.895,
+        borderRadius: 0,
+      },
+    }
+  )
+}
+
+function mockupScreenTransform(screen: {
+  scale: number
+  offsetX?: number
+  offsetY?: number
+}) {
+  const transforms = [`scale(${screen.scale})`]
+  if (screen.offsetX) transforms.push(`translateX(${screen.offsetX}%)`)
+  if (screen.offsetY) transforms.push(`translateY(${screen.offsetY}%)`)
+  return transforms.join(" ")
+}
+
+function mockupScreenClipStyle(
+  screen: {
+    aspectRatio: string
+    borderRadius: number
+  },
+  stageWidth?: number
+): React.CSSProperties {
+  const supportsCornerShape =
+    typeof CSS !== "undefined" &&
+    CSS.supports?.("corner-shape", "superellipse(1.3)")
+  const radius = supportsCornerShape
+    ? screen.borderRadius
+    : Math.max(0, screen.borderRadius - 10)
+  const screenWidth = mockupScreenAspectWidth(screen.aspectRatio)
+  const borderRadius =
+    stageWidth && screenWidth
+      ? `${(radius / screenWidth) * stageWidth}px`
+      : `calc(${radius / 16} * 1em)`
+
+  return {
+    borderRadius,
+    ...({
+      cornerShape: "var(--theme-corner-shape, superellipse(1.3))",
+    } as React.CSSProperties),
+  }
+}
+
+function mockupScreenAspectWidth(aspectRatio: string) {
+  const [width] = aspectRatio.split("/")
+  const parsed = Number(width?.trim())
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
 function screenshotPlacementStyle(
