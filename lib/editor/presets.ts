@@ -186,6 +186,8 @@ export const BACKDROP_PATTERNS = [
   { id: 10, name: "Rings" },
   { id: 11, name: "Chevron" },
   { id: 12, name: "Stripes" },
+  { id: 13, name: "Circles" },
+  { id: 14, name: "Rays" },
 ] as const
 
 export const AUTO_PLACEHOLDER_GRADIENT =

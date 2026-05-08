@@ -107,6 +107,16 @@ export function patternCssFor(
       return {
         backgroundImage: `repeating-linear-gradient(-45deg, ${color} 0 ${t * 3}px, transparent ${t * 3}px ${t * 6}px)`,
       }
+    case 13: {
+      const gap = Math.max(6, 10 - t)
+      return {
+        backgroundImage: `repeating-radial-gradient(circle at 50% 50%, ${color} 0 ${t}px, transparent ${t}px ${gap}px)`,
+      }
+    }
+    case 14:
+      return {
+        backgroundImage: `repeating-conic-gradient(from 0deg at 50% 50%, ${color} 0deg ${Math.max(1, t)}deg, transparent ${Math.max(1, t)}deg 15deg)`,
+      }
     default:
       return {}
   }
