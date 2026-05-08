@@ -15,6 +15,7 @@ import {
   enhanceFilterCss,
   overlayUrl,
   shadowCss,
+  shadowDropFilterCss,
   screenshotPositionAnchor,
   useEditor,
 } from "@/lib/editor/store"
@@ -315,6 +316,7 @@ export function Canvas() {
       : "1100px"
 
   const computedShadow = shadowCss(shadow)
+  const computedShadowFilter = shadowDropFilterCss(shadow)
   const scaleFactor = scale / 100
   const positionX = screenshotAnchor.x / 100
   const positionY = screenshotAnchor.y / 100
@@ -973,6 +975,7 @@ export function Canvas() {
                   mockupSpec={mockupSpec}
                   screenshotLayer={screenshotLayer}
                   transform={transform}
+                  shadowFilter={computedShadowFilter}
                   screenshotOffset={screenshotOffset}
                   enhanceFilter={enhanceFilter}
                   isScreenshotDragging={isScreenshotDragging}

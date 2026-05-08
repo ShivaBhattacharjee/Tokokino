@@ -11,6 +11,7 @@ import {
 } from "@remixicon/react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useEditor } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
 import { BackdropSection } from "./inspector/backdrop-section"
@@ -22,6 +23,9 @@ import { ShadowSection } from "./inspector/shadow-section"
 import { TiltSection } from "./inspector/tilt-section"
 
 export function Inspector({ className }: { className?: string }) {
+  const { frame } = useEditor()
+  const hasDeviceFrame = frame.id !== "none"
+
   return (
     <aside
       className={cn(
@@ -45,10 +49,14 @@ export function Inspector({ className }: { className?: string }) {
           </Section>
           <div className="my-3 h-px bg-border/50" />
 
-          <Section icon={RiBrushLine} title="Border" defaultOpen>
-            <BorderSection />
-          </Section>
-          <div className="my-3 h-px bg-border/50" />
+          {!hasDeviceFrame ? (
+            <>
+              <Section icon={RiBrushLine} title="Border" defaultOpen>
+                <BorderSection />
+              </Section>
+              <div className="my-3 h-px bg-border/50" />
+            </>
+          ) : null}
 
           <Section icon={RiLayoutGrid2Line} title="Padding" defaultOpen>
             <PaddingSection />

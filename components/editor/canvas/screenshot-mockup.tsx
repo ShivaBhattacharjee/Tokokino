@@ -26,6 +26,7 @@ type ScreenshotMockupProps = {
   mockupSpec: DeviceMockupSpec
   screenshotLayer: ScreenshotLayer
   transform: string
+  shadowFilter: string | undefined
   screenshotOffset: { x: number; y: number }
   enhanceFilter: string | undefined
   isScreenshotDragging: boolean
@@ -46,6 +47,7 @@ export function ScreenshotMockup({
   mockupSpec,
   screenshotLayer,
   transform,
+  shadowFilter,
   screenshotOffset,
   enhanceFilter,
   isScreenshotDragging,
@@ -59,6 +61,11 @@ export function ScreenshotMockup({
   onPointerUp,
   onImageLoad,
 }: ScreenshotMockupProps) {
+  // For device frames the shadow must follow the alpha silhouette of the
+  // frame PNG (rounded corners, notch, etc). drop-shadow filters do that;
+  // box-shadow would cast a rectangular shadow off the bounding box.
+  const combinedFilter =
+    [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined
   return (
     <div
       className="pointer-events-none flex h-full w-full items-center justify-center"
@@ -79,7 +86,7 @@ export function ScreenshotMockup({
           aspectRatio: mockupSpec.aspectRatio,
           height: "100%",
           width: "auto",
-          filter: enhanceFilter,
+          filter: combinedFilter,
           opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
           mixBlendMode: screenshotLayer.blendMode,
         }}

@@ -56,6 +56,7 @@ export {
   enhanceFilterCss,
   patternCssFor,
   shadowCss,
+  shadowDropFilterCss,
 } from "./css-utils"
 export {
   dynamicPatternColors,

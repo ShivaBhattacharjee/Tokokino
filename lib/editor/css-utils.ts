@@ -219,6 +219,84 @@ export function shadowCss(shadow: Shadow): string | undefined {
   return `${(dx * unit).toFixed(1)}px ${(dy * unit).toFixed(1)}px ${blur.toFixed(1)}px ${spread}px ${shadowRgba(color, opacity)}`
 }
 
+/**
+ * Convert the box-shadow string produced by `shadowCss` into a chain of
+ * `drop-shadow(...)` filter functions. Use this when the shadow should follow
+ * the alpha silhouette of the rendered content (e.g. a device-frame PNG with
+ * rounded corners and a notch) rather than the rectangular bounding box.
+ *
+ * Notes:
+ * - `drop-shadow()` does not accept a spread radius. We approximate spread by
+ *   folding it into the blur radius, which visually matches well for the
+ *   moderate spreads used by our shadow presets.
+ * - Multiple comma-separated shadows (e.g. the "float" preset) become multiple
+ *   chained `drop-shadow()` calls.
+ */
+export function shadowDropFilterCss(shadow: Shadow): string | undefined {
+  const css = shadowCss(shadow)
+  if (!css) return undefined
+  const parts = splitTopLevelCommas(css)
+    .map(boxShadowSegmentToDropShadow)
+    .filter((v): v is string => Boolean(v))
+  return parts.length ? parts.join(" ") : undefined
+}
+
+function splitTopLevelCommas(value: string): string[] {
+  const out: string[] = []
+  let current = ""
+  let depth = 0
+  for (const ch of value) {
+    if (ch === "(") depth += 1
+    else if (ch === ")") depth -= 1
+    if (ch === "," && depth === 0) {
+      out.push(current.trim())
+      current = ""
+      continue
+    }
+    current += ch
+  }
+  if (current.trim()) out.push(current.trim())
+  return out
+}
+
+function boxShadowSegmentToDropShadow(segment: string): string | null {
+  // Split on whitespace, but keep parenthesized color values together.
+  const tokens: string[] = []
+  let buf = ""
+  let depth = 0
+  for (const ch of segment) {
+    if (ch === "(") depth += 1
+    else if (ch === ")") depth -= 1
+    if (/\s/.test(ch) && depth === 0) {
+      if (buf) {
+        tokens.push(buf)
+        buf = ""
+      }
+      continue
+    }
+    buf += ch
+  }
+  if (buf) tokens.push(buf)
+
+  // Filter out "inset" — drop-shadow doesn't support it.
+  const filtered = tokens.filter((t) => t.toLowerCase() !== "inset")
+  // Color is the last token that isn't a length.
+  const lengthRe = /^-?\d+(\.\d+)?(px|em|rem|%)?$/
+  const lengths: string[] = []
+  let color = ""
+  for (const tok of filtered) {
+    if (lengthRe.test(tok) && !color) lengths.push(tok)
+    else color = color ? `${color} ${tok}` : tok
+  }
+  if (lengths.length < 2) return null
+  const [dx, dy, blurRaw, spreadRaw] = lengths
+  const blur = parseFloat(blurRaw ?? "0")
+  const spread = parseFloat(spreadRaw ?? "0")
+  // Fold spread into blur as an approximation (drop-shadow has no spread).
+  const effectiveBlur = Math.max(0, blur + Math.max(0, spread) * 2)
+  return `drop-shadow(${dx} ${dy} ${effectiveBlur}px ${color})`
+}
+
 export function backgroundCss(bg: Background): React.CSSProperties {
   if (bg.type === "none") return {}
   if (bg.type === "image") {
