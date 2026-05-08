@@ -18,15 +18,9 @@ import { toast } from "sonner"
 import { AnnotationToolbar } from "@/components/editor/annotation-toolbar"
 import { LayersPanelContent } from "@/components/editor/layers-popover"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  ToolbarButton,
+  ToolbarPopover,
+} from "@/components/editor/toolbar/primitives"
 import {
   type EditorTool,
   type EnhancePreset,
@@ -137,7 +131,6 @@ function DefaultToolbarContents() {
   } = useEditor()
   const assetInputRef = React.useRef<HTMLInputElement>(null)
 
-  // Determine what the position tool should target
   const selectedText = selectedTextId ? texts.find((t) => t.id === selectedTextId) : null
   const selectedAsset = selectedAssetId ? assets.find((a) => a.id === selectedAssetId) : null
   const selectedAnnotation = selectedAnnotationShapeId
@@ -155,7 +148,6 @@ function DefaultToolbarContents() {
           ? "screenshot"
           : null
 
-  // Compute current position for the active target
   const currentPositionId = React.useMemo<ScreenshotPosition | null>(() => {
     let xPct: number
     let yPct: number
@@ -173,7 +165,6 @@ function DefaultToolbarContents() {
     } else {
       return null
     }
-    // Snap to nearest grid position
     const col = Math.round(xPct / 25)
     const row = Math.round(yPct / 25)
     if (col === 2 && row === 2) return "center"
@@ -260,18 +251,13 @@ function DefaultToolbarContents() {
           e.target.value = ""
         }}
       />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => assetInputRef.current?.click()}
-            aria-label="Add asset"
-            className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
-          >
-            <RiImageAddLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Add asset (image)</TooltipContent>
-      </Tooltip>
+      <ToolbarButton
+        aria-label="Add asset"
+        tooltip="Add asset (image)"
+        onClick={() => assetInputRef.current?.click()}
+      >
+        <RiImageAddLine className="size-4" />
+      </ToolbarButton>
       <span className="mx-1 h-5 w-px bg-border" />
       {items.map((it) => {
         const isActive = activeTool === it.id
@@ -279,202 +265,157 @@ function DefaultToolbarContents() {
 
         if (it.id === "layers") {
           return (
-            <Popover key={it.id}>
-              <PopoverTrigger asChild>
-                <button
-                  onClick={() => handleToolClick(it.id)}
+            <ToolbarPopover
+              key={it.id}
+              tooltip={it.label}
+              contentClassName="w-auto p-0"
+              trigger={({ open }) => (
+                <ToolbarButton
                   aria-label={it.label}
-                  className={cn(
-                    "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
-                    isActive && "bg-accent text-foreground"
-                  )}
+                  active={open || isActive}
+                  onClick={() => handleToolClick(it.id)}
                 >
                   <Icon className="size-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                side="top"
-                align="center"
-                sideOffset={10}
-                className="w-auto p-0 border-border/60 bg-popover/95 backdrop-blur-md"
-              >
-                <LayersPanelContent />
-              </PopoverContent>
-            </Popover>
+                </ToolbarButton>
+              )}
+            >
+              <LayersPanelContent />
+            </ToolbarPopover>
           )
         }
 
         if (it.id === "enhance") {
           const isOn = enhance !== "off"
           return (
-            <Popover key={it.id}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
+            <ToolbarPopover
+              key={it.id}
+              tooltip={
+                screenshot ? "Enhance image" : "Add a screenshot first"
+              }
+              contentClassName="w-56 p-2"
+              trigger={({ open }) => (
+                <ToolbarButton
+                  aria-label={it.label}
+                  active={open || isOn}
+                  disabled={!screenshot}
+                >
+                  <Icon className="size-4" />
+                </ToolbarButton>
+              )}
+            >
+              <div className="flex flex-col gap-2">
+                <span className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Enhance
+                </span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {ENHANCE_PRESETS.map((p) => (
                     <button
-                      aria-label={it.label}
-                      disabled={!screenshot}
+                      key={p.id}
+                      onClick={() => setEnhance(p.id)}
                       className={cn(
-                        "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
-                        isOn && "bg-accent text-foreground",
-                        !screenshot && "opacity-40 cursor-not-allowed"
+                        "flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-[11px] transition-all cursor-pointer",
+                        enhance === p.id
+                          ? "border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/20"
+                          : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-foreground/30"
                       )}
                     >
-                      <Icon className="size-4" />
+                      <span
+                        className="block size-6 rounded-full border border-border/60"
+                        style={{
+                          background: p.swatch,
+                          filter: p.filter,
+                        }}
+                      />
+                      <span className="font-medium">{p.label}</span>
                     </button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  {screenshot ? "Enhance image" : "Add a screenshot first"}
-                </TooltipContent>
-              </Tooltip>
-              <PopoverContent
-                side="top"
-                align="center"
-                sideOffset={10}
-                className="w-56 p-2 border-border/60 bg-popover/95 backdrop-blur-md"
-              >
-                <div className="flex flex-col gap-2">
-                  <span className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Enhance
-                  </span>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {ENHANCE_PRESETS.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => setEnhance(p.id)}
-                        className={cn(
-                          "flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-[11px] transition-all cursor-pointer",
-                          enhance === p.id
-                            ? "border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/20"
-                            : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-foreground/30"
-                        )}
-                      >
-                        <span
-                          className="block size-6 rounded-full border border-border/60"
-                          style={{
-                            background: p.swatch,
-                            filter: p.filter,
-                          }}
-                        />
-                        <span className="font-medium">{p.label}</span>
-                      </button>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </div>
+            </ToolbarPopover>
           )
         }
 
         if (it.id === "position") {
           const isDisabled = positionTarget === null
           return (
-            <Popover key={it.id}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
+            <ToolbarPopover
+              key={it.id}
+              tooltip={
+                isDisabled
+                  ? "Nothing to position — select an element or add a screenshot"
+                  : `Position ${positionTargetLabel}`
+              }
+              contentClassName="w-52 p-3"
+              trigger={({ open }) => (
+                <ToolbarButton
+                  aria-label={it.label}
+                  active={open || isActive}
+                  disabled={isDisabled}
+                  onClick={() => handleToolClick(it.id)}
+                >
+                  <Icon className="size-4" />
+                </ToolbarButton>
+              )}
+            >
+              <div className="flex flex-col gap-2">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Position {positionTargetLabel}
+                </span>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {SCREENSHOT_POSITIONS.map((pos) => (
                     <button
-                      onClick={() => handleToolClick(it.id)}
-                      aria-label={it.label}
-                      disabled={isDisabled}
+                      key={pos.id}
+                      onClick={() => handlePositionClick(pos.id as ScreenshotPosition)}
+                      aria-label={`Move ${positionTargetLabel} to ${positionLabel(pos.id)}`}
                       className={cn(
-                        "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
-                        isActive && "bg-accent text-foreground",
-                        isDisabled && "opacity-40 cursor-not-allowed"
+                        "flex size-8 items-center justify-center rounded-md border transition-all cursor-pointer",
+                        currentPositionId === pos.id
+                          ? "border-primary bg-primary text-white"
+                          : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-foreground/30"
                       )}
                     >
-                      <Icon className="size-4" />
+                      {pos.isCenter ? (
+                        <RiFocus3Line className="size-3.5" />
+                      ) : (
+                        <RiArrowRightLine
+                          className="size-3.5"
+                          style={{ transform: `rotate(${pos.angle}deg)` }}
+                        />
+                      )}
                     </button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  {isDisabled
-                    ? "Nothing to position — select an element or add a screenshot"
-                    : `Position ${positionTargetLabel}`}
-                </TooltipContent>
-              </Tooltip>
-              <PopoverContent
-                side="top"
-                align="center"
-                sideOffset={10}
-                className="w-52 p-3 border-border/60 bg-popover/95 backdrop-blur-md"
-              >
-                <div className="flex flex-col gap-2">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Position {positionTargetLabel}
-                  </span>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {SCREENSHOT_POSITIONS.map((pos) => (
-                      <button
-                        key={pos.id}
-                        onClick={() => handlePositionClick(pos.id as ScreenshotPosition)}
-                        aria-label={`Move ${positionTargetLabel} to ${positionLabel(pos.id)}`}
-                        className={cn(
-                          "flex size-8 items-center justify-center rounded-md border transition-all cursor-pointer",
-                          currentPositionId === pos.id
-                            ? "border-primary bg-primary text-white"
-                            : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-foreground/30"
-                        )}
-                      >
-                        {pos.isCenter ? (
-                          <RiFocus3Line className="size-3.5" />
-                        ) : (
-                          <RiArrowRightLine
-                            className="size-3.5"
-                            style={{ transform: `rotate(${pos.angle}deg)` }}
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </div>
+            </ToolbarPopover>
           )
         }
 
         return (
-          <Tooltip key={it.id}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => handleToolClick(it.id)}
-                aria-label={it.label}
-                className={cn(
-                  "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
-                  isActive && "bg-accent text-foreground"
-                )}
-              >
-                <Icon className="size-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">{it.label}</TooltipContent>
-          </Tooltip>
+          <ToolbarButton
+            key={it.id}
+            aria-label={it.label}
+            tooltip={it.label}
+            active={isActive}
+            onClick={() => handleToolClick(it.id)}
+          >
+            <Icon className="size-4" />
+          </ToolbarButton>
         )
       })}
 
       <span className="mx-1 h-5 w-px bg-border" />
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            disabled={!screenshot}
-            onClick={() => setScale(Math.max(10, scale - 10))}
-            aria-label="Zoom out"
-            className={cn(
-              "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
-              !screenshot && "opacity-40 cursor-not-allowed"
-            )}
-          >
-            <span className="text-base leading-none">−</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          {screenshot ? "Zoom out" : "Add a screenshot first"}
-        </TooltipContent>
-      </Tooltip>
+      <ToolbarButton
+        aria-label="Zoom out"
+        tooltip={screenshot ? "Zoom out" : "Add a screenshot first"}
+        disabled={!screenshot}
+        onClick={() => setScale(Math.max(10, scale - 10))}
+      >
+        <span className="text-base leading-none">−</span>
+      </ToolbarButton>
 
       <button
+        type="button"
         disabled={!screenshot}
         onClick={() => setScale(100)}
         className={cn(
@@ -485,24 +426,14 @@ function DefaultToolbarContents() {
         {scale}%
       </button>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            disabled={!screenshot}
-            onClick={() => setScale(Math.min(300, scale + 10))}
-            aria-label="Zoom in"
-            className={cn(
-              "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
-              !screenshot && "opacity-40 cursor-not-allowed"
-            )}
-          >
-            <span className="text-base leading-none">+</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          {screenshot ? "Zoom in" : "Add a screenshot first"}
-        </TooltipContent>
-      </Tooltip>
+      <ToolbarButton
+        aria-label="Zoom in"
+        tooltip={screenshot ? "Zoom in" : "Add a screenshot first"}
+        disabled={!screenshot}
+        onClick={() => setScale(Math.min(300, scale + 10))}
+      >
+        <span className="text-base leading-none">+</span>
+      </ToolbarButton>
     </>
   )
 }

@@ -4,27 +4,21 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import {
   RiBlurOffLine,
-  RiBringToFront,
   RiContrastDropLine,
-  RiDeleteBinLine,
-  RiDragMove2Line,
-  RiFileCopyLine,
   RiMagicLine,
-  RiMoreFill,
   RiRefreshLine,
-  RiSendToBack,
 } from "@remixicon/react"
 
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  ToolbarButton,
+  ToolbarDeleteButton,
+  ToolbarDivider,
+  ToolbarDragHandle,
+  ToolbarDuplicateButton,
+  ToolbarLayerOrderMenu,
+  ToolbarPopover,
+  ToolbarSurface,
+} from "@/components/editor/toolbar/primitives"
 import { Slider } from "@/components/ui/slider"
 import {
   type AssetBlendMode,
@@ -63,9 +57,6 @@ type ResizeState = {
   canvasW: number
   canvasH: number
 }
-
-const iconBtnClass =
-  "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer shrink-0"
 
 export function AssetElementView({
   asset,
@@ -488,7 +479,6 @@ function AssetToolbar({
     setSelectedAssetId,
     updateAsset,
   } = useEditor()
-  const [moreOpen, setMoreOpen] = React.useState(false)
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
 
   const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -504,12 +494,7 @@ function AssetToolbar({
   }
 
   return (
-    <div
-      className="pointer-events-auto flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
-    >
+    <ToolbarSurface>
       <input
         ref={replaceInputRef}
         type="file"
@@ -517,205 +502,91 @@ function AssetToolbar({
         className="hidden"
         onChange={handleReplace}
       />
-      {/* Drag handle */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            aria-label="Drag asset"
-            onPointerDown={onDragHandlePointerDown}
-            onPointerMove={onDragHandlePointerMove}
-            onPointerUp={onDragHandlePointerUp}
-            onPointerCancel={onDragHandlePointerUp}
-            className={cn(
-              iconBtnClass,
-              "cursor-grab rounded-full border border-border/60 active:cursor-grabbing"
-            )}
+      <ToolbarDragHandle
+        ariaLabel="Drag asset"
+        onPointerDown={onDragHandlePointerDown}
+        onPointerMove={onDragHandlePointerMove}
+        onPointerUp={onDragHandlePointerUp}
+      />
+
+      <ToolbarDivider />
+
+      <ToolbarDeleteButton
+        ariaLabel="Delete asset"
+        onDelete={() => {
+          deleteAsset(asset.id)
+          setSelectedAssetId(null)
+        }}
+      />
+
+      <ToolbarDuplicateButton
+        ariaLabel="Duplicate asset"
+        onDuplicate={() => {
+          const id = duplicateAsset(asset.id)
+          if (id) setSelectedAssetId(id)
+        }}
+      />
+
+      <ToolbarButton
+        aria-label="Replace asset"
+        tooltip="Replace"
+        onClick={() => replaceInputRef.current?.click()}
+      >
+        <RiRefreshLine className="size-4" />
+      </ToolbarButton>
+
+      <ToolbarDivider />
+
+      <ToolbarPopover
+        tooltip="Filters"
+        contentClassName="w-72 p-2"
+        trigger={({ open }) => (
+          <ToolbarButton
+            aria-label="Filters"
+            active={open || asset.filter !== "none"}
           >
-            <RiDragMove2Line className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Drag to move</TooltipContent>
-      </Tooltip>
+            <RiMagicLine className="size-4" />
+          </ToolbarButton>
+        )}
+      >
+        <AssetFilterGrid asset={asset} />
+      </ToolbarPopover>
 
-      <span className="mx-1 h-5 w-px bg-border" />
-
-      {/* Delete */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => {
-              deleteAsset(asset.id)
-              setSelectedAssetId(null)
-            }}
-            aria-label="Delete asset"
-            className={cn(iconBtnClass, "text-red-500 hover:text-red-500")}
+      <ToolbarPopover
+        tooltip="Blend mode"
+        contentClassName="w-72 p-2"
+        trigger={({ open }) => (
+          <ToolbarButton
+            aria-label="Blend mode"
+            active={open || asset.blendMode !== "normal"}
           >
-            <RiDeleteBinLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Delete</TooltipContent>
-      </Tooltip>
+            <RiBlurOffLine className="size-4" />
+          </ToolbarButton>
+        )}
+      >
+        <AssetBlendGrid asset={asset} />
+      </ToolbarPopover>
 
-      {/* Duplicate */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => {
-              const id = duplicateAsset(asset.id)
-              if (id) setSelectedAssetId(id)
-            }}
-            aria-label="Duplicate asset"
-            className={iconBtnClass}
+      <ToolbarPopover
+        tooltip="Opacity"
+        contentClassName="w-56 p-3"
+        trigger={({ open }) => (
+          <ToolbarButton
+            aria-label="Opacity"
+            active={open || asset.opacity < 100}
           >
-            <RiFileCopyLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Duplicate</TooltipContent>
-      </Tooltip>
+            <RiContrastDropLine className="size-4" />
+          </ToolbarButton>
+        )}
+      >
+        <AssetOpacitySlider asset={asset} />
+      </ToolbarPopover>
 
-      {/* Replace */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => replaceInputRef.current?.click()}
-            aria-label="Replace asset"
-            className={iconBtnClass}
-          >
-            <RiRefreshLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Replace</TooltipContent>
-      </Tooltip>
-
-      <span className="mx-1 h-5 w-px bg-border" />
-
-      {/* Filter / style presets */}
-      <Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button
-                aria-label="Filters"
-                className={cn(
-                  iconBtnClass,
-                  asset.filter !== "none" && "bg-accent/60 text-foreground"
-                )}
-              >
-                <RiMagicLine className="size-4" />
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">Filters</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          side="top"
-          align="center"
-          sideOffset={10}
-          className="w-72 border-border/60 bg-popover/95 p-2 backdrop-blur-md"
-        >
-          <AssetFilterGrid asset={asset} />
-        </PopoverContent>
-      </Popover>
-
-      {/* Blend mode */}
-      <Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button
-                aria-label="Blend mode"
-                className={cn(
-                  iconBtnClass,
-                  asset.blendMode !== "normal" && "bg-accent/60 text-foreground"
-                )}
-              >
-                <RiBlurOffLine className="size-4" />
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">Blend mode</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          side="top"
-          align="center"
-          sideOffset={10}
-          className="w-72 border-border/60 bg-popover/95 p-2 backdrop-blur-md"
-        >
-          <AssetBlendGrid asset={asset} />
-        </PopoverContent>
-      </Popover>
-
-      {/* Opacity */}
-      <Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button
-                aria-label="Opacity"
-                className={cn(
-                  iconBtnClass,
-                  asset.opacity < 100 && "bg-accent/60 text-foreground"
-                )}
-              >
-                <RiContrastDropLine className="size-4" />
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">Opacity</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          side="top"
-          align="center"
-          sideOffset={10}
-          className="w-56 border-border/60 bg-popover/95 p-3 backdrop-blur-md"
-        >
-          <AssetOpacitySlider asset={asset} />
-        </PopoverContent>
-      </Popover>
-
-      {/* More options */}
-      <Popover open={moreOpen} onOpenChange={setMoreOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button aria-label="More options" className={iconBtnClass}>
-                <RiMoreFill className="size-4" />
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">More options</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          side="top"
-          align="end"
-          sideOffset={10}
-          className="w-44 border-border/60 bg-popover/95 p-1 backdrop-blur-md"
-        >
-          <div className="flex flex-col">
-            <button
-              onClick={() => {
-                bringAssetToFront(asset.id)
-                setMoreOpen(false)
-              }}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
-            >
-              <RiBringToFront className="size-4" />
-              Bring to front
-            </button>
-            <button
-              onClick={() => {
-                sendAssetToBack(asset.id)
-                setMoreOpen(false)
-              }}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
-            >
-              <RiSendToBack className="size-4" />
-              Send to back
-            </button>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+      <ToolbarLayerOrderMenu
+        onBringToFront={() => bringAssetToFront(asset.id)}
+        onSendToBack={() => sendAssetToBack(asset.id)}
+      />
+    </ToolbarSurface>
   )
 }
 

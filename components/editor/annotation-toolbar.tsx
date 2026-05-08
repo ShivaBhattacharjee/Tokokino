@@ -16,13 +16,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Slider } from "@/components/ui/slider"
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
+import {
+  ToolbarDivider,
+  ToolbarPopover,
+} from "@/components/editor/toolbar/primitives"
 import {
   ANNOTATION_STROKES,
   type AnnotationLineStyle,
@@ -327,9 +326,7 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
   )
 }
 
-function Divider() {
-  return <span className="mx-1 h-5 w-px bg-border" />
-}
+const Divider = ToolbarDivider
 
 function ToolGroup({ children }: { children: React.ReactNode }) {
   return <div className="flex items-center gap-0.5">{children}</div>
@@ -446,56 +443,50 @@ function IntensitySliderButton({
 }) {
   const lowerLabel = label.toLowerCase()
   return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <button
-              aria-label={`Custom ${lowerLabel}`}
-              className="relative inline-flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent"
-            >
-              <span
-                className="block rounded-full bg-foreground/60"
-                style={{
-                  width: Math.min(22, Math.max(16, value + 8)),
-                  height: Math.min(22, Math.max(16, value + 8)),
-                }}
-              />
-              <span className="absolute top-1/2 left-1/2 grid size-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-white ring-0 backdrop-blur-sm">
-                <RiEqualizerLine className="size-3" />
-              </span>
-            </button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="top">Custom {lowerLabel}</TooltipContent>
-      </Tooltip>
-      <PopoverContent
-        side="top"
-        align="center"
-        sideOffset={10}
-        className="w-56 border-border/60 bg-popover/95 p-3 backdrop-blur-md"
-      >
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-              {label}
-            </span>
-            <span className="font-mono text-xs text-foreground/80">
-              {value}px
-            </span>
-          </div>
-          <Slider
-            value={[value]}
-            min={1}
-            max={32}
-            step={1}
-            onValueChange={([next]) => {
-              if (typeof next === "number") onChange(next)
+    <ToolbarPopover
+      tooltip={`Custom ${lowerLabel}`}
+      contentClassName="w-56 p-3"
+      trigger={({ open }) => (
+        <button
+          aria-label={`Custom ${lowerLabel}`}
+          className={cn(
+            "relative inline-flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent",
+            open && "bg-accent"
+          )}
+        >
+          <span
+            className="block rounded-full bg-foreground/60"
+            style={{
+              width: Math.min(22, Math.max(16, value + 8)),
+              height: Math.min(22, Math.max(16, value + 8)),
             }}
           />
+          <span className="absolute top-1/2 left-1/2 grid size-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-white ring-0 backdrop-blur-sm">
+            <RiEqualizerLine className="size-3" />
+          </span>
+        </button>
+      )}
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            {label}
+          </span>
+          <span className="font-mono text-xs text-foreground/80">
+            {value}px
+          </span>
         </div>
-      </PopoverContent>
-    </Popover>
+        <Slider
+          value={[value]}
+          min={1}
+          max={32}
+          step={1}
+          onValueChange={([next]) => {
+            if (typeof next === "number") onChange(next)
+          }}
+        />
+      </div>
+    </ToolbarPopover>
   )
 }
 

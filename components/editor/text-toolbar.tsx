@@ -6,37 +6,31 @@ import {
   RiAlignCenter,
   RiAlignLeft,
   RiAlignRight,
-  RiBringToFront,
   RiCheckboxBlankLine,
-  RiDeleteBinLine,
-  RiDragMove2Line,
-  RiFileCopyLine,
   RiFontFamily,
-  RiMoreFill,
   RiSearchLine,
-  RiSendToBack,
   RiSettings4Fill,
   RiSettings4Line,
   RiSubtractLine,
 } from "@remixicon/react"
 
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
+import {
+  iconBtnClass,
+  ToolbarButton,
+  ToolbarDeleteButton,
+  ToolbarDivider,
+  ToolbarDragHandle,
+  ToolbarDuplicateButton,
+  ToolbarLayerOrderMenu,
+  ToolbarPopover,
+  ToolbarSurface,
+} from "@/components/editor/toolbar/primitives"
 import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Slider } from "@/components/ui/slider"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import {
   FONT_FAMILIES,
   type FontCategory,
-  sampleImageColorsRaw,
   type BorderStyle,
   type TextAlign,
   type TextElement,
@@ -54,11 +48,6 @@ const ALIGN_ICONS: Record<
   right: RiAlignRight,
 }
 
-const POPOVER_CLASS = "border-border/60 bg-popover/95 backdrop-blur-md"
-
-const iconBtnClass =
-  "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer shrink-0"
-
 type DragHandlers = {
   onDragHandlePointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void
   onDragHandlePointerMove?: (e: React.PointerEvent<HTMLButtonElement>) => void
@@ -72,19 +61,14 @@ export function TextToolbar({
   onDragHandlePointerUp,
 }: { text: TextElement } & DragHandlers) {
   return (
-    <div
-      className="pointer-events-auto flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
-    >
+    <ToolbarSurface>
       <TextToolbarBody
         text={text}
         onDragHandlePointerDown={onDragHandlePointerDown}
         onDragHandlePointerMove={onDragHandlePointerMove}
         onDragHandlePointerUp={onDragHandlePointerUp}
       />
-    </div>
+    </ToolbarSurface>
   )
 }
 
@@ -103,7 +87,6 @@ function TextToolbarBody({
     setSelectedTextId,
   } = useEditor()
 
-  const [moreOpen, setMoreOpen] = React.useState(false)
   const [fontQuery, setFontQuery] = React.useState("")
   const [fontCategory, setFontCategory] = React.useState<"all" | FontCategory>("all")
   const [fontSettingsOpen, setFontSettingsOpen] = React.useState(false)
@@ -146,77 +129,40 @@ function TextToolbarBody({
 
   return (
     <>
-      {/* Drag handle */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            aria-label="Drag text"
-            onPointerDown={onDragHandlePointerDown}
-            onPointerMove={onDragHandlePointerMove}
-            onPointerUp={onDragHandlePointerUp}
-            onPointerCancel={onDragHandlePointerUp}
-            className={cn(
-              iconBtnClass,
-              "rounded-full border border-border/60 cursor-grab active:cursor-grabbing"
-            )}
-          >
-            <RiDragMove2Line className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Drag to move</TooltipContent>
-      </Tooltip>
+      <ToolbarDragHandle
+        ariaLabel="Drag text"
+        onPointerDown={onDragHandlePointerDown}
+        onPointerMove={onDragHandlePointerMove}
+        onPointerUp={onDragHandlePointerUp}
+      />
 
-      <span className="mx-1 h-5 w-px bg-border" />
+      <ToolbarDivider />
 
-      {/* Delete */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => {
-              deleteText(text.id)
-              setSelectedTextId(null)
-            }}
-            aria-label="Delete text"
-            className={cn(iconBtnClass, "text-red-500 hover:text-red-500")}
-          >
-            <RiDeleteBinLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Delete</TooltipContent>
-      </Tooltip>
+      <ToolbarDeleteButton
+        ariaLabel="Delete text"
+        onDelete={() => {
+          deleteText(text.id)
+          setSelectedTextId(null)
+        }}
+      />
 
-      {/* Duplicate */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => {
-              const id = duplicateText(text.id)
-              if (id) setSelectedTextId(id)
-            }}
-            aria-label="Duplicate text"
-            className={iconBtnClass}
-          >
-            <RiFileCopyLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Duplicate</TooltipContent>
-      </Tooltip>
+      <ToolbarDuplicateButton
+        ariaLabel="Duplicate text"
+        onDuplicate={() => {
+          const id = duplicateText(text.id)
+          if (id) setSelectedTextId(id)
+        }}
+      />
 
-      <span className="mx-1 h-5 w-px bg-border" />
+      <ToolbarDivider />
 
-      {/* Font size controls */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => setSize(text.fontSize - 1)}
-            aria-label="Decrease font size"
-            className={iconBtnClass}
-          >
-            <RiSubtractLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Decrease size</TooltipContent>
-      </Tooltip>
+      <ToolbarButton
+        aria-label="Decrease font size"
+        tooltip="Decrease size"
+        onClick={() => setSize(text.fontSize - 1)}
+      >
+        <RiSubtractLine className="size-4" />
+      </ToolbarButton>
       <input
         type="number"
         value={fontSizeInput}
@@ -238,39 +184,26 @@ function TextToolbarBody({
         title="Font size"
         className="h-9 w-12 shrink-0 rounded-md bg-secondary/60 text-center font-mono text-[12px] text-foreground outline-none focus:ring-1 focus:ring-ring"
       />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => setSize(text.fontSize + 1)}
-            aria-label="Increase font size"
-            className={iconBtnClass}
-          >
-            <RiAddLine className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Increase size</TooltipContent>
-      </Tooltip>
+      <ToolbarButton
+        aria-label="Increase font size"
+        tooltip="Increase size"
+        onClick={() => setSize(text.fontSize + 1)}
+      >
+        <RiAddLine className="size-4" />
+      </ToolbarButton>
 
-      <span className="mx-1 h-5 w-px bg-border" />
+      <ToolbarDivider />
 
       {/* Font family */}
-      <Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button aria-label="Font family" className={iconBtnClass}>
-                <RiFontFamily className="size-4" />
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">Font family</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          side="top"
-          align="center"
-          sideOffset={10}
-          className={cn("w-72 p-2", POPOVER_CLASS)}
-        >
+      <ToolbarPopover
+        tooltip="Font family"
+        contentClassName="w-72 p-2"
+        trigger={({ open }) => (
+          <ToolbarButton aria-label="Font family" active={open}>
+            <RiFontFamily className="size-4" />
+          </ToolbarButton>
+        )}
+      >
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
@@ -412,8 +345,7 @@ function TextToolbarBody({
               )}
             </div>
           </div>
-        </PopoverContent>
-      </Popover>
+      </ToolbarPopover>
 
       {/* Text color — title only; ColorPickerPopover wraps with PopoverTrigger asChild and won't accept a Tooltip provider as its child */}
       <ColorPickerPopover
@@ -435,92 +367,38 @@ function TextToolbarBody({
       </ColorPickerPopover>
 
       {/* Border */}
-      <Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button aria-label="Text border" className={iconBtnClass}>
-                {text.borderColor ? (
-                  <span
-                    className="size-5 rounded-md border-2"
-                    style={{ borderColor: text.borderColor, borderStyle: text.borderStyle || "solid" }}
-                  />
-                ) : (
-                  <RiCheckboxBlankLine className="size-4" />
-                )}
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">Border</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          side="top"
-          align="center"
-          sideOffset={10}
-          className={cn("w-64 p-3", POPOVER_CLASS)}
-        >
-          <TextBorderSettings text={text} updateText={updateText} />
-        </PopoverContent>
-      </Popover>
+      <ToolbarPopover
+        tooltip="Border"
+        contentClassName="w-64 p-3"
+        trigger={({ open }) => (
+          <ToolbarButton aria-label="Text border" active={open}>
+            {text.borderColor ? (
+              <span
+                className="size-5 rounded-md border-2"
+                style={{ borderColor: text.borderColor, borderStyle: text.borderStyle || "solid" }}
+              />
+            ) : (
+              <RiCheckboxBlankLine className="size-4" />
+            )}
+          </ToolbarButton>
+        )}
+      >
+        <TextBorderSettings text={text} updateText={updateText} />
+      </ToolbarPopover>
 
       {/* Alignment */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={cycleAlign}
-            aria-label={`Alignment: ${text.align}`}
-            className={iconBtnClass}
-          >
-            <AlignIcon className="size-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="capitalize">
-          Align {text.align}
-        </TooltipContent>
-      </Tooltip>
+      <ToolbarButton
+        aria-label={`Alignment: ${text.align}`}
+        tooltip={<span className="capitalize">Align {text.align}</span>}
+        onClick={cycleAlign}
+      >
+        <AlignIcon className="size-4" />
+      </ToolbarButton>
 
-      {/* More options */}
-      <Popover open={moreOpen} onOpenChange={setMoreOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button aria-label="More options" className={iconBtnClass}>
-                <RiMoreFill className="size-4" />
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">More options</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          side="top"
-          align="end"
-          sideOffset={10}
-          className={cn("w-44 p-1", POPOVER_CLASS)}
-        >
-          <div className="flex flex-col">
-            <button
-              onClick={() => {
-                bringTextToFront(text.id)
-                setMoreOpen(false)
-              }}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-pointer"
-            >
-              <RiBringToFront className="size-4" />
-              Bring to front
-            </button>
-            <button
-              onClick={() => {
-                sendTextToBack(text.id)
-                setMoreOpen(false)
-              }}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-pointer"
-            >
-              <RiSendToBack className="size-4" />
-              Send to back
-            </button>
-          </div>
-        </PopoverContent>
-      </Popover>
+      <ToolbarLayerOrderMenu
+        onBringToFront={() => bringTextToFront(text.id)}
+        onSendToBack={() => sendTextToBack(text.id)}
+      />
     </>
   )
 }
