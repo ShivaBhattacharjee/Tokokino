@@ -357,14 +357,18 @@ function DeviceTile({
   screenshot: string | null
   onSelect: () => void
 }) {
+  const device = option.isDevice ? getDeviceMockup(option.id) : undefined
+  const tileColor = resolveFrameColor(device, selectedColor)
   const portraitAsset = option.isDevice
-    ? getDeviceMockupAsset(option.id, selectedColor, "portrait")
+    ? getDeviceMockupAsset(option.id, tileColor, "portrait")
     : null
   const landscapeAsset = option.isDevice
-    ? getDeviceMockupAsset(option.id, selectedColor, "landscape")
+    ? getDeviceMockupAsset(option.id, tileColor, "landscape")
     : null
   const asset = portraitAsset ?? landscapeAsset
-  const preview = option.previewSrc ?? asset?.src
+  const preview =
+    screenshot && asset?.src ? asset.src : option.previewSrc ?? asset?.src
+  const rotatePreview = screenshot ? false : option.rotatePreview
   const spec = option.isDevice ? deviceMockupSpec(option.id) : null
 
   return (
@@ -383,7 +387,7 @@ function DeviceTile({
           <DeviceTilePreview
             spec={spec}
             preview={preview}
-            rotatePreview={option.rotatePreview}
+            rotatePreview={rotatePreview}
             screenshot={screenshot}
           />
         ) : preview ? (
