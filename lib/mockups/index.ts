@@ -16,6 +16,7 @@ export type DeviceMockupAsset = {
 export type DeviceMockup = {
   id: string
   name: string
+  thumbnailSrc: string
   colors: string[]
   orientations: MockupOrientation[]
   assets: DeviceMockupAsset[]
@@ -24,6 +25,7 @@ export type DeviceMockup = {
 const R2_PUBLIC_BASE_URL = env.NEXT_PUBLIC_R2_PUBLIC_BASE.replace(/\/$/, "")
 
 export const DEVICE_MOCKUPS_BASE_URL = `${R2_PUBLIC_BASE_URL}/Device-Mockups/device-mockups`
+export const DEVICE_MOCKUP_THUMBNAILS_BASE_URL = `${DEVICE_MOCKUPS_BASE_URL}/thumbnails`
 
 export const DEVICE_MOCKUP_FILES = [
   "apple_watch_10_42mm_aluminum_sport_band__black_portrait.webp",
@@ -112,6 +114,7 @@ export const DEVICE_MOCKUPS = DEVICE_MOCKUP_ASSETS.reduce<DeviceMockup[]>(
       device = {
         id: asset.deviceId,
         name: asset.deviceName,
+        thumbnailSrc: getDeviceMockupThumbnailSrc(asset.deviceId),
         colors: [],
         orientations: [],
         assets: [],
@@ -154,6 +157,10 @@ export function getDeviceMockupAsset(
 
 export function getDeviceMockupSrc(file: DeviceMockupFile) {
   return `${DEVICE_MOCKUPS_BASE_URL}/${file}`
+}
+
+export function getDeviceMockupThumbnailSrc(deviceId: string) {
+  return `${DEVICE_MOCKUP_THUMBNAILS_BASE_URL}/${deviceId}.webp`
 }
 
 function parseDeviceMockupFile(file: DeviceMockupFile) {

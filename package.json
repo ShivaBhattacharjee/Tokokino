@@ -11,6 +11,7 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "build:thumbs": "node scripts/build-overlay-thumbs.mjs",
+    "build:device-mockup-thumbs": "node scripts/build-device-mockup-thumbs.mjs",
     "build:backgrounds": "node scripts/build-background-thumbs.mjs"
   },
   "dependencies": {

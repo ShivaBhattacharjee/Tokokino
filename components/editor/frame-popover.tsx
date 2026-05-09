@@ -5,7 +5,6 @@ import {
   RiAndroidLine,
   RiAppleLine,
   RiArrowDownSLine,
-  RiArrowRightSLine,
   RiCheckboxBlankCircleLine,
   RiComputerLine,
   RiMacLine,
@@ -20,6 +19,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select"
 import {
   DEVICE_MOCKUPS,
   getDeviceMockup,
@@ -49,6 +54,7 @@ type FrameOption = {
   kind: FrameKind
   colors: string[]
   previewSrc: string | null
+  rotatePreview: boolean
   isDevice: boolean
 }
 
@@ -68,9 +74,16 @@ const FALLBACK_OPTIONS: FrameOption[] = [
     kind: "none",
     colors: [],
     previewSrc: null,
+    rotatePreview: false,
     isDevice: false,
   },
 ]
+
+const LANDSCAPE_THUMBNAIL_DEVICE_IDS = new Set([
+  "ipad_air",
+  "ipad_pro_11_m4",
+  "ipad_pro_13_m4",
+])
 
 const DEVICE_OPTIONS = DEVICE_MOCKUPS.map(deviceToOption).filter(
   (option): option is FrameOption => option !== null
@@ -96,7 +109,7 @@ const SECTIONS: FrameSection[] = [
   },
   {
     id: "tablet",
-    label: "Tablet",
+    label: "iPad",
     icon: RiTabletLine,
     options: DEVICE_OPTIONS.filter((o) => o.id.startsWith("ipad")),
   },
@@ -252,47 +265,40 @@ export function FramePopover({
         </div>
 
         <div className="shrink-0 border-t border-border/60 bg-popover p-2">
-          <div className="flex flex-wrap items-start gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             {currentDevice ? (
-              <div className="min-w-[120px] flex-1">
-                <div className="mb-2 flex items-center gap-2 px-1">
-                  <span className="label-eyebrow !text-[9px]">Color</span>
-                  <span className="truncate font-mono text-[10px] text-muted-foreground">
-                    {formatColor(currentColor)}
-                  </span>
+              <div className="w-[160px] max-w-full shrink-0">
+                <div className="label-eyebrow mb-1.5 px-1 !text-[9px]">
+                  Color
                 </div>
-                <div className="flex items-center gap-2 overflow-x-auto px-1 pb-1">
-                  {current.colors.map((color) => {
-                    const active = color === currentColor
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        aria-label={formatColor(color)}
-                        aria-pressed={active}
-                        title={formatColor(color)}
-                        onClick={() =>
-                          onChange({
-                            id: current.id,
-                            color,
-                            orientation: "vertical",
-                          })
-                        }
-                        className={cn(
-                          "grid size-8 shrink-0 place-items-center rounded-full border transition-all",
-                          active
-                            ? "border-primary bg-primary/10 ring-2 ring-primary/25"
-                            : "border-border/70 bg-secondary/50 hover:border-foreground/30"
-                        )}
-                      >
-                        <span
-                          className="size-5 rounded-full border border-black/10 shadow-sm"
-                          style={colorSwatchStyle(color)}
-                        />
-                      </button>
-                    )
-                  })}
-                </div>
+                <Select
+                  value={currentColor}
+                  onValueChange={(color) =>
+                    onChange({
+                      id: current.id,
+                      color,
+                      orientation: "vertical",
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    className="!h-8 w-full justify-between bg-secondary/40 px-2 text-[12px]"
+                    aria-label="Device color"
+                  >
+                    <ColorOption color={currentColor} />
+                  </SelectTrigger>
+                  <SelectContent
+                    align="start"
+                    position="popper"
+                    className="z-[70] min-w-[160px]"
+                  >
+                    {current.colors.map((color) => (
+                      <SelectItem key={color} value={color}>
+                        <ColorOption color={color} />
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ) : null}
 
@@ -332,9 +338,6 @@ export function FramePopover({
               </div>
             </div>
           </div>
-          <p className="mt-1.5 px-1 font-mono text-[10px] text-muted-foreground">
-            Horizontal mockups are parked until the landscape fit is tuned.
-          </p>
         </div>
       </PopoverContent>
     </Popover>
@@ -361,7 +364,7 @@ function DeviceTile({
     ? getDeviceMockupAsset(option.id, selectedColor, "landscape")
     : null
   const asset = portraitAsset ?? landscapeAsset
-  const preview = asset?.src ?? option.previewSrc
+  const preview = option.previewSrc ?? asset?.src
   const spec = option.isDevice ? deviceMockupSpec(option.id) : null
 
   return (
@@ -380,6 +383,7 @@ function DeviceTile({
           <DeviceTilePreview
             spec={spec}
             preview={preview}
+            rotatePreview={option.rotatePreview}
             screenshot={screenshot}
           />
         ) : preview ? (
@@ -411,10 +415,12 @@ function DeviceTile({
 function DeviceTilePreview({
   spec,
   preview,
+  rotatePreview,
   screenshot,
 }: {
   spec: ReturnType<typeof deviceMockupSpec>
   preview: string
+  rotatePreview: boolean
   screenshot: string | null
 }) {
   const screenRef = React.useRef<HTMLDivElement | null>(null)
@@ -471,7 +477,10 @@ function DeviceTilePreview({
       <img
         src={preview}
         alt=""
-        className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
+        className={cn(
+          "pointer-events-none absolute inset-0 z-10 h-full w-full object-contain",
+          rotatePreview && "scale-[1.38] rotate-90"
+        )}
         loading="lazy"
       />
     </div>
@@ -559,6 +568,18 @@ function OrientGlyph({
   )
 }
 
+function ColorOption({ color }: { color: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span
+        className="size-3.5 shrink-0 rounded-full border border-black/10 shadow-sm"
+        style={colorSwatchStyle(color)}
+      />
+      <span className="truncate">{formatColor(color)}</span>
+    </span>
+  )
+}
+
 function deviceToOption(device: DeviceMockup): FrameOption | null {
   const portraitAssets = device.assets.filter(
     (asset) => asset.orientation === "portrait"
@@ -566,7 +587,8 @@ function deviceToOption(device: DeviceMockup): FrameOption | null {
   const landscapeAssets = device.assets.filter(
     (asset) => asset.orientation === "landscape"
   )
-  const primaryAssets = portraitAssets.length > 0 ? portraitAssets : landscapeAssets
+  const primaryAssets =
+    portraitAssets.length > 0 ? portraitAssets : landscapeAssets
   const preview = primaryAssets[0]
   if (!preview) return null
 
@@ -578,7 +600,8 @@ function deviceToOption(device: DeviceMockup): FrameOption | null {
     h: size.h,
     kind: deviceKind(device.id),
     colors: primaryAssets.map((asset) => asset.color),
-    previewSrc: preview.src,
+    previewSrc: device.thumbnailSrc,
+    rotatePreview: LANDSCAPE_THUMBNAIL_DEVICE_IDS.has(device.id),
     isDevice: true,
   }
 }
@@ -588,7 +611,8 @@ function resolveFrameColor(device: DeviceMockup | undefined, color: string) {
   const portraitColors = device.assets
     .filter((asset) => asset.orientation === "portrait")
     .map((asset) => asset.color)
-  const availableColors = portraitColors.length > 0 ? portraitColors : device.colors
+  const availableColors =
+    portraitColors.length > 0 ? portraitColors : device.colors
   if (availableColors.includes(color)) return color
   return availableColors[0] ?? "black"
 }
@@ -621,8 +645,8 @@ function deviceSize(deviceId: string) {
     apple_watch_10_42mm_aluminum_sport_band: { w: 198, h: 242 },
     apple_watch_ultra_2_natural_alpine: { w: 205, h: 251 },
     macbook_air_13_gen_4: { w: 1280, h: 832 },
-    "macbook_pro_14__5th_gen": { w: 1512, h: 982 },
-    "macbook_pro_16__5th_gen": { w: 1728, h: 1117 },
+    macbook_pro_14__5th_gen: { w: 1512, h: 982 },
+    macbook_pro_16__5th_gen: { w: 1728, h: 1117 },
     imac_24: { w: 1280, h: 720 },
     pro_display_xdr: { w: 1920, h: 1080 },
     studio_display: { w: 1920, h: 1080 },
