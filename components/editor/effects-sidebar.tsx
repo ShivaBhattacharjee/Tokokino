@@ -1,18 +1,20 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import {
   AspectPopover,
   findAspectOption,
 } from "@/components/editor/aspect-popover"
 import { FramePopover } from "@/components/editor/frame-popover"
+import { getFrameAspectCompatibilityWarning } from "@/lib/editor/frame-aspect-compatibility"
 import { cn } from "@/lib/utils"
 import { useEditor } from "@/lib/editor/store"
+import type { AspectState, DeviceFrame } from "@/lib/editor/store"
 
 export function EffectsSidebar({
   className,
-  stacked = false,
 }: {
   className?: string
   stacked?: boolean
@@ -23,6 +25,25 @@ export function EffectsSidebar({
     w: number
     h: number
   } | null>(null)
+
+  const showCompatibilityWarning = React.useCallback(
+    (nextAspect: AspectState, nextFrame: DeviceFrame, aspectName?: string) => {
+      const warning = getFrameAspectCompatibilityWarning({
+        aspect: nextAspect,
+        frame: nextFrame,
+        aspectName,
+      })
+
+      if (!warning) return
+
+      toast.warning(warning.title, {
+        description: warning.description,
+        id: "frame-aspect-compatibility",
+        position: "top-center",
+      })
+    },
+    []
+  )
 
   return (
     <aside
@@ -40,14 +61,18 @@ export function EffectsSidebar({
               value={aspect.id}
               onChange={(id, custom) => {
                 if (custom) {
-                  setAspect({ id, w: custom.w, h: custom.h })
+                  const nextAspect = { id, w: custom.w, h: custom.h }
+                  setAspect(nextAspect)
                   setCustomSize(custom)
+                  showCompatibilityWarning(nextAspect, frame, "Custom size")
                   return
                 }
                 const opt = findAspectOption(id)
                 if (opt) {
-                  setAspect({ id, w: opt.w, h: opt.h })
+                  const nextAspect = { id, w: opt.w, h: opt.h }
+                  setAspect(nextAspect)
                   setCustomSize(null)
+                  showCompatibilityWarning(nextAspect, frame, opt.name)
                 }
               }}
             />
@@ -59,7 +84,17 @@ export function EffectsSidebar({
           </div>
           <div>
             <SectionLabel>Frame</SectionLabel>
-            <FramePopover value={frame} onChange={setFrame} />
+            <FramePopover
+              value={frame}
+              onChange={(nextFrame) => {
+                setFrame(nextFrame)
+                showCompatibilityWarning(
+                  aspect,
+                  nextFrame,
+                  findAspectOption(aspect.id)?.name
+                )
+              }}
+            />
           </div>
         </div>
       </div>
