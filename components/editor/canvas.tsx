@@ -24,6 +24,7 @@ import { getDeviceMockup, getDeviceMockupAsset } from "@/lib/mockups"
 import { AnnotationLayer } from "./canvas/annotation-layer"
 import { CanvasBackdrop } from "./canvas/canvas-backdrop"
 import { CanvasEmptyState } from "./canvas/canvas-empty-state"
+import { DeviceFrameEmptyState } from "./canvas/device-frame-empty-state"
 import {
   annotationPath,
   clamp,
@@ -963,7 +964,8 @@ export function Canvas() {
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
             style={{
-              padding: screenshot ? padding : 0,
+              padding:
+                screenshot || (mockupAsset && mockupSpec) ? padding : 0,
               zIndex: 60 + screenshotLayer.zIndex,
             }}
           >
@@ -1036,6 +1038,13 @@ export function Canvas() {
                   }}
                 />
               )
+            ) : mockupAsset && mockupSpec ? (
+              <DeviceFrameEmptyState
+                mockupAsset={mockupAsset}
+                mockupSpec={mockupSpec}
+                isDragOver={isDragOver}
+                onBrowse={() => fileInputRef.current?.click()}
+              />
             ) : (
               <CanvasEmptyState
                 isDragOver={isDragOver}

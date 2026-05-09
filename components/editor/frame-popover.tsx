@@ -26,6 +26,12 @@ import {
   type DeviceMockup,
 } from "@/lib/mockups"
 import type { DeviceFrame, FrameOrientation } from "@/lib/editor/store"
+import { useEditor } from "@/lib/editor/store"
+import {
+  deviceMockupSpec,
+  mockupScreenClipStyle,
+  mockupScreenTransform,
+} from "@/components/editor/canvas/helpers"
 import { cn } from "@/lib/utils"
 
 type FrameKind = "phone" | "tablet" | "watch" | "desktop" | "none"
@@ -125,6 +131,7 @@ export function FramePopover({
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
+  const { screenshot } = useEditor()
 
   const current = ALL_OPTIONS.find((o) => o.id === value.id) ?? ALL_OPTIONS[0]
   const currentDevice = getDeviceMockup(current.id)
@@ -227,6 +234,7 @@ export function FramePopover({
                     option={option}
                     selectedColor={currentColor}
                     active={value.id === option.id}
+                    screenshot={screenshot}
                     onSelect={() => {
                       selectDevice(option)
                     }}
@@ -337,18 +345,24 @@ function DeviceTile({
   option,
   selectedColor,
   active,
+  screenshot,
   onSelect,
 }: {
   option: FrameOption
   selectedColor: string
   active: boolean
+  screenshot: string | null
   onSelect: () => void
 }) {
-  const preview = option.isDevice
-    ? (getDeviceMockupAsset(option.id, selectedColor, "portrait")?.src ??
-      getDeviceMockupAsset(option.id, selectedColor, "landscape")?.src ??
-      option.previewSrc)
-    : option.previewSrc
+  const portraitAsset = option.isDevice
+    ? getDeviceMockupAsset(option.id, selectedColor, "portrait")
+    : null
+  const landscapeAsset = option.isDevice
+    ? getDeviceMockupAsset(option.id, selectedColor, "landscape")
+    : null
+  const asset = portraitAsset ?? landscapeAsset
+  const preview = asset?.src ?? option.previewSrc
+  const spec = option.isDevice ? deviceMockupSpec(option.id) : null
 
   return (
     <button
@@ -362,7 +376,36 @@ function DeviceTile({
       )}
     >
       <div className="flex h-[88px] w-full items-center justify-center">
-        {preview ? (
+        {preview && spec && screenshot ? (
+          <div
+            className="relative h-full drop-shadow-sm"
+            style={{ aspectRatio: spec.aspectRatio }}
+          >
+            <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+              <div
+                className="w-full overflow-hidden bg-black"
+                style={{
+                  aspectRatio: spec.screen.aspectRatio,
+                  ...mockupScreenClipStyle(spec.screen),
+                  transform: mockupScreenTransform(spec.screen),
+                }}
+              >
+                <img
+                  src={screenshot}
+                  alt=""
+                  className="h-full w-full object-cover object-center"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+            <img
+              src={preview}
+              alt=""
+              className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+        ) : preview ? (
           <img
             src={preview}
             alt=""
