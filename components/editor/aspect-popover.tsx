@@ -295,7 +295,12 @@ export function AspectPopover({
           <span className="font-mono text-[11px] text-muted-foreground">
             {current.w ? `${current.w}×${current.h}` : ""}
           </span>
-          <RiArrowRightSLine className="size-4 text-muted-foreground/60" />
+          <RiArrowRightSLine
+            className={cn(
+              "size-4 text-muted-foreground/60 transition-transform duration-200",
+              open && "rotate-90"
+            )}
+          />
         </button>
       </PopoverTrigger>
 

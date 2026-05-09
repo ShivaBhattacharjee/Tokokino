@@ -1,4 +1,10 @@
-import type { HTMLAttributes } from "react"
+import {
+  useId,
+  type HTMLAttributes,
+  type ReactNode,
+  type Ref,
+  type SyntheticEvent,
+} from "react"
 
 const SAFARI_WIDTH = 1203
 const SAFARI_HEIGHT = 753
@@ -12,14 +18,28 @@ const LEFT_PCT = (SCREEN_X / SAFARI_WIDTH) * 100
 const TOP_PCT = (SCREEN_Y / SAFARI_HEIGHT) * 100
 const WIDTH_PCT = (SCREEN_WIDTH / SAFARI_WIDTH) * 100
 const HEIGHT_PCT = (SCREEN_HEIGHT / SAFARI_HEIGHT) * 100
+const ADDRESS_LEFT_PCT = (580 / SAFARI_WIDTH) * 100
+const ADDRESS_TOP_PCT = (11 / SAFARI_HEIGHT) * 100
+const ADDRESS_WIDTH_PCT = (92 / SAFARI_WIDTH) * 100
+const ADDRESS_HEIGHT_PCT = (30 / SAFARI_HEIGHT) * 100
 
 type SafariMode = "default" | "simple"
+type SafariColorMode = "light" | "dark"
 
 export interface SafariProps extends HTMLAttributes<HTMLDivElement> {
   url?: string
   imageSrc?: string
   videoSrc?: string
   mode?: SafariMode
+  colorMode?: SafariColorMode
+  children?: ReactNode
+  screenRef?: Ref<HTMLDivElement>
+  imageRef?: Ref<HTMLImageElement>
+  onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
+  screenBorderRadius?: string | number
+  addressValue?: string
+  addressPlaceholder?: string
+  onAddressChange?: (value: string) => void
 }
 
 export function Safari({
@@ -27,12 +47,40 @@ export function Safari({
   videoSrc,
   url,
   mode = "default",
+  colorMode,
+  children,
+  screenRef,
+  imageRef,
+  onImageLoad,
+  screenBorderRadius = "0 0 11px 11px",
+  addressValue,
+  addressPlaceholder = "your-url.com",
+  onAddressChange,
   className,
   style,
   ...props
 }: SafariProps) {
+  const generatedId = useId().replace(/:/g, "")
+  const punchId = `safari-punch-${generatedId}`
+  const pathId = `safari-path-${generatedId}`
+  const roundedBottomId = `safari-rounded-bottom-${generatedId}`
   const hasVideo = !!videoSrc
   const hasMedia = hasVideo || !!imageSrc
+  const hasScreenContent = hasMedia || !!children
+  const addressText = addressValue ?? url ?? ""
+  const editableAddress = !!onAddressChange
+  const chromeFill =
+    colorMode === "dark"
+      ? "fill-[#404040]"
+      : colorMode === "light"
+        ? "fill-[#E5E5E5]"
+        : "fill-[#E5E5E5] dark:fill-[#404040]"
+  const toolbarFill =
+    colorMode === "dark"
+      ? "fill-[#262626]"
+      : colorMode === "light"
+        ? "fill-white"
+        : "fill-white dark:fill-[#262626]"
 
   return (
     <div
@@ -67,32 +115,73 @@ export function Safari({
 
       {!hasVideo && imageSrc && (
         <div
+          ref={screenRef}
           className="pointer-events-none absolute z-0 overflow-hidden"
           style={{
             left: `${LEFT_PCT}%`,
             top: `${TOP_PCT}%`,
             width: `${WIDTH_PCT}%`,
             height: `${HEIGHT_PCT}%`,
-            borderRadius: "0 0 11px 11px",
+            borderRadius: screenBorderRadius,
           }}
         >
           <img
+            ref={imageRef}
             src={imageSrc}
             alt=""
+            onLoad={onImageLoad}
             className="block size-full object-cover object-top"
           />
         </div>
       )}
 
+      {!hasMedia && children ? (
+        <div
+          ref={screenRef}
+          className="absolute z-0 overflow-hidden"
+          style={{
+            left: `${LEFT_PCT}%`,
+            top: `${TOP_PCT}%`,
+            width: `${WIDTH_PCT}%`,
+            height: `${HEIGHT_PCT}%`,
+            borderRadius: screenBorderRadius,
+          }}
+        >
+          {children}
+        </div>
+      ) : null}
+
+      {editableAddress ? (
+        <input
+          type="text"
+          inputMode="url"
+          aria-label="Browser address"
+          value={addressText}
+          placeholder={addressPlaceholder}
+          spellCheck={false}
+          onChange={(e) => onAddressChange?.(e.target.value)}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute z-20 border-0 bg-transparent font-sans text-[clamp(7px,1cqw,12px)] text-[#8a8a8a] outline-none placeholder:text-[#a3a3a3]"
+          style={{
+            left: `${ADDRESS_LEFT_PCT}%`,
+            top: `${ADDRESS_TOP_PCT}%`,
+            width: `${ADDRESS_WIDTH_PCT}%`,
+            height: `${ADDRESS_HEIGHT_PCT}%`,
+          }}
+        />
+      ) : null}
+
       <svg
         viewBox={`0 0 ${SAFARI_WIDTH} ${SAFARI_HEIGHT}`}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="absolute inset-0 z-10 size-full"
+        className="pointer-events-none absolute inset-0 z-10 size-full"
         style={{ transform: "translateZ(0)" }}
       >
         <defs>
-          <mask id="safariPunch" maskUnits="userSpaceOnUse">
+          <mask id={punchId} maskUnits="userSpaceOnUse">
             <rect
               x="0"
               y="0"
@@ -106,11 +195,11 @@ export function Safari({
             />
           </mask>
 
-          <clipPath id="path0">
+          <clipPath id={pathId}>
             <rect width={SAFARI_WIDTH} height={SAFARI_HEIGHT} fill="white" />
           </clipPath>
 
-          <clipPath id="roundedBottom">
+          <clipPath id={roundedBottomId}>
             <path
               d="M1 52H1201V741C1201 747.075 1196.08 752 1190 752H12C5.92486 752 1 747.075 1 741V52Z"
               fill="white"
@@ -119,46 +208,31 @@ export function Safari({
         </defs>
 
         <g
-          clipPath="url(#path0)"
-          mask={hasMedia ? "url(#safariPunch)" : undefined}
+          clipPath={`url(#${pathId})`}
+          mask={hasScreenContent ? `url(#${punchId})` : undefined}
         >
           <path
             d="M0 52H1202V741C1202 747.627 1196.63 753 1190 753H12C5.37258 753 0 747.627 0 741V52Z"
-            className="fill-[#E5E5E5] dark:fill-[#404040]"
+            className={chromeFill}
           />
           <path
             fillRule="evenodd"
             clipRule="evenodd"
             d="M0 12C0 5.37258 5.37258 0 12 0H1190C1196.63 0 1202 5.37258 1202 12V52H0L0 12Z"
-            className="fill-[#E5E5E5] dark:fill-[#404040]"
+            className={chromeFill}
           />
           <path
             fillRule="evenodd"
             clipRule="evenodd"
             d="M1.06738 12C1.06738 5.92487 5.99225 1 12.0674 1H1189.93C1196.01 1 1200.93 5.92487 1200.93 12V51H1.06738V12Z"
-            className="fill-white dark:fill-[#262626]"
+            className={toolbarFill}
           />
-          <circle
-            cx="27"
-            cy="25"
-            r="6"
-            className="fill-[#E5E5E5] dark:fill-[#404040]"
-          />
-          <circle
-            cx="47"
-            cy="25"
-            r="6"
-            className="fill-[#E5E5E5] dark:fill-[#404040]"
-          />
-          <circle
-            cx="67"
-            cy="25"
-            r="6"
-            className="fill-[#E5E5E5] dark:fill-[#404040]"
-          />
+          <circle cx="27" cy="25" r="6" fill="#FF5F57" />
+          <circle cx="47" cy="25" r="6" fill="#FEBC2E" />
+          <circle cx="67" cy="25" r="6" fill="#28C840" />
           <path
             d="M286 17C286 13.6863 288.686 11 292 11H946C949.314 11 952 13.6863 952 17V35C952 38.3137 949.314 41 946 41H292C288.686 41 286 38.3137 286 35V17Z"
-            className="fill-[#E5E5E5] dark:fill-[#404040]"
+            className={chromeFill}
           />
           <g className="mix-blend-luminosity">
             <path
@@ -175,7 +249,7 @@ export function Safari({
               fontSize="12"
               fontFamily="Arial, sans-serif"
             >
-              {url}
+              {editableAddress ? "" : addressText}
             </text>
           </g>
 

@@ -4,13 +4,14 @@ import * as React from "react"
 import {
   RiAndroidLine,
   RiAppleLine,
-  RiArrowDownSLine,
+  RiArrowRightSLine,
   RiCheckboxBlankCircleLine,
   RiComputerLine,
   RiMacLine,
   RiSearchLine,
   RiSmartphoneLine,
   RiTabletLine,
+  RiWindow2Line,
 } from "@remixicon/react"
 
 import { Input } from "@/components/ui/input"
@@ -42,9 +43,19 @@ import {
   mockupScreenClipStyle,
   mockupScreenTransform,
 } from "@/components/editor/canvas/helpers"
+import { Safari } from "@/components/ui/safari"
+import {
+  BROWSER_FRAME_DEFAULT_URL,
+  BROWSER_FRAME_COLORS,
+  BROWSER_FRAME_ID,
+  BROWSER_FRAME_PREVIEW_IMAGE_URL,
+  BROWSER_FRAME_PREVIEW_URL,
+  BROWSER_FRAME_SIZE,
+  isBrowserFrame,
+} from "@/lib/browser-frame"
 import { cn } from "@/lib/utils"
 
-type FrameKind = "phone" | "tablet" | "watch" | "desktop" | "none"
+type FrameKind = "browser" | "phone" | "tablet" | "watch" | "desktop" | "none"
 
 type FrameOption = {
   id: string
@@ -79,6 +90,20 @@ const FALLBACK_OPTIONS: FrameOption[] = [
   },
 ]
 
+const BROWSER_OPTIONS: FrameOption[] = [
+  {
+    id: BROWSER_FRAME_ID,
+    name: "Browser",
+    w: BROWSER_FRAME_SIZE.w,
+    h: BROWSER_FRAME_SIZE.h,
+    kind: "browser",
+    colors: [...BROWSER_FRAME_COLORS],
+    previewSrc: null,
+    rotatePreview: false,
+    isDevice: false,
+  },
+]
+
 const LANDSCAPE_THUMBNAIL_DEVICE_IDS = new Set([
   "ipad_air",
   "ipad_pro_11_m4",
@@ -90,6 +115,12 @@ const DEVICE_OPTIONS = DEVICE_MOCKUPS.map(deviceToOption).filter(
 )
 
 const SECTIONS: FrameSection[] = [
+  {
+    id: "browser",
+    label: "Browser",
+    icon: RiWindow2Line,
+    options: BROWSER_OPTIONS,
+  },
   {
     id: "iphone",
     label: "iPhone",
@@ -153,17 +184,22 @@ export function FramePopover({
 
   const current = ALL_OPTIONS.find((o) => o.id === value.id) ?? ALL_OPTIONS[0]
   const currentDevice = getDeviceMockup(current.id)
+  const effectiveOrientation = isBrowserFrame(current.id)
+    ? "horizontal"
+    : value.orientation
   const CurrentIcon =
     SECTIONS.find((s) => s.options.some((o) => o.id === current.id))?.icon ??
     RiSmartphoneLine
 
-  const currentColor = resolveFrameColor(currentDevice, value.color)
+  const currentColor = resolveFrameColor(current, currentDevice, value.color)
   const q = query.trim().toLowerCase()
   const matches = (o: FrameOption) => {
     if (!q) return true
     return (
       o.name.toLowerCase().includes(q) ||
-      formatColor(value.color).toLowerCase().includes(q) ||
+      optionColors(o).some((color) =>
+        formatColor(color).toLowerCase().includes(q)
+      ) ||
       `${o.w}x${o.h}`.includes(q) ||
       `${o.w}×${o.h}`.includes(q)
     )
@@ -174,12 +210,12 @@ export function FramePopover({
     options: s.options.filter(matches),
   })).filter((s) => s.options.length > 0)
 
-  const selectDevice = (option: FrameOption) => {
+  const selectFrame = (option: FrameOption) => {
     const device = getDeviceMockup(option.id)
     onChange({
       id: option.id,
-      color: resolveFrameColor(device, value.color),
-      orientation: "vertical",
+      color: resolveFrameColor(option, device, value.color),
+      orientation: isBrowserFrame(option.id) ? "horizontal" : "vertical",
     })
   }
 
@@ -199,13 +235,18 @@ export function FramePopover({
             <span className="truncate text-[13px] font-medium text-foreground">
               {current.name}
             </span>
-            {currentDevice ? (
+            {current.colors.length > 0 ? (
               <span className="truncate text-[11px] text-muted-foreground">
                 {formatColor(currentColor)}
               </span>
             ) : null}
           </span>
-          <RiArrowDownSLine className="size-4 text-muted-foreground/60" />
+          <RiArrowRightSLine
+            className={cn(
+              "size-4 text-muted-foreground/60 transition-transform duration-200",
+              open && "rotate-90"
+            )}
+          />
         </button>
       </PopoverTrigger>
 
@@ -249,7 +290,7 @@ export function FramePopover({
                     active={value.id === option.id}
                     screenshot={screenshot}
                     onSelect={() => {
-                      selectDevice(option)
+                      selectFrame(option)
                     }}
                   />
                 ))}
@@ -266,7 +307,7 @@ export function FramePopover({
 
         <div className="shrink-0 border-t border-border/60 bg-popover p-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            {currentDevice ? (
+            {current.colors.length > 0 ? (
               <div className="w-[160px] max-w-full shrink-0">
                 <div className="label-eyebrow mb-1.5 px-1 !text-[9px]">
                   Color
@@ -277,7 +318,7 @@ export function FramePopover({
                     onChange({
                       id: current.id,
                       color,
-                      orientation: value.orientation,
+                      orientation: effectiveOrientation,
                     })
                   }
                 >
@@ -308,7 +349,7 @@ export function FramePopover({
               </div>
               <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-secondary/40 p-0.5">
                 {(["vertical", "horizontal"] as const).map((orientation) => {
-                  const active = value.orientation === orientation
+                  const active = effectiveOrientation === orientation
                   const disabled = !currentDevice
                   return (
                     <button
@@ -358,7 +399,7 @@ function DeviceTile({
   onSelect: () => void
 }) {
   const device = option.isDevice ? getDeviceMockup(option.id) : undefined
-  const tileColor = resolveFrameColor(device, selectedColor)
+  const tileColor = resolveFrameColor(option, device, selectedColor)
   const portraitAsset = option.isDevice
     ? getDeviceMockupAsset(option.id, tileColor, "portrait")
     : null
@@ -383,7 +424,9 @@ function DeviceTile({
       )}
     >
       <div className="flex h-[88px] w-full items-center justify-center">
-        {preview && spec ? (
+        {option.kind === "browser" ? (
+          <BrowserTilePreview color={tileColor} screenshot={screenshot} />
+        ) : preview && spec ? (
           <DeviceTilePreview
             spec={spec}
             preview={preview}
@@ -486,6 +529,26 @@ function DeviceTilePreview({
           rotatePreview && "scale-[1.38] rotate-90"
         )}
         loading="lazy"
+      />
+    </div>
+  )
+}
+
+function BrowserTilePreview({
+  color,
+  screenshot,
+}: {
+  color: string
+  screenshot: string | null
+}) {
+  return (
+    <div className="relative w-full max-w-[112px] drop-shadow-sm">
+      <Safari
+        imageSrc={screenshot ?? BROWSER_FRAME_PREVIEW_IMAGE_URL}
+        colorMode={color === "dark" ? "dark" : "light"}
+        url={screenshot ? BROWSER_FRAME_DEFAULT_URL : BROWSER_FRAME_PREVIEW_URL}
+        screenBorderRadius="0 0 3px 3px"
+        className="block w-full"
       />
     </div>
   )
@@ -610,15 +673,22 @@ function deviceToOption(device: DeviceMockup): FrameOption | null {
   }
 }
 
-function resolveFrameColor(device: DeviceMockup | undefined, color: string) {
-  if (!device) return color || "black"
+function resolveFrameColor(
+  option: FrameOption,
+  device: DeviceMockup | undefined,
+  color: string
+) {
+  const availableColors = optionColors(option, device)
+  if (availableColors.includes(color)) return color
+  return availableColors[0] ?? "black"
+}
+
+function optionColors(option: FrameOption, device?: DeviceMockup) {
+  if (!device) return option.colors
   const portraitColors = device.assets
     .filter((asset) => asset.orientation === "portrait")
     .map((asset) => asset.color)
-  const availableColors =
-    portraitColors.length > 0 ? portraitColors : device.colors
-  if (availableColors.includes(color)) return color
-  return availableColors[0] ?? "black"
+  return portraitColors.length > 0 ? portraitColors : device.colors
 }
 
 function deviceKind(deviceId: string): FrameKind {
@@ -676,6 +746,7 @@ function colorSwatchStyle(color: string): React.CSSProperties {
     black: "#111111",
     blue: "#8fc5e8",
     cosmic_orange: "#ff8a3d",
+    dark: "#262626",
     dark_green: "#264133",
     deep_blue: "#1d314d",
     gray: "#8a8a86",

@@ -10,6 +10,7 @@ import { AnnotationShapeElement } from "@/components/editor/annotation-shape-ele
 import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
 import { cn } from "@/lib/utils"
+import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
 import {
   effectsFilterCss,
   enhanceFilterCss,
@@ -33,6 +34,10 @@ import {
   screenshotPlacementStyle,
 } from "./canvas/helpers"
 import { ScreenshotBare } from "./canvas/screenshot-bare"
+import {
+  BrowserFrameEmptyState,
+  ScreenshotBrowserFrame,
+} from "./canvas/screenshot-browser-frame"
 import { ScreenshotMockup } from "./canvas/screenshot-mockup"
 
 export function Canvas() {
@@ -351,7 +356,10 @@ export function Canvas() {
   const noiseEnabled = backdrop.effects.noise > 0
   const noiseOpacity = noiseEnabled ? backdrop.effects.noise / 100 : 0
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
-  const mockupDevice = frame.id === "none" ? null : getDeviceMockup(frame.id)
+  const browserFrame = isBrowserFrame(frame.id)
+  const browserFrameColor = resolveBrowserFrameColor(frame.color)
+  const mockupDevice =
+    frame.id === "none" || browserFrame ? null : getDeviceMockup(frame.id)
   const mockupOrientation = mockupDevice?.orientations.includes("portrait")
     ? "portrait"
     : "landscape"
@@ -360,10 +368,11 @@ export function Canvas() {
       ? -90
       : 0
   const mockupAsset =
-    frame.id === "none"
+    frame.id === "none" || browserFrame
       ? null
       : getDeviceMockupAsset(frame.id, frame.color, mockupOrientation)
   const mockupSpec = mockupAsset ? deviceMockupSpec(frame.id) : null
+  const hasFrame = browserFrame || (mockupAsset && mockupSpec)
 
   const startScreenshotDrag = (e: React.PointerEvent<HTMLImageElement>) => {
     if (!canDragScreenshot || !placementDims) return
@@ -978,12 +987,44 @@ export function Canvas() {
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
             style={{
-              padding: screenshot || (mockupAsset && mockupSpec) ? `${(padding / 1200) * 100}%` : 0,
+              padding:
+                screenshot || hasFrame ? `${(padding / 1200) * 100}%` : 0,
               zIndex: 60 + screenshotLayer.zIndex,
             }}
           >
             {screenshot ? (
-              mockupAsset && mockupSpec ? (
+              browserFrame ? (
+                <ScreenshotBrowserFrame
+                  screenshot={screenshot}
+                  color={browserFrameColor}
+                  screenshotLayer={screenshotLayer}
+                  transform={transform}
+                  shadowFilter={computedShadowFilter}
+                  screenshotOffset={effectiveOffset}
+                  screenshotAnchor={screenshotAnchor}
+                  enhanceFilter={enhanceFilter}
+                  isScreenshotDragging={isScreenshotDragging}
+                  activeTool={activeTool}
+                  stageRef={stageRef}
+                  imageRef={imageRef}
+                  onSelect={handleScreenshotClickSelect}
+                  onPointerDown={(e) => {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur()
+                    }
+                    startMockupDrag(e)
+                  }}
+                  onPointerMove={moveMockup}
+                  onPointerUp={stopMockupDrag}
+                  onImageLoad={handleImageLoad}
+                  onCropClick={() => setIsCropModalOpen(true)}
+                  onReplaceFile={readFile}
+                  onDelete={() => {
+                    setIsScreenshotSelected(false)
+                    setScreenshot(null)
+                  }}
+                />
+              ) : mockupAsset && mockupSpec ? (
                 <ScreenshotMockup
                   screenshot={screenshot}
                   mockupAsset={mockupAsset}
@@ -1059,6 +1100,25 @@ export function Canvas() {
                   }}
                 />
               )
+            ) : browserFrame ? (
+              <BrowserFrameEmptyState
+                color={browserFrameColor}
+                isDragOver={isDragOver}
+                onBrowse={() => fileInputRef.current?.click()}
+                transform={transform}
+                screenshotOffset={effectiveOffset}
+                screenshotAnchor={screenshotAnchor}
+                isScreenshotDragging={isScreenshotDragging}
+                activeTool={activeTool}
+                onPointerDown={(e) => {
+                  if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur()
+                  }
+                  startMockupDrag(e)
+                }}
+                onPointerMove={moveMockup}
+                onPointerUp={stopMockupDrag}
+              />
             ) : mockupAsset && mockupSpec ? (
               <DeviceFrameEmptyState
                 mockupAsset={mockupAsset}

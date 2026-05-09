@@ -233,6 +233,7 @@ export function ScreenshotMockup({
                     mass: 0.6,
                   }}
                   style={{ originY: 0 }}
+                  className="flex flex-col gap-0.5"
                 >
                   {view === "menu" ? (
                     <>
@@ -249,6 +250,7 @@ export function ScreenshotMockup({
                         index={1}
                         icon={<RiRefreshLine className="size-4" />}
                         label="Replace"
+                        hint="Press ⌘V to replace"
                         onClick={() => {
                           handleEditOpenChange(false)
                           replaceInputRef.current?.click()
@@ -382,12 +384,14 @@ function EditMenuItem({
   index,
   icon,
   label,
+  hint,
   destructive,
   onClick,
 }: {
   index: number
   icon: React.ReactNode
   label: string
+  hint?: React.ReactNode
   destructive?: boolean
   onClick: () => void
 }) {
@@ -409,7 +413,7 @@ function EditMenuItem({
         onClick()
       }}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors",
+        "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors",
         destructive
           ? "text-red-300 hover:bg-red-500/15 hover:text-red-200"
           : "text-foreground/85 hover:bg-accent hover:text-foreground"
@@ -418,7 +422,14 @@ function EditMenuItem({
       <span className="grid size-7 shrink-0 place-items-center rounded-md bg-secondary/60">
         {icon}
       </span>
-      <span className="flex-1">{label}</span>
+      <span className="flex flex-1 flex-col">
+        <span>{label}</span>
+        {hint && (
+          <span className="text-[10px] leading-[1.2] text-muted-foreground/70 mt-0.5">
+            {hint}
+          </span>
+        )}
+      </span>
     </motion.button>
   )
 }

@@ -60,21 +60,19 @@ export function TopBar() {
   const { undo, redo, canUndo, canRedo, reset, setIsPreviewMode } = useEditor()
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-dashed border-border/70 bg-background px-2 sm:px-3">
+    <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-dashed border-border/70 bg-background px-2 sm:px-3">
       {/* Brand */}
-      <div className="flex items-center gap-2 pr-1">
+      <div className="flex min-w-0 items-center gap-2 pr-1">
         <span className="inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-secondary/70">
           <span className="size-3 rounded-[3px] bg-foreground" />
         </span>
-        <span className="hidden text-[14px] font-medium tracking-tight sm:inline">
-          Pta nhi name
+        <span className="truncate text-[14px] font-medium tracking-tight">
+          Noctivy
         </span>
       </div>
 
-      <div className="flex flex-1" />
-
-      {/* History cluster — desktop only */}
-      <div className="ml-2 hidden xl:block">
+      {/* Center controls — desktop only */}
+      <div className="hidden items-center justify-center gap-1.5 xl:flex">
         <IconAction
           label="Undo"
           icon={RiArrowGoBackLine}
@@ -89,10 +87,6 @@ export function TopBar() {
           onClick={redo}
           disabled={!canRedo}
         />
-      </div>
-
-      {/* Open + Save + Reset + Preview — desktop only */}
-      <div className="hidden items-center gap-1.5 xl:flex">
         <OpenProjectDialog />
         <Button
           variant="outline"
@@ -137,7 +131,7 @@ export function TopBar() {
         </Button>
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="flex items-center justify-end gap-1.5">
         {/* Right cluster — desktop only */}
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
