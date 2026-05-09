@@ -13,10 +13,7 @@ import {
 } from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
-import type {
-  EditorTool,
-  ScreenshotLayer,
-} from "@/lib/editor/store"
+import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import type { DeviceMockupAsset, DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
 import {
   Popover,
@@ -41,6 +38,7 @@ type ScreenshotMockupProps = {
   mockupSpec: DeviceMockupSpec
   screenshotLayer: ScreenshotLayer
   transform: string
+  mockupRotation: number
   shadowFilter: string | undefined
   screenshotOffset: { x: number; y: number }
   screenshotAnchor: { x: number; y: number }
@@ -67,6 +65,7 @@ export function ScreenshotMockup({
   mockupSpec,
   screenshotLayer,
   transform,
+  mockupRotation,
   shadowFilter,
   screenshotOffset,
   screenshotAnchor,
@@ -109,10 +108,12 @@ export function ScreenshotMockup({
   // box-shadow would cast a rectangular shadow off the bounding box.
   const combinedFilter =
     [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined
+  const horizontalScreenStyle = mockupRotation
+    ? rotatedScreenContentStyle(mockupSpec.screen.aspectRatio, -mockupRotation)
+    : undefined
+
   return (
-    <div
-      className="group/mockup pointer-events-none relative h-full w-full"
-    >
+    <div className="group/mockup pointer-events-none relative h-full w-full">
       <div
         className={cn(
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
@@ -128,7 +129,8 @@ export function ScreenshotMockup({
           width: "auto",
           left: `${screenshotAnchor.x}%`,
           top: `${screenshotAnchor.y}%`,
-          transform: `translate(-${screenshotAnchor.x}%, -${screenshotAnchor.y}%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform}`,
+          transform: `translate(-${screenshotAnchor.x}%, -${screenshotAnchor.y}%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform} rotate(${mockupRotation}deg)`,
+          transformOrigin: "center",
           filter: combinedFilter,
           opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
           mixBlendMode: screenshotLayer.blendMode,
@@ -158,7 +160,11 @@ export function ScreenshotMockup({
               alt="Screenshot"
               draggable={false}
               onLoad={onImageLoad}
-              className="pointer-events-none h-full w-full max-w-none object-cover object-center select-none"
+              className={cn(
+                "pointer-events-none max-w-none object-cover object-center select-none",
+                mockupRotation ? "absolute top-1/2 left-1/2" : "h-full w-full"
+              )}
+              style={horizontalScreenStyle}
             />
           </div>
         </div>
@@ -345,6 +351,31 @@ function CaptureView({
       </button>
     </form>
   )
+}
+
+function rotatedScreenContentStyle(
+  aspectRatio: string,
+  rotation: number
+): React.CSSProperties | undefined {
+  const ratio = parseAspectRatio(aspectRatio)
+  if (!ratio)
+    return { transform: `translate(-50%, -50%) rotate(${rotation}deg)` }
+
+  return {
+    width: `${100 / ratio}%`,
+    height: `${ratio * 100}%`,
+    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+  }
+}
+
+function parseAspectRatio(aspectRatio: string) {
+  const [width, height] = aspectRatio
+    .split("/")
+    .map((part) => Number(part.trim()))
+  if (!Number.isFinite(width) || !Number.isFinite(height) || height <= 0) {
+    return null
+  }
+  return width / height
 }
 
 function EditMenuItem({

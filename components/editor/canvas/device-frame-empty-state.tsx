@@ -17,6 +17,7 @@ type DeviceFrameEmptyStateProps = {
   isDragOver: boolean
   onBrowse: () => void
   transform: string
+  mockupRotation: number
   screenshotOffset: { x: number; y: number }
   screenshotAnchor: { x: number; y: number }
   isScreenshotDragging: boolean
@@ -32,6 +33,7 @@ export function DeviceFrameEmptyState({
   isDragOver,
   onBrowse,
   transform,
+  mockupRotation,
   screenshotOffset,
   screenshotAnchor,
   isScreenshotDragging,
@@ -59,9 +61,7 @@ export function DeviceFrameEmptyState({
   }, [])
 
   return (
-    <div
-      className="pointer-events-none relative h-full w-full"
-    >
+    <div className="pointer-events-none relative h-full w-full">
       <div
         className={cn(
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
@@ -76,7 +76,8 @@ export function DeviceFrameEmptyState({
           width: "auto",
           left: `${screenshotAnchor.x}%`,
           top: `${screenshotAnchor.y}%`,
-          transform: `translate(-${screenshotAnchor.x}%, -${screenshotAnchor.y}%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform}`,
+          transform: `translate(-${screenshotAnchor.x}%, -${screenshotAnchor.y}%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform} rotate(${mockupRotation}deg)`,
+          transformOrigin: "center",
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

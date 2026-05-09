@@ -277,7 +277,7 @@ export function FramePopover({
                     onChange({
                       id: current.id,
                       color,
-                      orientation: "vertical",
+                      orientation: value.orientation,
                     })
                   }
                 >
@@ -308,8 +308,8 @@ export function FramePopover({
               </div>
               <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-secondary/40 p-0.5">
                 {(["vertical", "horizontal"] as const).map((orientation) => {
-                  const active = orientation === "vertical"
-                  const disabled = orientation === "horizontal"
+                  const active = value.orientation === orientation
+                  const disabled = !currentDevice
                   return (
                     <button
                       key={orientation}
@@ -367,7 +367,7 @@ function DeviceTile({
     : null
   const asset = portraitAsset ?? landscapeAsset
   const preview =
-    screenshot && asset?.src ? asset.src : option.previewSrc ?? asset?.src
+    screenshot && asset?.src ? asset.src : (option.previewSrc ?? asset?.src)
   const rotatePreview = screenshot ? false : option.rotatePreview
   const spec = option.isDevice ? deviceMockupSpec(option.id) : null
 

@@ -116,9 +116,10 @@ export function Canvas() {
   } | null>(null)
   const [isScreenshotSelected, setIsScreenshotSelected] = React.useState(false)
   const [isScreenshotDragging, setIsScreenshotDragging] = React.useState(false)
-  const [liveOffset, setLiveOffset] = React.useState<
-    { x: number; y: number } | null
-  >(null)
+  const [liveOffset, setLiveOffset] = React.useState<{
+    x: number
+    y: number
+  } | null>(null)
   const [isCropModalOpen, setIsCropModalOpen] = React.useState(false)
   const [centerGuides, setCenterGuides] = React.useState({ x: false, y: false })
   const [textCenterGuides, setTextCenterGuides] = React.useState({
@@ -356,8 +357,13 @@ export function Canvas() {
   const noiseOpacity = noiseEnabled ? backdrop.effects.noise / 100 : 0
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
   const mockupDevice = frame.id === "none" ? null : getDeviceMockup(frame.id)
-  const mockupOrientation =
-    mockupDevice?.orientations.includes("portrait") ? "portrait" : "landscape"
+  const mockupOrientation = mockupDevice?.orientations.includes("portrait")
+    ? "portrait"
+    : "landscape"
+  const mockupRotation =
+    frame.orientation === "horizontal" && mockupOrientation === "portrait"
+      ? -90
+      : 0
   const mockupAsset =
     frame.id === "none"
       ? null
@@ -976,8 +982,7 @@ export function Canvas() {
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
             style={{
-              padding:
-                screenshot || (mockupAsset && mockupSpec) ? padding : 0,
+              padding: screenshot || (mockupAsset && mockupSpec) ? padding : 0,
               zIndex: 60 + screenshotLayer.zIndex,
             }}
           >
@@ -989,6 +994,7 @@ export function Canvas() {
                   mockupSpec={mockupSpec}
                   screenshotLayer={screenshotLayer}
                   transform={transform}
+                  mockupRotation={mockupRotation}
                   shadowFilter={computedShadowFilter}
                   screenshotOffset={effectiveOffset}
                   screenshotAnchor={screenshotAnchor}
@@ -1064,6 +1070,7 @@ export function Canvas() {
                 isDragOver={isDragOver}
                 onBrowse={() => fileInputRef.current?.click()}
                 transform={transform}
+                mockupRotation={mockupRotation}
                 screenshotOffset={effectiveOffset}
                 screenshotAnchor={screenshotAnchor}
                 isScreenshotDragging={isScreenshotDragging}
