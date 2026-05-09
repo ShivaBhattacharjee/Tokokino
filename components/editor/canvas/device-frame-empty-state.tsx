@@ -89,7 +89,7 @@ export function DeviceFrameEmptyState({
             ref={screenRef}
             data-drag-over={isDragOver}
             className={cn(
-              "pointer-events-auto relative w-full overflow-hidden bg-black text-white transition-all duration-200",
+              "pointer-events-auto relative w-full overflow-hidden bg-black text-white",
               "data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/60"
             )}
             style={{
@@ -106,6 +106,11 @@ export function DeviceFrameEmptyState({
               url={url}
               onUrlChange={setUrl}
               onBrowse={onBrowse}
+              style={
+                mockupRotation
+                  ? { transform: `rotate(${-mockupRotation}deg)` }
+                  : undefined
+              }
             />
           </div>
         </div>

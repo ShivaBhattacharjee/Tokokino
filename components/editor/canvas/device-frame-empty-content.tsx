@@ -11,6 +11,8 @@ type DeviceFrameEmptyContentProps = {
   onUrlChange?: (value: string) => void
   onBrowse?: () => void
   onCapture?: () => void
+  className?: string
+  style?: React.CSSProperties
 }
 
 export function DeviceFrameEmptyContent({
@@ -19,12 +21,16 @@ export function DeviceFrameEmptyContent({
   onUrlChange,
   onBrowse,
   onCapture,
+  className,
+  style,
 }: DeviceFrameEmptyContentProps) {
   return (
     <div
+      style={style}
       className={cn(
         "absolute inset-0 flex flex-col items-center justify-center gap-[4cqw] px-[7cqw] text-center",
-        presentational && "pointer-events-none"
+        presentational && "pointer-events-none",
+        className
       )}
     >
       {presentational ? (

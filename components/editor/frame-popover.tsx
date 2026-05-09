@@ -348,7 +348,7 @@ export function FramePopover({
               <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-secondary/40 p-0.5">
                 {(["vertical", "horizontal"] as const).map((orientation) => {
                   const active = effectiveOrientation === orientation
-                  const disabled = !currentDevice
+                  const disabled = !currentDevice || current.kind === "desktop" || current.kind === "watch"
                   return (
                     <button
                       key={orientation}
