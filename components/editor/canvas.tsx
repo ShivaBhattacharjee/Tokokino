@@ -996,6 +996,7 @@ export function Canvas() {
               browserFrame ? (
                 <ScreenshotBrowserFrame
                   screenshot={screenshot}
+                  frameId={frame.id}
                   color={browserFrameColor}
                   screenshotLayer={screenshotLayer}
                   transform={transform}
@@ -1102,6 +1103,7 @@ export function Canvas() {
               )
             ) : browserFrame ? (
               <BrowserFrameEmptyState
+                frameId={frame.id}
                 color={browserFrameColor}
                 isDragOver={isDragOver}
                 onBrowse={() => fileInputRef.current?.click()}

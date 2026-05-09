@@ -17,10 +17,11 @@ export const ASPECTS: { id: AspectId; label: string }[] = [
   { id: "9:16", label: "9:16" },
 ]
 
-export type FrameId = "browser" | "macos" | "iphone" | "none"
+export type FrameId = "browser" | "chrome" | "macos" | "iphone" | "none"
 
 export const FRAMES: { id: FrameId; label: string }[] = [
-  { id: "browser", label: "Browser" },
+  { id: "browser", label: "Safari" },
+  { id: "chrome", label: "Chrome" },
   { id: "macos", label: "macOS" },
   { id: "iphone", label: "iPhone" },
   { id: "none", label: "None" },
@@ -64,8 +65,7 @@ export const PRESETS: Preset[] = [
     id: "soft-fog",
     name: "Soft Fog",
     index: "03",
-    preview:
-      "linear-gradient(180deg, oklch(0.96 0 0), oklch(0.88 0 0))",
+    preview: "linear-gradient(180deg, oklch(0.96 0 0), oklch(0.88 0 0))",
   },
   {
     id: "ink",

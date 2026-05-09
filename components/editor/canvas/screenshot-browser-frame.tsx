@@ -4,9 +4,12 @@ import * as React from "react"
 import { RiCropLine, RiDeleteBinLine, RiRefreshLine } from "@remixicon/react"
 
 import { DeviceFrameEmptyContent } from "@/components/editor/canvas/device-frame-empty-content"
+import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
 import {
   BROWSER_FRAME_ASPECT_RATIO,
+  CHROME_BROWSER_FRAME_ID,
+  getBrowserFrame,
   resolveBrowserFrameColor,
   type BrowserFrameColor,
 } from "@/lib/browser-frame"
@@ -15,6 +18,7 @@ import { cn } from "@/lib/utils"
 
 type ScreenshotBrowserFrameProps = {
   screenshot: string
+  frameId: string
   color: BrowserFrameColor
   screenshotLayer: ScreenshotLayer
   transform: string
@@ -37,6 +41,7 @@ type ScreenshotBrowserFrameProps = {
 }
 
 type BrowserFrameEmptyStateProps = {
+  frameId: string
   color: BrowserFrameColor
   isDragOver: boolean
   onBrowse: () => void
@@ -52,6 +57,7 @@ type BrowserFrameEmptyStateProps = {
 
 export function ScreenshotBrowserFrame({
   screenshot,
+  frameId,
   color,
   screenshotLayer,
   transform,
@@ -74,6 +80,8 @@ export function ScreenshotBrowserFrame({
 }: ScreenshotBrowserFrameProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
   const [address, setAddress] = React.useState("")
+  const frame = getBrowserFrame(frameId)
+  const FrameComponent = frameId === CHROME_BROWSER_FRAME_ID ? Chrome : Safari
   const combinedFilter =
     [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined
 
@@ -89,7 +97,7 @@ export function ScreenshotBrowserFrame({
           activeTool === "pointer" && "cursor-grab"
         )}
         style={{
-          aspectRatio: BROWSER_FRAME_ASPECT_RATIO,
+          aspectRatio: frame?.aspectRatio ?? BROWSER_FRAME_ASPECT_RATIO,
           height: "100%",
           width: "auto",
           left: `${screenshotAnchor.x}%`,
@@ -106,7 +114,7 @@ export function ScreenshotBrowserFrame({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <Safari
+        <FrameComponent
           imageSrc={screenshot}
           colorMode={color === "dark" ? "dark" : "light"}
           addressValue={address}
@@ -159,6 +167,7 @@ export function ScreenshotBrowserFrame({
 }
 
 export function BrowserFrameEmptyState({
+  frameId,
   color,
   isDragOver,
   onBrowse,
@@ -173,6 +182,8 @@ export function BrowserFrameEmptyState({
 }: BrowserFrameEmptyStateProps) {
   const [url, setUrl] = React.useState("")
   const [address, setAddress] = React.useState("")
+  const frame = getBrowserFrame(frameId)
+  const FrameComponent = frameId === CHROME_BROWSER_FRAME_ID ? Chrome : Safari
 
   return (
     <div className="pointer-events-none relative h-full w-full">
@@ -185,7 +196,7 @@ export function BrowserFrameEmptyState({
           activeTool === "pointer" && !isScreenshotDragging && "cursor-grab"
         )}
         style={{
-          aspectRatio: BROWSER_FRAME_ASPECT_RATIO,
+          aspectRatio: frame?.aspectRatio ?? BROWSER_FRAME_ASPECT_RATIO,
           height: "100%",
           width: "auto",
           left: `${screenshotAnchor.x}%`,
@@ -198,7 +209,7 @@ export function BrowserFrameEmptyState({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <Safari
+        <FrameComponent
           colorMode={color === "dark" ? "dark" : "light"}
           addressValue={address}
           onAddressChange={setAddress}
@@ -223,7 +234,7 @@ export function BrowserFrameEmptyState({
               onBrowse={onBrowse}
             />
           </div>
-        </Safari>
+        </FrameComponent>
       </div>
     </div>
   )

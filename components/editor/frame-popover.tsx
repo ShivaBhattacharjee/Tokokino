@@ -43,14 +43,12 @@ import {
   mockupScreenClipStyle,
   mockupScreenTransform,
 } from "@/components/editor/canvas/helpers"
+import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
 import {
-  BROWSER_FRAME_DEFAULT_URL,
-  BROWSER_FRAME_COLORS,
-  BROWSER_FRAME_ID,
-  BROWSER_FRAME_PREVIEW_IMAGE_URL,
-  BROWSER_FRAME_PREVIEW_URL,
-  BROWSER_FRAME_SIZE,
+  BROWSER_FRAMES,
+  CHROME_BROWSER_FRAME_ID,
+  getBrowserFrame,
   isBrowserFrame,
 } from "@/lib/browser-frame"
 import { cn } from "@/lib/utils"
@@ -90,19 +88,17 @@ const FALLBACK_OPTIONS: FrameOption[] = [
   },
 ]
 
-const BROWSER_OPTIONS: FrameOption[] = [
-  {
-    id: BROWSER_FRAME_ID,
-    name: "Browser",
-    w: BROWSER_FRAME_SIZE.w,
-    h: BROWSER_FRAME_SIZE.h,
-    kind: "browser",
-    colors: [...BROWSER_FRAME_COLORS],
-    previewSrc: null,
-    rotatePreview: false,
-    isDevice: false,
-  },
-]
+const BROWSER_OPTIONS: FrameOption[] = BROWSER_FRAMES.map((frame) => ({
+  id: frame.id,
+  name: frame.name,
+  w: frame.size.w,
+  h: frame.size.h,
+  kind: "browser",
+  colors: [...frame.colors],
+  previewSrc: null,
+  rotatePreview: false,
+  isDevice: false,
+}))
 
 const LANDSCAPE_THUMBNAIL_DEVICE_IDS = new Set([
   "ipad_air",
@@ -170,6 +166,8 @@ const SECTIONS: FrameSection[] = [
 ].filter((section) => section.options.length > 0)
 
 const ALL_OPTIONS = SECTIONS.flatMap((s) => s.options)
+const BROWSER_TILE_PREVIEW_WIDTH = 112
+const BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH = 240
 
 export function FramePopover({
   value,
@@ -425,7 +423,11 @@ function DeviceTile({
     >
       <div className="flex h-[88px] w-full items-center justify-center">
         {option.kind === "browser" ? (
-          <BrowserTilePreview color={tileColor} screenshot={screenshot} />
+          <BrowserTilePreview
+            frameId={option.id}
+            color={tileColor}
+            screenshot={screenshot}
+          />
         ) : preview && spec ? (
           <DeviceTilePreview
             spec={spec}
@@ -535,21 +537,45 @@ function DeviceTilePreview({
 }
 
 function BrowserTilePreview({
+  frameId,
   color,
   screenshot,
 }: {
+  frameId: string
   color: string
   screenshot: string | null
 }) {
+  const frame = getBrowserFrame(frameId)
+  const FrameComponent = frameId === CHROME_BROWSER_FRAME_ID ? Chrome : Safari
+  const scale = BROWSER_TILE_PREVIEW_WIDTH / BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH
+
   return (
-    <div className="relative w-full max-w-[112px] drop-shadow-sm">
-      <Safari
-        imageSrc={screenshot ?? BROWSER_FRAME_PREVIEW_IMAGE_URL}
-        colorMode={color === "dark" ? "dark" : "light"}
-        url={screenshot ? BROWSER_FRAME_DEFAULT_URL : BROWSER_FRAME_PREVIEW_URL}
-        screenBorderRadius="0 0 3px 3px"
-        className="block w-full"
-      />
+    <div
+      className="relative overflow-hidden drop-shadow-sm"
+      style={{
+        width: BROWSER_TILE_PREVIEW_WIDTH,
+        aspectRatio: frame?.aspectRatio,
+      }}
+    >
+      <div
+        className="absolute top-0 left-0"
+        style={{
+          width: BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+      >
+        <FrameComponent
+          imageSrc={screenshot ?? frame?.previewImageUrl}
+          colorMode={color === "dark" ? "dark" : "light"}
+          url={screenshot ? frame?.defaultUrl : frame?.previewUrl}
+          {...(frameId === CHROME_BROWSER_FRAME_ID
+            ? { frameBorderRadius: "5px" }
+            : {})}
+          screenBorderRadius="0 0 4px 4px"
+          className="block w-full"
+        />
+      </div>
     </div>
   )
 }
