@@ -313,12 +313,7 @@ export function Canvas() {
   ].join(" ")
   const screenshotAnchor = screenshotPositionAnchor(screenshotPosition)
 
-  const isPortrait = ah > aw
-  const canvasMaxWidth = isPreviewMode
-    ? `min(95vw, calc(90vh * ${aw} / ${ah}))`
-    : isPortrait
-      ? `min(${Math.round((82 * aw) / ah)}vh, ${Math.round((820 * aw) / ah)}px)`
-      : "1100px"
+  const canvasFitWidth = `min(100cqw, calc(100cqh * ${aw} / ${ah}))`
 
   const computedShadow = shadowCss(shadow)
   const computedShadowFilter = shadowDropFilterCss(shadow)
@@ -892,11 +887,12 @@ export function Canvas() {
 
   return (
     <section
+      style={{ containerType: "size" }}
       className={cn(
         "relative z-0 flex flex-1 justify-center overflow-hidden bg-background transition-all duration-300 dark:bg-black",
         isPreviewMode
           ? "items-center p-0"
-          : "items-start border-b border-dashed border-border/70 px-2 pt-2 pb-20 sm:px-4 sm:pt-3 sm:pb-20 lg:items-center lg:px-8 lg:pt-4 lg:pb-20"
+          : "items-center border-b border-dashed border-border/70 px-2 pt-2 pb-20 sm:px-4 sm:pt-3 sm:pb-20 lg:px-8 lg:pt-4 lg:pb-20"
       )}
     >
       <CornerMarkers className="text-border" size={12} />
@@ -924,9 +920,9 @@ export function Canvas() {
           style={{
             aspectRatio,
             borderRadius: "var(--canvas-border-radius)",
-            maxWidth: canvasMaxWidth,
+            width: canvasFitWidth,
           }}
-          className="relative flex w-full items-center justify-center overflow-hidden ring-1 ring-border/60"
+          className="relative flex items-center justify-center overflow-hidden ring-1 ring-border/60"
           onClick={() => {
             setSelectedTextId(null)
             setSelectedAssetId(null)
@@ -982,7 +978,7 @@ export function Canvas() {
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
             style={{
-              padding: screenshot || (mockupAsset && mockupSpec) ? padding : 0,
+              padding: screenshot || (mockupAsset && mockupSpec) ? `${(padding / 1200) * 100}%` : 0,
               zIndex: 60 + screenshotLayer.zIndex,
             }}
           >
