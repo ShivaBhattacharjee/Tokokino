@@ -2,11 +2,13 @@
 
 import * as React from "react"
 import {
+  RiAddLine,
   RiAndroidLine,
   RiAppleLine,
   RiArrowRightSLine,
   RiCheckboxBlankCircleLine,
   RiComputerLine,
+  RiGlobeLine,
   RiMacLine,
   RiSearchLine,
   RiSmartphoneLine,
@@ -376,35 +378,12 @@ function DeviceTile({
       )}
     >
       <div className="flex h-[88px] w-full items-center justify-center">
-        {preview && spec && screenshot ? (
-          <div
-            className="relative h-full drop-shadow-sm"
-            style={{ aspectRatio: spec.aspectRatio }}
-          >
-            <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
-              <div
-                className="w-full overflow-hidden bg-black"
-                style={{
-                  aspectRatio: spec.screen.aspectRatio,
-                  ...mockupScreenClipStyle(spec.screen),
-                  transform: mockupScreenTransform(spec.screen),
-                }}
-              >
-                <img
-                  src={screenshot}
-                  alt=""
-                  className="h-full w-full object-cover object-center"
-                  loading="lazy"
-                />
-              </div>
-            </div>
-            <img
-              src={preview}
-              alt=""
-              className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
-              loading="lazy"
-            />
-          </div>
+        {preview && spec ? (
+          <DeviceTilePreview
+            spec={spec}
+            preview={preview}
+            screenshot={screenshot}
+          />
         ) : preview ? (
           <img
             src={preview}
@@ -428,6 +407,88 @@ function DeviceTile({
         {option.w && option.h ? `${option.w}×${option.h}` : "bare"}
       </span>
     </button>
+  )
+}
+
+function DeviceTilePreview({
+  spec,
+  preview,
+  screenshot,
+}: {
+  spec: ReturnType<typeof deviceMockupSpec>
+  preview: string
+  screenshot: string | null
+}) {
+  const screenRef = React.useRef<HTMLDivElement | null>(null)
+  const [stageWidth, setStageWidth] = React.useState<number | undefined>(
+    undefined
+  )
+
+  React.useLayoutEffect(() => {
+    const node = screenRef.current
+    if (!node || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      setStageWidth(entry.contentRect.width)
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const showHints = (stageWidth ?? 0) >= 36
+
+  return (
+    <div
+      className="relative h-full drop-shadow-sm"
+      style={{ aspectRatio: spec.aspectRatio }}
+    >
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+        <div
+          ref={screenRef}
+          className="relative w-full overflow-hidden bg-black"
+          style={{
+            aspectRatio: spec.screen.aspectRatio,
+            ...mockupScreenClipStyle(spec.screen, stageWidth),
+            transform: mockupScreenTransform(spec.screen),
+          }}
+        >
+          {screenshot ? (
+            <img
+              src={screenshot}
+              alt=""
+              className="h-full w-full object-cover object-center"
+              loading="lazy"
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="absolute inset-0 flex flex-col items-center justify-center gap-1"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)",
+                backgroundSize: "6px 6px",
+              }}
+            >
+              <span className="grid size-3.5 place-items-center rounded-full border border-white/22 bg-white/12 text-white/85">
+                <RiAddLine className="size-2" />
+              </span>
+              {showHints ? (
+                <span className="grid size-2.5 place-items-center rounded-full border border-white/14 bg-white/8 text-white/55">
+                  <RiGlobeLine className="size-1.5" />
+                </span>
+              ) : null}
+            </span>
+          )}
+        </div>
+      </div>
+      <img
+        src={preview}
+        alt=""
+        className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
+        loading="lazy"
+      />
+    </div>
   )
 }
 

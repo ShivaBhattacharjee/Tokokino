@@ -995,6 +995,16 @@ export function Canvas() {
                   onPointerMove={moveMockup}
                   onPointerUp={stopMockupDrag}
                   onImageLoad={handleImageLoad}
+                  onCropClick={() => setIsCropModalOpen(true)}
+                  onReplaceFile={readFile}
+                  onDelete={() => {
+                    setIsScreenshotSelected(false)
+                    setScreenshot(null)
+                  }}
+                  onCaptureWebsiteClick={() => {
+                    setIsScreenshotSelected(false)
+                    setScreenshot(null)
+                  }}
                 />
               ) : (
                 <ScreenshotBare
@@ -1044,6 +1054,18 @@ export function Canvas() {
                 mockupSpec={mockupSpec}
                 isDragOver={isDragOver}
                 onBrowse={() => fileInputRef.current?.click()}
+                transform={transform}
+                screenshotOffset={screenshotOffset}
+                isScreenshotDragging={isScreenshotDragging}
+                activeTool={activeTool}
+                onPointerDown={(e) => {
+                  if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur()
+                  }
+                  startMockupDrag(e)
+                }}
+                onPointerMove={moveMockup}
+                onPointerUp={stopMockupDrag}
               />
             ) : (
               <CanvasEmptyState
