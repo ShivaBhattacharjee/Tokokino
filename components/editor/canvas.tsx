@@ -116,6 +116,9 @@ export function Canvas() {
   } | null>(null)
   const [isScreenshotSelected, setIsScreenshotSelected] = React.useState(false)
   const [isScreenshotDragging, setIsScreenshotDragging] = React.useState(false)
+  const [liveOffset, setLiveOffset] = React.useState<
+    { x: number; y: number } | null
+  >(null)
   const [isCropModalOpen, setIsCropModalOpen] = React.useState(false)
   const [centerGuides, setCenterGuides] = React.useState({ x: false, y: false })
   const [textCenterGuides, setTextCenterGuides] = React.useState({
@@ -324,13 +327,14 @@ export function Canvas() {
   const positionedStyle: React.CSSProperties | null = placementDims
     ? screenshotPlacementStyle(placementDims, scaleFactor, positionX, positionY)
     : null
+  const effectiveOffset = liveOffset ?? screenshotOffset
   const screenshotLeft =
     typeof positionedStyle?.left === "number"
-      ? positionedStyle.left + screenshotOffset.x
+      ? positionedStyle.left + effectiveOffset.x
       : undefined
   const screenshotTop =
     typeof positionedStyle?.top === "number"
-      ? positionedStyle.top + screenshotOffset.y
+      ? positionedStyle.top + effectiveOffset.y
       : undefined
   const enhanceFilter = enhanceFilterCss(enhance)
   const imgStyle: React.CSSProperties = {
@@ -406,7 +410,7 @@ export function Canvas() {
     if (snapY) nextY += targetY - centerY
 
     updateCenterGuides({ x: snapX, y: snapY })
-    setScreenshotOffset({ x: nextX, y: nextY })
+    setLiveOffset({ x: nextX, y: nextY })
   }
 
   const stopScreenshotDrag = (e: React.PointerEvent<HTMLImageElement>) => {
@@ -416,6 +420,10 @@ export function Canvas() {
     dragRef.current = null
     setIsScreenshotDragging(false)
     updateCenterGuides({ x: false, y: false })
+    if (liveOffset) {
+      setScreenshotOffset(liveOffset)
+      setLiveOffset(null)
+    }
   }
 
   const startMockupDrag = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -456,7 +464,7 @@ export function Canvas() {
     if (snapY) nextY = 0
 
     updateCenterGuides({ x: snapX, y: snapY })
-    setScreenshotOffset({ x: nextX, y: nextY })
+    setLiveOffset({ x: nextX, y: nextY })
   }
 
   const stopMockupDrag = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -466,6 +474,10 @@ export function Canvas() {
     mockupDragRef.current = null
     setIsScreenshotDragging(false)
     updateCenterGuides({ x: false, y: false })
+    if (liveOffset) {
+      setScreenshotOffset(liveOffset)
+      setLiveOffset(null)
+    }
   }
 
   const getAnnotationPoint = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -978,7 +990,7 @@ export function Canvas() {
                   screenshotLayer={screenshotLayer}
                   transform={transform}
                   shadowFilter={computedShadowFilter}
-                  screenshotOffset={screenshotOffset}
+                  screenshotOffset={effectiveOffset}
                   enhanceFilter={enhanceFilter}
                   isScreenshotDragging={isScreenshotDragging}
                   activeTool={activeTool}
@@ -1055,7 +1067,7 @@ export function Canvas() {
                 isDragOver={isDragOver}
                 onBrowse={() => fileInputRef.current?.click()}
                 transform={transform}
-                screenshotOffset={screenshotOffset}
+                screenshotOffset={effectiveOffset}
                 isScreenshotDragging={isScreenshotDragging}
                 activeTool={activeTool}
                 onPointerDown={(e) => {
