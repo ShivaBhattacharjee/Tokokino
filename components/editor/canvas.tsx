@@ -1013,10 +1013,6 @@ export function Canvas() {
                     setIsScreenshotSelected(false)
                     setScreenshot(null)
                   }}
-                  onCaptureWebsiteClick={() => {
-                    setIsScreenshotSelected(false)
-                    setScreenshot(null)
-                  }}
                 />
               ) : (
                 <ScreenshotBare

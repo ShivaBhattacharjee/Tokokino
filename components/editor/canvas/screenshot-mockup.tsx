@@ -3,6 +3,8 @@
 import * as React from "react"
 import { motion } from "motion/react"
 import {
+  RiArrowLeftLine,
+  RiCameraLine,
   RiCropLine,
   RiDeleteBinLine,
   RiGlobeLine,
@@ -55,7 +57,7 @@ type ScreenshotMockupProps = {
   onCropClick: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
-  onCaptureWebsiteClick?: () => void
+  onCaptureWebsite?: (url: string) => void
 }
 
 export function ScreenshotMockup({
@@ -80,10 +82,26 @@ export function ScreenshotMockup({
   onCropClick,
   onReplaceFile,
   onDelete,
-  onCaptureWebsiteClick,
+  onCaptureWebsite,
 }: ScreenshotMockupProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
   const [editOpen, setEditOpen] = React.useState(false)
+  const [view, setView] = React.useState<"menu" | "capture">("menu")
+  const [captureUrl, setCaptureUrl] = React.useState("")
+  const handleEditOpenChange = (open: boolean) => {
+    setEditOpen(open)
+    if (!open) {
+      setView("menu")
+      setCaptureUrl("")
+    }
+  }
+  const handleCaptureSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = captureUrl.trim()
+    if (!trimmed) return
+    onCaptureWebsite?.(trimmed)
+    handleEditOpenChange(false)
+  }
   // For device frames the shadow must follow the alpha silhouette of the
   // frame PNG (rounded corners, notch, etc). drop-shadow filters do that;
   // box-shadow would cast a rectangular shadow off the bounding box.
@@ -170,7 +188,7 @@ export function ScreenshotMockup({
                 e.target.value = ""
               }}
             />
-            <Popover open={editOpen} onOpenChange={setEditOpen}>
+            <Popover open={editOpen} onOpenChange={handleEditOpenChange}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
@@ -191,7 +209,10 @@ export function ScreenshotMockup({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
                 asChild
-                className="w-44 rounded-xl border-border/60 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+                className={cn(
+                  "rounded-xl border-border/60 bg-popover/95 p-1 shadow-xl backdrop-blur-md",
+                  view === "menu" ? "w-44" : "w-60 p-2"
+                )}
               >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.92, y: -6 }}
@@ -205,45 +226,51 @@ export function ScreenshotMockup({
                   }}
                   style={{ originY: 0 }}
                 >
-                  <EditMenuItem
-                    index={0}
-                    icon={<RiCropLine className="size-4" />}
-                    label="Crop"
-                    onClick={() => {
-                      setEditOpen(false)
-                      onCropClick()
-                    }}
-                  />
-                  <EditMenuItem
-                    index={1}
-                    icon={<RiRefreshLine className="size-4" />}
-                    label="Replace"
-                    onClick={() => {
-                      setEditOpen(false)
-                      replaceInputRef.current?.click()
-                    }}
-                  />
-                  {onCaptureWebsiteClick ? (
-                    <EditMenuItem
-                      index={2}
-                      icon={<RiGlobeLine className="size-4" />}
-                      label="Capture website"
-                      onClick={() => {
-                        setEditOpen(false)
-                        onCaptureWebsiteClick()
-                      }}
+                  {view === "menu" ? (
+                    <>
+                      <EditMenuItem
+                        index={0}
+                        icon={<RiCropLine className="size-4" />}
+                        label="Crop"
+                        onClick={() => {
+                          handleEditOpenChange(false)
+                          onCropClick()
+                        }}
+                      />
+                      <EditMenuItem
+                        index={1}
+                        icon={<RiRefreshLine className="size-4" />}
+                        label="Replace"
+                        onClick={() => {
+                          handleEditOpenChange(false)
+                          replaceInputRef.current?.click()
+                        }}
+                      />
+                      <EditMenuItem
+                        index={2}
+                        icon={<RiGlobeLine className="size-4" />}
+                        label="Capture website"
+                        onClick={() => setView("capture")}
+                      />
+                      <EditMenuItem
+                        index={3}
+                        icon={<RiDeleteBinLine className="size-4" />}
+                        label="Delete"
+                        destructive
+                        onClick={() => {
+                          handleEditOpenChange(false)
+                          onDelete()
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <CaptureView
+                      url={captureUrl}
+                      onUrlChange={setCaptureUrl}
+                      onBack={() => setView("menu")}
+                      onSubmit={handleCaptureSubmit}
                     />
-                  ) : null}
-                  <EditMenuItem
-                    index={onCaptureWebsiteClick ? 3 : 2}
-                    icon={<RiDeleteBinLine className="size-4" />}
-                    label="Delete"
-                    destructive
-                    onClick={() => {
-                      setEditOpen(false)
-                      onDelete()
-                    }}
-                  />
+                  )}
                 </motion.div>
               </PopoverContent>
             </Popover>
@@ -251,6 +278,70 @@ export function ScreenshotMockup({
         ) : null}
       </div>
     </div>
+  )
+}
+
+function CaptureView({
+  url,
+  onUrlChange,
+  onBack,
+  onSubmit,
+}: {
+  url: string
+  onUrlChange: (value: string) => void
+  onBack: () => void
+  onSubmit: (e: React.FormEvent) => void
+}) {
+  const canSubmit = url.trim().length > 0
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <div className="flex items-center gap-1.5 px-1 pt-1">
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onBack()
+          }}
+          aria-label="Back"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <RiArrowLeftLine className="size-3.5" />
+        </button>
+        <span className="text-[12px] font-medium tracking-[-0.01em] text-foreground">
+          Capture website
+        </span>
+      </div>
+      <label className="flex min-w-0 items-center gap-2 rounded-lg border border-border/60 bg-secondary/40 px-2.5 py-1.5 transition-colors focus-within:border-ring/60 focus-within:bg-secondary/60">
+        <RiGlobeLine className="size-3.5 shrink-0 text-muted-foreground" />
+        <input
+          type="text"
+          inputMode="url"
+          autoFocus
+          placeholder="https://example.com"
+          aria-label="Website URL"
+          value={url}
+          onChange={(e) => onUrlChange(e.target.value)}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={!canSubmit}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={cn(
+          "flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-secondary/60 px-2 text-[12px] font-semibold tracking-[-0.01em] text-foreground transition-colors",
+          canSubmit
+            ? "hover:bg-secondary/90 active:bg-secondary"
+            : "cursor-not-allowed opacity-55"
+        )}
+      >
+        <RiCameraLine className="size-3.5" />
+        <span>Capture screenshot</span>
+      </button>
+    </form>
   )
 }
 

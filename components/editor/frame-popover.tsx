@@ -2,13 +2,11 @@
 
 import * as React from "react"
 import {
-  RiAddLine,
   RiAndroidLine,
   RiAppleLine,
   RiArrowRightSLine,
   RiCheckboxBlankCircleLine,
   RiComputerLine,
-  RiGlobeLine,
   RiMacLine,
   RiSearchLine,
   RiSmartphoneLine,
@@ -29,6 +27,10 @@ import {
 } from "@/lib/mockups"
 import type { DeviceFrame, FrameOrientation } from "@/lib/editor/store"
 import { useEditor } from "@/lib/editor/store"
+import {
+  DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH,
+  DeviceFrameEmptyContent,
+} from "@/components/editor/canvas/device-frame-empty-content"
 import {
   deviceMockupSpec,
   mockupScreenClipStyle,
@@ -436,8 +438,6 @@ function DeviceTilePreview({
     return () => observer.disconnect()
   }, [])
 
-  const showHints = (stageWidth ?? 0) >= 36
-
   return (
     <div
       className="relative h-full drop-shadow-sm"
@@ -446,11 +446,15 @@ function DeviceTilePreview({
       <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
         <div
           ref={screenRef}
-          className="relative w-full overflow-hidden bg-black"
+          className="relative w-full overflow-hidden bg-black text-white"
           style={{
             aspectRatio: spec.screen.aspectRatio,
             ...mockupScreenClipStyle(spec.screen, stageWidth),
             transform: mockupScreenTransform(spec.screen),
+            backgroundImage: screenshot
+              ? undefined
+              : "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)",
+            backgroundSize: "16px 16px",
           }}
         >
           {screenshot ? (
@@ -461,24 +465,10 @@ function DeviceTilePreview({
               loading="lazy"
             />
           ) : (
-            <span
-              aria-hidden
-              className="absolute inset-0 flex flex-col items-center justify-center gap-1"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)",
-                backgroundSize: "6px 6px",
-              }}
-            >
-              <span className="grid size-3.5 place-items-center rounded-full border border-white/22 bg-white/12 text-white/85">
-                <RiAddLine className="size-2" />
-              </span>
-              {showHints ? (
-                <span className="grid size-2.5 place-items-center rounded-full border border-white/14 bg-white/8 text-white/55">
-                  <RiGlobeLine className="size-1.5" />
-                </span>
-              ) : null}
-            </span>
+            <ScaledEmptyContent
+              stageWidth={stageWidth}
+              aspectRatio={spec.screen.aspectRatio}
+            />
           )}
         </div>
       </div>
@@ -488,6 +478,30 @@ function DeviceTilePreview({
         className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
         loading="lazy"
       />
+    </div>
+  )
+}
+
+function ScaledEmptyContent({
+  stageWidth,
+  aspectRatio,
+}: {
+  stageWidth: number | undefined
+  aspectRatio: string
+}) {
+  if (!stageWidth) return null
+  const scale = stageWidth / DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH
+  return (
+    <div
+      className="pointer-events-none absolute top-0 left-0 origin-top-left"
+      style={{
+        width: DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH,
+        aspectRatio,
+        transform: `scale(${scale})`,
+        containerType: "inline-size",
+      }}
+    >
+      <DeviceFrameEmptyContent presentational />
     </div>
   )
 }
