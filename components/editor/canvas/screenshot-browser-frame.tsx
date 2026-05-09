@@ -7,7 +7,6 @@ import { DeviceFrameEmptyContent } from "@/components/editor/canvas/device-frame
 import { Safari } from "@/components/ui/safari"
 import {
   BROWSER_FRAME_ASPECT_RATIO,
-  BROWSER_FRAME_DEFAULT_URL,
   resolveBrowserFrameColor,
   type BrowserFrameColor,
 } from "@/lib/browser-frame"
@@ -74,7 +73,7 @@ export function ScreenshotBrowserFrame({
   onDelete,
 }: ScreenshotBrowserFrameProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
-  const [address, setAddress] = React.useState(BROWSER_FRAME_DEFAULT_URL)
+  const [address, setAddress] = React.useState("")
   const combinedFilter =
     [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined
 
@@ -173,7 +172,7 @@ export function BrowserFrameEmptyState({
   onPointerUp,
 }: BrowserFrameEmptyStateProps) {
   const [url, setUrl] = React.useState("")
-  const [address, setAddress] = React.useState(BROWSER_FRAME_DEFAULT_URL)
+  const [address, setAddress] = React.useState("")
 
   return (
     <div className="pointer-events-none relative h-full w-full">

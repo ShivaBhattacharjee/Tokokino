@@ -180,7 +180,7 @@ export function Safari({
               placeholder={addressPlaceholder}
               spellCheck={false}
               onChange={(e) => onAddressChange?.(e.target.value)}
-              className="max-w-[52ch] min-w-[9ch] border-0 bg-transparent text-center font-sans text-[clamp(7px,1cqw,12px)] text-[#8a8a8a] outline-none placeholder:text-[#a3a3a3]"
+              className="max-w-[52ch] min-w-[9ch] border-0 bg-transparent text-left font-sans text-[clamp(7px,1cqw,12px)] text-[#8a8a8a] outline-none placeholder:text-[#a3a3a3]"
               style={{
                 width: `${Math.max(addressText.length, addressPlaceholder.length, 9)}ch`,
               }}
