@@ -6,7 +6,7 @@ export const BROWSER_FRAME_PREVIEW_URL = "https://www.apple.com/in/safari/"
 export const BROWSER_FRAME_PREVIEW_IMAGE_URL =
   "https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev/preview.png"
 
-export const BROWSER_FRAME_COLORS = ["white", "dark"] as const
+export const BROWSER_FRAME_COLORS = ["dark", "light"] as const
 
 export type BrowserFrameColor = (typeof BROWSER_FRAME_COLORS)[number]
 
@@ -52,5 +52,5 @@ export function isBrowserFrame(id: string) {
 }
 
 export function resolveBrowserFrameColor(color: string): BrowserFrameColor {
-  return color === "dark" ? "dark" : "white"
+  return color === "light" ? "light" : "dark"
 }

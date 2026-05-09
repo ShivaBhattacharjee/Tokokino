@@ -206,7 +206,7 @@ export function Safari({
               fill="white"
             />
             <path
-              d="M1 52H1201V741C1201 747.075 1196.08 752 1190 752H12C5.92486 752 1 747.075 1 741V52Z"
+              d="M0 52H1202V741C1202 747.627 1196.63 753 1190 753H12C5.37258 753 0 747.627 0 741V52Z"
               fill="black"
             />
           </mask>
@@ -217,7 +217,7 @@ export function Safari({
 
           <clipPath id={roundedBottomId}>
             <path
-              d="M1 52H1201V741C1201 747.075 1196.08 752 1190 752H12C5.92486 752 1 747.075 1 741V52Z"
+              d="M0 52H1202V741C1202 747.627 1196.63 753 1190 753H12C5.37258 753 0 747.627 0 741V52Z"
               fill="white"
             />
           </clipPath>

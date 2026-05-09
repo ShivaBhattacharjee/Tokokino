@@ -780,6 +780,7 @@ function colorSwatchStyle(color: string): React.CSSProperties {
     grey: "#777b82",
     hazel: "#6e7463",
     lavender: "#c9b7df",
+    light: "#f7f7f4",
     light_blush: "#efc7c5",
     midnight: "#202637",
     mist_blue: "#bdd4e8",
@@ -800,7 +801,7 @@ function colorSwatchStyle(color: string): React.CSSProperties {
   }
 
   if (color === "black") return { background: colors.black }
-  if (color === "white" || color === "snow")
+  if (color === "white" || color === "light" || color === "snow")
     return { background: colors[color] }
   return {
     background:
