@@ -17,6 +17,7 @@ import {
 } from "@remixicon/react"
 import { toast } from "sonner"
 
+import { BrandLogo } from "@/components/editor/brand-logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useEditor } from "@/lib/editor/store"
@@ -62,14 +63,7 @@ export function TopBar() {
   return (
     <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-dashed border-border/70 bg-background px-2 sm:px-3">
       {/* Brand */}
-      <div className="flex min-w-0 items-center gap-2 pr-1">
-        <span className="inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-secondary/70">
-          <span className="size-3 rounded-[3px] bg-foreground" />
-        </span>
-        <span className="truncate text-[14px] font-medium tracking-tight">
-          Noctivy
-        </span>
-      </div>
+      <BrandLogo className="pr-1" />
 
       {/* Center controls — desktop only */}
       <div className="hidden items-center justify-center gap-1.5 xl:flex">

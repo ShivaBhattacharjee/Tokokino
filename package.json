@@ -1,8 +1,10 @@
 {
-  "name": "beautiful-screenshots",
-  "version": "0.0.1",
+  "name": "noctivy",
+  "version": "1.0.0",
   "type": "module",
-  "private": true,
+  "private": false,
+  "author": {"name": "Shiva Bhattacharjee"},
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",

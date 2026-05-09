@@ -22,6 +22,42 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Noctivy — Create Stunning Screenshots Instantly",
+  description:
+    "Transform screenshots into beautiful, share-ready visuals with device mockups, browser frames, gradients, and more. Free, fast, and right in your browser.",
+  keywords: [
+    "screenshot",
+    "mockup",
+    "device frame",
+    "browser frame",
+    "beautiful screenshots",
+    "screenshot editor",
+    "design tool",
+  ],
+  authors: [{ name: "Shiva Bhattacharjee" }],
+  creator: "Shiva Bhattacharjee",
+  openGraph: {
+    title: "Beautiful Screenshots",
+    description:
+      "Create stunning, share-ready screenshots with device mockups, browser frames, and custom backgrounds.",
+    type: "website",
+    locale: "en_US",
+    siteName: "Beautiful Screenshots",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Beautiful Screenshots",
+    description:
+      "Create stunning, share-ready screenshots with device mockups, browser frames, and custom backgrounds.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+}
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
 const fontMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
