@@ -282,25 +282,20 @@ export function AspectPopover({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "group flex h-11 w-full items-center gap-2.5 rounded-xl border border-border/60 bg-secondary/50 px-3 text-left transition-colors hover:bg-secondary/80",
-            open && "bg-secondary/80"
+            "group flex h-11 w-full items-center gap-2.5 rounded-lg bg-secondary/40 px-3 text-left transition-colors hover:bg-secondary/70",
+            open && "bg-secondary/70"
           )}
         >
-          <span className="inline-flex size-5 items-center justify-center text-foreground/85">
+          <span className="inline-flex size-5 items-center justify-center text-foreground/60">
             <RiCropLine className="size-4" />
           </span>
-          <span className="tabular flex-1 text-[13px] text-foreground">
+          <span className="tabular flex-1 text-[13px] font-medium text-foreground">
             {current.ratio === "—" ? "Auto" : current.ratio}
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-[11px] text-muted-foreground">
             {current.w ? `${current.w}×${current.h}` : ""}
           </span>
-          <RiArrowRightSLine
-            className={cn(
-              "size-4 text-muted-foreground transition-transform",
-              open && "rotate-90"
-            )}
-          />
+          <RiArrowRightSLine className="size-4 text-muted-foreground/60" />
         </button>
       </PopoverTrigger>
 

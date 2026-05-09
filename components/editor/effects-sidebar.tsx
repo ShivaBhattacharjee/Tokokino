@@ -31,16 +31,11 @@ export function EffectsSidebar({
         className
       )}
     >
-      {/* Sticky top: Aspect + Frame — row on mobile/iPad, stacked on desktop */}
       <div className="shrink-0 px-4 pt-5 pb-4">
-        <div
-          className={cn(
-            "grid grid-cols-2 gap-3 xl:block xl:gap-0",
-            stacked && "!block !gap-0"
-          )}
-        >
+        <span className="label-eyebrow mb-4 block">Canvas</span>
+        <div className="space-y-4">
           <div>
-            <SectionHeader>Aspect</SectionHeader>
+            <SectionLabel>Aspect Ratio</SectionLabel>
             <AspectPopover
               value={aspect.id}
               onChange={(id, custom) => {
@@ -62,13 +57,8 @@ export function EffectsSidebar({
               </p>
             ) : null}
           </div>
-          <div
-            className={cn(
-              "xl:mt-5 xl:border-t xl:border-border/60 xl:pt-5",
-              stacked && "!mt-5 !border-t !border-border/60 !pt-5"
-            )}
-          >
-            <SectionHeader>Frame</SectionHeader>
+          <div>
+            <SectionLabel>Frame</SectionLabel>
             <FramePopover value={frame} onChange={setFrame} />
           </div>
         </div>
@@ -77,10 +67,8 @@ export function EffectsSidebar({
   )
 }
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2.5">
-      <span className="label-eyebrow">{children}</span>
-    </div>
+    <p className="mb-2 text-[13px] font-medium text-foreground">{children}</p>
   )
 }

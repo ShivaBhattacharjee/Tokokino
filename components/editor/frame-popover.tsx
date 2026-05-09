@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   RiAndroidLine,
   RiAppleLine,
+  RiArrowDownSLine,
   RiArrowRightSLine,
   RiCheckboxBlankCircleLine,
   RiComputerLine,
@@ -174,29 +175,24 @@ export function FramePopover({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "group flex h-11 w-full items-center gap-2.5 rounded-xl border border-border/60 bg-secondary/50 px-3 text-left transition-colors hover:bg-secondary/80",
-            open && "bg-secondary/80"
+            "group flex h-11 w-full items-center gap-2.5 rounded-lg bg-secondary/40 px-3 text-left transition-colors hover:bg-secondary/70",
+            open && "bg-secondary/70"
           )}
         >
-          <span className="inline-flex size-5 items-center justify-center text-foreground/85">
+          <span className="inline-flex size-5 items-center justify-center text-foreground/60">
             <CurrentIcon className="size-4" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[13px] text-foreground">
+            <span className="truncate text-[13px] font-medium text-foreground">
               {current.name}
             </span>
             {currentDevice ? (
-              <span className="truncate font-mono text-[9px] text-muted-foreground">
+              <span className="truncate text-[11px] text-muted-foreground">
                 {formatColor(currentColor)}
               </span>
             ) : null}
           </span>
-          <RiArrowRightSLine
-            className={cn(
-              "size-4 text-muted-foreground transition-transform",
-              open && "rotate-90"
-            )}
-          />
+          <RiArrowDownSLine className="size-4 text-muted-foreground/60" />
         </button>
       </PopoverTrigger>
 

@@ -6,6 +6,7 @@ import {
   RiContrastLine,
   RiDropLine,
   RiEqualizerLine,
+  RiEraserLine,
   RiFlashlightLine,
   RiFocus2Line,
   RiGradienterLine,
@@ -13,6 +14,7 @@ import {
   RiImageLine,
   RiLoader4Line,
   RiMacLine,
+  RiMagicLine,
   RiMoonClearLine,
   RiRefreshLine,
   RiSearchLine,
@@ -190,12 +192,12 @@ function BgTabTrigger({ value, label, children }: { value: string; label: string
   return (
     <TabsTrigger
       value={value}
-      className="group flex h-auto flex-col items-center gap-2 bg-transparent p-0 border-none shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none focus-visible:outline-none focus-visible:ring-0 cursor-pointer"
+      className="group flex h-auto flex-col items-center gap-2 bg-transparent p-0 border-none shadow-none data-[state=active]:bg-transparent data-active:!bg-transparent dark:data-active:!bg-transparent data-[state=active]:shadow-none focus-visible:outline-none focus-visible:ring-0 cursor-pointer"
     >
-      <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full transition-all duration-150 group-data-[state=active]:ring-2 group-data-[state=active]:ring-primary group-data-[state=active]:ring-offset-2 group-data-[state=active]:ring-offset-sidebar">
+      <div className="relative flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-150 group-data-[state=active]:bg-[#e8445a]/10">
         {children}
       </div>
-      <span className="text-[10px] font-medium text-muted-foreground transition-colors group-data-[state=active]:text-foreground">
+      <span className="text-[10px] font-medium text-muted-foreground transition-colors group-data-[state=active]:text-[#e8445a]">
         {label}
       </span>
     </TabsTrigger>
@@ -718,19 +720,19 @@ export function BackgroundSection() {
       >
         <TabsList className="flex h-auto w-full justify-between bg-transparent p-0">
           <BgTabTrigger value="none" label="None">
-            <div className="size-full bg-checker" />
+            <RiEraserLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
           </BgTabTrigger>
           <BgTabTrigger value="auto" label="Auto">
-            <div className="size-full bg-[conic-gradient(from_180deg_at_50%_50%,#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa,#f472b6,#f87171)]" />
+            <RiMagicLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
           </BgTabTrigger>
           <BgTabTrigger value="solid" label="Solid">
-            <div className="size-full bg-white" />
+            <RiDropLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
           </BgTabTrigger>
           <BgTabTrigger value="gradient" label="Gradient">
-            <div className="size-full bg-gradient-to-br from-primary/60 to-primary" />
+            <RiGradienterLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
           </BgTabTrigger>
           <BgTabTrigger value="image" label="Image">
-            <RiImageLine className="size-4 text-muted-foreground group-data-[state=active]:text-foreground" />
+            <RiImageLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
           </BgTabTrigger>
         </TabsList>
 

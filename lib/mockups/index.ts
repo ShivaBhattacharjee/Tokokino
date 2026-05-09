@@ -298,7 +298,7 @@ export const DEVICE_MOCKUP_SPECS: Record<
     aspectRatio: "151 / 304",
     screen: {
       aspectRatio: "402 / 874",
-      scale: 0.9090909090909091,
+      scale: 0.8890909090909091,
       borderRadius: 74,
     },
   },
