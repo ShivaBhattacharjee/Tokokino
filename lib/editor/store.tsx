@@ -776,7 +776,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setSelectedAnnotationShapeId: (id) =>
       set({ selectedAnnotationShapeId: id }),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
-    setBulkEditMode: (b) => set({ bulkEditMode: b }),
+    setBulkEditMode: (b) => {
+      if (!b) {
+        // Reset all canvas positions to center when disabling bulk edit
+        commit((state) => ({
+          canvases: state.canvases.map((c) => ({
+            ...c,
+            position: { x: 0, y: 0 },
+          })),
+        }), null)
+      }
+      set({ bulkEditMode: b })
+    },
 
     undo: () => {
       const state = get()
@@ -839,15 +850,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             : state.activeCanvasId
         return { canvases: remaining, activeCanvasId }
       }, null)
-      const afterState = get()
       set({
         selectedTextId: null,
         selectedAssetId: null,
         selectedAnnotationShapeId: null,
-        bulkEditMode:
-          afterState.present.canvases.length > 1
-            ? afterState.bulkEditMode
-            : false,
       })
     },
     duplicateCanvas: (sourceId) => {
@@ -941,6 +947,7 @@ export type EditorContext = Omit<EditorState, "canvases"> &
     canRedo: boolean
     canvases: CanvasState[]
     canvasScopeId: string
+    canvasCount: number
   }
 
 export function useEditor(): EditorContext {
@@ -1081,6 +1088,7 @@ export function useEditor(): EditorContext {
     duplicateCanvas: store.duplicateCanvas,
     setActiveCanvasId: store.setActiveCanvasId,
     setCanvasPosition: store.setCanvasPosition,
+    canvasCount: store.present.canvases.length,
   }
 }
 

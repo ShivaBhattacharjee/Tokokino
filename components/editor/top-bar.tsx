@@ -22,7 +22,7 @@ import { toast } from "sonner"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { useEditor } from "@/lib/editor/store"
+import { useEditor, useEditorStore } from "@/lib/editor/store"
 import {
   Dialog,
   DialogContent,
@@ -69,9 +69,42 @@ export function TopBar() {
     reset,
     setIsPreviewMode,
     addCanvas,
+    removeCanvas,
     bulkEditMode,
     setBulkEditMode,
+    canvasCount,
   } = useEditor()
+  const [showDisableDialog, setShowDisableDialog] = React.useState(false)
+  const canvases = useEditorStore((s) => s.present.canvases)
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+
+  const handleBulkEditClick = () => {
+    if (!bulkEditMode) {
+      setBulkEditMode(true)
+      if (canvasCount <= 1) {
+        addCanvas()
+      }
+      toast("Bulk edit enabled")
+    } else {
+      if (canvasCount > 1) {
+        setShowDisableDialog(true)
+      } else {
+        setBulkEditMode(false)
+        toast("Bulk edit disabled")
+      }
+    }
+  }
+
+  const handleDisableBulkEdit = () => {
+    // Remove all non-active canvases
+    const toRemove = canvases.filter((c) => c.id !== activeCanvasId)
+    for (const c of toRemove) {
+      removeCanvas(c.id)
+    }
+    setBulkEditMode(false)
+    setShowDisableDialog(false)
+    toast("Bulk edit disabled")
+  }
 
   return (
     <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-dashed border-border/70 bg-background px-2 sm:px-3">
@@ -100,16 +133,7 @@ export function TopBar() {
             <Button
               variant={bulkEditMode ? "default" : "outline"}
               size="lg"
-              onClick={() => {
-                if (!bulkEditMode) {
-                  setBulkEditMode(true)
-                  addCanvas()
-                  toast("Bulk edit enabled")
-                } else {
-                  setBulkEditMode(false)
-                  toast("Bulk edit disabled")
-                }
-              }}
+              onClick={handleBulkEditClick}
             >
               <RiLayoutGridLine />
               Bulk edit
@@ -119,6 +143,27 @@ export function TopBar() {
             {bulkEditMode ? "Disable bulk edit" : "Enable bulk edit & add canvas"}
           </TooltipContent>
         </Tooltip>
+        <AlertDialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disable bulk edit?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have {canvasCount} canvases. Disabling bulk edit will keep only the
+                active canvas and permanently delete the other {canvasCount - 1} canvas{canvasCount - 1 > 1 ? "es" : ""}. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                className="cursor-pointer"
+                onClick={handleDisableBulkEdit}
+              >
+                Delete & disable
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <Button
           variant="outline"
           size="lg"

@@ -68,9 +68,6 @@ type CanvasViewProps = {
   heightPx: number
   effectiveScale: number
   onActivate: () => void
-  onCanvasDragPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
-  onCanvasDragPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
-  onCanvasDragPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
 }
 
 function CanvasViewInner({
@@ -79,9 +76,6 @@ function CanvasViewInner({
   heightPx,
   effectiveScale,
   onActivate,
-  onCanvasDragPointerDown,
-  onCanvasDragPointerMove,
-  onCanvasDragPointerUp,
 }: Omit<CanvasViewProps, "canvasId">) {
   const {
     activeTool,
@@ -1020,20 +1014,6 @@ function CanvasViewInner({
             overlay={overlay}
           />
 
-          {isActive && activeTool === "pointer" ? (
-            <div
-              data-canvas-free-drag
-              aria-hidden
-              onPointerDown={(e) => {
-                if (e.target !== e.currentTarget) return
-                onCanvasDragPointerDown(e)
-              }}
-              onPointerMove={onCanvasDragPointerMove}
-              onPointerUp={onCanvasDragPointerUp}
-              onPointerCancel={onCanvasDragPointerUp}
-              className="absolute inset-0 z-[1] cursor-grab active:cursor-grabbing"
-            />
-          ) : null}
 
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
@@ -1292,9 +1272,6 @@ function CanvasView(props: CanvasViewProps) {
         heightPx={props.heightPx}
         effectiveScale={props.effectiveScale}
         onActivate={props.onActivate}
-        onCanvasDragPointerDown={props.onCanvasDragPointerDown}
-        onCanvasDragPointerMove={props.onCanvasDragPointerMove}
-        onCanvasDragPointerUp={props.onCanvasDragPointerUp}
       />
     </CanvasScope>
   )
@@ -1474,11 +1451,6 @@ export function Canvas() {
                   heightPx={heightPx}
                   effectiveScale={effectiveScale}
                   onActivate={() => setActiveCanvasId(canvas.id)}
-                  onCanvasDragPointerDown={(e) =>
-                    startCanvasDrag(e, canvas.id)
-                  }
-                  onCanvasDragPointerMove={moveCanvasDrag}
-                  onCanvasDragPointerUp={stopCanvasDrag}
                 />
               </div>
             )
