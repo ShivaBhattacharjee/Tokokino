@@ -1315,6 +1315,14 @@ export function Canvas() {
     x: boolean
     y: boolean
   }>({ x: false, y: false })
+  const updateBulkCenterGuides = React.useCallback(
+    (next: { x: boolean; y: boolean }) => {
+      setCenterGuides((prev) =>
+        prev.x === next.x && prev.y === next.y ? prev : next
+      )
+    },
+    []
+  )
 
   const aw = aspect.w || 16
   const ah = aspect.h || 10
@@ -1384,7 +1392,7 @@ export function Canvas() {
     const snapY = Math.abs(newY) < SNAP_THRESHOLD
     if (snapX) newX = 0
     if (snapY) newY = 0
-    setCenterGuides({ x: snapX, y: snapY })
+    updateBulkCenterGuides({ x: snapX, y: snapY })
 
     setLivePositions((prev) => ({
       ...prev,
@@ -1405,7 +1413,7 @@ export function Canvas() {
       })
     }
     dragRef.current = null
-    setCenterGuides({ x: false, y: false })
+    updateBulkCenterGuides({ x: false, y: false })
   }
 
   return (
@@ -1425,6 +1433,20 @@ export function Canvas() {
       }}
     >
       <CornerMarkers className="text-border" size={12} />
+
+      {!isPreviewMode && bulkEditMode && (centerGuides.x || centerGuides.y) ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20"
+        >
+          {centerGuides.x ? (
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95" />
+          ) : null}
+          {centerGuides.y ? (
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95" />
+          ) : null}
+        </div>
+      ) : null}
 
       <div
         className="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
@@ -1478,20 +1500,6 @@ export function Canvas() {
             )
           })}
         </div>
-
-        {/* Center alignment guides */}
-        {centerGuides.x ? (
-          <div
-            className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2"
-            style={{ background: "rgba(99,102,241,0.6)" }}
-          />
-        ) : null}
-        {centerGuides.y ? (
-          <div
-            className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2"
-            style={{ background: "rgba(99,102,241,0.6)" }}
-          />
-        ) : null}
       </div>
 
     </section>
@@ -1686,4 +1694,3 @@ function CanvasChrome({
     </>
   )
 }
-
