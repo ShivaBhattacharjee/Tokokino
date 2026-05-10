@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { motion } from "motion/react"
 import { RiDeleteBinLine, RiDragMove2Line } from "@remixicon/react"
 import { toast } from "sonner"
@@ -1463,6 +1464,7 @@ export function Canvas() {
 }
 
 function CanvasChrome({
+  canvasId,
   isActive,
   canRemove,
   onActivate,
@@ -1481,81 +1483,151 @@ function CanvasChrome({
   onDragMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void
 }) {
-  return (
-    <div className="pointer-events-none absolute -top-16 left-1/2 z-10 -translate-x-1/2">
-      <div className="pointer-events-auto flex items-center gap-1.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Drag to move canvas"
-              onClick={(e) => {
-                e.stopPropagation()
-                onActivate()
-              }}
-              onPointerDown={(e) => {
-                e.stopPropagation()
-                onDragStart(e)
-              }}
-              onPointerMove={onDragMove}
-              onPointerUp={onDragEnd}
-              onPointerCancel={onDragEnd}
-              className={cn(
-                "inline-flex size-12 cursor-grab items-center justify-center rounded-xl border border-border/60 bg-background/80 text-muted-foreground shadow-lg backdrop-blur-md transition-colors active:cursor-grabbing",
-                isActive
-                  ? "border-primary/60 text-foreground"
-                  : "hover:border-primary/40 hover:text-foreground"
-              )}
-            >
-              <RiDragMove2Line className="size-6" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="top">Drag to move canvas</TooltipContent>
-        </Tooltip>
+  const anchorRef = React.useRef<HTMLSpanElement>(null)
+  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
 
-        {canRemove ? (
-          <AlertDialog>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <AlertDialogTrigger asChild>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label="Delete canvas"
-                    className="inline-flex size-12 cursor-pointer items-center justify-center rounded-xl border border-border/60 bg-background/80 text-muted-foreground shadow-lg backdrop-blur-md transition-colors hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500"
-                  >
-                    <RiDeleteBinLine className="size-4" />
-                  </button>
-                </AlertDialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="top">Delete canvas</TooltipContent>
-            </Tooltip>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this canvas?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently remove this canvas and all its contents. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  className="cursor-pointer"
-                  onClick={() => {
-                    onRemove()
-                    toast("Canvas deleted")
+  // Track the parent wrapper element's bounding rect.
+  // ResizeObserver + scroll/resize for steady-state,
+  // useLayoutEffect for re-renders during drag (livePositions changes).
+  React.useEffect(() => {
+    const el = anchorRef.current?.parentElement
+    if (!el) return
+    const update = () => setToolbarRect(el.getBoundingClientRect())
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener("scroll", update, true)
+    window.addEventListener("resize", update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("scroll", update, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [canvasId])
+
+  // Re-read rect on every render so portal tracks during drag
+  React.useLayoutEffect(() => {
+    const el = anchorRef.current?.parentElement
+    if (!el) return
+    const next = el.getBoundingClientRect()
+    setToolbarRect((prev) => {
+      if (
+        prev &&
+        Math.abs(prev.top - next.top) < 0.5 &&
+        Math.abs(prev.left - next.left) < 0.5 &&
+        Math.abs(prev.width - next.width) < 0.5 &&
+        Math.abs(prev.height - next.height) < 0.5
+      ) {
+        return prev
+      }
+      return next
+    })
+  })
+
+  return (
+    <>
+      <span ref={anchorRef} className="hidden" />
+      {toolbarRect && typeof document !== "undefined"
+        ? createPortal(
+            (() => {
+              const top = toolbarRect.top - 12
+              const left = toolbarRect.left + toolbarRect.width / 2
+              return (
+                <div
+                  className="pointer-events-none fixed z-[100]"
+                  style={{
+                    top,
+                    left,
+                    transform: "translate(-50%, -100%)",
                   }}
                 >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : null}
-      </div>
-    </div>
+                  <div
+                    className="pointer-events-auto flex items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label="Drag to move canvas"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onActivate()
+                          }}
+                          onPointerDown={(e) => {
+                            e.stopPropagation()
+                            onDragStart(e)
+                          }}
+                          onPointerMove={onDragMove}
+                          onPointerUp={onDragEnd}
+                          onPointerCancel={onDragEnd}
+                          className={cn(
+                            "inline-flex size-9 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing shrink-0",
+                            isActive
+                              ? "bg-accent text-foreground"
+                              : ""
+                          )}
+                        >
+                          <RiDragMove2Line className="size-4" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Drag to move</TooltipContent>
+                    </Tooltip>
+
+                    {canRemove ? (
+                      <>
+                        <span className="mx-0.5 h-5 w-px bg-border" />
+                        <AlertDialog>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                  aria-label="Delete canvas"
+                                  className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-red-500 transition-colors hover:bg-accent hover:text-red-500 shrink-0"
+                                >
+                                  <RiDeleteBinLine className="size-4" />
+                                </button>
+                              </AlertDialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Delete</TooltipContent>
+                          </Tooltip>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete this canvas?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently remove this canvas and all its contents. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  onRemove()
+                                  toast("Canvas deleted")
+                                }}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })(),
+            document.body
+          )
+        : null}
+    </>
   )
 }
+

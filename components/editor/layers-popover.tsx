@@ -27,8 +27,10 @@ import {
   RiEyeCloseLine,
   RiEyeLine,
   RiImage2Line,
+  RiLock2Line,
   RiMoreFill,
   RiPencilRulerLine,
+  RiSmartphoneLine,
   RiText,
 } from "@remixicon/react"
 
@@ -43,6 +45,8 @@ import {
   type AssetBlendMode,
   useEditor,
 } from "@/lib/editor/store"
+import { getDeviceMockup } from "@/lib/mockups"
+import { BROWSER_FRAMES } from "@/lib/browser-frame"
 import { cn } from "@/lib/utils"
 
 type EditableLayerType = "screenshot" | "asset" | "text" | "annotation"
@@ -117,6 +121,7 @@ export function LayersPanelContent() {
     canvases,
     activeCanvasId,
     setActiveCanvasId,
+    frame,
   } = useEditor()
   const [selectedLayerKey, setSelectedLayerKey] = React.useState<string | null>(
     null
@@ -284,7 +289,7 @@ export function LayersPanelContent() {
       <div className="mb-1 flex items-baseline justify-between px-1.5">
         <span className="label-eyebrow">Layers</span>
         <span className="tabular font-mono text-[10px] text-muted-foreground">
-          {(layers.length + 1).toString().padStart(2, "0")}
+          {(layers.length + 1 + (frame.id !== "none" ? 1 : 0)).toString().padStart(2, "0")}
         </span>
       </div>
 
@@ -320,6 +325,10 @@ export function LayersPanelContent() {
         </SortableContext>
       </DndContext>
 
+      {frame.id !== "none" ? (
+        <FrameLockedLayer frameId={frame.id} />
+      ) : null}
+
       <div className="mt-1 rounded-md border border-border/60 bg-secondary/20 px-1.5 py-1.5">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <BackgroundLayerPreview background={background} />
@@ -327,8 +336,9 @@ export function LayersPanelContent() {
             <div className="truncate text-[12px] leading-tight text-foreground">
               Background
             </div>
-            <div className="text-[10px] leading-tight">Locked base layer</div>
+            <div className="text-[10px] leading-tight">Background · locked</div>
           </div>
+          <RiLock2Line className="size-3.5 shrink-0 text-muted-foreground/60" />
         </div>
       </div>
     </div>
@@ -624,4 +634,37 @@ function annotationName(kind: string) {
   if (kind === "ellipse") return "Ellipse"
   if (kind === "blur") return "Blur layer"
   return "Arrow"
+}
+
+function FrameLockedLayer({ frameId }: { frameId: string }) {
+  const browserFrame = BROWSER_FRAMES.find((f) => f.id === frameId)
+  const deviceMockup = getDeviceMockup(frameId)
+
+  let name = "Frame"
+  let meta = "Locked frame"
+
+  if (browserFrame) {
+    name = browserFrame.name
+    meta = "Browser frame · locked"
+  } else if (deviceMockup) {
+    name = deviceMockup.name
+    meta = "Device frame · locked"
+  }
+
+  return (
+    <div className="mt-1 rounded-md border border-border/60 bg-secondary/20 px-1.5 py-1.5">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded border border-border/60 bg-background/60">
+          <RiSmartphoneLine className="size-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[12px] leading-tight text-foreground">
+            {name}
+          </div>
+          <div className="text-[10px] leading-tight">{meta}</div>
+        </div>
+        <RiLock2Line className="size-3.5 shrink-0 text-muted-foreground/60" />
+      </div>
+    </div>
+  )
 }
