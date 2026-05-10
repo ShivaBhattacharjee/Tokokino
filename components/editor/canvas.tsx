@@ -120,6 +120,7 @@ function CanvasViewInner({
     deleteAnnotationShape,
     setSelectedAnnotationShapeId,
   } = useEditor()
+  const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const canvasRef = React.useRef<HTMLDivElement>(null)
   const generatedAnnotationMaskId = React.useId()
   const annotationMaskId = `annotation-mask-${generatedAnnotationMaskId.replace(/:/g, "")}`
@@ -952,7 +953,7 @@ function CanvasViewInner({
           }}
           className={cn(
             "relative flex items-center justify-center overflow-hidden ring-1 ring-border/60 transition-shadow",
-            isActive
+            bulkEditMode && isActive
               ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_rgba(120,90,255,0.12)]"
               : "ring-border/40"
           )}

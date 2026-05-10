@@ -34,6 +34,7 @@ import {
   type ScreenshotPosition,
   screenshotPositionAnchor as screenshotPositionAnchorFn,
   useEditor,
+  useEditorStore,
 } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
@@ -166,7 +167,12 @@ function DefaultToolbarContents() {
     ? annotationShapes.find((s) => s.id === selectedAnnotationShapeId)
     : null
 
-  type PositionTarget = "text" | "asset" | "annotation" | "screenshot" | null
+  const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const canvases = useEditorStore((s) => s.present.canvases)
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
+
+  type PositionTarget = "text" | "asset" | "annotation" | "screenshot" | "canvas" | null
   const hasDeviceFrame = frame.id !== "none"
   const positionTarget: PositionTarget = selectedText
     ? "text"
@@ -174,9 +180,11 @@ function DefaultToolbarContents() {
       ? "asset"
       : selectedAnnotation
         ? "annotation"
-        : screenshot || hasDeviceFrame
-          ? "screenshot"
-          : null
+        : bulkEditMode && canvases.length > 1
+          ? "canvas"
+          : screenshot || hasDeviceFrame
+            ? "screenshot"
+            : null
 
   const currentPositionId = React.useMemo<ScreenshotPosition | null>(() => {
     let xPct: number
@@ -190,6 +198,18 @@ function DefaultToolbarContents() {
     } else if (positionTarget === "annotation" && selectedAnnotation) {
       xPct = selectedAnnotation.xPct
       yPct = selectedAnnotation.yPct
+    } else if (positionTarget === "canvas") {
+      const canvas = canvases.find((c) => c.id === activeCanvasId)
+      if (!canvas) return null
+      // Map canvas pixel position to grid position
+      // Canvas coordinates: center is {0,0}, spread of CANVAS_POS_SPREAD px
+      const CANVAS_POS_SPREAD = 600
+      const colPct = ((canvas.position.x / CANVAS_POS_SPREAD) * 50 + 50)
+      const rowPct = ((canvas.position.y / CANVAS_POS_SPREAD) * 50 + 50)
+      const col = Math.round(Math.max(0, Math.min(4, colPct / 25)))
+      const row = Math.round(Math.max(0, Math.min(4, rowPct / 25)))
+      if (col === 2 && row === 2) return "center"
+      return `${row}-${col}` as ScreenshotPosition
     } else if (positionTarget === "screenshot") {
       return screenshotPosition
     } else {
@@ -199,7 +219,7 @@ function DefaultToolbarContents() {
     const row = Math.round(yPct / 25)
     if (col === 2 && row === 2) return "center"
     return `${row}-${col}` as ScreenshotPosition
-  }, [positionTarget, selectedText, selectedAsset, selectedAnnotation, screenshotPosition])
+  }, [positionTarget, selectedText, selectedAsset, selectedAnnotation, screenshotPosition, canvases, activeCanvasId])
 
   const handlePositionClick = (posId: ScreenshotPosition) => {
     const anchor = screenshotPositionAnchorFn(posId)
@@ -209,6 +229,13 @@ function DefaultToolbarContents() {
       updateAsset(selectedAssetId, { xPct: anchor.x, yPct: anchor.y })
     } else if (positionTarget === "annotation" && selectedAnnotationShapeId) {
       updateAnnotationShape(selectedAnnotationShapeId, { xPct: anchor.x, yPct: anchor.y })
+    } else if (positionTarget === "canvas" && activeCanvasId) {
+      // Map anchor percentage (0-100) to canvas pixel coordinates
+      // center=50% maps to 0px, 0% maps to -SPREAD, 100% maps to +SPREAD
+      const CANVAS_POS_SPREAD = 600
+      const x = ((anchor.x - 50) / 50) * CANVAS_POS_SPREAD
+      const y = ((anchor.y - 50) / 50) * CANVAS_POS_SPREAD
+      setCanvasPosition(activeCanvasId, { x, y })
     } else if (positionTarget === "screenshot") {
       setScreenshotPosition(posId)
     }
@@ -221,11 +248,13 @@ function DefaultToolbarContents() {
         ? "asset"
         : positionTarget === "annotation"
           ? "annotation"
-          : positionTarget === "screenshot"
-            ? hasDeviceFrame
-              ? "device frame"
-              : "screenshot"
-            : null
+          : positionTarget === "canvas"
+            ? "canvas"
+            : positionTarget === "screenshot"
+              ? hasDeviceFrame
+                ? "device frame"
+                : "screenshot"
+              : null
 
   const handleAssetUpload = (file: File) => {
     if (!file.type.startsWith("image/")) {
