@@ -21,7 +21,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-import { mockupScreenClipStyle, mockupScreenTransform } from "./helpers"
+import {
+  frameFitStyle,
+  framePositionTransform,
+  mockupScreenClipStyle,
+  mockupScreenTransform,
+} from "./helpers"
 
 type DeviceMockupSpec = (typeof DEVICE_MOCKUP_SPECS)[string]
 
@@ -113,7 +118,10 @@ export function ScreenshotMockup({
     : undefined
 
   return (
-    <div className="group/mockup pointer-events-none relative h-full w-full">
+    <div
+      className="group/mockup pointer-events-none relative h-full w-full"
+      style={{ containerType: "size" }}
+    >
       <div
         className={cn(
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
@@ -124,12 +132,15 @@ export function ScreenshotMockup({
           activeTool === "pointer" && "cursor-grab"
         )}
         style={{
-          aspectRatio: mockupSpec.aspectRatio,
-          height: "100%",
-          width: "auto",
-          left: `${screenshotAnchor.x}%`,
-          top: `${screenshotAnchor.y}%`,
-          transform: `translate(-${screenshotAnchor.x}%, -${screenshotAnchor.y}%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform} rotate(${mockupRotation}deg)`,
+          ...frameFitStyle(mockupSpec.aspectRatio),
+          left: "50%",
+          top: "50%",
+          transform: framePositionTransform({
+            anchor: screenshotAnchor,
+            offset: screenshotOffset,
+            transform,
+            rotation: mockupRotation,
+          }),
           transformOrigin: "center",
           filter: combinedFilter,
           opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,

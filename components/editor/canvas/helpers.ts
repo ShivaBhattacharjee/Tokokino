@@ -148,10 +148,61 @@ export function mockupScreenClipStyle(
   }
 }
 
+export function frameFitStyle(aspectRatio: string): React.CSSProperties {
+  const ratio = parseAspectRatio(aspectRatio) ?? 16 / 10
+
+  return {
+    aspectRatio,
+    width: `min(100cqw, calc(100cqh * ${ratio}))`,
+    height: "auto",
+  }
+}
+
+export function framePositionTransform({
+  anchor,
+  offset,
+  transform,
+  rotation = 0,
+}: {
+  anchor: { x: number; y: number }
+  offset: { x: number; y: number }
+  transform: string
+  rotation?: number
+}) {
+  const rotationTransform = rotation ? ` rotate(${rotation}deg)` : ""
+
+  return [
+    "translate(-50%, -50%)",
+    `translate(${frameAnchorTravel(anchor.x, "x")}, ${frameAnchorTravel(anchor.y, "y")})`,
+    `translate(${offset.x}px, ${offset.y}px)`,
+    transform,
+    rotationTransform,
+  ].join(" ")
+}
+
+function frameAnchorTravel(percent: number, axis: "x" | "y") {
+  const delta = clamp((percent - 50) / 50, -1, 1)
+  if (delta === 0) return "0px"
+
+  const containerUnit = axis === "x" ? "cqw" : "cqh"
+  const formattedDelta = Number(delta.toFixed(4))
+
+  return `calc(${formattedDelta} * ((100${containerUnit} - 100%) / 2 + min(18%, 24${containerUnit})))`
+}
+
 function mockupScreenAspectWidth(aspectRatio: string) {
   const [width] = aspectRatio.split("/")
   const parsed = Number(width?.trim())
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function parseAspectRatio(aspectRatio: string) {
+  const [width, height] = aspectRatio
+    .split("/")
+    .map((part) => Number(part.trim()))
+
+  if (!width || !height) return null
+  return width / height
 }
 
 export function screenshotPlacementStyle(

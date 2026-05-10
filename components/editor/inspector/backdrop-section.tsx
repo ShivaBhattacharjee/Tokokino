@@ -534,7 +534,7 @@ export function BackdropSection() {
               }
               resetTitle="Reset effects"
             />
-            <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1 [scrollbar-width:thin]">
+            <div className="max-h-[60vh] space-y-4 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-width:thin]">
               <EffectSlider
                 label="Brightness"
                 value={effects.brightness}

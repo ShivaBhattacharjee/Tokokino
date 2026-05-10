@@ -17,6 +17,7 @@ import {
 } from "@/lib/browser-frame"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
+import { framePositionTransform } from "./helpers"
 
 type SelectEvent = {
   stopPropagation: () => void
@@ -109,9 +110,13 @@ export function ScreenshotBrowserFrame({
         )}
         style={{
           ...frameFitStyle,
-          left: `${screenshotAnchor.x}%`,
-          top: `${screenshotAnchor.y}%`,
-          transform: `translate(-${screenshotAnchor.x}%, -${screenshotAnchor.y}%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform}`,
+          left: "50%",
+          top: "50%",
+          transform: framePositionTransform({
+            anchor: screenshotAnchor,
+            offset: screenshotOffset,
+            transform,
+          }),
           transformOrigin: "center",
           filter: combinedFilter,
           opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
@@ -241,9 +246,13 @@ export function BrowserFrameEmptyState({
         )}
         style={{
           ...frameFitStyle,
-          left: `${screenshotAnchor.x}%`,
-          top: `${screenshotAnchor.y}%`,
-          transform: `translate(-${screenshotAnchor.x}%, -${screenshotAnchor.y}%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px) ${transform}`,
+          left: "50%",
+          top: "50%",
+          transform: framePositionTransform({
+            anchor: screenshotAnchor,
+            offset: screenshotOffset,
+            transform,
+          }),
           transformOrigin: "center",
         }}
         onPointerDown={onPointerDown}
