@@ -1451,6 +1451,7 @@ export function Canvas() {
                   left: x,
                   top: y,
                   transform: "translate(-50%, -50%)",
+                  zIndex: isActive ? 10 : 0,
                 }}
               >
                 {!isPreviewMode && bulkEditMode ? (
