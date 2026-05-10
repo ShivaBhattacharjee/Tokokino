@@ -434,7 +434,7 @@ export function BackdropSection() {
           value={localRadius}
           onChange={(v) => {
             setLocalRadius(v)
-            document.documentElement.style.setProperty("--canvas-border-radius", `${v}px`)
+            setCanvasBorderRadius(v)
           }}
           onValueCommit={setCanvasBorderRadius}
           max={80}

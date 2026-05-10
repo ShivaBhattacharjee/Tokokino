@@ -114,6 +114,9 @@ export function LayersPanelContent() {
     selectedAnnotationShapeId,
     setSelectedAnnotationShapeId,
     setActiveTool,
+    canvases,
+    activeCanvasId,
+    setActiveCanvasId,
   } = useEditor()
   const [selectedLayerKey, setSelectedLayerKey] = React.useState<string | null>(
     null
@@ -250,6 +253,34 @@ export function LayersPanelContent() {
 
   return (
     <div className="w-[300px] p-2">
+      {canvases.length > 1 ? (
+        <div className="mb-2 flex items-center gap-1 overflow-x-auto rounded-md border border-border/60 bg-secondary/20 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {canvases.map((canvas, index) => {
+            const isActive = canvas.id === activeCanvasId
+            return (
+              <button
+                key={canvas.id}
+                type="button"
+                onClick={() => {
+                  if (canvas.id !== activeCanvasId) {
+                    setActiveCanvasId(canvas.id)
+                    setSelectedLayerKey(null)
+                  }
+                }}
+                className={cn(
+                  "shrink-0 rounded px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+              >
+                Canvas {index + 1}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+
       <div className="mb-1 flex items-baseline justify-between px-1.5">
         <span className="label-eyebrow">Layers</span>
         <span className="tabular font-mono text-[10px] text-muted-foreground">

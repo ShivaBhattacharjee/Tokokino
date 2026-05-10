@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  RiAddLine,
   RiArrowRightLine,
   RiArrowRightUpLine,
   RiCursorLine,
@@ -21,6 +22,11 @@ import {
   ToolbarButton,
   ToolbarPopover,
 } from "@/components/editor/toolbar/primitives"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   type EditorTool,
   type EnhancePreset,
@@ -71,11 +77,11 @@ const ENHANCE_PRESETS: {
   ]
 
 export function FloatingToolbar() {
-  const { activeTool, setActiveTool } = useEditor()
+  const { activeTool, setActiveTool, addCanvas, bulkEditMode } = useEditor()
   const isAnnotateMode = activeTool === "arrow"
 
   return (
-    <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 w-full max-w-[calc(100vw-1.5rem)] -translate-x-1/2 px-3 sm:w-auto sm:px-0">
+    <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex w-full max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-col items-center gap-2 px-3 sm:w-auto sm:px-0">
       <div
         data-mode={isAnnotateMode ? "annotate" : "default"}
         className={cn(
@@ -99,6 +105,28 @@ export function FloatingToolbar() {
             )}
           </motion.div>
         </AnimatePresence>
+
+        {bulkEditMode && !isAnnotateMode ? (
+          <>
+            <span className="mx-1 h-5 w-px bg-border" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addCanvas()
+                    toast("Canvas added")
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-accent cursor-pointer whitespace-nowrap"
+                >
+                  <RiAddLine className="size-4" />
+                  Add canvas
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Insert a new canvas</TooltipContent>
+            </Tooltip>
+          </>
+        ) : null}
       </div>
     </div>
   )

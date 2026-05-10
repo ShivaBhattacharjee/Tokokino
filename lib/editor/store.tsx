@@ -17,6 +17,7 @@ import type {
   BackdropEffects,
   BackdropPattern,
   Border,
+  CanvasState,
   CropRegion,
   DeviceFrame,
   EditorState,
@@ -67,12 +68,17 @@ export {
   sampleImageColorsRaw,
 } from "./color-utils"
 
-const DEFAULT_STATE: EditorState = {
-  activeTool: "pointer",
+const makeId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+const FIRST_CANVAS_ID = "canvas-default"
+
+const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   screenshot: null,
   originalScreenshot: null,
   lastCropRegion: null,
-  aspect: { id: "auto", w: 0, h: 0 },
   background: {
     type: "image",
     value: DEFAULT_IMAGE_BACKGROUND,
@@ -104,7 +110,6 @@ const DEFAULT_STATE: EditorState = {
   },
   tilt: { rx: 0, ry: 0, rz: 0 },
   scale: 100,
-  canvasZoom: 100,
   screenshotPosition: "center",
   screenshotOffset: { x: 0, y: 0 },
   screenshotLayer: {
@@ -138,6 +143,23 @@ const DEFAULT_STATE: EditorState = {
   texts: [],
   assets: [],
   enhance: "off",
+  annotations: [],
+  annotationShapes: [],
+}
+
+const createCanvas = (
+  id: string = makeId(),
+  position = { x: 0, y: 0 }
+): CanvasState => ({
+  ...DEFAULT_CANVAS_BASE,
+  id,
+  position,
+})
+
+const DEFAULT_STATE: EditorState = {
+  activeTool: "pointer",
+  aspect: { id: "auto", w: 0, h: 0 },
+  canvasZoom: 100,
   annotation: {
     mode: "pen",
     color: "#ef4444",
@@ -146,8 +168,8 @@ const DEFAULT_STATE: EditorState = {
     blurEffect: "blur",
     blurAmount: 14,
   },
-  annotations: [],
-  annotationShapes: [],
+  canvases: [createCanvas(FIRST_CANVAS_ID, { x: 0, y: 0 })],
+  activeCanvasId: FIRST_CANVAS_ID,
 }
 
 const HISTORY_LIMIT = 100
@@ -157,59 +179,101 @@ type SetPatch =
   | Partial<EditorState>
   | ((state: EditorState) => Partial<EditorState>)
 
+type CanvasPatch =
+  | Partial<CanvasState>
+  | ((canvas: CanvasState, state: EditorState) => Partial<CanvasState>)
+
 type EditorActions = {
   setActiveTool: (t: EditorTool) => void
-  setScreenshot: (s: string | null) => void
-  applyCroppedScreenshot: (s: string, region: CropRegion) => void
+  setScreenshot: (s: string | null, canvasId?: string) => void
+  applyCroppedScreenshot: (
+    s: string,
+    region: CropRegion,
+    canvasId?: string
+  ) => void
   setAspect: (a: AspectState) => void
-  setBackground: (b: Background) => void
-  setPadding: (n: number) => void
-  setBorderRadius: (n: number) => void
-  setCanvasBorderRadius: (n: number) => void
-  setBorder: (b: Border) => void
-  setBackdropEffects: (e: BackdropEffects) => void
-  setBackdropPattern: (p: BackdropPattern) => void
-  setBackdropFilter: (f: AssetFilter) => void
-  setTilt: (t: Tilt) => void
-  setScale: (n: number) => void
+  setBackground: (b: Background, canvasId?: string) => void
+  setPadding: (n: number, canvasId?: string) => void
+  setBorderRadius: (n: number, canvasId?: string) => void
+  setCanvasBorderRadius: (n: number, canvasId?: string) => void
+  setBorder: (b: Border, canvasId?: string) => void
+  setBackdropEffects: (e: BackdropEffects, canvasId?: string) => void
+  setBackdropPattern: (p: BackdropPattern, canvasId?: string) => void
+  setBackdropFilter: (f: AssetFilter, canvasId?: string) => void
+  setTilt: (t: Tilt, canvasId?: string) => void
+  setScale: (n: number, canvasId?: string) => void
   setCanvasZoom: (n: number) => void
-  setScreenshotPosition: (p: ScreenshotPosition) => void
-  setScreenshotOffset: (o: { x: number; y: number }) => void
-  updateScreenshotLayer: (patch: Partial<ScreenshotLayer>) => void
-  setShadow: (s: Shadow) => void
-  setOverlay: (o: Overlay) => void
-  setFrame: (f: DeviceFrame) => void
-  setPortrait: (p: Portrait) => void
-  setEnhance: (e: EnhancePreset) => void
+  setScreenshotPosition: (p: ScreenshotPosition, canvasId?: string) => void
+  setScreenshotOffset: (
+    o: { x: number; y: number },
+    canvasId?: string
+  ) => void
+  updateScreenshotLayer: (
+    patch: Partial<ScreenshotLayer>,
+    canvasId?: string
+  ) => void
+  setShadow: (s: Shadow, canvasId?: string) => void
+  setOverlay: (o: Overlay, canvasId?: string) => void
+  setFrame: (f: DeviceFrame, canvasId?: string) => void
+  setPortrait: (p: Portrait, canvasId?: string) => void
+  setEnhance: (e: EnhancePreset, canvasId?: string) => void
   setAnnotation: (patch: Partial<Annotation>) => void
-  addAnnotationStroke: (stroke: Omit<AnnotationStroke, "id">) => string
-  updateAnnotationStroke: (id: string, points: AnnotationPoint[]) => void
-  addAnnotationShape: (shape: Omit<AnnotationShape, "id" | "zIndex">) => string
-  updateAnnotationShape: (id: string, patch: Partial<AnnotationShape>) => void
-  deleteAnnotationShape: (id: string) => void
-  duplicateAnnotationShape: (id: string) => string | null
-  bringAnnotationShapeToFront: (id: string) => void
-  sendAnnotationShapeToBack: (id: string) => void
-  clearAnnotations: () => void
-  addText: () => string
-  updateText: (id: string, patch: Partial<TextElement>) => void
-  deleteText: (id: string) => void
-  duplicateText: (id: string) => string | null
-  bringTextToFront: (id: string) => void
-  sendTextToBack: (id: string) => void
+  addAnnotationStroke: (
+    stroke: Omit<AnnotationStroke, "id">,
+    canvasId?: string
+  ) => string
+  updateAnnotationStroke: (
+    id: string,
+    points: AnnotationPoint[],
+    canvasId?: string
+  ) => void
+  addAnnotationShape: (
+    shape: Omit<AnnotationShape, "id" | "zIndex">,
+    canvasId?: string
+  ) => string
+  updateAnnotationShape: (
+    id: string,
+    patch: Partial<AnnotationShape>,
+    canvasId?: string
+  ) => void
+  deleteAnnotationShape: (id: string, canvasId?: string) => void
+  duplicateAnnotationShape: (id: string, canvasId?: string) => string | null
+  bringAnnotationShapeToFront: (id: string, canvasId?: string) => void
+  sendAnnotationShapeToBack: (id: string, canvasId?: string) => void
+  clearAnnotations: (canvasId?: string) => void
+  addText: (canvasId?: string) => string
+  updateText: (
+    id: string,
+    patch: Partial<TextElement>,
+    canvasId?: string
+  ) => void
+  deleteText: (id: string, canvasId?: string) => void
+  duplicateText: (id: string, canvasId?: string) => string | null
+  bringTextToFront: (id: string, canvasId?: string) => void
+  sendTextToBack: (id: string, canvasId?: string) => void
   setSelectedTextId: (id: string | null) => void
-  addAsset: (src: string) => string
-  updateAsset: (id: string, patch: Partial<AssetElement>) => void
-  deleteAsset: (id: string) => void
-  duplicateAsset: (id: string) => string | null
-  bringAssetToFront: (id: string) => void
-  sendAssetToBack: (id: string) => void
+  addAsset: (src: string, canvasId?: string) => string
+  updateAsset: (
+    id: string,
+    patch: Partial<AssetElement>,
+    canvasId?: string
+  ) => void
+  deleteAsset: (id: string, canvasId?: string) => void
+  duplicateAsset: (id: string, canvasId?: string) => string | null
+  bringAssetToFront: (id: string, canvasId?: string) => void
+  sendAssetToBack: (id: string, canvasId?: string) => void
   setSelectedAssetId: (id: string | null) => void
   setSelectedAnnotationShapeId: (id: string | null) => void
   setIsPreviewMode: (p: boolean) => void
+  setBulkEditMode: (b: boolean) => void
   reset: () => void
   undo: () => void
   redo: () => void
+  addCanvas: () => string
+  removeCanvas: (id: string) => void
+  duplicateCanvas: (id?: string) => string | null
+  setActiveCanvasId: (id: string) => void
+  setCanvasPosition: (id: string, position: { x: number; y: number }) => void
 }
 
 type EditorStore = {
@@ -219,67 +283,63 @@ type EditorStore = {
   _lastGroup: string | null
   _lastTs: number
   isPreviewMode: boolean
+  bulkEditMode: boolean
   selectedTextId: string | null
   selectedAssetId: string | null
   selectedAnnotationShapeId: string | null
 } & EditorActions
-
-const makeId = () =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 const computeNextZ = (items: { zIndex: number }[]) => {
   const max = items.length ? Math.max(...items.map((t) => t.zIndex)) : 0
   return Math.max(max + 1, 1)
 }
 
-const getLayerItems = (s: EditorState) => [
-  s.screenshotLayer,
-  ...s.assets,
-  ...s.texts,
-  ...s.annotationShapes,
+const getLayerItems = (c: CanvasState) => [
+  c.screenshotLayer,
+  ...c.assets,
+  ...c.texts,
+  ...c.annotationShapes,
 ]
 
-const computeNextLayerZ = (s: EditorState) => computeNextZ(getLayerItems(s))
+const computeNextLayerZ = (c: CanvasState) => computeNextZ(getLayerItems(c))
 
-const getLayerRefs = (s: EditorState) => [
-  { key: "screenshot", zIndex: s.screenshotLayer.zIndex },
-  ...s.assets.map((asset) => ({
+const getLayerRefs = (c: CanvasState) => [
+  { key: "screenshot", zIndex: c.screenshotLayer.zIndex },
+  ...c.assets.map((asset) => ({
     key: `asset:${asset.id}`,
     zIndex: asset.zIndex,
   })),
-  ...s.texts.map((text) => ({
+  ...c.texts.map((text) => ({
     key: `text:${text.id}`,
     zIndex: text.zIndex,
   })),
-  ...s.annotationShapes.map((shape) => ({
+  ...c.annotationShapes.map((shape) => ({
     key: `annotation:${shape.id}`,
     zIndex: shape.zIndex,
   })),
 ]
 
 function applyLayerOrder(
-  s: EditorState,
+  c: CanvasState,
   refsBottomFirst: { key: string; zIndex: number }[]
-): Partial<EditorState> {
+): Partial<CanvasState> {
   const zByKey = new Map(
     refsBottomFirst.map((layer, index) => [layer.key, index + 1])
   )
   return {
     screenshotLayer: {
-      ...s.screenshotLayer,
-      zIndex: zByKey.get("screenshot") ?? s.screenshotLayer.zIndex,
+      ...c.screenshotLayer,
+      zIndex: zByKey.get("screenshot") ?? c.screenshotLayer.zIndex,
     },
-    assets: s.assets.map((asset) => ({
+    assets: c.assets.map((asset) => ({
       ...asset,
       zIndex: zByKey.get(`asset:${asset.id}`) ?? asset.zIndex,
     })),
-    texts: s.texts.map((text) => ({
+    texts: c.texts.map((text) => ({
       ...text,
       zIndex: zByKey.get(`text:${text.id}`) ?? text.zIndex,
     })),
-    annotationShapes: s.annotationShapes.map((shape) => ({
+    annotationShapes: c.annotationShapes.map((shape) => ({
       ...shape,
       zIndex: zByKey.get(`annotation:${shape.id}`) ?? shape.zIndex,
     })),
@@ -287,17 +347,28 @@ function applyLayerOrder(
 }
 
 function moveLayerInStack(
-  s: EditorState,
+  c: CanvasState,
   key: string,
   position: "front" | "back"
-): Partial<EditorState> {
-  const refs = getLayerRefs(s).sort((a, b) => a.zIndex - b.zIndex)
+): Partial<CanvasState> {
+  const refs = getLayerRefs(c).sort((a, b) => a.zIndex - b.zIndex)
   const index = refs.findIndex((layer) => layer.key === key)
   if (index < 0) return {}
   const [target] = refs.splice(index, 1)
   if (position === "front") refs.push(target)
   else refs.unshift(target)
-  return applyLayerOrder(s, refs)
+  return applyLayerOrder(c, refs)
+}
+
+const NEW_CANVAS_OFFSET = { x: 60, y: 40 }
+
+const placementForNewCanvas = (state: EditorState) => {
+  if (state.canvases.length === 0) return { x: 0, y: 0 }
+  const last = state.canvases[state.canvases.length - 1]
+  return {
+    x: last.position.x + NEW_CANVAS_OFFSET.x,
+    y: last.position.y + NEW_CANVAS_OFFSET.y,
+  }
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => {
@@ -326,6 +397,23 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     })
   }
 
+  const commitCanvas = (
+    targetId: string | undefined,
+    patch: CanvasPatch,
+    group: string | null
+  ) => {
+    commit((state) => {
+      const canvasId = targetId ?? state.activeCanvasId
+      const canvases = state.canvases.map((canvas) => {
+        if (canvas.id !== canvasId) return canvas
+        const resolvedPatch =
+          typeof patch === "function" ? patch(canvas, state) : patch
+        return { ...canvas, ...resolvedPatch }
+      })
+      return { canvases }
+    }, group)
+  }
+
   return {
     past: [],
     present: DEFAULT_STATE,
@@ -333,157 +421,199 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     _lastGroup: null,
     _lastTs: 0,
     isPreviewMode: false,
+    bulkEditMode: false,
     selectedTextId: null,
     selectedAssetId: null,
     selectedAnnotationShapeId: null,
 
     setActiveTool: (t) => commit({ activeTool: t }, null),
-    setScreenshot: (screenshot) =>
-      commit(
-        (s) => ({
+    setScreenshot: (screenshot, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
           screenshot,
           originalScreenshot: screenshot,
           lastCropRegion: null,
           screenshotPosition: "center",
           screenshotOffset: { x: 0, y: 0 },
           screenshotLayer: {
-            ...s.screenshotLayer,
+            ...canvas.screenshotLayer,
             zIndex:
-              screenshot && !s.screenshot
-                ? computeNextLayerZ(s)
-                : s.screenshotLayer.zIndex,
+              screenshot && !canvas.screenshot
+                ? computeNextLayerZ(canvas)
+                : canvas.screenshotLayer.zIndex,
             hidden: false,
           },
         }),
         null
       ),
-    applyCroppedScreenshot: (s, region) =>
-      commit({ screenshot: s, lastCropRegion: region }, "applyCroppedScreenshot"),
+    applyCroppedScreenshot: (s, region, canvasId) =>
+      commitCanvas(
+        canvasId,
+        { screenshot: s, lastCropRegion: region },
+        "applyCroppedScreenshot"
+      ),
     setAspect: (a) => commit({ aspect: a }, "aspect"),
-    setBackground: (b) => commit({ background: b }, "background"),
-    setPadding: (n) => commit({ padding: n }, "padding"),
-    setBorderRadius: (n) => commit({ borderRadius: n }, "borderRadius"),
-    setCanvasBorderRadius: (n) =>
-      commit({ canvasBorderRadius: n }, "canvasBorderRadius"),
-    setBorder: (b) => commit({ border: b }, "border"),
-    setBackdropEffects: (e) =>
-      commit(
-        (s) => ({ backdrop: { ...s.backdrop, effects: e } }),
+    setBackground: (b, canvasId) =>
+      commitCanvas(canvasId, { background: b }, "background"),
+    setPadding: (n, canvasId) =>
+      commitCanvas(canvasId, { padding: n }, "padding"),
+    setBorderRadius: (n, canvasId) =>
+      commitCanvas(canvasId, { borderRadius: n }, "borderRadius"),
+    setCanvasBorderRadius: (n, canvasId) =>
+      commitCanvas(canvasId, { canvasBorderRadius: n }, "canvasBorderRadius"),
+    setBorder: (b, canvasId) =>
+      commitCanvas(canvasId, { border: b }, "border"),
+    setBackdropEffects: (e, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({ backdrop: { ...canvas.backdrop, effects: e } }),
         "backdrop-effects"
       ),
-    setBackdropPattern: (p) =>
-      commit(
-        (s) => ({ backdrop: { ...s.backdrop, pattern: p } }),
+    setBackdropPattern: (p, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({ backdrop: { ...canvas.backdrop, pattern: p } }),
         "backdrop-pattern"
       ),
-    setBackdropFilter: (f) =>
-      commit(
-        (s) => ({ backdrop: { ...s.backdrop, filter: f } }),
+    setBackdropFilter: (f, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({ backdrop: { ...canvas.backdrop, filter: f } }),
         "backdrop-filter"
       ),
-    setTilt: (t) => commit({ tilt: t }, "tilt"),
-    setScale: (n) => commit({ scale: n }, "scale"),
+    setTilt: (t, canvasId) => commitCanvas(canvasId, { tilt: t }, "tilt"),
+    setScale: (n, canvasId) => commitCanvas(canvasId, { scale: n }, "scale"),
     setCanvasZoom: (n) => commit({ canvasZoom: n }, "canvasZoom"),
-    setScreenshotPosition: (p) =>
-      commit(
+    setScreenshotPosition: (p, canvasId) =>
+      commitCanvas(
+        canvasId,
         { screenshotPosition: p, screenshotOffset: { x: 0, y: 0 } },
         "screenshotPosition"
       ),
-    setScreenshotOffset: (o) =>
-      commit({ screenshotOffset: o }, "screenshotOffset"),
-    updateScreenshotLayer: (patch) =>
-      commit(
-        (s) => ({ screenshotLayer: { ...s.screenshotLayer, ...patch } }),
+    setScreenshotOffset: (o, canvasId) =>
+      commitCanvas(canvasId, { screenshotOffset: o }, "screenshotOffset"),
+    updateScreenshotLayer: (patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          screenshotLayer: { ...canvas.screenshotLayer, ...patch },
+        }),
         "screenshotLayer"
       ),
-    setShadow: (s) => commit({ shadow: s }, "shadow"),
-    setOverlay: (o) => commit({ overlay: o }, "overlay"),
-    setFrame: (f) => commit({ frame: f }, "frame"),
-    setPortrait: (p) => commit({ portrait: p }, "portrait"),
-    setEnhance: (e) => commit({ enhance: e }, "enhance"),
+    setShadow: (s, canvasId) =>
+      commitCanvas(canvasId, { shadow: s }, "shadow"),
+    setOverlay: (o, canvasId) =>
+      commitCanvas(canvasId, { overlay: o }, "overlay"),
+    setFrame: (f, canvasId) => commitCanvas(canvasId, { frame: f }, "frame"),
+    setPortrait: (p, canvasId) =>
+      commitCanvas(canvasId, { portrait: p }, "portrait"),
+    setEnhance: (e, canvasId) =>
+      commitCanvas(canvasId, { enhance: e }, "enhance"),
     setAnnotation: (patch) =>
-      commit((s) => ({ annotation: { ...s.annotation, ...patch } }), "annotation"),
-
-    addAnnotationStroke: (stroke) => {
-      const id = makeId()
       commit(
-        (s) => ({ annotations: [...s.annotations, { ...stroke, id }] }),
+        (state) => ({ annotation: { ...state.annotation, ...patch } }),
+        "annotation"
+      ),
+
+    addAnnotationStroke: (stroke, canvasId) => {
+      const id = makeId()
+      commitCanvas(
+        canvasId,
+        (canvas) => ({ annotations: [...canvas.annotations, { ...stroke, id }] }),
         `annotation-stroke-${id}`
       )
       return id
     },
-    updateAnnotationStroke: (id, points) =>
-      commit(
-        (s) => ({
-          annotations: s.annotations.map((stroke) =>
+    updateAnnotationStroke: (id, points, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          annotations: canvas.annotations.map((stroke) =>
             stroke.id === id ? { ...stroke, points } : stroke
           ),
         }),
         `annotation-stroke-${id}`
       ),
 
-    addAnnotationShape: (shape) => {
+    addAnnotationShape: (shape, canvasId) => {
       const id = makeId()
-      commit(
-        (s) => ({
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
           annotationShapes: [
-            ...s.annotationShapes,
-            { ...shape, id, zIndex: computeNextLayerZ(s) },
+            ...canvas.annotationShapes,
+            { ...shape, id, zIndex: computeNextLayerZ(canvas) },
           ],
         }),
         null
       )
       return id
     },
-    updateAnnotationShape: (id, patch) =>
-      commit(
-        (s) => ({
-          annotationShapes: s.annotationShapes.map((shape) =>
+    updateAnnotationShape: (id, patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          annotationShapes: canvas.annotationShapes.map((shape) =>
             shape.id === id ? { ...shape, ...patch } : shape
           ),
         }),
         `annotation-shape-${id}`
       ),
-    deleteAnnotationShape: (id) =>
-      commit(
-        (s) => ({
-          annotationShapes: s.annotationShapes.filter(
+    deleteAnnotationShape: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          annotationShapes: canvas.annotationShapes.filter(
             (shape) => shape.id !== id
           ),
         }),
         null
       ),
-    duplicateAnnotationShape: (id) => {
+    duplicateAnnotationShape: (id, canvasId) => {
       const copyId = makeId()
       let didCopy = false
-      commit((s) => {
-        const src = s.annotationShapes.find((shape) => shape.id === id)
-        if (!src) return { annotationShapes: s.annotationShapes }
-        didCopy = true
-        const copy: AnnotationShape = {
-          ...src,
-          id: copyId,
-          xPct: Math.min(98, src.xPct + 3),
-          yPct: Math.min(98, src.yPct + 3),
-          zIndex: computeNextLayerZ(s),
-        }
-        return { annotationShapes: [...s.annotationShapes, copy] }
-      }, null)
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const src = canvas.annotationShapes.find((shape) => shape.id === id)
+          if (!src) return { annotationShapes: canvas.annotationShapes }
+          didCopy = true
+          const copy: AnnotationShape = {
+            ...src,
+            id: copyId,
+            xPct: Math.min(98, src.xPct + 3),
+            yPct: Math.min(98, src.yPct + 3),
+            zIndex: computeNextLayerZ(canvas),
+          }
+          return { annotationShapes: [...canvas.annotationShapes, copy] }
+        },
+        null
+      )
       return didCopy ? copyId : null
     },
-    bringAnnotationShapeToFront: (id) =>
-      commit((s) => moveLayerInStack(s, `annotation:${id}`, "front"), null),
-    sendAnnotationShapeToBack: (id) =>
-      commit((s) => moveLayerInStack(s, `annotation:${id}`, "back"), null),
-    clearAnnotations: () =>
-      commit({ annotations: [], annotationShapes: [] }, null),
+    bringAnnotationShapeToFront: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `annotation:${id}`, "front"),
+        null
+      ),
+    sendAnnotationShapeToBack: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `annotation:${id}`, "back"),
+        null
+      ),
+    clearAnnotations: (canvasId) =>
+      commitCanvas(canvasId, { annotations: [], annotationShapes: [] }, null),
 
-    addText: () => {
+    addText: (canvasId) => {
       const id = makeId()
-      commit(
-        (s) => ({
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
           texts: [
-            ...s.texts,
+            ...canvas.texts,
             {
               id,
               content: "Double-click to edit",
@@ -500,7 +630,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               borderColor: null,
               borderWidth: 1,
               borderStyle: "solid",
-              zIndex: computeNextLayerZ(s),
+              zIndex: computeNextLayerZ(canvas),
               widthPx: null,
               heightPx: null,
               autoColor: true,
@@ -513,43 +643,65 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       )
       return id
     },
-    updateText: (id, patch) =>
-      commit(
-        (s) => ({
-          texts: s.texts.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    updateText: (id, patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          texts: canvas.texts.map((t) =>
+            t.id === id ? { ...t, ...patch } : t
+          ),
         }),
         `text-${id}`
       ),
-    deleteText: (id) =>
-      commit((s) => ({ texts: s.texts.filter((t) => t.id !== id) }), null),
-    duplicateText: (id) => {
+    deleteText: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({ texts: canvas.texts.filter((t) => t.id !== id) }),
+        null
+      ),
+    duplicateText: (id, canvasId) => {
       const copyId = makeId()
-      commit((s) => {
-        const src = s.texts.find((t) => t.id === id)
-        if (!src) return { texts: s.texts }
-        const copy: TextElement = {
-          ...src,
-          id: copyId,
-          xPct: Math.min(95, src.xPct + 4),
-          yPct: Math.min(95, src.yPct + 4),
-          zIndex: computeNextLayerZ(s),
-        }
-        return { texts: [...s.texts, copy] }
-      }, null)
-      return copyId
+      let didCopy = false
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const src = canvas.texts.find((t) => t.id === id)
+          if (!src) return { texts: canvas.texts }
+          didCopy = true
+          const copy: TextElement = {
+            ...src,
+            id: copyId,
+            xPct: Math.min(95, src.xPct + 4),
+            yPct: Math.min(95, src.yPct + 4),
+            zIndex: computeNextLayerZ(canvas),
+          }
+          return { texts: [...canvas.texts, copy] }
+        },
+        null
+      )
+      return didCopy ? copyId : null
     },
-    bringTextToFront: (id) =>
-      commit((s) => moveLayerInStack(s, `text:${id}`, "front"), null),
-    sendTextToBack: (id) =>
-      commit((s) => moveLayerInStack(s, `text:${id}`, "back"), null),
+    bringTextToFront: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `text:${id}`, "front"),
+        null
+      ),
+    sendTextToBack: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `text:${id}`, "back"),
+        null
+      ),
     setSelectedTextId: (id) => set({ selectedTextId: id }),
 
-    addAsset: (src) => {
+    addAsset: (src, canvasId) => {
       const id = makeId()
-      commit(
-        (s) => ({
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
           assets: [
-            ...s.assets,
+            ...canvas.assets,
             {
               id,
               src,
@@ -558,7 +710,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               widthPct: 25,
               heightPct: null,
               rotation: 0,
-              zIndex: computeNextLayerZ(s),
+              zIndex: computeNextLayerZ(canvas),
               opacity: 100,
               filter: "none",
               blendMode: "normal",
@@ -570,40 +722,61 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       )
       return id
     },
-    updateAsset: (id, patch) =>
-      commit(
-        (s) => ({
-          assets: s.assets.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+    updateAsset: (id, patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          assets: canvas.assets.map((a) =>
+            a.id === id ? { ...a, ...patch } : a
+          ),
         }),
         `asset-${id}`
       ),
-    deleteAsset: (id) =>
-      commit((s) => ({ assets: s.assets.filter((a) => a.id !== id) }), null),
-    duplicateAsset: (id) => {
+    deleteAsset: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({ assets: canvas.assets.filter((a) => a.id !== id) }),
+        null
+      ),
+    duplicateAsset: (id, canvasId) => {
       const copyId = makeId()
       let didCopy = false
-      commit((s) => {
-        const src = s.assets.find((a) => a.id === id)
-        if (!src) return { assets: s.assets }
-        didCopy = true
-        const copy: AssetElement = {
-          ...src,
-          id: copyId,
-          xPct: Math.min(95, src.xPct + 4),
-          yPct: Math.min(95, src.yPct + 4),
-          zIndex: computeNextLayerZ(s),
-        }
-        return { assets: [...s.assets, copy] }
-      }, null)
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const src = canvas.assets.find((a) => a.id === id)
+          if (!src) return { assets: canvas.assets }
+          didCopy = true
+          const copy: AssetElement = {
+            ...src,
+            id: copyId,
+            xPct: Math.min(95, src.xPct + 4),
+            yPct: Math.min(95, src.yPct + 4),
+            zIndex: computeNextLayerZ(canvas),
+          }
+          return { assets: [...canvas.assets, copy] }
+        },
+        null
+      )
       return didCopy ? copyId : null
     },
-    bringAssetToFront: (id) =>
-      commit((s) => moveLayerInStack(s, `asset:${id}`, "front"), null),
-    sendAssetToBack: (id) =>
-      commit((s) => moveLayerInStack(s, `asset:${id}`, "back"), null),
+    bringAssetToFront: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `asset:${id}`, "front"),
+        null
+      ),
+    sendAssetToBack: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `asset:${id}`, "back"),
+        null
+      ),
     setSelectedAssetId: (id) => set({ selectedAssetId: id }),
-    setSelectedAnnotationShapeId: (id) => set({ selectedAnnotationShapeId: id }),
+    setSelectedAnnotationShapeId: (id) =>
+      set({ selectedAnnotationShapeId: id }),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
+    setBulkEditMode: (b) => set({ bulkEditMode: b }),
 
     undo: () => {
       const state = get()
@@ -639,81 +812,275 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         _lastTs: 0,
       })
     },
+    addCanvas: () => {
+      const id = makeId()
+      commit((state) => {
+        const newCanvas = createCanvas(id, placementForNewCanvas(state))
+        return {
+          canvases: [...state.canvases, newCanvas],
+          activeCanvasId: id,
+        }
+      }, null)
+      set({
+        selectedTextId: null,
+        selectedAssetId: null,
+        selectedAnnotationShapeId: null,
+        bulkEditMode: true,
+      })
+      return id
+    },
+    removeCanvas: (id) => {
+      commit((state) => {
+        if (state.canvases.length <= 1) return {}
+        const remaining = state.canvases.filter((c) => c.id !== id)
+        const activeCanvasId =
+          state.activeCanvasId === id
+            ? remaining[0]?.id ?? state.activeCanvasId
+            : state.activeCanvasId
+        return { canvases: remaining, activeCanvasId }
+      }, null)
+      const afterState = get()
+      set({
+        selectedTextId: null,
+        selectedAssetId: null,
+        selectedAnnotationShapeId: null,
+        bulkEditMode:
+          afterState.present.canvases.length > 1
+            ? afterState.bulkEditMode
+            : false,
+      })
+    },
+    duplicateCanvas: (sourceId) => {
+      const newId = makeId()
+      let didCopy = false
+      commit((state) => {
+        const targetId = sourceId ?? state.activeCanvasId
+        const src = state.canvases.find((c) => c.id === targetId)
+        if (!src) return {}
+        didCopy = true
+        const copy: CanvasState = {
+          ...src,
+          id: newId,
+          position: placementForNewCanvas(state),
+        }
+        return {
+          canvases: [...state.canvases, copy],
+          activeCanvasId: newId,
+        }
+      }, null)
+      return didCopy ? newId : null
+    },
+    setActiveCanvasId: (id) => {
+      const state = get()
+      if (state.present.activeCanvasId === id) return
+      commit({ activeCanvasId: id }, null)
+      set({
+        selectedTextId: null,
+        selectedAssetId: null,
+        selectedAnnotationShapeId: null,
+      })
+    },
+    setCanvasPosition: (id, position) => {
+      commit(
+        (state) => ({
+          canvases: state.canvases.map((c) =>
+            c.id === id ? { ...c, position } : c
+          ),
+        }),
+        `canvasPosition-${id}`
+      )
+    },
   }
 })
 
-export type EditorContext = EditorState &
+const CanvasIdContext = React.createContext<string | null>(null)
+
+export function CanvasScope({
+  id,
+  children,
+}: {
+  id: string
+  children: React.ReactNode
+}) {
+  return (
+    <CanvasIdContext.Provider value={id}>{children}</CanvasIdContext.Provider>
+  )
+}
+
+export function useCanvasScopeId() {
+  return React.useContext(CanvasIdContext)
+}
+
+export function useActiveCanvasId() {
+  return useEditorStore((s) => s.present.activeCanvasId)
+}
+
+export function useCanvases() {
+  return useEditorStore((s) => s.present.canvases)
+}
+
+export function useCanvasById(id: string): CanvasState | undefined {
+  return useEditorStore((s) => s.present.canvases.find((c) => c.id === id))
+}
+
+const FALLBACK_CANVAS: CanvasState = {
+  ...DEFAULT_CANVAS_BASE,
+  id: "__fallback__",
+  position: { x: 0, y: 0 },
+}
+
+export type EditorContext = Omit<EditorState, "canvases"> &
+  CanvasState &
   EditorActions & {
     isPreviewMode: boolean
+    bulkEditMode: boolean
     selectedTextId: string | null
     selectedAssetId: string | null
     selectedAnnotationShapeId: string | null
     canUndo: boolean
     canRedo: boolean
+    canvases: CanvasState[]
+    canvasScopeId: string
   }
 
 export function useEditor(): EditorContext {
   const store = useEditorStore()
+  const scopeId = React.useContext(CanvasIdContext)
+  const targetId = scopeId ?? store.present.activeCanvasId
+  const canvas =
+    store.present.canvases.find((c) => c.id === targetId) ??
+    store.present.canvases[0] ??
+    FALLBACK_CANVAS
+
   return {
-    ...store.present,
+    // shared editor state
+    activeTool: store.present.activeTool,
+    aspect: store.present.aspect,
+    canvasZoom: store.present.canvasZoom,
+    annotation: store.present.annotation,
+    canvases: store.present.canvases,
+    activeCanvasId: store.present.activeCanvasId,
+    canvasScopeId: canvas.id,
+
+    // flattened canvas state
+    id: canvas.id,
+    position: canvas.position,
+    screenshot: canvas.screenshot,
+    originalScreenshot: canvas.originalScreenshot,
+    lastCropRegion: canvas.lastCropRegion,
+    background: canvas.background,
+    padding: canvas.padding,
+    borderRadius: canvas.borderRadius,
+    canvasBorderRadius: canvas.canvasBorderRadius,
+    border: canvas.border,
+    backdrop: canvas.backdrop,
+    tilt: canvas.tilt,
+    scale: canvas.scale,
+    screenshotPosition: canvas.screenshotPosition,
+    screenshotOffset: canvas.screenshotOffset,
+    screenshotLayer: canvas.screenshotLayer,
+    shadow: canvas.shadow,
+    overlay: canvas.overlay,
+    frame: canvas.frame,
+    portrait: canvas.portrait,
+    texts: canvas.texts,
+    assets: canvas.assets,
+    enhance: canvas.enhance,
+    annotations: canvas.annotations,
+    annotationShapes: canvas.annotationShapes,
+
     isPreviewMode: store.isPreviewMode,
+    bulkEditMode: store.bulkEditMode,
     selectedTextId: store.selectedTextId,
     selectedAssetId: store.selectedAssetId,
     selectedAnnotationShapeId: store.selectedAnnotationShapeId,
     canUndo: store.past.length > 0,
     canRedo: store.future.length > 0,
+
     setActiveTool: store.setActiveTool,
-    setScreenshot: store.setScreenshot,
-    applyCroppedScreenshot: store.applyCroppedScreenshot,
+    setScreenshot: (s, canvasId) => store.setScreenshot(s, canvasId ?? targetId),
+    applyCroppedScreenshot: (s, region, canvasId) =>
+      store.applyCroppedScreenshot(s, region, canvasId ?? targetId),
     setAspect: store.setAspect,
-    setBackground: store.setBackground,
-    setPadding: store.setPadding,
-    setBorderRadius: store.setBorderRadius,
-    setCanvasBorderRadius: store.setCanvasBorderRadius,
-    setBorder: store.setBorder,
-    setBackdropEffects: store.setBackdropEffects,
-    setBackdropPattern: store.setBackdropPattern,
-    setBackdropFilter: store.setBackdropFilter,
-    setTilt: store.setTilt,
-    setScale: store.setScale,
+    setBackground: (b, canvasId) => store.setBackground(b, canvasId ?? targetId),
+    setPadding: (n, canvasId) => store.setPadding(n, canvasId ?? targetId),
+    setBorderRadius: (n, canvasId) =>
+      store.setBorderRadius(n, canvasId ?? targetId),
+    setCanvasBorderRadius: (n, canvasId) =>
+      store.setCanvasBorderRadius(n, canvasId ?? targetId),
+    setBorder: (b, canvasId) => store.setBorder(b, canvasId ?? targetId),
+    setBackdropEffects: (e, canvasId) =>
+      store.setBackdropEffects(e, canvasId ?? targetId),
+    setBackdropPattern: (p, canvasId) =>
+      store.setBackdropPattern(p, canvasId ?? targetId),
+    setBackdropFilter: (f, canvasId) =>
+      store.setBackdropFilter(f, canvasId ?? targetId),
+    setTilt: (t, canvasId) => store.setTilt(t, canvasId ?? targetId),
+    setScale: (n, canvasId) => store.setScale(n, canvasId ?? targetId),
     setCanvasZoom: store.setCanvasZoom,
-    setScreenshotPosition: store.setScreenshotPosition,
-    setScreenshotOffset: store.setScreenshotOffset,
-    updateScreenshotLayer: store.updateScreenshotLayer,
-    setShadow: store.setShadow,
-    setOverlay: store.setOverlay,
-    setFrame: store.setFrame,
-    setPortrait: store.setPortrait,
-    setEnhance: store.setEnhance,
+    setScreenshotPosition: (p, canvasId) =>
+      store.setScreenshotPosition(p, canvasId ?? targetId),
+    setScreenshotOffset: (o, canvasId) =>
+      store.setScreenshotOffset(o, canvasId ?? targetId),
+    updateScreenshotLayer: (patch, canvasId) =>
+      store.updateScreenshotLayer(patch, canvasId ?? targetId),
+    setShadow: (s, canvasId) => store.setShadow(s, canvasId ?? targetId),
+    setOverlay: (o, canvasId) => store.setOverlay(o, canvasId ?? targetId),
+    setFrame: (f, canvasId) => store.setFrame(f, canvasId ?? targetId),
+    setPortrait: (p, canvasId) => store.setPortrait(p, canvasId ?? targetId),
+    setEnhance: (e, canvasId) => store.setEnhance(e, canvasId ?? targetId),
     setAnnotation: store.setAnnotation,
-    addAnnotationStroke: store.addAnnotationStroke,
-    updateAnnotationStroke: store.updateAnnotationStroke,
-    addAnnotationShape: store.addAnnotationShape,
-    updateAnnotationShape: store.updateAnnotationShape,
-    deleteAnnotationShape: store.deleteAnnotationShape,
-    duplicateAnnotationShape: store.duplicateAnnotationShape,
-    bringAnnotationShapeToFront: store.bringAnnotationShapeToFront,
-    sendAnnotationShapeToBack: store.sendAnnotationShapeToBack,
-    clearAnnotations: store.clearAnnotations,
-    addText: store.addText,
-    updateText: store.updateText,
-    deleteText: store.deleteText,
-    duplicateText: store.duplicateText,
-    bringTextToFront: store.bringTextToFront,
-    sendTextToBack: store.sendTextToBack,
+    addAnnotationStroke: (stroke, canvasId) =>
+      store.addAnnotationStroke(stroke, canvasId ?? targetId),
+    updateAnnotationStroke: (id, points, canvasId) =>
+      store.updateAnnotationStroke(id, points, canvasId ?? targetId),
+    addAnnotationShape: (shape, canvasId) =>
+      store.addAnnotationShape(shape, canvasId ?? targetId),
+    updateAnnotationShape: (id, patch, canvasId) =>
+      store.updateAnnotationShape(id, patch, canvasId ?? targetId),
+    deleteAnnotationShape: (id, canvasId) =>
+      store.deleteAnnotationShape(id, canvasId ?? targetId),
+    duplicateAnnotationShape: (id, canvasId) =>
+      store.duplicateAnnotationShape(id, canvasId ?? targetId),
+    bringAnnotationShapeToFront: (id, canvasId) =>
+      store.bringAnnotationShapeToFront(id, canvasId ?? targetId),
+    sendAnnotationShapeToBack: (id, canvasId) =>
+      store.sendAnnotationShapeToBack(id, canvasId ?? targetId),
+    clearAnnotations: (canvasId) =>
+      store.clearAnnotations(canvasId ?? targetId),
+    addText: (canvasId) => store.addText(canvasId ?? targetId),
+    updateText: (id, patch, canvasId) =>
+      store.updateText(id, patch, canvasId ?? targetId),
+    deleteText: (id, canvasId) => store.deleteText(id, canvasId ?? targetId),
+    duplicateText: (id, canvasId) =>
+      store.duplicateText(id, canvasId ?? targetId),
+    bringTextToFront: (id, canvasId) =>
+      store.bringTextToFront(id, canvasId ?? targetId),
+    sendTextToBack: (id, canvasId) =>
+      store.sendTextToBack(id, canvasId ?? targetId),
     setSelectedTextId: store.setSelectedTextId,
-    addAsset: store.addAsset,
-    updateAsset: store.updateAsset,
-    deleteAsset: store.deleteAsset,
-    duplicateAsset: store.duplicateAsset,
-    bringAssetToFront: store.bringAssetToFront,
-    sendAssetToBack: store.sendAssetToBack,
+    addAsset: (src, canvasId) => store.addAsset(src, canvasId ?? targetId),
+    updateAsset: (id, patch, canvasId) =>
+      store.updateAsset(id, patch, canvasId ?? targetId),
+    deleteAsset: (id, canvasId) => store.deleteAsset(id, canvasId ?? targetId),
+    duplicateAsset: (id, canvasId) =>
+      store.duplicateAsset(id, canvasId ?? targetId),
+    bringAssetToFront: (id, canvasId) =>
+      store.bringAssetToFront(id, canvasId ?? targetId),
+    sendAssetToBack: (id, canvasId) =>
+      store.sendAssetToBack(id, canvasId ?? targetId),
     setSelectedAssetId: store.setSelectedAssetId,
     setSelectedAnnotationShapeId: store.setSelectedAnnotationShapeId,
     setIsPreviewMode: store.setIsPreviewMode,
+    setBulkEditMode: store.setBulkEditMode,
     reset: store.reset,
     undo: store.undo,
     redo: store.redo,
+    addCanvas: store.addCanvas,
+    removeCanvas: store.removeCanvas,
+    duplicateCanvas: store.duplicateCanvas,
+    setActiveCanvasId: store.setActiveCanvasId,
+    setCanvasPosition: store.setCanvasPosition,
   }
 }
 

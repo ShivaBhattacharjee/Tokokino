@@ -308,12 +308,14 @@ export type GradientCategory = {
   items: string[]
 }
 
-export type EditorState = {
-  activeTool: EditorTool
+export type CanvasPosition = { x: number; y: number }
+
+export type CanvasState = {
+  id: string
+  position: CanvasPosition
   screenshot: string | null
   originalScreenshot: string | null
   lastCropRegion: CropRegion | null
-  aspect: AspectState
   background: Background
   padding: number
   borderRadius: number
@@ -322,7 +324,6 @@ export type EditorState = {
   backdrop: Backdrop
   tilt: Tilt
   scale: number
-  canvasZoom: number
   screenshotPosition: ScreenshotPosition
   screenshotOffset: { x: number; y: number }
   screenshotLayer: ScreenshotLayer
@@ -333,7 +334,15 @@ export type EditorState = {
   texts: TextElement[]
   assets: AssetElement[]
   enhance: EnhancePreset
-  annotation: Annotation
   annotations: AnnotationStroke[]
   annotationShapes: AnnotationShape[]
+}
+
+export type EditorState = {
+  activeTool: EditorTool
+  aspect: AspectState
+  canvasZoom: number
+  annotation: Annotation
+  canvases: CanvasState[]
+  activeCanvasId: string
 }

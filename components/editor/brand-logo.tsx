@@ -10,11 +10,11 @@ const WORDMARK = "Noctivy"
 export function BrandLogo({ className }: { className?: string }) {
   return (
     <div
-      className={cn("flex min-w-0 items-center gap-2 select-none", className)}
+      className={cn("flex min-w-0 items-center gap-0 select-none", className)}
       aria-label={WORDMARK}
     >
       <motion.span
-        className="relative inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-secondary/70"
+        className="relative inline-flex size-12 items-center justify-center"
         initial={{ opacity: 0, scale: 0.6, rotate: -16 }}
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
         transition={{

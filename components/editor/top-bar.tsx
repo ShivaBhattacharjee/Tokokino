@@ -2,12 +2,14 @@
 
 import * as React from "react"
 import {
+  RiAddLine,
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
   RiDownload2Line,
   RiEyeLine,
   RiFileCopyLine,
   RiFolderOpenLine,
+  RiLayoutGridLine,
   RiMoreLine,
   RiRefreshLine,
   RiSaveLine,
@@ -38,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -58,7 +61,17 @@ import {
 import { cn } from "@/lib/utils"
 
 export function TopBar() {
-  const { undo, redo, canUndo, canRedo, reset, setIsPreviewMode } = useEditor()
+  const {
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    reset,
+    setIsPreviewMode,
+    addCanvas,
+    bulkEditMode,
+    setBulkEditMode,
+  } = useEditor()
 
   return (
     <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-dashed border-border/70 bg-background px-2 sm:px-3">
@@ -82,6 +95,30 @@ export function TopBar() {
           disabled={!canRedo}
         />
         <OpenProjectDialog />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={bulkEditMode ? "default" : "outline"}
+              size="lg"
+              onClick={() => {
+                if (!bulkEditMode) {
+                  setBulkEditMode(true)
+                  addCanvas()
+                  toast("Bulk edit enabled")
+                } else {
+                  setBulkEditMode(false)
+                  toast("Bulk edit disabled")
+                }
+              }}
+            >
+              <RiLayoutGridLine />
+              Bulk edit
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {bulkEditMode ? "Disable bulk edit" : "Enable bulk edit & add canvas"}
+          </TooltipContent>
+        </Tooltip>
         <Button
           variant="outline"
           size="lg"
@@ -298,7 +335,8 @@ function SidebarNavItem({ active, onClick, icon: Icon, label, description }: {
 }
 
 function MobileOverflowMenu() {
-  const { undo, redo, canUndo, canRedo, reset, setIsPreviewMode } = useEditor()
+  const { undo, redo, canUndo, canRedo, reset, setIsPreviewMode, addCanvas } =
+    useEditor()
   const [showResetAlert, setShowResetAlert] = React.useState(false)
   return (
     <>
@@ -343,6 +381,15 @@ function MobileOverflowMenu() {
         <DropdownMenuItem onClick={() => toast("Opening…")}>
           <RiFolderOpenLine />
           Open
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            addCanvas()
+            toast("Canvas added")
+          }}
+        >
+          <RiAddLine />
+          Add canvas
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => toast("Saved")}>
           <RiSaveLine />

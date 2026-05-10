@@ -313,7 +313,7 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            onClick={clearAnnotations}
+            onClick={() => clearAnnotations()}
             aria-label="Clear all annotations"
             className="group inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
           >

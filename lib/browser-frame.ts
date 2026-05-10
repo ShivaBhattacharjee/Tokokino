@@ -3,9 +3,9 @@ export const SAFARI_BROWSER_FRAME_ID = BROWSER_FRAME_ID
 export const CHROME_BROWSER_FRAME_ID = "chrome"
 export const ARC_BROWSER_FRAME_ID = "arc"
 export const BROWSER_FRAME_DEFAULT_URL = "your-url.com"
-export const BROWSER_FRAME_PREVIEW_URL = "https://www.apple.com/in/safari/"
+export const BROWSER_FRAME_PREVIEW_URL = "https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev/Backgrounds/Mac/thumbs/mac-asset-9.webp"
 export const BROWSER_FRAME_PREVIEW_IMAGE_URL =
-  "https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev/preview.png"
+  "https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev/Backgrounds/Mac/thumbs/mac-asset-9.webp"
 
 export const BROWSER_FRAME_COLORS = ["dark", "light"] as const
 
