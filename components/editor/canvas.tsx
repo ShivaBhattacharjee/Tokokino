@@ -1298,6 +1298,7 @@ export function Canvas() {
   const canvasZoom = useEditorStore((s) => s.present.canvasZoom)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const bulkScalePct = useEditorStore((s) => s.bulkScale)
   const setActiveCanvasId = useEditorStore((s) => s.setActiveCanvasId)
   const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
   const removeCanvas = useEditorStore((s) => s.removeCanvas)
@@ -1354,7 +1355,8 @@ export function Canvas() {
     return () => observer.disconnect()
   }, [widthPx, heightPx, topGutter, bottomGutter])
 
-  const effectiveScale = autoFit * zoomScale
+  const bulkScale = bulkEditMode && !isPreviewMode ? bulkScalePct / 100 : 1
+  const effectiveScale = autoFit * zoomScale * bulkScale
 
   const startCanvasDrag = (
     e: React.PointerEvent<HTMLDivElement>,
@@ -1418,12 +1420,77 @@ export function Canvas() {
     updateBulkCenterGuides({ x: false, y: false })
   }
 
+  const isBulkScroll = bulkEditMode && !isPreviewMode
+  const halfW = widthPx / 2
+  const halfH = heightPx / 2
+  let minX = -halfW
+  let maxX = halfW
+  let minY = -halfH
+  let maxY = halfH
+  if (isBulkScroll) {
+    for (const canvas of canvases) {
+      const { x, y } = canvas.position
+      minX = Math.min(minX, x - halfW)
+      maxX = Math.max(maxX, x + halfW)
+      minY = Math.min(minY, y - halfH)
+      maxY = Math.max(maxY, y + halfH)
+    }
+  }
+  const contentW = maxX - minX
+  const contentH = maxY - minY
+
+  const renderCanvasNode = (canvas: (typeof canvases)[number], offsetX: number, offsetY: number) => {
+    const isActive = canvas.id === activeCanvasId
+    const livePos = livePositions[canvas.id]
+    const x = livePos ? livePos.x : canvas.position.x
+    const y = livePos ? livePos.y : canvas.position.y
+    return (
+      <div
+        key={canvas.id}
+        className="absolute"
+        style={{
+          left: x + offsetX,
+          top: y + offsetY,
+          transform: "translate(-50%, -50%)",
+          zIndex: isActive ? 10 : 0,
+        }}
+      >
+        {!isPreviewMode && bulkEditMode ? (
+          <CanvasChrome
+            canvasId={canvas.id}
+            isActive={isActive}
+            widthPx={widthPx}
+            canRemove={canvases.length > 1}
+            onActivate={() => setActiveCanvasId(canvas.id)}
+            onRemove={() => removeCanvas(canvas.id)}
+            onDuplicate={() => {
+              const newId = useEditorStore.getState().duplicateCanvas(canvas.id)
+              if (newId) toast("Canvas duplicated")
+            }}
+            onDragStart={(e) => startCanvasDrag(e, canvas.id)}
+            onDragMove={moveCanvasDrag}
+            onDragEnd={stopCanvasDrag}
+          />
+        ) : null}
+        <CanvasView
+          canvasId={canvas.id}
+          isActive={isActive}
+          widthPx={widthPx}
+          heightPx={heightPx}
+          effectiveScale={effectiveScale}
+          onActivate={() => setActiveCanvasId(canvas.id)}
+        />
+      </div>
+    )
+  }
+
   return (
     <section
       ref={sectionRef}
       style={{ containerType: "size" }}
       className={cn(
-        "relative z-0 flex flex-1 overflow-hidden bg-background transition-all duration-300 dark:bg-black",
+        "relative z-0 flex flex-1 bg-background transition-all duration-300 dark:bg-black",
+        isBulkScroll ? "overflow-auto" : "overflow-hidden",
         isPreviewMode
           ? "items-center justify-center p-0"
           : "border-b border-dashed border-border/70"
@@ -1453,59 +1520,46 @@ export function Canvas() {
         </div>
       ) : null}
 
-      <div
-        className="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
-        style={{
-          transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) scale(${effectiveScale})`,
-        }}
-      >
-        <div className="relative">
-          {canvases.map((canvas) => {
-            const isActive = canvas.id === activeCanvasId
-            const livePos = livePositions[canvas.id]
-            const x = livePos ? livePos.x : canvas.position.x
-            const y = livePos ? livePos.y : canvas.position.y
-            return (
-              <div
-                key={canvas.id}
-                className="absolute"
-                style={{
-                  left: x,
-                  top: y,
-                  transform: "translate(-50%, -50%)",
-                  zIndex: isActive ? 10 : 0,
-                }}
-              >
-                {!isPreviewMode && bulkEditMode ? (
-                  <CanvasChrome
-                    canvasId={canvas.id}
-                    isActive={isActive}
-                    widthPx={widthPx}
-                    canRemove={canvases.length > 1}
-                    onActivate={() => setActiveCanvasId(canvas.id)}
-                    onRemove={() => removeCanvas(canvas.id)}
-                    onDuplicate={() => {
-                      const newId = useEditorStore.getState().duplicateCanvas(canvas.id)
-                      if (newId) toast("Canvas duplicated")
-                    }}
-                    onDragStart={(e) => startCanvasDrag(e, canvas.id)}
-                    onDragMove={moveCanvasDrag}
-                    onDragEnd={stopCanvasDrag}
-                  />
-                ) : null}
-                <CanvasView
-                  canvasId={canvas.id}
-                  isActive={isActive}
-                  widthPx={widthPx}
-                  heightPx={heightPx}
-                  effectiveScale={effectiveScale}
-                  onActivate={() => setActiveCanvasId(canvas.id)}
-                />
-              </div>
-            )
-          })}
+      {isBulkScroll ? (
+        <div className="m-auto flex min-h-full min-w-full items-center justify-center p-12">
+          <motion.div
+            className="relative shrink-0"
+            initial={false}
+            animate={{
+              width: contentW * effectiveScale,
+              height: contentH * effectiveScale,
+            }}
+            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <motion.div
+              className="absolute left-0 top-0 origin-top-left"
+              initial={false}
+              animate={{ scale: effectiveScale }}
+              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+              style={{
+                width: contentW,
+                height: contentH,
+                overflow: "visible",
+              }}
+            >
+              {canvases.map((canvas) =>
+                renderCanvasNode(canvas, -minX, -minY)
+              )}
+            </motion.div>
+          </motion.div>
         </div>
-      </div>
+      ) : (
+        <div
+          className="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
+          style={{
+            transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) scale(${effectiveScale})`,
+          }}
+        >
+          <div className="relative">
+            {canvases.map((canvas) => renderCanvasNode(canvas, 0, 0))}
+          </div>
+        </div>
+      )}
 
     </section>
   )

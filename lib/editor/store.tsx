@@ -267,6 +267,7 @@ type EditorActions = {
   setIsScreenshotSelected: (selected: boolean) => void
   setIsPreviewMode: (p: boolean) => void
   setBulkEditMode: (b: boolean) => void
+  setBulkScale: (n: number) => void
   reset: () => void
   undo: () => void
   redo: () => void
@@ -285,6 +286,7 @@ type EditorStore = {
   _lastTs: number
   isPreviewMode: boolean
   bulkEditMode: boolean
+  bulkScale: number
   selectedTextId: string | null
   selectedAssetId: string | null
   selectedAnnotationShapeId: string | null
@@ -424,6 +426,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     _lastTs: 0,
     isPreviewMode: false,
     bulkEditMode: false,
+    bulkScale: 65,
     selectedTextId: null,
     selectedAssetId: null,
     selectedAnnotationShapeId: null,
@@ -792,6 +795,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       }
       set({ bulkEditMode: b })
     },
+    setBulkScale: (n) => set({ bulkScale: Math.max(20, Math.min(100, n)) }),
 
     undo: () => {
       const state = get()
@@ -944,6 +948,7 @@ export type EditorContext = Omit<EditorState, "canvases"> &
   EditorActions & {
     isPreviewMode: boolean
     bulkEditMode: boolean
+    bulkScale: number
     selectedTextId: string | null
     selectedAssetId: string | null
     selectedAnnotationShapeId: string | null
@@ -1003,6 +1008,7 @@ export function useEditor(): EditorContext {
 
     isPreviewMode: store.isPreviewMode,
     bulkEditMode: store.bulkEditMode,
+    bulkScale: store.bulkScale,
     selectedTextId: store.selectedTextId,
     selectedAssetId: store.selectedAssetId,
     selectedAnnotationShapeId: store.selectedAnnotationShapeId,
@@ -1087,6 +1093,7 @@ export function useEditor(): EditorContext {
     setIsScreenshotSelected: store.setIsScreenshotSelected,
     setIsPreviewMode: store.setIsPreviewMode,
     setBulkEditMode: store.setBulkEditMode,
+    setBulkScale: store.setBulkScale,
     reset: store.reset,
     undo: store.undo,
     redo: store.redo,

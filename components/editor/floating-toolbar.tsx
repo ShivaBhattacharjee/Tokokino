@@ -79,10 +79,90 @@ const ENHANCE_PRESETS: {
 
 export function FloatingToolbar() {
   const { activeTool, setActiveTool, addCanvas, bulkEditMode } = useEditor()
+  const bulkScale = useEditorStore((s) => s.bulkScale)
+  const setBulkScale = useEditorStore((s) => s.setBulkScale)
   const isAnnotateMode = activeTool === "arrow"
+
+  const showBulkBar = bulkEditMode && !isAnnotateMode
 
   return (
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex w-full max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-col items-center gap-2 px-3 sm:w-auto sm:px-0">
+      <AnimatePresence initial={false}>
+        {showBulkBar ? (
+          <motion.div
+            key="bulk-bar"
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            className="pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md"
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={bulkScale <= 20}
+                  onClick={() => setBulkScale(bulkScale - 10)}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <span className="text-base leading-none">−</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Scale canvases down</TooltipContent>
+            </Tooltip>
+            <button
+              type="button"
+              onClick={() => setBulkScale(65)}
+              title="Reset to 65%"
+              className="relative tabular min-w-[3.25rem] overflow-hidden rounded-md px-1 py-1.5 font-mono text-[11px] text-foreground/85 hover:bg-accent cursor-pointer"
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={bulkScale}
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -10, opacity: 0 }}
+                  transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
+                  className="block"
+                >
+                  {bulkScale}%
+                </motion.span>
+              </AnimatePresence>
+            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={bulkScale >= 100}
+                  onClick={() => setBulkScale(bulkScale + 10)}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <span className="text-base leading-none">+</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Scale canvases up</TooltipContent>
+            </Tooltip>
+            <span className="mx-1 h-5 w-px bg-border" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addCanvas()
+                    toast("Canvas added")
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-accent cursor-pointer whitespace-nowrap"
+                >
+                  <RiAddLine className="size-4" />
+                  Add canvas
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Insert a new canvas</TooltipContent>
+            </Tooltip>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <div
         data-mode={isAnnotateMode ? "annotate" : "default"}
         className={cn(
@@ -106,28 +186,6 @@ export function FloatingToolbar() {
             )}
           </motion.div>
         </AnimatePresence>
-
-        {bulkEditMode && !isAnnotateMode ? (
-          <>
-            <span className="mx-1 h-5 w-px bg-border" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => {
-                    addCanvas()
-                    toast("Canvas added")
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-accent cursor-pointer whitespace-nowrap"
-                >
-                  <RiAddLine className="size-4" />
-                  Add canvas
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Insert a new canvas</TooltipContent>
-            </Tooltip>
-          </>
-        ) : null}
       </div>
     </div>
   )

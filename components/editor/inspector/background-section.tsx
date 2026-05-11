@@ -218,7 +218,7 @@ function BackgroundTile({
       onClick={onClick}
       title={item.name}
       className={cn(
-        "aspect-square overflow-hidden rounded-lg border cursor-pointer transition-colors",
+        "aspect-video overflow-hidden rounded-lg border cursor-pointer transition-colors",
         active
           ? "border-transparent ring-1 ring-primary/40 ring-offset-1 ring-offset-sidebar"
           : "border-border/60 hover:border-foreground/30"
@@ -312,7 +312,7 @@ function BackgroundLibrary({
           <button
             onClick={() => setExpanded(true)}
             title={`Show all ${items.length} ${category.label.toLowerCase()} backgrounds`}
-            className="group relative aspect-square overflow-hidden rounded-lg border border-border/60 cursor-pointer transition-colors hover:border-foreground/30"
+            className="group relative aspect-video overflow-hidden rounded-lg border border-border/60 cursor-pointer transition-colors hover:border-foreground/30"
           >
             {peek ? (
               <img
@@ -827,7 +827,7 @@ export function BackgroundSection() {
                           onClick={() => selectUnsplashImage(photo)}
                           title={`Photo by ${photo.photographer}`}
                           className={cn(
-                            "aspect-square overflow-hidden rounded-lg border cursor-pointer transition-colors",
+                            "aspect-video overflow-hidden rounded-lg border cursor-pointer transition-colors",
                             background.type === "image" &&
                               background.value === photo.full
                               ? "border-transparent ring-1 ring-[#9BCD64]/60 ring-offset-1 ring-offset-popover"
@@ -927,7 +927,7 @@ export function BackgroundSection() {
                             setBackground({ type: "gradient", value: option.value })
                           }
                           className={cn(
-                            "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                            "aspect-video w-full overflow-hidden rounded-xl border cursor-pointer",
                             active
                               ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
                               : "border-border/60"
@@ -955,7 +955,7 @@ export function BackgroundSection() {
                     <button
                       onClick={() => setGradientExpanded(true)}
                       title={`Show all ${items.length} ${activeCategory.label.toLowerCase()} gradients`}
-                      className="group relative aspect-square w-full overflow-hidden rounded-xl border border-border/60 cursor-pointer transition-colors hover:border-foreground/30"
+                      className="group relative aspect-video w-full overflow-hidden rounded-xl border border-border/60 cursor-pointer transition-colors hover:border-foreground/30"
                     >
                       {peek ? (
                         <span
@@ -1030,7 +1030,7 @@ export function BackgroundSection() {
                     <button
                       onClick={() => setBackground({ type: "auto", value: option.value })}
                       className={cn(
-                        "aspect-square w-full overflow-hidden rounded-xl border cursor-pointer",
+                        "aspect-video w-full overflow-hidden rounded-xl border cursor-pointer",
                         active
                           ? "border-transparent ring-1 ring-primary/35 ring-offset-1 ring-offset-sidebar"
                           : "border-border/60"
