@@ -81,13 +81,11 @@ export function TopBar() {
   const handleBulkEditClick = () => {
     if (!bulkEditMode) {
       setBulkEditMode(true)
-      toast("Bulk edit enabled")
     } else {
       if (canvasCount > 1) {
         setShowDisableDialog(true)
       } else {
         setBulkEditMode(false)
-        toast("Bulk edit disabled")
       }
     }
   }

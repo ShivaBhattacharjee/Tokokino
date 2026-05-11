@@ -13,14 +13,13 @@ import { cn } from "@/lib/utils"
 
 /**
  * Bottom panel shown on phone + smaller iPad (<lg). Stacks under the canvas.
- * Tabs switch between Design (EffectsSidebar content) and Inspector.
- * Height is roughly 45vh so the canvas still gets the majority of the viewport.
+ * Sized so the canvas keeps the majority of the viewport on phones.
  */
 export function MobileControls() {
   return (
     <div
       className={cn(
-        "flex h-[56svh] min-h-[380px] shrink-0 flex-col border-t border-border/60 bg-sidebar md:h-[52svh] md:min-h-[420px] lg:hidden"
+        "flex h-[45svh] min-h-[300px] shrink-0 flex-col border-t border-border/60 bg-sidebar md:h-[48svh] md:min-h-[360px] lg:hidden"
       )}
     >
       <Tabs

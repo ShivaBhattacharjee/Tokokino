@@ -187,7 +187,7 @@ function frameAnchorTravel(percent: number, axis: "x" | "y") {
   const containerUnit = axis === "x" ? "cqw" : "cqh"
   const formattedDelta = Number(delta.toFixed(4))
 
-  return `calc(${formattedDelta} * ((100${containerUnit} - 100%) / 2 + min(18%, 24${containerUnit})))`
+  return `calc(${formattedDelta} * 50${containerUnit})`
 }
 
 function mockupScreenAspectWidth(aspectRatio: string) {

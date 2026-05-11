@@ -1331,26 +1331,28 @@ export function Canvas() {
 
   const zoomScale = isPreviewMode ? 1 : canvasZoom / 100
 
-  // Auto-fit zoom: pick a sensible scale so a single canvas roughly fills the section initially.
-  // We'll respect canvasZoom but compute a base fit factor from the section size.
+
   const sectionRef = React.useRef<HTMLElement | null>(null)
   const [autoFit, setAutoFit] = React.useState(0.6)
+  const topGutter = bulkEditMode ? 64 : 24
+  const bottomGutter = 96
+  const verticalOffset = (topGutter - bottomGutter) / 2
   React.useLayoutEffect(() => {
     const el = sectionRef.current
     if (!el) return
     const measure = () => {
       const rect = el.getBoundingClientRect()
       if (!rect.width || !rect.height) return
-      const padding = 80
-      const fitW = (rect.width - padding) / widthPx
-      const fitH = (rect.height - padding) / heightPx
-      setAutoFit(Math.max(0.2, Math.min(1, Math.min(fitW, fitH))))
+      const hGutter = 48
+      const fitW = Math.max(0, rect.width - hGutter) / widthPx
+      const fitH = Math.max(0, rect.height - topGutter - bottomGutter) / heightPx
+      setAutoFit(Math.max(0.05, Math.min(1, Math.min(fitW, fitH))))
     }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [widthPx, heightPx])
+  }, [widthPx, heightPx, topGutter, bottomGutter])
 
   const effectiveScale = autoFit * zoomScale
 
@@ -1443,7 +1445,10 @@ export function Canvas() {
             <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95" />
           ) : null}
           {centerGuides.y ? (
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95" />
+            <div
+              className="absolute inset-x-0 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
+              style={{ top: `calc(50% + ${verticalOffset}px)` }}
+            />
           ) : null}
         </div>
       ) : null}
@@ -1451,7 +1456,7 @@ export function Canvas() {
       <div
         className="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
         style={{
-          transform: `translate(-50%, -50%) scale(${effectiveScale})`,
+          transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) scale(${effectiveScale})`,
         }}
       >
         <div className="relative">
