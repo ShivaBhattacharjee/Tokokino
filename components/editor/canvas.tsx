@@ -1,29 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { createPortal } from "react-dom"
 import { motion } from "motion/react"
-import { RiDeleteBinLine, RiDragMove2Line, RiFileCopyLine } from "@remixicon/react"
 import { toast } from "sonner"
 
 import { CornerMarkers } from "@/components/editor/corner-marker"
 import { CropModal } from "@/components/editor/crop-modal"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { AnnotationShapeElement } from "@/components/editor/annotation-shape-element"
 import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
@@ -59,6 +41,7 @@ import {
   ScreenshotBrowserFrame,
 } from "./canvas/screenshot-browser-frame"
 import { ScreenshotMockup } from "./canvas/screenshot-mockup"
+import { BulkCanvasFlow } from "./bulk-canvas-flow"
 
 const BASE_CANVAS_WIDTH = 1100
 
@@ -1267,7 +1250,7 @@ function CanvasViewInner({
   )
 }
 
-function CanvasView(props: CanvasViewProps) {
+export function CanvasView(props: CanvasViewProps) {
   return (
     <CanvasScope id={props.canvasId}>
       <CanvasViewInner
@@ -1281,16 +1264,6 @@ function CanvasView(props: CanvasViewProps) {
   )
 }
 
-type DragState = {
-  pointerId: number
-  canvasId: string
-  startClientX: number
-  startClientY: number
-  startX: number
-  startY: number
-  zoomScale: number
-}
-
 export function Canvas() {
   const canvases = useEditorStore((s) => s.present.canvases)
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
@@ -1298,31 +1271,11 @@ export function Canvas() {
   const canvasZoom = useEditorStore((s) => s.present.canvasZoom)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
-  const bulkScalePct = useEditorStore((s) => s.bulkScale)
   const setActiveCanvasId = useEditorStore((s) => s.setActiveCanvasId)
-  const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
-  const removeCanvas = useEditorStore((s) => s.removeCanvas)
   const setSelectedTextId = useEditorStore((s) => s.setSelectedTextId)
   const setSelectedAssetId = useEditorStore((s) => s.setSelectedAssetId)
   const setSelectedAnnotationShapeId = useEditorStore(
     (s) => s.setSelectedAnnotationShapeId
-  )
-
-  const dragRef = React.useRef<DragState | null>(null)
-  const [livePositions, setLivePositions] = React.useState<
-    Record<string, { x: number; y: number }>
-  >({})
-  const [centerGuides, setCenterGuides] = React.useState<{
-    x: boolean
-    y: boolean
-  }>({ x: false, y: false })
-  const updateBulkCenterGuides = React.useCallback(
-    (next: { x: boolean; y: boolean }) => {
-      setCenterGuides((prev) =>
-        prev.x === next.x && prev.y === next.y ? prev : next
-      )
-    },
-    []
   )
 
   const aw = aspect.w || 16
@@ -1332,10 +1285,9 @@ export function Canvas() {
 
   const zoomScale = isPreviewMode ? 1 : canvasZoom / 100
 
-
   const sectionRef = React.useRef<HTMLElement | null>(null)
   const [autoFit, setAutoFit] = React.useState(0.6)
-  const topGutter = bulkEditMode ? 64 : 24
+  const topGutter = 24
   const bottomGutter = 96
   const verticalOffset = (topGutter - bottomGutter) / 2
   React.useLayoutEffect(() => {
@@ -1355,142 +1307,16 @@ export function Canvas() {
     return () => observer.disconnect()
   }, [widthPx, heightPx, topGutter, bottomGutter])
 
-  const bulkScale = bulkEditMode && !isPreviewMode ? bulkScalePct / 100 : 1
-  const effectiveScale = autoFit * zoomScale * bulkScale
-
-  const startCanvasDrag = (
-    e: React.PointerEvent<HTMLDivElement>,
-    canvasId: string
-  ) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const target = e.currentTarget
-    target.setPointerCapture(e.pointerId)
-    const canvas = canvases.find((c) => c.id === canvasId)
-    if (!canvas) return
-    setActiveCanvasId(canvasId)
-    dragRef.current = {
-      pointerId: e.pointerId,
-      canvasId,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startX: canvas.position.x,
-      startY: canvas.position.y,
-      zoomScale: effectiveScale,
-    }
-  }
-
-  const SNAP_THRESHOLD = 12
-
-  const moveCanvasDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== e.pointerId) return
-    e.preventDefault()
-    const dx = (e.clientX - drag.startClientX) / drag.zoomScale
-    const dy = (e.clientY - drag.startClientY) / drag.zoomScale
-    let newX = drag.startX + dx
-    let newY = drag.startY + dy
-
-    // Snap to center and show guides
-    const snapX = Math.abs(newX) < SNAP_THRESHOLD
-    const snapY = Math.abs(newY) < SNAP_THRESHOLD
-    if (snapX) newX = 0
-    if (snapY) newY = 0
-    updateBulkCenterGuides({ x: snapX, y: snapY })
-
-    setLivePositions((prev) => ({
-      ...prev,
-      [drag.canvasId]: { x: newX, y: newY },
-    }))
-  }
-
-  const stopCanvasDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== e.pointerId) return
-    const live = livePositions[drag.canvasId]
-    if (live) {
-      setCanvasPosition(drag.canvasId, live)
-      setLivePositions((prev) => {
-        const next = { ...prev }
-        delete next[drag.canvasId]
-        return next
-      })
-    }
-    dragRef.current = null
-    updateBulkCenterGuides({ x: false, y: false })
-  }
+  const effectiveScale = autoFit * zoomScale
 
   const isBulkScroll = bulkEditMode && !isPreviewMode
-  const halfW = widthPx / 2
-  const halfH = heightPx / 2
-  let minX = -halfW
-  let maxX = halfW
-  let minY = -halfH
-  let maxY = halfH
-  if (isBulkScroll) {
-    for (const canvas of canvases) {
-      const { x, y } = canvas.position
-      minX = Math.min(minX, x - halfW)
-      maxX = Math.max(maxX, x + halfW)
-      minY = Math.min(minY, y - halfH)
-      maxY = Math.max(maxY, y + halfH)
-    }
-  }
-  const contentW = maxX - minX
-  const contentH = maxY - minY
-
-  const renderCanvasNode = (canvas: (typeof canvases)[number], offsetX: number, offsetY: number) => {
-    const isActive = canvas.id === activeCanvasId
-    const livePos = livePositions[canvas.id]
-    const x = livePos ? livePos.x : canvas.position.x
-    const y = livePos ? livePos.y : canvas.position.y
-    return (
-      <div
-        key={canvas.id}
-        className="absolute"
-        style={{
-          left: x + offsetX,
-          top: y + offsetY,
-          transform: "translate(-50%, -50%)",
-          zIndex: isActive ? 10 : 0,
-        }}
-      >
-        {!isPreviewMode && bulkEditMode ? (
-          <CanvasChrome
-            canvasId={canvas.id}
-            isActive={isActive}
-            widthPx={widthPx}
-            canRemove={canvases.length > 1}
-            onActivate={() => setActiveCanvasId(canvas.id)}
-            onRemove={() => removeCanvas(canvas.id)}
-            onDuplicate={() => {
-              const newId = useEditorStore.getState().duplicateCanvas(canvas.id)
-              if (newId) toast("Canvas duplicated")
-            }}
-            onDragStart={(e) => startCanvasDrag(e, canvas.id)}
-            onDragMove={moveCanvasDrag}
-            onDragEnd={stopCanvasDrag}
-          />
-        ) : null}
-        <CanvasView
-          canvasId={canvas.id}
-          isActive={isActive}
-          widthPx={widthPx}
-          heightPx={heightPx}
-          effectiveScale={effectiveScale}
-          onActivate={() => setActiveCanvasId(canvas.id)}
-        />
-      </div>
-    )
-  }
 
   return (
     <section
       ref={sectionRef}
       style={{ containerType: "size" }}
       className={cn(
-        "relative z-0 flex flex-1 bg-background transition-all duration-300 dark:bg-black",
-        isBulkScroll ? "overflow-auto" : "overflow-hidden",
+        "relative z-0 flex flex-1 overflow-hidden bg-background transition-all duration-300 dark:bg-black",
         isPreviewMode
           ? "items-center justify-center p-0"
           : "border-b border-dashed border-border/70"
@@ -1503,51 +1329,8 @@ export function Canvas() {
     >
       <CornerMarkers className="text-border" size={12} />
 
-      {!isPreviewMode && bulkEditMode && (centerGuides.x || centerGuides.y) ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-20"
-        >
-          {centerGuides.x ? (
-            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95" />
-          ) : null}
-          {centerGuides.y ? (
-            <div
-              className="absolute inset-x-0 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
-              style={{ top: `calc(50% + ${verticalOffset}px)` }}
-            />
-          ) : null}
-        </div>
-      ) : null}
-
       {isBulkScroll ? (
-        <div className="m-auto flex min-h-full min-w-full items-center justify-center p-12">
-          <motion.div
-            className="relative shrink-0"
-            initial={false}
-            animate={{
-              width: contentW * effectiveScale,
-              height: contentH * effectiveScale,
-            }}
-            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <motion.div
-              className="absolute left-0 top-0 origin-top-left"
-              initial={false}
-              animate={{ scale: effectiveScale }}
-              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              style={{
-                width: contentW,
-                height: contentH,
-                overflow: "visible",
-              }}
-            >
-              {canvases.map((canvas) =>
-                renderCanvasNode(canvas, -minX, -minY)
-              )}
-            </motion.div>
-          </motion.div>
-        </div>
+        <BulkCanvasFlow widthPx={widthPx} heightPx={heightPx} />
       ) : (
         <div
           className="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
@@ -1556,200 +1339,33 @@ export function Canvas() {
           }}
         >
           <div className="relative">
-            {canvases.map((canvas) => renderCanvasNode(canvas, 0, 0))}
+            {canvases.map((canvas) => {
+              const isActive = canvas.id === activeCanvasId
+              return (
+                <div
+                  key={canvas.id}
+                  className="absolute"
+                  style={{
+                    left: canvas.position.x,
+                    top: canvas.position.y,
+                    transform: "translate(-50%, -50%)",
+                    zIndex: isActive ? 10 : 0,
+                  }}
+                >
+                  <CanvasView
+                    canvasId={canvas.id}
+                    isActive={isActive}
+                    widthPx={widthPx}
+                    heightPx={heightPx}
+                    effectiveScale={effectiveScale}
+                    onActivate={() => setActiveCanvasId(canvas.id)}
+                  />
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
-
     </section>
-  )
-}
-
-function CanvasChrome({
-  canvasId,
-  isActive,
-  canRemove,
-  onActivate,
-  onRemove,
-  onDuplicate,
-  onDragStart,
-  onDragMove,
-  onDragEnd,
-}: {
-  canvasId: string
-  isActive: boolean
-  widthPx: number
-  canRemove: boolean
-  onActivate: () => void
-  onRemove: () => void
-  onDuplicate: () => void
-  onDragStart: (e: React.PointerEvent<HTMLDivElement>) => void
-  onDragMove: (e: React.PointerEvent<HTMLDivElement>) => void
-  onDragEnd: (e: React.PointerEvent<HTMLDivElement>) => void
-}) {
-  const anchorRef = React.useRef<HTMLSpanElement>(null)
-  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
-
-  // Track the parent wrapper element's bounding rect.
-  // ResizeObserver + scroll/resize for steady-state,
-  // useLayoutEffect for re-renders during drag (livePositions changes).
-  React.useEffect(() => {
-    const el = anchorRef.current?.parentElement
-    if (!el) return
-    const update = () => setToolbarRect(el.getBoundingClientRect())
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener("scroll", update, true)
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("scroll", update, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [canvasId])
-
-  // Re-read rect on every render so portal tracks during drag
-  React.useLayoutEffect(() => {
-    const el = anchorRef.current?.parentElement
-    if (!el) return
-    const next = el.getBoundingClientRect()
-    setToolbarRect((prev) => {
-      if (
-        prev &&
-        Math.abs(prev.top - next.top) < 0.5 &&
-        Math.abs(prev.left - next.left) < 0.5 &&
-        Math.abs(prev.width - next.width) < 0.5 &&
-        Math.abs(prev.height - next.height) < 0.5
-      ) {
-        return prev
-      }
-      return next
-    })
-  })
-
-  return (
-    <>
-      <span ref={anchorRef} className="hidden" />
-      {toolbarRect && typeof document !== "undefined"
-        ? createPortal(
-            (() => {
-              const top = toolbarRect.top - 12
-              const left = toolbarRect.left + toolbarRect.width / 2
-              return (
-                <div
-                  className="pointer-events-none fixed z-[100]"
-                  style={{
-                    top,
-                    left,
-                    transform: "translate(-50%, -100%)",
-                  }}
-                >
-                  <div
-                    className="pointer-events-auto flex items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-label="Drag to move canvas"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onActivate()
-                          }}
-                          onPointerDown={(e) => {
-                            e.stopPropagation()
-                            onDragStart(e)
-                          }}
-                          onPointerMove={onDragMove}
-                          onPointerUp={onDragEnd}
-                          onPointerCancel={onDragEnd}
-                          className={cn(
-                            "inline-flex size-9 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing shrink-0",
-                            isActive
-                              ? "bg-accent text-foreground"
-                              : ""
-                          )}
-                        >
-                          <RiDragMove2Line className="size-4" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Drag to move</TooltipContent>
-                    </Tooltip>
-
-                    <span className="mx-0.5 h-5 w-px bg-border" />
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onDuplicate()
-                          }}
-                          aria-label="Duplicate canvas"
-                          className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground shrink-0"
-                        >
-                          <RiFileCopyLine className="size-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Duplicate</TooltipContent>
-                    </Tooltip>
-
-                    {canRemove ? (
-                      <>
-                        <span className="mx-0.5 h-5 w-px bg-border" />
-                        <AlertDialog>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertDialogTrigger asChild>
-                                <button
-                                  type="button"
-                                  onPointerDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => e.stopPropagation()}
-                                  aria-label="Delete canvas"
-                                  className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-red-500 transition-colors hover:bg-accent hover:text-red-500 shrink-0"
-                                >
-                                  <RiDeleteBinLine className="size-4" />
-                                </button>
-                              </AlertDialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">Delete</TooltipContent>
-                          </Tooltip>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete this canvas?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently remove this canvas and all its contents. This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  onRemove()
-                                  toast("Canvas deleted")
-                                }}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })(),
-            document.body
-          )
-        : null}
-    </>
   )
 }

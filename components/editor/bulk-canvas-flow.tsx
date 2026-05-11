@@ -1,0 +1,367 @@
+"use client"
+
+import * as React from "react"
+import {
+  type Node,
+  type NodeProps,
+  type NodeTypes,
+  type OnNodeDrag,
+  type OnNodesChange,
+  ReactFlow,
+  ReactFlowProvider,
+  applyNodeChanges,
+  useReactFlow,
+  useStore as useFlowStore,
+} from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
+import {
+  RiAddLine,
+  RiDeleteBinLine,
+  RiDragMove2Line,
+  RiFileCopyLine,
+  RiFocus3Line,
+  RiSubtractLine,
+} from "@remixicon/react"
+import { useTheme } from "next-themes"
+import { toast } from "sonner"
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { useEditorStore } from "@/lib/editor/store"
+import { cn } from "@/lib/utils"
+
+import { CanvasView } from "./canvas"
+
+type CanvasNodeData = {
+  canvasId: string
+  widthPx: number
+  heightPx: number
+}
+
+type CanvasFlowNode = Node<CanvasNodeData, "canvas">
+
+function CanvasNode({ data }: NodeProps<CanvasFlowNode>) {
+  const { canvasId, widthPx, heightPx } = data
+  const isActive = useEditorStore(
+    (s) => s.present.activeCanvasId === canvasId
+  )
+  const canvasCount = useEditorStore((s) => s.present.canvases.length)
+  const setActiveCanvasId = useEditorStore((s) => s.setActiveCanvasId)
+  const removeCanvas = useEditorStore((s) => s.removeCanvas)
+
+  const onActivate = React.useCallback(() => {
+    setActiveCanvasId(canvasId)
+  }, [canvasId, setActiveCanvasId])
+
+  const onDuplicate = React.useCallback(() => {
+    const newId = useEditorStore.getState().duplicateCanvas(canvasId)
+    if (newId) toast("Canvas duplicated")
+  }, [canvasId])
+
+  const zoom = useFlowStore((s) => s.transform[2])
+  const inverseZoom = zoom > 0 ? 1 / zoom : 1
+
+  return (
+    <div
+      style={{ width: widthPx, height: heightPx }}
+      className="relative"
+      onClick={onActivate}
+    >
+      <div
+        style={{
+          position: "absolute",
+          bottom: "100%",
+          left: "50%",
+          transformOrigin: "bottom center",
+          transform: `translate(-50%, -${12 * inverseZoom}px) scale(${inverseZoom})`,
+        }}
+        className="z-10 flex items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Drag to move canvas"
+              className={cn(
+                "canvas-drag-handle inline-flex size-9 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing",
+                isActive ? "bg-accent text-foreground" : ""
+              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                onActivate()
+              }}
+            >
+              <RiDragMove2Line className="size-4" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top">Drag to move</TooltipContent>
+        </Tooltip>
+
+        <span className="nodrag mx-0.5 h-5 w-px bg-border" />
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDuplicate()
+              }}
+              aria-label="Duplicate canvas"
+              className="nodrag inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <RiFileCopyLine className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">Duplicate</TooltipContent>
+        </Tooltip>
+
+        {canvasCount > 1 ? (
+          <>
+            <span className="nodrag mx-0.5 h-5 w-px bg-border" />
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Delete canvas"
+                      className="nodrag inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10"
+                    >
+                      <RiDeleteBinLine className="size-4" />
+                    </button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">Delete</TooltipContent>
+              </Tooltip>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete canvas?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove the canvas and all its content.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => removeCanvas(canvasId)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        ) : null}
+      </div>
+
+      <CanvasView
+        canvasId={canvasId}
+        isActive={isActive}
+        widthPx={widthPx}
+        heightPx={heightPx}
+        effectiveScale={1}
+        onActivate={onActivate}
+      />
+    </div>
+  )
+}
+
+const nodeTypes: NodeTypes = { canvas: CanvasNode }
+
+function buildNodes(
+  canvases: { id: string; position: { x: number; y: number } }[],
+  widthPx: number,
+  heightPx: number
+): CanvasFlowNode[] {
+  return canvases.map((c) => ({
+    id: c.id,
+    type: "canvas",
+    position: { x: c.position.x - widthPx / 2, y: c.position.y - heightPx / 2 },
+    data: { canvasId: c.id, widthPx, heightPx },
+    dragHandle: ".canvas-drag-handle",
+  }))
+}
+
+function BulkCanvasFlowInner({
+  widthPx,
+  heightPx,
+}: {
+  widthPx: number
+  heightPx: number
+}) {
+  const canvases = useEditorStore((s) => s.present.canvases)
+  const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
+  const fitViewSeq = useEditorStore((s) => s.bulkFitViewSeq)
+  const { fitView } = useReactFlow()
+  const { resolvedTheme } = useTheme()
+  const colorMode = resolvedTheme === "dark" ? "dark" : "light"
+
+  React.useEffect(() => {
+    if (fitViewSeq === 0) return
+    const id = requestAnimationFrame(() => {
+      fitView({ padding: 0.2, duration: 350 })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [fitViewSeq, fitView])
+
+  const [nodes, setNodes] = React.useState<CanvasFlowNode[]>(() =>
+    buildNodes(canvases, widthPx, heightPx)
+  )
+
+  const draggingRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (draggingRef.current) return
+    setNodes((prev) => {
+      const prevById = new Map(prev.map((n) => [n.id, n]))
+      return canvases.map((c) => {
+        const target = {
+          x: c.position.x - widthPx / 2,
+          y: c.position.y - heightPx / 2,
+        }
+        const existing = prevById.get(c.id)
+        if (
+          existing &&
+          existing.position.x === target.x &&
+          existing.position.y === target.y &&
+          existing.data.widthPx === widthPx &&
+          existing.data.heightPx === heightPx
+        ) {
+          return existing
+        }
+        return {
+          id: c.id,
+          type: "canvas" as const,
+          position: target,
+          data: { canvasId: c.id, widthPx, heightPx },
+          dragHandle: ".canvas-drag-handle",
+        }
+      })
+    })
+  }, [canvases, widthPx, heightPx])
+
+  const onNodesChange: OnNodesChange<CanvasFlowNode> = React.useCallback(
+    (changes) => {
+      setNodes((prev) => applyNodeChanges(changes, prev))
+    },
+    []
+  )
+
+  const onNodeDragStart: OnNodeDrag<CanvasFlowNode> = React.useCallback(() => {
+    draggingRef.current = true
+  }, [])
+
+  const onNodeDragStop: OnNodeDrag<CanvasFlowNode> = React.useCallback(
+    (_e, node) => {
+      draggingRef.current = false
+      setCanvasPosition(node.id, {
+        x: node.position.x + widthPx / 2,
+        y: node.position.y + heightPx / 2,
+      })
+    },
+    [setCanvasPosition, widthPx, heightPx]
+  )
+
+  return (
+    <div className="absolute inset-0 bg-background dark:bg-black">
+      <ReactFlow
+        nodes={nodes}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDragStop={onNodeDragStop}
+        minZoom={0.05}
+        maxZoom={2}
+        panOnDrag
+        panOnScroll={false}
+        zoomOnScroll
+        zoomOnPinch
+        selectionOnDrag={false}
+        nodesConnectable={false}
+        edgesFocusable={false}
+        proOptions={{ hideAttribution: true }}
+        colorMode={colorMode}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        style={{ background: "transparent" }}
+      >
+        <GlassControls />
+      </ReactFlow>
+    </div>
+  )
+}
+
+function GlassControls() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow()
+  return (
+    <div className="pointer-events-auto absolute bottom-4 left-4 z-50 flex items-center gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 shadow-lg backdrop-blur-md backdrop-saturate-150 dark:border-white/10 dark:bg-white/5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => zoomIn({ duration: 150 })}
+            aria-label="Zoom in"
+            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-foreground/85 transition-colors hover:bg-white/10"
+          >
+            <RiAddLine className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Zoom in</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => zoomOut({ duration: 150 })}
+            aria-label="Zoom out"
+            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-foreground/85 transition-colors hover:bg-white/10"
+          >
+            <RiSubtractLine className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Zoom out</TooltipContent>
+      </Tooltip>
+      <span className="mx-0.5 h-5 w-px bg-white/10" />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => fitView({ padding: 0.2, duration: 300 })}
+            aria-label="Fit view"
+            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-foreground/85 transition-colors hover:bg-white/10"
+          >
+            <RiFocus3Line className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Fit view</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
+export function BulkCanvasFlow(props: { widthPx: number; heightPx: number }) {
+  return (
+    <ReactFlowProvider>
+      <BulkCanvasFlowInner {...props} />
+    </ReactFlowProvider>
+  )
+}

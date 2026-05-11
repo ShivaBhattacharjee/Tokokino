@@ -25,7 +25,7 @@ export function EffectSlider({
   const resolvedSuffix = suffix ?? (max === 100 ? "%" : "")
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between">
+      <div className="mb-1 flex items-baseline justify-between">
         <span className="text-[11px] text-muted-foreground">{label}</span>
         <EditableValue
           value={value}

@@ -276,6 +276,8 @@ type EditorActions = {
   duplicateCanvas: (id?: string) => string | null
   setActiveCanvasId: (id: string) => void
   setCanvasPosition: (id: string, position: { x: number; y: number }) => void
+  setCanvasPositions: (positions: Record<string, { x: number; y: number }>) => void
+  requestBulkFitView: () => void
 }
 
 type EditorStore = {
@@ -287,6 +289,7 @@ type EditorStore = {
   isPreviewMode: boolean
   bulkEditMode: boolean
   bulkScale: number
+  bulkFitViewSeq: number
   selectedTextId: string | null
   selectedAssetId: string | null
   selectedAnnotationShapeId: string | null
@@ -427,6 +430,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     isPreviewMode: false,
     bulkEditMode: false,
     bulkScale: 65,
+    bulkFitViewSeq: 0,
     selectedTextId: null,
     selectedAssetId: null,
     selectedAnnotationShapeId: null,
@@ -904,6 +908,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         `canvasPosition-${id}`
       )
     },
+    setCanvasPositions: (positions) => {
+      commit(
+        (state) => ({
+          canvases: state.canvases.map((c) =>
+            positions[c.id] ? { ...c, position: positions[c.id] } : c
+          ),
+        }),
+        null
+      )
+    },
+    requestBulkFitView: () =>
+      set((s) => ({ bulkFitViewSeq: s.bulkFitViewSeq + 1 })),
   }
 })
 
@@ -1102,6 +1118,8 @@ export function useEditor(): EditorContext {
     duplicateCanvas: store.duplicateCanvas,
     setActiveCanvasId: store.setActiveCanvasId,
     setCanvasPosition: store.setCanvasPosition,
+    setCanvasPositions: store.setCanvasPositions,
+    requestBulkFitView: store.requestBulkFitView,
     canvasCount: store.present.canvases.length,
   }
 }

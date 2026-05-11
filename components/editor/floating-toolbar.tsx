@@ -9,6 +9,10 @@ import {
   RiDragMove2Line,
   RiFocus3Line,
   RiImageAddLine,
+  RiLayoutColumnLine,
+  RiLayoutGridLine,
+  RiLayoutRowLine,
+  RiResetLeftLine,
   RiSparkling2Line,
   RiStackLine,
   RiText,
@@ -77,11 +81,85 @@ const ENHANCE_PRESETS: {
     },
   ]
 
+type BulkLayout = "grid" | "row" | "column"
+
+const BASE_CANVAS_WIDTH = 1100
+const ARRANGE_GAP = 80
+
+function computeArrangedPositions(
+  canvasIds: string[],
+  layout: BulkLayout,
+  widthPx: number,
+  heightPx: number
+): Record<string, { x: number; y: number }> {
+  const n = canvasIds.length
+  const positions: Record<string, { x: number; y: number }> = {}
+  if (n === 0) return positions
+
+  if (layout === "row") {
+    const stride = widthPx + ARRANGE_GAP
+    const totalW = stride * (n - 1)
+    canvasIds.forEach((id, i) => {
+      positions[id] = { x: -totalW / 2 + i * stride, y: 0 }
+    })
+    return positions
+  }
+  if (layout === "column") {
+    const stride = heightPx + ARRANGE_GAP
+    const totalH = stride * (n - 1)
+    canvasIds.forEach((id, i) => {
+      positions[id] = { x: 0, y: -totalH / 2 + i * stride }
+    })
+    return positions
+  }
+  // grid
+  const cols = Math.ceil(Math.sqrt(n))
+  const rows = Math.ceil(n / cols)
+  const strideX = widthPx + ARRANGE_GAP
+  const strideY = heightPx + ARRANGE_GAP
+  const totalW = strideX * (cols - 1)
+  const totalH = strideY * (rows - 1)
+  canvasIds.forEach((id, i) => {
+    const row = Math.floor(i / cols)
+    const col = i % cols
+    positions[id] = {
+      x: -totalW / 2 + col * strideX,
+      y: -totalH / 2 + row * strideY,
+    }
+  })
+  return positions
+}
+
 export function FloatingToolbar() {
   const { activeTool, setActiveTool, addCanvas, bulkEditMode } = useEditor()
-  const bulkScale = useEditorStore((s) => s.bulkScale)
-  const setBulkScale = useEditorStore((s) => s.setBulkScale)
+  const canvases = useEditorStore((s) => s.present.canvases)
+  const aspect = useEditorStore((s) => s.present.aspect)
+  const setCanvasPositions = useEditorStore((s) => s.setCanvasPositions)
+  const requestBulkFitView = useEditorStore((s) => s.requestBulkFitView)
   const isAnnotateMode = activeTool === "arrow"
+
+  const applyLayout = React.useCallback(
+    (layout: BulkLayout) => {
+      const aw = aspect.w || 16
+      const ah = aspect.h || 10
+      const widthPx = BASE_CANVAS_WIDTH
+      const heightPx = (BASE_CANVAS_WIDTH * ah) / aw
+      const ids = canvases.map((c) => c.id)
+      setCanvasPositions(
+        computeArrangedPositions(ids, layout, widthPx, heightPx)
+      )
+      requestBulkFitView()
+    },
+    [aspect.w, aspect.h, canvases, setCanvasPositions, requestBulkFitView]
+  )
+
+  const resetPositions = React.useCallback(() => {
+    const positions: Record<string, { x: number; y: number }> = {}
+    for (const c of canvases) positions[c.id] = { x: 0, y: 0 }
+    setCanvasPositions(positions)
+    requestBulkFitView()
+    toast("Positions reset")
+  }, [canvases, setCanvasPositions, requestBulkFitView])
 
   const showBulkBar = bulkEditMode && !isAnnotateMode
 
@@ -101,46 +179,49 @@ export function FloatingToolbar() {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  disabled={bulkScale <= 20}
-                  onClick={() => setBulkScale(bulkScale - 10)}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  onClick={() => applyLayout("grid")}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
                 >
-                  <span className="text-base leading-none">−</span>
+                  <RiLayoutGridLine className="size-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top">Scale canvases down</TooltipContent>
+              <TooltipContent side="top">Arrange in grid</TooltipContent>
             </Tooltip>
-            <button
-              type="button"
-              onClick={() => setBulkScale(65)}
-              title="Reset to 65%"
-              className="relative tabular min-w-[3.25rem] overflow-hidden rounded-md px-1 py-1.5 font-mono text-[11px] text-foreground/85 hover:bg-accent cursor-pointer"
-            >
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
-                  key={bulkScale}
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -10, opacity: 0 }}
-                  transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
-                  className="block"
-                >
-                  {bulkScale}%
-                </motion.span>
-              </AnimatePresence>
-            </button>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  disabled={bulkScale >= 100}
-                  onClick={() => setBulkScale(bulkScale + 10)}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  onClick={() => applyLayout("row")}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
                 >
-                  <span className="text-base leading-none">+</span>
+                  <RiLayoutRowLine className="size-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top">Scale canvases up</TooltipContent>
+              <TooltipContent side="top">Arrange in a row</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => applyLayout("column")}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
+                >
+                  <RiLayoutColumnLine className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Arrange in a column</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={resetPositions}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
+                >
+                  <RiResetLeftLine className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Reset positions</TooltipContent>
             </Tooltip>
             <span className="mx-1 h-5 w-px bg-border" />
             <Tooltip>

@@ -514,7 +514,7 @@ export function BackdropSection() {
           <PopoverTrigger asChild>
             <BackdropTile icon={RiEqualizerLine} label="Effects" active={effectsDirty} />
           </PopoverTrigger>
-          <PopoverContent side="left" align="start" className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md">
+          <PopoverContent side="left" align="start" className="w-[240px] space-y-1.5 p-2 bg-popover/95 backdrop-blur-md">
             <PopoverHeader
               title="Effects"
               description="Color & filter adjustments applied to the backdrop layer."
@@ -534,7 +534,7 @@ export function BackdropSection() {
               }
               resetTitle="Reset effects"
             />
-            <div className="max-h-[60vh] space-y-4 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-width:thin]">
+            <div className="max-h-[60vh] space-y-2.5 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-width:thin]">
               <EffectSlider
                 label="Brightness"
                 value={effects.brightness}
