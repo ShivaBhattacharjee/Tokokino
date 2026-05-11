@@ -171,6 +171,27 @@ const ALL_OPTIONS = SECTIONS.flatMap((s) => s.options)
 const BROWSER_TILE_PREVIEW_WIDTH = 112
 const BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH = 240
 
+const FRAME_SEARCH_ALIASES: Record<string, string[]> = {
+  iphone_17: ["apple"],
+  iphone_17_pro: ["apple"],
+  iphone_17_pro_max: ["apple"],
+  galaxy_s24_ultra: ["samsung", "android"],
+  pixel_7: ["google", "android"],
+  nothing_phone: ["android"],
+  ipad_air: ["apple"],
+  ipad_mini: ["apple"],
+  ipad_pro_11_m4: ["apple"],
+  ipad_pro_13_m4: ["apple"],
+  apple_watch_10_42mm_aluminum_sport_band: ["apple", "wearable"],
+  apple_watch_ultra_2_natural_alpine: ["apple", "wearable"],
+  macbook_air_13_gen_4: ["apple", "laptop"],
+  macbook_pro_14__5th_gen: ["apple", "laptop"],
+  macbook_pro_16__5th_gen: ["apple", "laptop"],
+  imac_24: ["apple", "monitor"],
+  pro_display_xdr: ["apple", "monitor"],
+  studio_display: ["apple", "monitor"],
+}
+
 export function FramePopover({
   value,
   onChange,
@@ -193,21 +214,24 @@ export function FramePopover({
 
   const currentColor = resolveFrameColor(current, currentDevice, value.color)
   const q = query.trim().toLowerCase()
-  const matches = (o: FrameOption) => {
+  const matches = (o: FrameOption, section: FrameSection) => {
     if (!q) return true
-    return (
-      o.name.toLowerCase().includes(q) ||
-      optionColors(o).some((color) =>
-        formatColor(color).toLowerCase().includes(q)
-      ) ||
-      `${o.w}x${o.h}`.includes(q) ||
-      `${o.w}×${o.h}`.includes(q)
-    )
+    const haystack: string[] = [
+      o.name,
+      section.label,
+      section.id,
+      o.kind,
+      `${o.w}x${o.h}`,
+      `${o.w}×${o.h}`,
+      ...optionColors(o).map((color) => formatColor(color)),
+      ...(FRAME_SEARCH_ALIASES[o.id] ?? []),
+    ]
+    return haystack.some((entry) => entry.toLowerCase().includes(q))
   }
 
   const visibleSections = SECTIONS.map((s) => ({
     ...s,
-    options: s.options.filter(matches),
+    options: s.options.filter((o) => matches(o, s)),
   })).filter((s) => s.options.length > 0)
 
   const selectFrame = (option: FrameOption) => {
