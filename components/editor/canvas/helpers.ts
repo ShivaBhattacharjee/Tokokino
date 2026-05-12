@@ -82,6 +82,78 @@ export function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }
 
+export function snapCenterToTarget({
+  centerX,
+  centerY,
+  targetX,
+  targetY,
+  threshold = 8,
+}: {
+  centerX: number
+  centerY: number
+  targetX: number
+  targetY: number
+  threshold?: number
+}) {
+  const snapX = Math.abs(centerX - targetX) <= threshold
+  const snapY = Math.abs(centerY - targetY) <= threshold
+
+  return {
+    deltaX: snapX ? targetX - centerX : 0,
+    deltaY: snapY ? targetY - centerY : 0,
+    guides: { x: snapX, y: snapY },
+  }
+}
+
+export function snapBoxToTarget({
+  centerX,
+  centerY,
+  width,
+  height,
+  targetX,
+  targetY,
+  threshold = 8,
+}: {
+  centerX: number
+  centerY: number
+  width: number
+  height: number
+  targetX: number
+  targetY: number
+  threshold?: number
+}) {
+  const xCandidates = [centerX, centerX - width / 2, centerX + width / 2]
+  const yCandidates = [centerY, centerY - height / 2, centerY + height / 2]
+  const x = nearestSnapDelta(xCandidates, targetX, threshold)
+  const y = nearestSnapDelta(yCandidates, targetY, threshold)
+
+  return {
+    deltaX: x.delta,
+    deltaY: y.delta,
+    guides: { x: x.snapped, y: y.snapped },
+  }
+}
+
+function nearestSnapDelta(
+  candidates: number[],
+  target: number,
+  threshold: number
+) {
+  let bestDelta = 0
+  let bestDistance = Infinity
+
+  for (const candidate of candidates) {
+    const delta = target - candidate
+    const distance = Math.abs(delta)
+    if (distance <= threshold && distance < bestDistance) {
+      bestDelta = delta
+      bestDistance = distance
+    }
+  }
+
+  return { delta: bestDelta, snapped: bestDistance !== Infinity }
+}
+
 export function positionFloatingToolbar(target: string, rect: DOMRect) {
   if (typeof document === "undefined") return
   const toolbar = document.querySelector<HTMLElement>(

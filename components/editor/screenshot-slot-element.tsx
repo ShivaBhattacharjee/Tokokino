@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { BoxHoverActions } from "@/components/editor/canvas/box-hover-actions"
 import { FramedScreenshotVisual } from "@/components/editor/canvas/framed-screenshot-visual"
+import { snapBoxToTarget } from "@/components/editor/canvas/helpers"
 import {
   ToolbarDeleteButton,
   ToolbarDivider,
@@ -68,11 +69,13 @@ export function ScreenshotSlotView({
   canvasRef,
   canvasAspectRatio,
   onCropRequest,
+  onCenterGuideChange,
 }: {
   slot: ScreenshotSlot
   canvasRef: React.RefObject<HTMLDivElement | null>
   canvasAspectRatio: number
   onCropRequest: (slotId: string) => void
+  onCenterGuideChange?: (guides: { x: boolean; y: boolean }) => void
 }) {
   const {
     selectedScreenshotSlotId,
@@ -95,6 +98,9 @@ export function ScreenshotSlotView({
   const dragRef = React.useRef<DragState | null>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
+  const [bareImageAspectRatio, setBareImageAspectRatio] = React.useState<
+    string | null
+  >(null)
 
   React.useEffect(() => {
     if (!isSelected || !elRef.current) {
@@ -127,6 +133,28 @@ export function ScreenshotSlotView({
     slot.rotation,
     canvasAspectRatio,
   ])
+
+  React.useEffect(() => {
+    if (!slot.src || slot.frame.id !== "none") {
+      setBareImageAspectRatio(null)
+      return
+    }
+
+    let cancelled = false
+    const image = new Image()
+    image.onload = () => {
+      if (cancelled || !image.naturalWidth || !image.naturalHeight) return
+      setBareImageAspectRatio(`${image.naturalWidth} / ${image.naturalHeight}`)
+    }
+    image.onerror = () => {
+      if (!cancelled) setBareImageAspectRatio(null)
+    }
+    image.src = slot.src
+
+    return () => {
+      cancelled = true
+    }
+  }, [slot.frame.id, slot.src])
 
   const select = (e: React.MouseEvent | React.PointerEvent) => {
     e.stopPropagation()
@@ -200,13 +228,28 @@ export function ScreenshotSlotView({
   const moveDrag = (e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
+    e.preventDefault()
     const dxPct = ((e.clientX - drag.startX) / drag.canvasW) * 100
     const dyPct = ((e.clientY - drag.startY) / drag.canvasH) * 100
-    const nextX = Math.max(-20, Math.min(120, drag.startXPct + dxPct))
-    const nextY = Math.max(-20, Math.min(120, drag.startYPct + dyPct))
+    let nextX = Math.max(-20, Math.min(120, drag.startXPct + dxPct))
+    let nextY = Math.max(-20, Math.min(120, drag.startYPct + dyPct))
+    const centerX = (nextX / 100) * drag.canvasW
+    const centerY = (nextY / 100) * drag.canvasH
+    const rect = elRef.current?.getBoundingClientRect()
+    const snap = snapBoxToTarget({
+      centerX,
+      centerY,
+      width: rect?.width ?? 0,
+      height: rect?.height ?? 0,
+      targetX: drag.canvasW / 2,
+      targetY: drag.canvasH / 2,
+    })
+    nextX += (snap.deltaX / drag.canvasW) * 100
+    nextY += (snap.deltaY / drag.canvasH) * 100
     drag.lastXPct = nextX
     drag.lastYPct = nextY
     drag.moved = true
+    onCenterGuideChange?.(snap.guides)
     const el = elRef.current
     if (el) {
       el.style.left = `${nextX}%`
@@ -225,6 +268,7 @@ export function ScreenshotSlotView({
       })
     }
     dragRef.current = null
+    onCenterGuideChange?.({ x: false, y: false })
   }
 
   const computedShadowFilter = shadowDropFilterCss(slot.shadow)
@@ -240,7 +284,8 @@ export function ScreenshotSlotView({
     `rotateZ(${slot.tilt.rz}deg)`,
     `scale(${slot.scale / 100})`,
   ].join(" ")
-  const boxAspectRatio = canvasAspectRatio < 0.85 ? "10 / 14" : "16 / 10"
+  const boxAspectRatio =
+    bareImageAspectRatio ?? (canvasAspectRatio < 0.85 ? "10 / 14" : "16 / 10")
 
   const containerStyle: React.CSSProperties = {
     left: `${slot.xPct}%`,
@@ -421,5 +466,3 @@ export function ScreenshotSlotView({
     </>
   )
 }
-
-

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { motion } from "motion/react"
 import { toast } from "sonner"
 
@@ -9,6 +10,14 @@ import { CropModal } from "@/components/editor/crop-modal"
 import { AnnotationShapeElement } from "@/components/editor/annotation-shape-element"
 import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
+import {
+  ToolbarDeleteButton,
+  ToolbarDivider,
+  ToolbarDragHandle,
+  ToolbarDuplicateButton,
+  ToolbarLayerOrderMenu,
+  ToolbarSurface,
+} from "@/components/editor/toolbar/primitives"
 import { cn } from "@/lib/utils"
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
 import {
@@ -36,6 +45,7 @@ import {
   deviceMockupSpec,
   positionFloatingToolbar,
   screenshotPlacementStyle,
+  snapCenterToTarget,
 } from "./canvas/helpers"
 import { ScreenshotBare } from "./canvas/screenshot-bare"
 import {
@@ -47,8 +57,8 @@ import { BulkCanvasFlow } from "./bulk-canvas-flow"
 import { ScreenshotSlotView } from "./screenshot-slot-element"
 
 const BASE_CANVAS_WIDTH = 1100
-const SCREENSHOT_ROW_MARGIN = 4
-const SCREENSHOT_ROW_GAP = 3
+const SCREENSHOT_ROW_MARGIN = 1
+const SCREENSHOT_ROW_GAP = 2
 
 const screenshotRowItemWidth = (count: number) => {
   if (count <= 1) return 66
@@ -115,6 +125,9 @@ function CanvasViewInner({
     screenshotSlots,
     setSelectedScreenshotSlotId,
     setScreenshotSlotImage,
+    addScreenshotSlot,
+    bringScreenshotToFront,
+    sendScreenshotToBack,
     addAnnotationStroke,
     updateAnnotationStroke,
     addAnnotationShape,
@@ -344,7 +357,12 @@ function CanvasViewInner({
   const aw = autoDims ? autoDims.w : aspect.w || 16
   const ah = autoDims ? autoDims.h : aspect.h || 10
   const aspectRatio = `${aw} / ${ah}`
-  const screenshotBoxAspect = aw / ah < 0.85 ? "10 / 14" : "16 / 10"
+  const screenshotBoxAspect =
+    frame.id === "none" && naturalDims
+      ? `${naturalDims.w} / ${naturalDims.h}`
+      : aw / ah < 0.85
+        ? "10 / 14"
+        : "16 / 10"
   const rowItemCount = screenshotSlots.length + 1
   const rowItemWidth = screenshotRowItemWidth(rowItemCount)
   const rowTotalWidth =
@@ -469,14 +487,12 @@ function CanvasViewInner({
     const centerY = drag.baseTop + nextY + drag.imgH / 2
     const targetX = drag.stageW / 2
     const targetY = drag.stageH / 2
-    const snap = 8
-    const snapX = Math.abs(centerX - targetX) <= snap
-    const snapY = Math.abs(centerY - targetY) <= snap
+    const snap = snapCenterToTarget({ centerX, centerY, targetX, targetY })
 
-    if (snapX) nextX += targetX - centerX
-    if (snapY) nextY += targetY - centerY
+    nextX += snap.deltaX
+    nextY += snap.deltaY
 
-    updateCenterGuides({ x: snapX, y: snapY })
+    updateCenterGuides(snap.guides)
     setLiveOffset({ x: nextX, y: nextY })
   }
 
@@ -524,14 +540,17 @@ function CanvasViewInner({
       drag.startOffsetX + (e.clientX - drag.startClientX) / pointerScale
     let nextY =
       drag.startOffsetY + (e.clientY - drag.startClientY) / pointerScale
-    const snap = 8
-    const snapX = Math.abs(nextX) <= snap
-    const snapY = Math.abs(nextY) <= snap
+    const snap = snapCenterToTarget({
+      centerX: nextX,
+      centerY: nextY,
+      targetX: 0,
+      targetY: 0,
+    })
 
-    if (snapX) nextX = 0
-    if (snapY) nextY = 0
+    nextX += snap.deltaX
+    nextY += snap.deltaY
 
-    updateCenterGuides({ x: snapX, y: snapY })
+    updateCenterGuides(snap.guides)
     setLiveOffset({ x: nextX, y: nextY })
   }
 
@@ -1018,25 +1037,25 @@ function CanvasViewInner({
           {centerGuides.x ? (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-1/2 z-30 -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95"
+              className="pointer-events-none absolute inset-y-0 left-1/2 z-[900] -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95"
             />
           ) : null}
           {centerGuides.y ? (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
+              className="pointer-events-none absolute inset-x-0 top-1/2 z-[900] -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
             />
           ) : null}
           {textCenterGuides.x ? (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-1/2 z-50 -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95"
+              className="pointer-events-none absolute inset-y-0 left-1/2 z-[900] -translate-x-1/2 border-l border-dashed border-[#9BCD64]/95"
             />
           ) : null}
           {textCenterGuides.y ? (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-1/2 z-50 -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
+              className="pointer-events-none absolute inset-x-0 top-1/2 z-[900] -translate-y-1/2 border-t border-dashed border-[#9BCD64]/95"
             />
           ) : null}
 
@@ -1074,6 +1093,18 @@ function CanvasViewInner({
                 setIsScreenshotSelected(false)
                 setScreenshot(null)
               }}
+              onDuplicate={() => {
+                const newId = addScreenshotSlot()
+                if (!newId) {
+                  toast(`Screenshot box limit reached`)
+                  return
+                }
+                if (screenshot) setScreenshotSlotImage(newId, screenshot)
+                setSelectedScreenshotSlotId(newId)
+                setIsScreenshotSelected(false)
+              }}
+              onBringToFront={() => bringScreenshotToFront()}
+              onSendToBack={() => sendScreenshotToBack()}
               onPointerDown={(e) => {
                 if (document.activeElement instanceof HTMLElement) {
                   document.activeElement.blur()
@@ -1287,6 +1318,7 @@ function CanvasViewInner({
               canvasRef={canvasRef}
               canvasAspectRatio={aw / ah}
               onCropRequest={(id) => setCroppingSlotId(id)}
+              onCenterGuideChange={updateCenterGuides}
             />
           ))}
 
@@ -1394,6 +1426,9 @@ type MainScreenshotRowItemProps = {
   onCropClick: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  onDuplicate: () => void
+  onBringToFront: () => void
+  onSendToBack: () => void
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
@@ -1419,74 +1454,169 @@ function MainScreenshotRowItem({
   onCropClick,
   onReplaceFile,
   onDelete,
+  onDuplicate,
+  onBringToFront,
+  onSendToBack,
   onPointerDown,
   onPointerMove,
   onPointerUp,
 }: MainScreenshotRowItemProps) {
+  const rowRef = React.useRef<HTMLDivElement | null>(null)
+  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
+
+  React.useEffect(() => {
+    if (!isSelected || activeTool !== "pointer" || !rowRef.current) {
+      setToolbarRect(null)
+      return
+    }
+    const el = rowRef.current
+    const update = () => setToolbarRect(el.getBoundingClientRect())
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener("scroll", update, true)
+    window.addEventListener("resize", update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("scroll", update, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [isSelected, activeTool])
+
+  React.useEffect(() => {
+    if (!isSelected || activeTool !== "pointer" || !rowRef.current) return
+    setToolbarRect(rowRef.current.getBoundingClientRect())
+  }, [isSelected, activeTool, offset.x, offset.y, style.left, style.top])
+
   const baseTransform = (style.transform as string | undefined) ?? ""
   const mergedStyle: React.CSSProperties = {
     ...style,
     transform: `${baseTransform} translate(${offset.x}px, ${offset.y}px)`.trim(),
   }
   return (
-    <div
-      className={cn(
-        "group/main-row pointer-events-auto",
-        activeTool === "pointer" && "cursor-grab",
-        isScreenshotDragging && "cursor-grabbing"
-      )}
-      style={mergedStyle}
-      onClick={onSelect}
-      onPointerDown={(e) => {
-        if (activeTool !== "pointer") return
-        e.stopPropagation()
-        onPointerDown(e)
-      }}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-    >
+    <>
       <div
+        ref={rowRef}
         className={cn(
-          "relative h-full w-full",
-          isSelected &&
-            activeTool === "pointer" &&
-            "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+          "group/main-row pointer-events-auto",
+          activeTool === "pointer" && "cursor-grab",
+          isScreenshotDragging && "cursor-grabbing"
         )}
-        style={{
-          transform,
-          transformStyle: "preserve-3d",
-          opacity: imgStyle.opacity as number | undefined,
-          mixBlendMode: imgStyle.mixBlendMode as React.CSSProperties["mixBlendMode"],
-          borderRadius: imgStyle.borderRadius as number | undefined,
-          boxShadow:
-            frame.id === "none"
-              ? (imgStyle.boxShadow as string | undefined)
-              : undefined,
+        style={mergedStyle}
+        onClick={onSelect}
+        onPointerDown={(e) => {
+          if (activeTool !== "pointer") return
+          e.stopPropagation()
+          onPointerDown(e)
         }}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
-        <FramedScreenshotVisual
-          src={screenshot}
-          frame={frame}
-          onBrowse={onBrowse}
-          isDragOver={isDragOver}
-          imageFilter={filterChain}
-          shadowFilter={frame.id === "none" ? undefined : shadowFilter}
-          borderRadius={imgStyle.borderRadius as number | undefined}
-          addressValue={addressValue}
-          onAddressChange={onAddressChange}
-        />
-
-        {screenshot && activeTool === "pointer" ? (
-          <BoxHoverActions
-            hoverGroupClass="group-hover/main-row:opacity-100"
-            onCrop={onCropClick}
-            onReplaceFile={onReplaceFile}
-            onDelete={onDelete}
+        <div
+          className={cn(
+            "relative h-full w-full",
+            isSelected &&
+              activeTool === "pointer" &&
+              "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+          )}
+          style={{
+            transform,
+            transformStyle: "preserve-3d",
+            opacity: imgStyle.opacity as number | undefined,
+            mixBlendMode: imgStyle.mixBlendMode as React.CSSProperties["mixBlendMode"],
+            borderRadius: imgStyle.borderRadius as number | undefined,
+            boxShadow:
+              frame.id === "none"
+                ? (imgStyle.boxShadow as string | undefined)
+                : undefined,
+          }}
+        >
+          <FramedScreenshotVisual
+            src={screenshot}
+            frame={frame}
+            onBrowse={onBrowse}
+            isDragOver={isDragOver}
+            imageFilter={filterChain}
+            shadowFilter={frame.id === "none" ? undefined : shadowFilter}
+            borderRadius={imgStyle.borderRadius as number | undefined}
+            addressValue={addressValue}
+            onAddressChange={onAddressChange}
           />
-        ) : null}
+
+          {screenshot && activeTool === "pointer" ? (
+            <BoxHoverActions
+              hoverGroupClass="group-hover/main-row:opacity-100"
+              onCrop={onCropClick}
+              onReplaceFile={onReplaceFile}
+              onDelete={onDelete}
+            />
+          ) : null}
+        </div>
       </div>
-    </div>
+
+      {isSelected &&
+      activeTool === "pointer" &&
+      toolbarRect &&
+      typeof document !== "undefined"
+        ? createPortal(
+            (() => {
+              const flipBelow = toolbarRect.top < 80
+              const top = flipBelow
+                ? toolbarRect.bottom + 12
+                : toolbarRect.top - 12
+              const left = toolbarRect.left + toolbarRect.width / 2
+              return (
+                <div
+                  data-editor-floating-toolbar-target="main-screenshot"
+                  className="pointer-events-none fixed z-100"
+                  style={{
+                    top,
+                    left,
+                    transform: flipBelow
+                      ? "translate(-50%, 0)"
+                      : "translate(-50%, -100%)",
+                  }}
+                >
+                  <div className="pointer-events-auto">
+                    <ToolbarSurface>
+                      <ToolbarDragHandle
+                        ariaLabel="Drag screenshot"
+                        onPointerDown={(e) => {
+                          e.stopPropagation()
+                          onPointerDown(
+                            e as unknown as React.PointerEvent<HTMLDivElement>
+                          )
+                        }}
+                        onPointerMove={(e) =>
+                          onPointerMove(
+                            e as unknown as React.PointerEvent<HTMLDivElement>
+                          )
+                        }
+                        onPointerUp={(e) =>
+                          onPointerUp(
+                            e as unknown as React.PointerEvent<HTMLDivElement>
+                          )
+                        }
+                      />
+                      <ToolbarDivider />
+                      <ToolbarDuplicateButton
+                        ariaLabel="Duplicate screenshot"
+                        onDuplicate={onDuplicate}
+                      />
+                      <ToolbarLayerOrderMenu
+                        onBringToFront={onBringToFront}
+                        onSendToBack={onSendToBack}
+                      />
+                    </ToolbarSurface>
+                  </div>
+                </div>
+              )
+            })(),
+            document.body
+          )
+        : null}
+    </>
   )
 }
 

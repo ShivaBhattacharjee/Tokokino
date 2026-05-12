@@ -85,7 +85,7 @@ const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
     value: DEFAULT_IMAGE_BACKGROUND,
   },
   padding: 96,
-  borderRadius: 12,
+  borderRadius: 7,
   canvasBorderRadius: 16,
   border: { color: null, width: 1, style: "solid", padding: 0 },
   backdrop: {
@@ -219,6 +219,8 @@ type EditorActions = {
   setOverlay: (o: Overlay, canvasId?: string) => void
   setFrame: (f: DeviceFrame, canvasId?: string) => void
   setFrameAddress: (address: string, canvasId?: string) => void
+  bringScreenshotToFront: (canvasId?: string) => void
+  sendScreenshotToBack: (canvasId?: string) => void
   setPortrait: (p: Portrait, canvasId?: string) => void
   setEnhance: (e: EnhancePreset, canvasId?: string) => void
   setAnnotation: (patch: Partial<Annotation>) => void
@@ -404,8 +406,8 @@ function moveLayerInStack(
   return applyLayerOrder(c, refs)
 }
 
-const SLOT_ROW_MARGIN = 4
-const SLOT_ROW_GAP = 3
+const SLOT_ROW_MARGIN = 1
+const SLOT_ROW_GAP = 1
 const SLOT_DEFAULT_HEIGHT_PCT = 28
 
 const slotWidthForCount = (count: number) => {
@@ -453,7 +455,7 @@ const createScreenshotSlot = (
     color: "black",
     orientation: "vertical",
   },
-  borderRadius: 12,
+  borderRadius: 7,
   zIndex,
   shadow: {
     type: "drop",
@@ -672,6 +674,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setFrame: (f, canvasId) => commitCanvas(canvasId, { frame: f }, "frame"),
     setFrameAddress: (address, canvasId) =>
       commitCanvas(canvasId, { frameAddress: address }, "frame-address"),
+    bringScreenshotToFront: (canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, "screenshot", "front"),
+        "screenshot-layer"
+      ),
+    sendScreenshotToBack: (canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, "screenshot", "back"),
+        "screenshot-layer"
+      ),
     setPortrait: (p, canvasId) =>
       commitCanvas(canvasId, { portrait: p }, "portrait"),
     setEnhance: (e, canvasId) =>
@@ -1423,6 +1437,10 @@ export function useEditor(): EditorContext {
     setFrame: (f, canvasId) => store.setFrame(f, canvasId ?? targetId),
     setFrameAddress: (address, canvasId) =>
       store.setFrameAddress(address, canvasId ?? targetId),
+    bringScreenshotToFront: (canvasId) =>
+      store.bringScreenshotToFront(canvasId ?? targetId),
+    sendScreenshotToBack: (canvasId) =>
+      store.sendScreenshotToBack(canvasId ?? targetId),
     setPortrait: (p, canvasId) => store.setPortrait(p, canvasId ?? targetId),
     setEnhance: (e, canvasId) => store.setEnhance(e, canvasId ?? targetId),
     setAnnotation: store.setAnnotation,
