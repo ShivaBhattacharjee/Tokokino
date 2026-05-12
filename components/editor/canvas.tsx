@@ -1011,8 +1011,7 @@ function CanvasViewInner({
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
             style={{
-              padding:
-                screenshot || hasFrame ? `${(padding / 1200) * 100}%` : 0,
+              padding: `${(padding / 1200) * 100}%`,
               zIndex: 60 + screenshotLayer.zIndex,
             }}
           >
