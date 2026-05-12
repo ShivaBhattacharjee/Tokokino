@@ -27,9 +27,13 @@ import { TiltSection } from "./inspector/tilt-section"
 
 export function Inspector({ className }: { className?: string }) {
   const frameId = useActiveCanvasField((c) => c.frame.id)
+  const screenshotBoxCount = useActiveCanvasField(
+    (c) => (c.screenshot ? 1 : 0) + c.screenshotSlots.length
+  )
   const selectedSlot = useSelectedScreenshotSlot()
   const activeFrameId = selectedSlot?.frame.id ?? frameId
   const hasDeviceFrame = activeFrameId !== "none"
+  const showPadding = screenshotBoxCount <= 1
 
   return (
     <aside
@@ -63,10 +67,14 @@ export function Inspector({ className }: { className?: string }) {
             </>
           ) : null}
 
-          <Section icon={RiLayoutGrid2Line} title="Padding" defaultOpen>
-            <PaddingSection />
-          </Section>
-          <div className="my-3 h-px bg-border/50" />
+          {showPadding ? (
+            <>
+              <Section icon={RiLayoutGrid2Line} title="Padding" defaultOpen>
+                <PaddingSection />
+              </Section>
+              <div className="my-3 h-px bg-border/50" />
+            </>
+          ) : null}
 
           <Section icon={RiRotateLockLine} title="Tilt & Scale" defaultOpen>
             <TiltSection />

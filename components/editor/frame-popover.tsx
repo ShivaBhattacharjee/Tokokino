@@ -330,10 +330,11 @@ export function FramePopover({
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 justify-items-center gap-1.5">
                 {section.options.map((option, optIdx) => (
                   <motion.div
                     key={option.id}
+                    className="w-full"
                     initial={{ opacity: 0, scale: 0.92, y: 6 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{

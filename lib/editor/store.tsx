@@ -84,7 +84,7 @@ const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
     type: "image",
     value: DEFAULT_IMAGE_BACKGROUND,
   },
-  padding: 96,
+  padding: 16,
   borderRadius: 7,
   canvasBorderRadius: 16,
   border: { color: null, width: 1, style: "solid", padding: 0 },
@@ -447,7 +447,7 @@ const createScreenshotSlot = (
   widthPct: slotWidthForCount(1),
   heightPct: SLOT_DEFAULT_HEIGHT_PCT,
   rotation: 0,
-  padding: 0,
+  padding: 16,
   tilt: { rx: 0, ry: 0, rz: 0 },
   scale: 100,
   frame: {
