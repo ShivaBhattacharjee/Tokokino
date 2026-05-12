@@ -2,6 +2,8 @@
 
 import * as React from "react"
 
+import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
+import { DeviceFrameEmptyContent } from "@/components/editor/canvas/device-frame-empty-content"
 import { Arc } from "@/components/ui/arc"
 import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
@@ -25,7 +27,8 @@ import {
 type FramedScreenshotVisualProps = {
   src: string | null
   frame: DeviceFrame
-  emptyState: React.ReactNode
+  onBrowse: () => void
+  isDragOver?: boolean
   imageFilter?: string
   shadowFilter?: string
   borderRadius?: number
@@ -35,25 +38,32 @@ type FramedScreenshotVisualProps = {
     color: string | null
     padding?: number
   }
+  addressValue?: string
+  onAddressChange?: (value: string) => void
 }
 
 export function FramedScreenshotVisual({
   src,
   frame,
-  emptyState,
+  onBrowse,
+  isDragOver,
   imageFilter,
   shadowFilter,
   borderRadius,
   outline,
+  addressValue,
+  onAddressChange,
 }: FramedScreenshotVisualProps) {
   if (isBrowserFrame(frame.id)) {
     return (
       <BrowserFrameVisual
         src={src}
         frame={frame}
-        emptyState={emptyState}
+        onBrowse={onBrowse}
         imageFilter={imageFilter}
         shadowFilter={shadowFilter}
+        addressValue={addressValue}
+        onAddressChange={onAddressChange}
       />
     )
   }
@@ -63,7 +73,7 @@ export function FramedScreenshotVisual({
       <DeviceFrameVisual
         src={src}
         frame={frame}
-        emptyState={emptyState}
+        onBrowse={onBrowse}
         imageFilter={imageFilter}
         shadowFilter={shadowFilter}
       />
@@ -73,7 +83,8 @@ export function FramedScreenshotVisual({
   return (
     <BareVisual
       src={src}
-      emptyState={emptyState}
+      onBrowse={onBrowse}
+      isDragOver={isDragOver}
       imageFilter={imageFilter}
       borderRadius={borderRadius}
       shadowFilter={shadowFilter}
@@ -84,14 +95,16 @@ export function FramedScreenshotVisual({
 
 function BareVisual({
   src,
-  emptyState,
+  onBrowse,
+  isDragOver,
   imageFilter,
   borderRadius,
   shadowFilter,
   outline,
 }: {
   src: string | null
-  emptyState: React.ReactNode
+  onBrowse: () => void
+  isDragOver?: boolean
   imageFilter?: string
   borderRadius?: number
   shadowFilter?: string
@@ -119,7 +132,7 @@ function BareVisual({
           style={{ filter: imageFilter || undefined }}
         />
       ) : (
-        emptyState
+        <BoxEmptyState isDragOver={isDragOver} onBrowse={onBrowse} />
       )}
     </div>
   )
@@ -128,21 +141,28 @@ function BareVisual({
 function BrowserFrameVisual({
   src,
   frame,
-  emptyState,
+  onBrowse,
   imageFilter,
   shadowFilter,
+  addressValue,
+  onAddressChange,
 }: {
   src: string | null
   frame: DeviceFrame
-  emptyState: React.ReactNode
+  onBrowse: () => void
   imageFilter?: string
   shadowFilter?: string
+  addressValue?: string
+  onAddressChange?: (value: string) => void
 }) {
   const color = resolveBrowserFrameColor(frame.color)
   const colorMode = color === "dark" ? "dark" : "light"
   const style: React.CSSProperties = {
     filter: [shadowFilter, imageFilter].filter(Boolean).join(" ") || undefined,
   }
+  const emptyContent = !src ? (
+    <DeviceFrameEmptyContent onBrowse={onBrowse} />
+  ) : null
 
   if (frame.id === ARC_BROWSER_FRAME_ID) {
     return (
@@ -152,7 +172,7 @@ function BrowserFrameVisual({
         className="h-full w-full"
         style={style}
       >
-        {!src ? emptyState : null}
+        {emptyContent}
       </Arc>
     )
   }
@@ -162,10 +182,12 @@ function BrowserFrameVisual({
       <Chrome
         imageSrc={src ?? undefined}
         colorMode={colorMode}
+        addressValue={addressValue}
+        onAddressChange={onAddressChange}
         className="h-full w-full"
         style={style}
       >
-        {!src ? emptyState : null}
+        {emptyContent}
       </Chrome>
     )
   }
@@ -174,10 +196,12 @@ function BrowserFrameVisual({
     <Safari
       imageSrc={src ?? undefined}
       colorMode={colorMode}
+      addressValue={addressValue}
+      onAddressChange={onAddressChange}
       className="h-full w-full"
       style={style}
     >
-      {!src ? emptyState : null}
+      {emptyContent}
     </Safari>
   )
 }
@@ -185,13 +209,13 @@ function BrowserFrameVisual({
 function DeviceFrameVisual({
   src,
   frame,
-  emptyState,
+  onBrowse,
   imageFilter,
   shadowFilter,
 }: {
   src: string | null
   frame: DeviceFrame
-  emptyState: React.ReactNode
+  onBrowse: () => void
   imageFilter?: string
   shadowFilter?: string
 }) {
@@ -211,7 +235,7 @@ function DeviceFrameVisual({
     return (
       <BareVisual
         src={src}
-        emptyState={emptyState}
+        onBrowse={onBrowse}
         imageFilter={imageFilter}
         shadowFilter={shadowFilter}
       />
@@ -238,6 +262,7 @@ function DeviceFrameVisual({
               aspectRatio: spec.screen.aspectRatio,
               ...mockupScreenClipStyle(spec.screen),
               transform: mockupScreenTransform(spec.screen),
+              containerType: "inline-size",
             }}
           >
             {src ? (
@@ -252,7 +277,7 @@ function DeviceFrameVisual({
                 style={horizontalScreenStyle}
               />
             ) : (
-              emptyState
+              <DeviceFrameEmptyContent onBrowse={onBrowse} />
             )}
           </div>
         </div>

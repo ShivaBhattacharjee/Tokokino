@@ -37,6 +37,8 @@ type ScreenshotBrowserFrameProps = {
   activeTool: EditorTool
   stageRef: React.RefObject<HTMLDivElement | null>
   imageRef: React.RefObject<HTMLImageElement | null>
+  addressValue: string
+  onAddressChange: (value: string) => void
   onSelect: (e: SelectEvent) => void
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
@@ -57,6 +59,8 @@ type BrowserFrameEmptyStateProps = {
   screenshotAnchor: { x: number; y: number }
   isScreenshotDragging: boolean
   activeTool: EditorTool
+  addressValue: string
+  onAddressChange: (value: string) => void
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
@@ -76,6 +80,8 @@ export function ScreenshotBrowserFrame({
   activeTool,
   stageRef,
   imageRef,
+  addressValue,
+  onAddressChange,
   onSelect,
   onPointerDown,
   onPointerMove,
@@ -86,7 +92,6 @@ export function ScreenshotBrowserFrame({
   onDelete,
 }: ScreenshotBrowserFrameProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
-  const [address, setAddress] = React.useState("")
   const frame = getBrowserFrame(frameId)
   const frameFitStyle = browserFrameFitStyle(
     frame?.aspectRatio ?? BROWSER_FRAME_ASPECT_RATIO
@@ -152,8 +157,8 @@ export function ScreenshotBrowserFrame({
           <Chrome
             imageSrc={screenshot}
             colorMode={color === "dark" ? "dark" : "light"}
-            addressValue={address}
-            onAddressChange={setAddress}
+            addressValue={addressValue}
+            onAddressChange={onAddressChange}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
@@ -163,8 +168,8 @@ export function ScreenshotBrowserFrame({
           <Safari
             imageSrc={screenshot}
             colorMode={color === "dark" ? "dark" : "light"}
-            addressValue={address}
-            onAddressChange={setAddress}
+            addressValue={addressValue}
+            onAddressChange={onAddressChange}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
@@ -223,12 +228,13 @@ export function BrowserFrameEmptyState({
   screenshotAnchor,
   isScreenshotDragging,
   activeTool,
+  addressValue,
+  onAddressChange,
   onPointerDown,
   onPointerMove,
   onPointerUp,
 }: BrowserFrameEmptyStateProps) {
   const [url, setUrl] = React.useState("")
-  const [address, setAddress] = React.useState("")
   const frame = getBrowserFrame(frameId)
   const frameFitStyle = browserFrameFitStyle(
     frame?.aspectRatio ?? BROWSER_FRAME_ASPECT_RATIO
@@ -278,8 +284,8 @@ export function BrowserFrameEmptyState({
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
           <Chrome
             colorMode={color === "dark" ? "dark" : "light"}
-            addressValue={address}
-            onAddressChange={setAddress}
+            addressValue={addressValue}
+            onAddressChange={onAddressChange}
             className="h-full w-full"
           >
             <BrowserFrameEmptyContent
@@ -292,8 +298,8 @@ export function BrowserFrameEmptyState({
         ) : (
           <Safari
             colorMode={color === "dark" ? "dark" : "light"}
-            addressValue={address}
-            onAddressChange={setAddress}
+            addressValue={addressValue}
+            onAddressChange={onAddressChange}
             className="h-full w-full"
           >
             <BrowserFrameEmptyContent

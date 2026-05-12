@@ -87,6 +87,7 @@ export function Safari({
       className={`relative inline-block w-full align-middle leading-none ${className ?? ""}`}
       style={{
         aspectRatio: `${SAFARI_WIDTH}/${SAFARI_HEIGHT}`,
+        containerType: "inline-size",
         ...style,
       }}
       {...props}

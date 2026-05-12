@@ -26,7 +26,6 @@ import { getDeviceMockup, getDeviceMockupAsset } from "@/lib/mockups"
 
 import { AnnotationLayer } from "./canvas/annotation-layer"
 import { CanvasBackdrop } from "./canvas/canvas-backdrop"
-import { BoxEmptyState } from "./canvas/box-empty-state"
 import { BoxHoverActions } from "./canvas/box-hover-actions"
 import { CanvasEmptyState } from "./canvas/canvas-empty-state"
 import { DeviceFrameEmptyState } from "./canvas/device-frame-empty-state"
@@ -95,6 +94,8 @@ function CanvasViewInner({
     shadow,
     overlay,
     frame,
+    frameAddress,
+    setFrameAddress,
     portrait,
     enhance,
     annotation,
@@ -1052,8 +1053,11 @@ function CanvasViewInner({
           {mainScreenshotRowStyle ? (
             <MainScreenshotRowItem
               style={mainScreenshotRowStyle}
+              offset={effectiveOffset}
               screenshot={screenshot}
               frame={frame}
+              addressValue={frameAddress}
+              onAddressChange={setFrameAddress}
               transform={transform}
               isDragOver={isDragOver}
               imgStyle={imgStyle}
@@ -1061,6 +1065,7 @@ function CanvasViewInner({
               filterChain={enhanceFilter}
               isSelected={isScreenshotSelected}
               activeTool={activeTool}
+              isScreenshotDragging={isScreenshotDragging}
               onSelect={handleScreenshotClickSelect}
               onBrowse={() => fileInputRef.current?.click()}
               onCropClick={() => setIsCropModalOpen(true)}
@@ -1069,6 +1074,14 @@ function CanvasViewInner({
                 setIsScreenshotSelected(false)
                 setScreenshot(null)
               }}
+              onPointerDown={(e) => {
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur()
+                }
+                startMockupDrag(e)
+              }}
+              onPointerMove={moveMockup}
+              onPointerUp={stopMockupDrag}
             />
           ) : null}
 
@@ -1104,6 +1117,8 @@ function CanvasViewInner({
                   activeTool={activeTool}
                   stageRef={stageRef}
                   imageRef={imageRef}
+                  addressValue={frameAddress}
+                  onAddressChange={setFrameAddress}
                   onSelect={handleScreenshotClickSelect}
                   onPointerDown={(e) => {
                     if (document.activeElement instanceof HTMLElement) {
@@ -1208,6 +1223,8 @@ function CanvasViewInner({
                 screenshotAnchor={screenshotAnchor}
                 isScreenshotDragging={isScreenshotDragging}
                 activeTool={activeTool}
+                addressValue={frameAddress}
+                onAddressChange={setFrameAddress}
                 onPointerDown={(e) => {
                   if (document.activeElement instanceof HTMLElement) {
                     document.activeElement.blur()
@@ -1359,8 +1376,11 @@ function CanvasViewInner({
 
 type MainScreenshotRowItemProps = {
   style: React.CSSProperties
+  offset: { x: number; y: number }
   screenshot: string | null
   frame: import("@/lib/editor/state-types").DeviceFrame
+  addressValue: string
+  onAddressChange: (value: string) => void
   transform: string
   isDragOver: boolean
   imgStyle: React.CSSProperties
@@ -1368,17 +1388,24 @@ type MainScreenshotRowItemProps = {
   filterChain: string | undefined
   isSelected: boolean
   activeTool: import("@/lib/editor/store").EditorTool
+  isScreenshotDragging: boolean
   onSelect: (e: React.MouseEvent | React.PointerEvent) => void
   onBrowse: () => void
   onCropClick: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
 }
 
 function MainScreenshotRowItem({
   style,
+  offset,
   screenshot,
   frame,
+  addressValue,
+  onAddressChange,
   transform,
   isDragOver,
   imgStyle,
@@ -1386,20 +1413,38 @@ function MainScreenshotRowItem({
   filterChain,
   isSelected,
   activeTool,
+  isScreenshotDragging,
   onSelect,
   onBrowse,
   onCropClick,
   onReplaceFile,
   onDelete,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
 }: MainScreenshotRowItemProps) {
+  const baseTransform = (style.transform as string | undefined) ?? ""
+  const mergedStyle: React.CSSProperties = {
+    ...style,
+    transform: `${baseTransform} translate(${offset.x}px, ${offset.y}px)`.trim(),
+  }
   return (
     <div
       className={cn(
         "group/main-row pointer-events-auto",
-        activeTool === "pointer" && "cursor-pointer"
+        activeTool === "pointer" && screenshot && "cursor-grab",
+        isScreenshotDragging && "cursor-grabbing"
       )}
-      style={style}
+      style={mergedStyle}
       onClick={onSelect}
+      onPointerDown={(e) => {
+        if (!screenshot || activeTool !== "pointer") return
+        e.stopPropagation()
+        onPointerDown(e)
+      }}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
     >
       <div
         className={cn(
@@ -1423,20 +1468,13 @@ function MainScreenshotRowItem({
         <FramedScreenshotVisual
           src={screenshot}
           frame={frame}
+          onBrowse={onBrowse}
+          isDragOver={isDragOver}
           imageFilter={filterChain}
           shadowFilter={frame.id === "none" ? undefined : shadowFilter}
           borderRadius={imgStyle.borderRadius as number | undefined}
-          outline={
-            imgStyle.outline
-              ? {
-                  width: 0,
-                  color: null,
-                }
-              : undefined
-          }
-          emptyState={
-            <BoxEmptyState isDragOver={isDragOver} onBrowse={onBrowse} />
-          }
+          addressValue={addressValue}
+          onAddressChange={onAddressChange}
         />
 
         {screenshot && activeTool === "pointer" ? (

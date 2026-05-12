@@ -485,10 +485,10 @@ function DeviceTile({
       onClick={onSelect}
       aria-pressed={active}
       className={cn(
-        "group flex min-h-[168px] flex-col items-center gap-2 rounded-lg border p-2.5 transition-colors",
+        "group flex min-h-[150px] flex-col items-center gap-1.5 rounded-lg p-2.5 transition-colors",
         active
-          ? "border-foreground/35 bg-accent"
-          : "border-border/60 bg-secondary/25 hover:border-foreground/25 hover:bg-secondary/55"
+          ? "bg-accent"
+          : "bg-secondary/25 hover:bg-secondary/55"
       )}
     >
       <div className="flex h-[88px] w-full items-center justify-center">
@@ -518,13 +518,13 @@ function DeviceTile({
       </div>
       <span
         className={cn(
-          "line-clamp-2 min-h-[2.1em] w-full text-center text-[11px] leading-[1.05rem]",
+          "line-clamp-2 w-full text-center text-[11px] leading-[1.05rem]",
           active ? "text-foreground" : "text-foreground/82"
         )}
       >
         {option.name}
       </span>
-      <span className="tabular font-mono text-[10px] text-muted-foreground">
+      <span className="tabular mt-auto pt-1 font-mono text-[10px] text-muted-foreground">
         {option.w && option.h ? `${option.w}×${option.h}` : "bare"}
       </span>
     </button>

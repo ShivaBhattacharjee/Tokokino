@@ -3,7 +3,6 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
 import { BoxHoverActions } from "@/components/editor/canvas/box-hover-actions"
 import { FramedScreenshotVisual } from "@/components/editor/canvas/framed-screenshot-visual"
 import {
@@ -268,15 +267,15 @@ export function ScreenshotSlotView({
             <FramedScreenshotVisual
               src={slot.src}
               frame={slot.frame}
+              onBrowse={onBrowse}
+              isDragOver={isDragOver}
               imageFilter={filterChain || undefined}
               shadowFilter={computedShadowFilter}
               borderRadius={bareBorderRadius}
               outline={imageBoxOutline}
-              emptyState={
-                <BoxEmptyState
-                  isDragOver={isDragOver}
-                  onBrowse={onBrowse}
-                />
+              addressValue={slot.frameAddress}
+              onAddressChange={(value) =>
+                updateScreenshotSlot(slot.id, { frameAddress: value })
               }
             />
 

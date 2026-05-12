@@ -329,6 +329,7 @@ export type ScreenshotSlot = {
   opacity: number
   blendMode: AssetBlendMode
   hidden?: boolean
+  frameAddress: string
 }
 
 export type CanvasPosition = { x: number; y: number }
@@ -360,6 +361,7 @@ export type CanvasState = {
   annotations: AnnotationStroke[]
   annotationShapes: AnnotationShape[]
   screenshotSlots: ScreenshotSlot[]
+  frameAddress: string
 }
 
 export type EditorState = {

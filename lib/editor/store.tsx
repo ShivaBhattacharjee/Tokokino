@@ -147,6 +147,7 @@ const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   annotations: [],
   annotationShapes: [],
   screenshotSlots: [],
+  frameAddress: "",
 }
 
 const createCanvas = (
@@ -217,6 +218,7 @@ type EditorActions = {
   setShadow: (s: Shadow, canvasId?: string) => void
   setOverlay: (o: Overlay, canvasId?: string) => void
   setFrame: (f: DeviceFrame, canvasId?: string) => void
+  setFrameAddress: (address: string, canvasId?: string) => void
   setPortrait: (p: Portrait, canvasId?: string) => void
   setEnhance: (e: EnhancePreset, canvasId?: string) => void
   setAnnotation: (patch: Partial<Annotation>) => void
@@ -462,6 +464,7 @@ const createScreenshotSlot = (
   filter: "none",
   opacity: 100,
   blendMode: "normal",
+  frameAddress: "",
   ...base,
 })
 
@@ -665,6 +668,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setOverlay: (o, canvasId) =>
       commitCanvas(canvasId, { overlay: o }, "overlay"),
     setFrame: (f, canvasId) => commitCanvas(canvasId, { frame: f }, "frame"),
+    setFrameAddress: (address, canvasId) =>
+      commitCanvas(canvasId, { frameAddress: address }, "frame-address"),
     setPortrait: (p, canvasId) =>
       commitCanvas(canvasId, { portrait: p }, "portrait"),
     setEnhance: (e, canvasId) =>
@@ -1105,7 +1110,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       commitCanvas(
         targetId,
         (canvas) => {
-          const next = createScreenshotSlot({ id }, computeNextLayerZ(canvas))
+          const next = createScreenshotSlot(
+            {
+              id,
+              frame: { ...canvas.frame },
+              frameAddress: canvas.frameAddress,
+            },
+            computeNextLayerZ(canvas)
+          )
           return {
             screenshotSlots: layoutSlotsInRow([
               ...canvas.screenshotSlots,
@@ -1343,6 +1355,7 @@ export function useEditor(): EditorContext {
     shadow: canvas.shadow,
     overlay: canvas.overlay,
     frame: canvas.frame,
+    frameAddress: canvas.frameAddress,
     portrait: canvas.portrait,
     texts: canvas.texts,
     assets: canvas.assets,
@@ -1394,6 +1407,8 @@ export function useEditor(): EditorContext {
     setShadow: (s, canvasId) => store.setShadow(s, canvasId ?? targetId),
     setOverlay: (o, canvasId) => store.setOverlay(o, canvasId ?? targetId),
     setFrame: (f, canvasId) => store.setFrame(f, canvasId ?? targetId),
+    setFrameAddress: (address, canvasId) =>
+      store.setFrameAddress(address, canvasId ?? targetId),
     setPortrait: (p, canvasId) => store.setPortrait(p, canvasId ?? targetId),
     setEnhance: (e, canvasId) => store.setEnhance(e, canvasId ?? targetId),
     setAnnotation: store.setAnnotation,
