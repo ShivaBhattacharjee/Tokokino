@@ -9,10 +9,13 @@ import {
   RiMagicLine,
   RiSunLine,
 } from "@remixicon/react"
-import { motion, useScroll, useTransform } from "motion/react"
 
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import { EditableValue } from "@/components/editor/editable-value"
+import {
+  ScrollFadeBody,
+  ScrollFadeRootContext,
+} from "@/components/editor/scroll-fade"
 import {
   Popover,
   PopoverContent,
@@ -47,9 +50,6 @@ const PORTRAIT_MODES: { id: PortraitMode; label: string }[] = [
   { id: "blur", label: "Blur" },
   { id: "stage", label: "Stage" },
 ]
-
-const hiddenScrollbarClass =
-  "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 
 function portraitPreviewCss(mode: PortraitMode): React.CSSProperties {
   switch (mode) {
@@ -128,64 +128,6 @@ function BackdropTile({
   )
 }
 
-function ScrollFadeBody({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  const scrollRef = React.useRef<HTMLDivElement>(null)
-  const [isScrollable, setIsScrollable] = React.useState(false)
-  const { scrollYProgress } = useScroll({ container: scrollRef })
-  const topOpacity = useTransform(scrollYProgress, [0, 0.08], [0, 1])
-  const bottomOpacity = useTransform(scrollYProgress, [0.9, 1], [1, 0])
-
-  const updateScrollState = React.useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    setIsScrollable(el.scrollHeight > el.clientHeight + 1)
-  }, [])
-
-  React.useEffect(() => {
-    updateScrollState()
-    const el = scrollRef.current
-    if (!el) return
-
-    const observer = new ResizeObserver(updateScrollState)
-    observer.observe(el)
-    if (el.firstElementChild) observer.observe(el.firstElementChild)
-
-    return () => observer.disconnect()
-  }, [updateScrollState])
-
-  return (
-    <div className="relative min-h-0">
-      <div
-        ref={scrollRef}
-        onScroll={updateScrollState}
-        className={cn(
-          "max-h-[min(260px,calc(100vh-10rem))] overflow-x-hidden overflow-y-auto",
-          hiddenScrollbarClass,
-          className
-        )}
-      >
-        {children}
-      </div>
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-popover to-transparent"
-        style={{ opacity: isScrollable ? topOpacity : 0 }}
-      />
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-popover to-transparent"
-        style={{ opacity: isScrollable ? bottomOpacity : 0 }}
-      />
-    </div>
-  )
-}
-
 function BackdropControlPopover({
   icon,
   label,
@@ -195,10 +137,11 @@ function BackdropControlPopover({
   onReset,
   resetTitle,
   children,
+  footer,
   className,
   contentClassName,
   bodyClassName,
-  scrollBody = false,
+  footerClassName,
   open,
   onOpenChange,
   forceMount,
@@ -211,10 +154,11 @@ function BackdropControlPopover({
   onReset?: () => void
   resetTitle?: string
   children: React.ReactNode
+  footer?: React.ReactNode
   className?: string
   contentClassName?: string
   bodyClassName?: string
-  scrollBody?: boolean
+  footerClassName?: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
   forceMount?: true
@@ -240,11 +184,21 @@ function BackdropControlPopover({
           onReset={onReset}
           resetTitle={resetTitle}
         />
-        {scrollBody ? (
-          <ScrollFadeBody className={bodyClassName}>{children}</ScrollFadeBody>
-        ) : (
-          <div className={bodyClassName}>{children}</div>
-        )}
+        <ScrollFadeBody
+          className={cn("max-h-[min(220px,calc(100vh-10rem))]", bodyClassName)}
+        >
+          {children}
+        </ScrollFadeBody>
+        {footer ? (
+          <div
+            className={cn(
+              "-mx-2 -mb-2 shrink-0 border-t border-border/40 bg-popover px-2 py-2",
+              footerClassName
+            )}
+          >
+            {footer}
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   )
@@ -264,7 +218,7 @@ function OverlayGrid({
   selectedId: number | null
   onSelect: (id: number | null) => void
 }) {
-  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const scrollRootRef = React.useContext(ScrollFadeRootContext)
   const callbacksRef = React.useRef<Map<Element, () => void>>(new Map())
   const [observer, setObserver] = React.useState<IntersectionObserver | null>(
     null
@@ -283,7 +237,7 @@ function OverlayGrid({
           }
         }
       },
-      { root: scrollRef.current, rootMargin: "200px" }
+      { root: scrollRootRef?.current ?? null, rootMargin: "200px" }
     )
     setObserver(obs)
     const callbacks = callbacksRef.current
@@ -291,7 +245,7 @@ function OverlayGrid({
       obs.disconnect()
       callbacks.clear()
     }
-  }, [])
+  }, [scrollRootRef])
 
   const observe = React.useCallback<ObserveFn>(
     (el, cb) => {
@@ -320,11 +274,7 @@ function OverlayGrid({
 
   return (
     <div
-      ref={scrollRef}
-      className={cn(
-        "grid max-h-[240px] grid-cols-3 gap-3 overflow-y-auto px-1 py-1 [contain:layout_paint]",
-        hiddenScrollbarClass
-      )}
+      className={cn("grid grid-cols-3 gap-3 px-1 py-1 [contain:layout_paint]")}
     >
       <button
         key="none"
@@ -438,12 +388,7 @@ function BackdropFilterGrid({
   onChange: (f: AssetFilter) => void
 }) {
   return (
-    <div
-      className={cn(
-        "grid max-h-[240px] grid-cols-3 gap-1.5 overflow-y-auto px-1 py-1",
-        hiddenScrollbarClass
-      )}
-    >
+    <div className="grid grid-cols-3 gap-1.5 px-1 py-1">
       {BACKDROP_FILTERS.map((f) => {
         const active = current === f.id
         return (
@@ -579,62 +524,64 @@ export function BackdropSection() {
           onOpenChange={handleOverlayOpenChange}
           forceMount={overlayHasOpened ? true : undefined}
           contentClassName="w-[240px] [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
-          bodyClassName="space-y-2"
+          bodyClassName="pr-1"
+          footer={
+            <div className="space-y-3">
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">
+                    Opacity
+                  </span>
+                  <EditableValue
+                    value={overlay.opacity}
+                    onChange={(v) => setOverlayPatch({ opacity: v })}
+                    min={0}
+                    max={100}
+                    suffix="%"
+                  />
+                </div>
+                <Slider
+                  value={[overlay.opacity]}
+                  onValueChange={([v]) => setOverlayPatch({ opacity: v })}
+                  max={100}
+                  className="cursor-pointer"
+                />
+              </div>
+              <div className="space-y-2">
+                <span className="text-[11px] text-muted-foreground">
+                  Position
+                </span>
+                <ToggleGroup
+                  type="single"
+                  value={overlay.position}
+                  onValueChange={(v) =>
+                    v &&
+                    setOverlayPatch({ position: v as "overlay" | "underlay" })
+                  }
+                  className="flex w-full rounded-md bg-secondary/60 p-1"
+                >
+                  <ToggleGroupItem
+                    value="overlay"
+                    className="h-7 flex-1 cursor-pointer rounded-[4px] text-[10px] hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                  >
+                    Overlay
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="underlay"
+                    className="h-7 flex-1 cursor-pointer rounded-[4px] text-[10px] hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                  >
+                    Underlay
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            </div>
+          }
         >
           <OverlayGrid
             ids={overlayIds}
             selectedId={overlay.id}
             onSelect={(id) => setOverlayPatch({ id })}
           />
-          <div className="space-y-3 border-t border-border/40 pt-3">
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[11px] text-muted-foreground">
-                  Opacity
-                </span>
-                <EditableValue
-                  value={overlay.opacity}
-                  onChange={(v) => setOverlayPatch({ opacity: v })}
-                  min={0}
-                  max={100}
-                  suffix="%"
-                />
-              </div>
-              <Slider
-                value={[overlay.opacity]}
-                onValueChange={([v]) => setOverlayPatch({ opacity: v })}
-                max={100}
-                className="cursor-pointer"
-              />
-            </div>
-            <div className="space-y-2">
-              <span className="text-[11px] text-muted-foreground">
-                Position
-              </span>
-              <ToggleGroup
-                type="single"
-                value={overlay.position}
-                onValueChange={(v) =>
-                  v &&
-                  setOverlayPatch({ position: v as "overlay" | "underlay" })
-                }
-                className="flex w-full rounded-md bg-secondary/60 p-1"
-              >
-                <ToggleGroupItem
-                  value="overlay"
-                  className="h-7 flex-1 cursor-pointer rounded-[4px] text-[10px] hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
-                >
-                  Overlay
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="underlay"
-                  className="h-7 flex-1 cursor-pointer rounded-[4px] text-[10px] hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
-                >
-                  Underlay
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          </div>
         </BackdropControlPopover>
 
         <BackdropControlPopover
@@ -658,7 +605,6 @@ export function BackdropSection() {
             })
           }
           resetTitle="Reset effects"
-          scrollBody
           contentClassName="w-[240px]"
           bodyClassName="space-y-2.5 pr-1"
         >
@@ -737,13 +683,112 @@ export function BackdropSection() {
           }
           resetTitle="Reset patterns"
           contentClassName="w-[240px]"
+          bodyClassName="pr-1"
+          footer={
+            <div className="space-y-3">
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">
+                    Intensity
+                  </span>
+                  <EditableValue
+                    value={pattern.intensity}
+                    onChange={(v) => setPattern({ intensity: v })}
+                    min={0}
+                    max={100}
+                    suffix="%"
+                  />
+                </div>
+                <Slider
+                  value={[pattern.intensity]}
+                  onValueChange={([v]) => setPattern({ intensity: v })}
+                  max={100}
+                  className="cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">
+                    Thickness
+                  </span>
+                  <EditableValue
+                    value={pattern.thickness}
+                    onChange={(v) => setPattern({ thickness: v })}
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    suffix="px"
+                  />
+                </div>
+                <Slider
+                  value={[pattern.thickness]}
+                  onValueChange={([v]) => setPattern({ thickness: v })}
+                  min={1}
+                  max={10}
+                  step={0.5}
+                  className="cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <span className="mb-2 block text-[11px] text-muted-foreground">
+                  Colour
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {patternColors.map((c) => {
+                    const isActive =
+                      pattern.color.trim().toLowerCase() ===
+                      c.trim().toLowerCase()
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => setPattern({ color: c })}
+                        className={cn(
+                          "size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
+                          isActive &&
+                            "ring-2 ring-primary ring-offset-1 ring-offset-popover"
+                        )}
+                        style={{ background: c }}
+                      />
+                    )
+                  })}
+                  <ColorPickerPopover
+                    value={pattern.color}
+                    onChange={(hex) => setPattern({ color: hex })}
+                  >
+                    <button
+                      aria-label="Custom pattern color"
+                      className={cn(
+                        "relative size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
+                        !patternColors.some(
+                          (c) =>
+                            c.trim().toLowerCase() ===
+                            pattern.color.trim().toLowerCase()
+                        ) &&
+                          "ring-2 ring-primary ring-offset-1 ring-offset-popover"
+                      )}
+                      style={{
+                        background: patternColors.some(
+                          (c) =>
+                            c.trim().toLowerCase() ===
+                            pattern.color.trim().toLowerCase()
+                        )
+                          ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
+                          : pattern.color,
+                      }}
+                    >
+                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
+                        <RiGradienterLine className="size-3.5" />
+                      </span>
+                    </button>
+                  </ColorPickerPopover>
+                </div>
+              </div>
+            </div>
+          }
         >
-          <div
-            className={cn(
-              "grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1",
-              hiddenScrollbarClass
-            )}
-          >
+          <div className="grid grid-cols-3 gap-2 pr-1">
             <button
               key="none"
               onClick={() => setPattern({ ids: [] })}
@@ -781,108 +826,6 @@ export function BackdropSection() {
               )
             })}
           </div>
-
-          <div className="space-y-3 border-t border-border/40 pt-3">
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[11px] text-muted-foreground">
-                  Intensity
-                </span>
-                <EditableValue
-                  value={pattern.intensity}
-                  onChange={(v) => setPattern({ intensity: v })}
-                  min={0}
-                  max={100}
-                  suffix="%"
-                />
-              </div>
-              <Slider
-                value={[pattern.intensity]}
-                onValueChange={([v]) => setPattern({ intensity: v })}
-                max={100}
-                className="cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[11px] text-muted-foreground">
-                  Thickness
-                </span>
-                <EditableValue
-                  value={pattern.thickness}
-                  onChange={(v) => setPattern({ thickness: v })}
-                  min={1}
-                  max={10}
-                  step={0.5}
-                  suffix="px"
-                />
-              </div>
-              <Slider
-                value={[pattern.thickness]}
-                onValueChange={([v]) => setPattern({ thickness: v })}
-                min={1}
-                max={10}
-                step={0.5}
-                className="cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <span className="mb-2 block text-[11px] text-muted-foreground">
-                Colour
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                {patternColors.map((c) => {
-                  const isActive =
-                    pattern.color.trim().toLowerCase() ===
-                    c.trim().toLowerCase()
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setPattern({ color: c })}
-                      className={cn(
-                        "size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
-                        isActive &&
-                          "ring-2 ring-primary ring-offset-1 ring-offset-popover"
-                      )}
-                      style={{ background: c }}
-                    />
-                  )
-                })}
-                <ColorPickerPopover
-                  value={pattern.color}
-                  onChange={(hex) => setPattern({ color: hex })}
-                >
-                  <button
-                    aria-label="Custom pattern color"
-                    className={cn(
-                      "relative size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
-                      !patternColors.some(
-                        (c) =>
-                          c.trim().toLowerCase() ===
-                          pattern.color.trim().toLowerCase()
-                      ) &&
-                        "ring-2 ring-primary ring-offset-1 ring-offset-popover"
-                    )}
-                    style={{
-                      background: patternColors.some(
-                        (c) =>
-                          c.trim().toLowerCase() ===
-                          pattern.color.trim().toLowerCase()
-                      )
-                        ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
-                        : pattern.color,
-                    }}
-                  >
-                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
-                      <RiGradienterLine className="size-3.5" />
-                    </span>
-                  </button>
-                </ColorPickerPopover>
-              </div>
-            </div>
-          </div>
         </BackdropControlPopover>
 
         <BackdropControlPopover
@@ -900,6 +843,83 @@ export function BackdropSection() {
             })
           }
           resetTitle="Reset portrait"
+          footer={
+            portrait.mode !== "off" ? (
+              <div className="space-y-3">
+                <div>
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                      Intensity
+                    </span>
+                    <EditableValue
+                      value={portrait.intensity}
+                      onChange={(v) =>
+                        setPortrait({ ...portrait, intensity: v })
+                      }
+                      min={0}
+                      max={100}
+                      suffix="%"
+                    />
+                  </div>
+                  <Slider
+                    value={[portrait.intensity]}
+                    onValueChange={([v]) =>
+                      setPortrait({ ...portrait, intensity: v })
+                    }
+                    max={100}
+                    className="cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                      Position
+                    </span>
+                    <EditableValue
+                      value={portrait.position}
+                      onChange={(v) =>
+                        setPortrait({ ...portrait, position: v })
+                      }
+                      min={0}
+                      max={100}
+                    />
+                  </div>
+                  <Slider
+                    value={[portrait.position]}
+                    onValueChange={([v]) =>
+                      setPortrait({ ...portrait, position: v })
+                    }
+                    max={100}
+                    className="cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                      Distance
+                    </span>
+                    <EditableValue
+                      value={portrait.distance}
+                      onChange={(v) =>
+                        setPortrait({ ...portrait, distance: v })
+                      }
+                      min={0}
+                      max={100}
+                    />
+                  </div>
+                  <Slider
+                    value={[portrait.distance]}
+                    onValueChange={([v]) =>
+                      setPortrait({ ...portrait, distance: v })
+                    }
+                    min={0}
+                    max={100}
+                    className="cursor-pointer"
+                  />
+                </div>
+              </div>
+            ) : null
+          }
         >
           <div className="grid grid-cols-3 gap-1.5">
             {PORTRAIT_MODES.map((m) => {
@@ -933,75 +953,6 @@ export function BackdropSection() {
               )
             })}
           </div>
-          {portrait.mode !== "off" ? (
-            <div className="space-y-3 border-t border-border/40 pt-2">
-              <div>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <span className="text-[11px] text-muted-foreground">
-                    Intensity
-                  </span>
-                  <EditableValue
-                    value={portrait.intensity}
-                    onChange={(v) => setPortrait({ ...portrait, intensity: v })}
-                    min={0}
-                    max={100}
-                    suffix="%"
-                  />
-                </div>
-                <Slider
-                  value={[portrait.intensity]}
-                  onValueChange={([v]) =>
-                    setPortrait({ ...portrait, intensity: v })
-                  }
-                  max={100}
-                  className="cursor-pointer"
-                />
-              </div>
-              <div>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <span className="text-[11px] text-muted-foreground">
-                    Position
-                  </span>
-                  <EditableValue
-                    value={portrait.position}
-                    onChange={(v) => setPortrait({ ...portrait, position: v })}
-                    min={0}
-                    max={100}
-                  />
-                </div>
-                <Slider
-                  value={[portrait.position]}
-                  onValueChange={([v]) =>
-                    setPortrait({ ...portrait, position: v })
-                  }
-                  max={100}
-                  className="cursor-pointer"
-                />
-              </div>
-              <div>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <span className="text-[11px] text-muted-foreground">
-                    Distance
-                  </span>
-                  <EditableValue
-                    value={portrait.distance}
-                    onChange={(v) => setPortrait({ ...portrait, distance: v })}
-                    min={0}
-                    max={100}
-                  />
-                </div>
-                <Slider
-                  value={[portrait.distance]}
-                  onValueChange={([v]) =>
-                    setPortrait({ ...portrait, distance: v })
-                  }
-                  min={0}
-                  max={100}
-                  className="cursor-pointer"
-                />
-              </div>
-            </div>
-          ) : null}
         </BackdropControlPopover>
 
         <BackdropControlPopover

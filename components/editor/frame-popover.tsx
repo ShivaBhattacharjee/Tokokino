@@ -14,6 +14,7 @@ import {
   RiWindow2Line,
 } from "@remixicon/react"
 
+import { ScrollFadeBody } from "@/components/editor/scroll-fade"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
@@ -279,7 +280,7 @@ export function FramePopover({
         align="center"
         sideOffset={8}
         collisionPadding={8}
-        className="flex max-h-[min(640px,82vh)] w-[min(420px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden bg-popover p-0"
+        className="flex h-[min(640px,82vh)] max-h-[min(640px,82vh)] w-[min(420px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden bg-popover p-0"
       >
         <div className="relative shrink-0 border-b border-border/60 p-2">
           <RiSearchLine className="pointer-events-none absolute top-1/2 left-4 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -291,7 +292,10 @@ export function FramePopover({
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+        <ScrollFadeBody
+          rootClassName="min-h-0 flex-1"
+          className="h-full overscroll-contain p-3"
+        >
           {visibleSections.map((section, idx) => (
             <React.Fragment key={section.id}>
               {idx !== 0 ? <div className="mt-4 h-px bg-border/50" /> : null}
@@ -327,9 +331,9 @@ export function FramePopover({
               No matches for &ldquo;{query}&rdquo;
             </p>
           ) : null}
-        </div>
+        </ScrollFadeBody>
 
-        <div className="shrink-0 border-t border-border/60 bg-popover p-2">
+        <div className="relative z-10 shrink-0 border-t border-border/60 bg-popover p-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             {current.colors.length > 0 ? (
               <div className="w-[160px] max-w-full shrink-0">

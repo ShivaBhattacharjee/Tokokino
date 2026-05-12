@@ -22,6 +22,7 @@ import {
   RiYoutubeLine,
 } from "@remixicon/react"
 
+import { ScrollFadeBody } from "@/components/editor/scroll-fade"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
@@ -67,7 +68,13 @@ const SECTIONS: AspectSection[] = [
     icon: RiTwitterXLine,
     options: [
       { id: "x-post", name: "Tweet Image", ratio: "16:9", w: 1600, h: 900 },
-      { id: "x-profile", name: "Profile Photo", ratio: "1:1", w: 1080, h: 1080 },
+      {
+        id: "x-profile",
+        name: "Profile Photo",
+        ratio: "1:1",
+        w: 1080,
+        h: 1080,
+      },
       { id: "x-photo", name: "Photo Post", ratio: "4:5", w: 1200, h: 1500 },
       { id: "x-header", name: "Header Photo", ratio: "3:1", w: 1500, h: 500 },
     ],
@@ -78,8 +85,20 @@ const SECTIONS: AspectSection[] = [
     icon: RiInstagramLine,
     options: [
       { id: "ig-post", name: "Square Post", ratio: "1:1", w: 1080, h: 1080 },
-      { id: "ig-portrait", name: "Portrait Post", ratio: "4:5", w: 1080, h: 1350 },
-      { id: "ig-landscape-post", name: "Landscape Post", ratio: "16:9", w: 1600, h: 900 },
+      {
+        id: "ig-portrait",
+        name: "Portrait Post",
+        ratio: "4:5",
+        w: 1080,
+        h: 1350,
+      },
+      {
+        id: "ig-landscape-post",
+        name: "Landscape Post",
+        ratio: "16:9",
+        w: 1600,
+        h: 900,
+      },
       { id: "ig-story", name: "Story/Reel", ratio: "9:16", w: 1080, h: 1920 },
       {
         id: "ig-carousel",
@@ -98,7 +117,13 @@ const SECTIONS: AspectSection[] = [
       { id: "yt-video", name: "Video", ratio: "16:9", w: 1920, h: 1080 },
       { id: "yt-thumb", name: "Thumbnail", ratio: "16:9", w: 1280, h: 720 },
       { id: "yt-short", name: "Shorts", ratio: "9:16", w: 1080, h: 1920 },
-      { id: "yt-cover", name: "Channel Cover", ratio: "16:9", w: 2048, h: 1152 },
+      {
+        id: "yt-cover",
+        name: "Channel Cover",
+        ratio: "16:9",
+        w: 2048,
+        h: 1152,
+      },
       { id: "yt-icon", name: "Channel Icon", ratio: "1:1", w: 800, h: 800 },
     ],
   },
@@ -109,7 +134,13 @@ const SECTIONS: AspectSection[] = [
     options: [
       { id: "tt-post", name: "Post", ratio: "9:16", w: 1080, h: 1920 },
       { id: "tt-photos", name: "Photos", ratio: "1:1", w: 1080, h: 1080 },
-      { id: "tt-profile", name: "Profile Photo", ratio: "1:1", w: 1080, h: 1080 },
+      {
+        id: "tt-profile",
+        name: "Profile Photo",
+        ratio: "1:1",
+        w: 1080,
+        h: 1080,
+      },
     ],
   },
   {
@@ -138,8 +169,20 @@ const SECTIONS: AspectSection[] = [
     icon: RiFacebookLine,
     options: [
       { id: "fb-square", name: "Square Post", ratio: "1:1", w: 1080, h: 1080 },
-      { id: "fb-portrait", name: "Portrait Post", ratio: "4:5", w: 1080, h: 1350 },
-      { id: "fb-landscape", name: "Landscape Post", ratio: "16:9", w: 1200, h: 675 },
+      {
+        id: "fb-portrait",
+        name: "Portrait Post",
+        ratio: "4:5",
+        w: 1080,
+        h: 1350,
+      },
+      {
+        id: "fb-landscape",
+        name: "Landscape Post",
+        ratio: "16:9",
+        w: 1200,
+        h: 675,
+      },
       { id: "fb-story", name: "Story", ratio: "9:16", w: 1080, h: 1920 },
       { id: "fb-cover", name: "Cover Photo", ratio: "16:9", w: 820, h: 461 },
     ],
@@ -167,9 +210,21 @@ const SECTIONS: AspectSection[] = [
     label: "Reddit",
     icon: RiRedditLine,
     options: [
-      { id: "rd-standard", name: "Standard Post", ratio: "16:9", w: 1600, h: 900 },
+      {
+        id: "rd-standard",
+        name: "Standard Post",
+        ratio: "16:9",
+        w: 1600,
+        h: 900,
+      },
       { id: "rd-square", name: "Square Post", ratio: "1:1", w: 1080, h: 1080 },
-      { id: "rd-portrait", name: "Portrait Post", ratio: "4:5", w: 1080, h: 1350 },
+      {
+        id: "rd-portrait",
+        name: "Portrait Post",
+        ratio: "4:5",
+        w: 1080,
+        h: 1350,
+      },
     ],
   },
   {
@@ -177,7 +232,13 @@ const SECTIONS: AspectSection[] = [
     label: "Open Graph",
     icon: RiGlobalLine,
     options: [
-      { id: "og-standard", name: "Standard OG", ratio: "1.91:1", w: 1200, h: 630 },
+      {
+        id: "og-standard",
+        name: "Standard OG",
+        ratio: "1.91:1",
+        w: 1200,
+        h: 630,
+      },
       { id: "og-square", name: "Square OG", ratio: "1:1", w: 1200, h: 1200 },
       { id: "og-x-large", name: "X Large Card", ratio: "2:1", w: 1200, h: 600 },
       { id: "og-x-small", name: "X Small Card", ratio: "1:1", w: 800, h: 800 },
@@ -188,9 +249,27 @@ const SECTIONS: AspectSection[] = [
     label: "App Store",
     icon: RiAppStoreLine,
     options: [
-      { id: "as-iphone-67", name: "iPhone 6.7″", ratio: "9:19.5", w: 1284, h: 2778 },
-      { id: "as-iphone-65", name: "iPhone 6.5″", ratio: "9:19.5", w: 1242, h: 2688 },
-      { id: "as-iphone-61", name: "iPhone 6.1″", ratio: "9:19.5", w: 1179, h: 2556 },
+      {
+        id: "as-iphone-67",
+        name: "iPhone 6.7″",
+        ratio: "9:19.5",
+        w: 1284,
+        h: 2778,
+      },
+      {
+        id: "as-iphone-65",
+        name: "iPhone 6.5″",
+        ratio: "9:19.5",
+        w: 1242,
+        h: 2688,
+      },
+      {
+        id: "as-iphone-61",
+        name: "iPhone 6.1″",
+        ratio: "9:19.5",
+        w: 1179,
+        h: 2556,
+      },
       { id: "as-ipad-129", name: "iPad 12.9″", ratio: "3:4", w: 2048, h: 2732 },
       { id: "as-ipad-11", name: "iPad 11″", ratio: "3:4", w: 1668, h: 2388 },
       { id: "as-apple-tv", name: "Apple TV", ratio: "16:9", w: 1920, h: 1080 },
@@ -204,8 +283,20 @@ const SECTIONS: AspectSection[] = [
     options: [
       { id: "ps-phone", name: "Phone", ratio: "9:16", w: 1080, h: 1920 },
       { id: "ps-icon", name: "App Icon", ratio: "1:1", w: 512, h: 512 },
-      { id: "ps-tablet-7", name: "Tablet (7-inch)", ratio: "16:9", w: 1920, h: 1080 },
-      { id: "ps-tablet-10", name: "Tablet (10-inch)", ratio: "16:9", w: 1920, h: 1080 },
+      {
+        id: "ps-tablet-7",
+        name: "Tablet (7-inch)",
+        ratio: "16:9",
+        w: 1920,
+        h: 1080,
+      },
+      {
+        id: "ps-tablet-10",
+        name: "Tablet (10-inch)",
+        ratio: "16:9",
+        w: 1920,
+        h: 1080,
+      },
     ],
   },
   {
@@ -213,10 +304,34 @@ const SECTIONS: AspectSection[] = [
     label: "Chrome Extension",
     icon: RiChromeLine,
     options: [
-      { id: "ce-store-banner", name: "Store Banner", ratio: "140:56", w: 1400, h: 560 },
-      { id: "ce-small-promo", name: "Small Promo", ratio: "44:28", w: 440, h: 280 },
-      { id: "ce-large-promo", name: "Large Promo", ratio: "92:68", w: 920, h: 680 },
-      { id: "ce-screenshot", name: "Screenshot", ratio: "128:80", w: 1280, h: 800 },
+      {
+        id: "ce-store-banner",
+        name: "Store Banner",
+        ratio: "140:56",
+        w: 1400,
+        h: 560,
+      },
+      {
+        id: "ce-small-promo",
+        name: "Small Promo",
+        ratio: "44:28",
+        w: 440,
+        h: 280,
+      },
+      {
+        id: "ce-large-promo",
+        name: "Large Promo",
+        ratio: "92:68",
+        w: 920,
+        h: 680,
+      },
+      {
+        id: "ce-screenshot",
+        name: "Screenshot",
+        ratio: "128:80",
+        w: 1280,
+        h: 800,
+      },
     ],
   },
 ]
@@ -239,8 +354,7 @@ export function AspectPopover({
   const [w, setW] = React.useState("1920")
   const [h, setH] = React.useState("1200")
 
-  const current =
-    ALL_OPTIONS.find((o) => o.id === value) ?? ALL_OPTIONS[0]
+  const current = ALL_OPTIONS.find((o) => o.id === value) ?? ALL_OPTIONS[0]
 
   const q = query.trim().toLowerCase()
   const matches = (o: AspectOption) => {
@@ -309,7 +423,7 @@ export function AspectPopover({
         align="center"
         sideOffset={8}
         collisionPadding={8}
-        className="flex max-h-[min(560px,80vh)] w-[min(360px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden bg-popover p-0"
+        className="flex h-[min(560px,80vh)] max-h-[min(560px,80vh)] w-[min(360px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden bg-popover p-0"
       >
         {/* Search */}
         <div className="relative shrink-0 border-b border-border/60 p-2">
@@ -323,7 +437,10 @@ export function AspectPopover({
         </div>
 
         {/* Sections */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+        <ScrollFadeBody
+          rootClassName="min-h-0 flex-1"
+          className="h-full overscroll-contain p-3"
+        >
           {visibleSections.map((section, idx) => (
             <React.Fragment key={section.id}>
               {section.id !== "basic" ? (
@@ -361,17 +478,27 @@ export function AspectPopover({
               No matches for &ldquo;{query}&rdquo;
             </p>
           ) : null}
-        </div>
+        </ScrollFadeBody>
 
         {/* Custom */}
-        <div className="shrink-0 border-t border-border/60 bg-popover p-2">
-          <div className="mb-1.5 px-1 label-eyebrow !text-[9px]">
+        <div className="relative z-10 shrink-0 border-t border-border/60 bg-popover p-2">
+          <div className="label-eyebrow mb-1.5 px-1 !text-[9px]">
             Custom size
           </div>
           <div className="flex items-center gap-1.5">
-            <NumberInput value={w} onChange={setW} label="W" onEnter={applyCustomSize} />
+            <NumberInput
+              value={w}
+              onChange={setW}
+              label="W"
+              onEnter={applyCustomSize}
+            />
             <span className="text-muted-foreground">×</span>
-            <NumberInput value={h} onChange={setH} label="H" onEnter={applyCustomSize} />
+            <NumberInput
+              value={h}
+              onChange={setH}
+              label="H"
+              onEnter={applyCustomSize}
+            />
             <button
               onClick={applyCustomSize}
               disabled={!isCustomValid}
