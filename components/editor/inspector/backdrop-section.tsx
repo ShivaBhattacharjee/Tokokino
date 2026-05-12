@@ -9,6 +9,7 @@ import {
   RiMagicLine,
   RiSunLine,
 } from "@remixicon/react"
+import { motion, useScroll, useTransform } from "motion/react"
 
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import { EditableValue } from "@/components/editor/editable-value"
@@ -47,12 +48,14 @@ const PORTRAIT_MODES: { id: PortraitMode; label: string }[] = [
   { id: "stage", label: "Stage" },
 ]
 
+const hiddenScrollbarClass =
+  "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+
 function portraitPreviewCss(mode: PortraitMode): React.CSSProperties {
   switch (mode) {
     case "off":
       return {
-        background:
-          "linear-gradient(135deg, oklch(0.32 0 0), oklch(0.18 0 0))",
+        background: "linear-gradient(135deg, oklch(0.32 0 0), oklch(0.18 0 0))",
       }
     case "soft":
       return {
@@ -71,8 +74,7 @@ function portraitPreviewCss(mode: PortraitMode): React.CSSProperties {
       }
     case "frame":
       return {
-        background:
-          "linear-gradient(135deg, oklch(0.55 0 0), oklch(0.42 0 0))",
+        background: "linear-gradient(135deg, oklch(0.55 0 0), oklch(0.42 0 0))",
         boxShadow: "inset 0 0 18px 6px rgba(0,0,0,0.85)",
       }
     case "iris":
@@ -82,8 +84,7 @@ function portraitPreviewCss(mode: PortraitMode): React.CSSProperties {
       }
     case "blur":
       return {
-        background:
-          "linear-gradient(135deg, oklch(0.7 0 0), oklch(0.5 0 0))",
+        background: "linear-gradient(135deg, oklch(0.7 0 0), oklch(0.5 0 0))",
         filter: "blur(2px)",
       }
     case "stage":
@@ -113,17 +114,139 @@ function BackdropTile({
       onClick={onClick}
       data-active={active ? "" : undefined}
       className={cn(
-        "group relative flex h-[64px] flex-col items-center justify-center gap-1.5 rounded-lg border transition-all cursor-pointer",
+        "group relative flex h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border transition-all",
         active
-          ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20 text-primary"
+          ? "border-primary/40 bg-primary/5 text-primary ring-1 ring-primary/20"
           : "border-border/60 bg-secondary/20 text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-        "data-[state=open]:border-primary/40 data-[state=open]:bg-primary/5 data-[state=open]:ring-1 data-[state=open]:ring-primary/20 data-[state=open]:text-primary"
+        "data-[state=open]:border-primary/40 data-[state=open]:bg-primary/5 data-[state=open]:text-primary data-[state=open]:ring-1 data-[state=open]:ring-primary/20"
       )}
       {...rest}
     >
       <Icon className="size-[18px]" />
       <span className="text-[10px] font-medium tracking-tight">{label}</span>
     </button>
+  )
+}
+
+function ScrollFadeBody({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const [isScrollable, setIsScrollable] = React.useState(false)
+  const { scrollYProgress } = useScroll({ container: scrollRef })
+  const topOpacity = useTransform(scrollYProgress, [0, 0.08], [0, 1])
+  const bottomOpacity = useTransform(scrollYProgress, [0.9, 1], [1, 0])
+
+  const updateScrollState = React.useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setIsScrollable(el.scrollHeight > el.clientHeight + 1)
+  }, [])
+
+  React.useEffect(() => {
+    updateScrollState()
+    const el = scrollRef.current
+    if (!el) return
+
+    const observer = new ResizeObserver(updateScrollState)
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+
+    return () => observer.disconnect()
+  }, [updateScrollState])
+
+  return (
+    <div className="relative min-h-0">
+      <div
+        ref={scrollRef}
+        onScroll={updateScrollState}
+        className={cn(
+          "max-h-[min(260px,calc(100vh-10rem))] overflow-x-hidden overflow-y-auto",
+          hiddenScrollbarClass,
+          className
+        )}
+      >
+        {children}
+      </div>
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-popover to-transparent"
+        style={{ opacity: isScrollable ? topOpacity : 0 }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-popover to-transparent"
+        style={{ opacity: isScrollable ? bottomOpacity : 0 }}
+      />
+    </div>
+  )
+}
+
+function BackdropControlPopover({
+  icon,
+  label,
+  active,
+  title,
+  description,
+  onReset,
+  resetTitle,
+  children,
+  className,
+  contentClassName,
+  bodyClassName,
+  scrollBody = false,
+  open,
+  onOpenChange,
+  forceMount,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  active?: boolean
+  title: string
+  description: string
+  onReset?: () => void
+  resetTitle?: string
+  children: React.ReactNode
+  className?: string
+  contentClassName?: string
+  bodyClassName?: string
+  scrollBody?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  forceMount?: true
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <BackdropTile icon={icon} label={label} active={active} />
+      </PopoverTrigger>
+      <PopoverContent
+        side="left"
+        align="start"
+        forceMount={forceMount}
+        className={cn(
+          "w-[260px] gap-2 overflow-hidden bg-popover/95 p-2 backdrop-blur-md",
+          contentClassName,
+          className
+        )}
+      >
+        <PopoverHeader
+          title={title}
+          description={description}
+          onReset={onReset}
+          resetTitle={resetTitle}
+        />
+        {scrollBody ? (
+          <ScrollFadeBody className={bodyClassName}>{children}</ScrollFadeBody>
+        ) : (
+          <div className={bodyClassName}>{children}</div>
+        )}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -198,14 +321,17 @@ function OverlayGrid({
   return (
     <div
       ref={scrollRef}
-      className="grid max-h-[240px] grid-cols-3 gap-3 overflow-y-auto px-1 py-1 [contain:layout_paint] [scrollbar-width:thin]"
+      className={cn(
+        "grid max-h-[240px] grid-cols-3 gap-3 overflow-y-auto px-1 py-1 [contain:layout_paint]",
+        hiddenScrollbarClass
+      )}
     >
       <button
         key="none"
         onClick={() => stableSelect(null)}
         title="None"
         className={cn(
-          "relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium transition-colors cursor-pointer",
+          "relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium transition-colors",
           selectedId === null
             ? "border-foreground text-foreground ring-1 ring-foreground/30"
             : "border-dashed border-border/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
@@ -265,7 +391,7 @@ const OverlayThumb = React.memo(function OverlayThumb({
       onClick={handleClick}
       title={`Overlay ${id}`}
       className={cn(
-        "relative aspect-square overflow-hidden rounded-md border bg-white cursor-pointer transition-colors [contain:layout_style_paint]",
+        "relative aspect-square cursor-pointer overflow-hidden rounded-md border bg-white transition-colors [contain:layout_style_paint]",
         selected
           ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-popover"
           : "border-border/60 hover:border-foreground/30"
@@ -277,10 +403,7 @@ const OverlayThumb = React.memo(function OverlayThumb({
           alt=""
           decoding="async"
           onLoad={handleLoad}
-          className={cn(
-            "h-full w-full object-cover",
-            !loaded && "opacity-0"
-          )}
+          className={cn("h-full w-full object-cover", !loaded && "opacity-0")}
         />
       ) : null}
       {(!visible || !loaded) && (
@@ -315,7 +438,12 @@ function BackdropFilterGrid({
   onChange: (f: AssetFilter) => void
 }) {
   return (
-    <div className="grid max-h-[240px] grid-cols-3 gap-1.5 overflow-y-auto px-1 py-1 [scrollbar-width:thin]">
+    <div
+      className={cn(
+        "grid max-h-[240px] grid-cols-3 gap-1.5 overflow-y-auto px-1 py-1",
+        hiddenScrollbarClass
+      )}
+    >
       {BACKDROP_FILTERS.map((f) => {
         const active = current === f.id
         return (
@@ -323,7 +451,7 @@ function BackdropFilterGrid({
             key={f.id}
             onClick={() => onChange(f.id)}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-md border p-1 transition-all cursor-pointer",
+              "flex cursor-pointer flex-col items-center gap-1 rounded-md border p-1 transition-all",
               active
                 ? "border-primary/40 bg-primary/10 ring-1 ring-primary/20"
                 : "border-border/60 bg-secondary/20 hover:border-foreground/30"
@@ -367,8 +495,6 @@ export function BackdropSection() {
   } = useEditor()
   const { effects, pattern, filter: backdropFilter = "none" } = backdrop
   const [imageColors, setImageColors] = React.useState<string[] | null>(null)
-  const [localRadius, setLocalRadius] = React.useState(canvasBorderRadius)
-  React.useEffect(() => { setLocalRadius(canvasBorderRadius) }, [canvasBorderRadius])
 
   const isImageBackground = background.type === "image"
 
@@ -431,466 +557,467 @@ export function BackdropSection() {
       <div className="pt-1">
         <EffectSlider
           label="Canvas Radius"
-          value={localRadius}
-          onChange={(v) => {
-            setLocalRadius(v)
-            setCanvasBorderRadius(v)
-          }}
+          value={canvasBorderRadius}
+          onChange={setCanvasBorderRadius}
           onValueCommit={setCanvasBorderRadius}
           max={80}
         />
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Popover open={overlayPopoverOpen} onOpenChange={handleOverlayOpenChange}>
-          <PopoverTrigger asChild>
-            <BackdropTile icon={RiSunLine} label="Overlay" active={overlayActive} />
-          </PopoverTrigger>
-          <PopoverContent
-            side="left"
-            align="start"
-            forceMount={overlayHasOpened ? true : undefined}
-            className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
-          >
-            <PopoverHeader
-              title="Shadow Overlay"
-              description="Drape a soft light or shadow texture over the canvas."
-              onReset={() => setOverlay({ id: null, opacity: 50, position: "overlay" })}
-              resetTitle="Reset overlay"
-            />
-            <OverlayGrid
-              ids={overlayIds}
-              selectedId={overlay.id}
-              onSelect={(id) => setOverlayPatch({ id })}
-            />
-            <div className="space-y-3 pt-3 border-t border-border/40">
-              <div>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <span className="text-[11px] text-muted-foreground">Opacity</span>
-                  <EditableValue
-                    value={overlay.opacity}
-                    onChange={(v) => setOverlayPatch({ opacity: v })}
-                    min={0}
-                    max={100}
-                    suffix="%"
-                  />
-                </div>
-                <Slider
-                  value={[overlay.opacity]}
-                  onValueChange={([v]) => setOverlayPatch({ opacity: v })}
+        <BackdropControlPopover
+          icon={RiSunLine}
+          label="Overlay"
+          active={overlayActive}
+          title="Shadow Overlay"
+          description="Drape a soft light or shadow texture over the canvas."
+          onReset={() =>
+            setOverlay({ id: null, opacity: 50, position: "overlay" })
+          }
+          resetTitle="Reset overlay"
+          open={overlayPopoverOpen}
+          onOpenChange={handleOverlayOpenChange}
+          forceMount={overlayHasOpened ? true : undefined}
+          contentClassName="w-[240px] [contain:layout_paint] data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
+          bodyClassName="space-y-2"
+        >
+          <OverlayGrid
+            ids={overlayIds}
+            selectedId={overlay.id}
+            onSelect={(id) => setOverlayPatch({ id })}
+          />
+          <div className="space-y-3 border-t border-border/40 pt-3">
+            <div>
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="text-[11px] text-muted-foreground">
+                  Opacity
+                </span>
+                <EditableValue
+                  value={overlay.opacity}
+                  onChange={(v) => setOverlayPatch({ opacity: v })}
+                  min={0}
                   max={100}
-                  className="cursor-pointer"
+                  suffix="%"
                 />
               </div>
-              <div className="space-y-2">
-                <span className="text-[11px] text-muted-foreground">Position</span>
-                <ToggleGroup
-                  type="single"
-                  value={overlay.position}
-                  onValueChange={(v) =>
-                    v && setOverlayPatch({ position: v as "overlay" | "underlay" })
-                  }
-                  className="flex w-full rounded-md bg-secondary/60 p-1"
-                >
-                  <ToggleGroupItem
-                    value="overlay"
-                    className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
-                  >
-                    Overlay
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="underlay"
-                    className="flex-1 h-7 text-[10px] cursor-pointer rounded-[4px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:bg-transparent hover:text-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
-                  >
-                    Underlay
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <BackdropTile icon={RiEqualizerLine} label="Effects" active={effectsDirty} />
-          </PopoverTrigger>
-          <PopoverContent side="left" align="start" className="w-[240px] space-y-1.5 p-2 bg-popover/95 backdrop-blur-md">
-            <PopoverHeader
-              title="Effects"
-              description="Color & filter adjustments applied to the backdrop layer."
-              onReset={() =>
-                setBackdropEffects({
-                  noise: 0,
-                  blur: 0,
-                  brightness: 100,
-                  contrast: 100,
-                  saturation: 100,
-                  hue: 0,
-                  grayscale: 0,
-                  sepia: 0,
-                  invert: 0,
-                  opacity: 100,
-                })
-              }
-              resetTitle="Reset effects"
-            />
-            <div className="max-h-[60vh] space-y-2.5 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-width:thin]">
-              <EffectSlider
-                label="Brightness"
-                value={effects.brightness}
-                onChange={(v) => setEffects({ brightness: v })}
-                max={200}
-              />
-              <EffectSlider
-                label="Contrast"
-                value={effects.contrast}
-                onChange={(v) => setEffects({ contrast: v })}
-                max={200}
-              />
-              <EffectSlider
-                label="Saturation"
-                value={effects.saturation}
-                onChange={(v) => setEffects({ saturation: v })}
-                max={200}
-              />
-              <EffectSlider
-                label="Hue"
-                value={effects.hue}
-                onChange={(v) => setEffects({ hue: v })}
-                max={360}
-                suffix="°"
-              />
-              <EffectSlider
-                label="Grayscale"
-                value={effects.grayscale}
-                onChange={(v) => setEffects({ grayscale: v })}
-              />
-              <EffectSlider
-                label="Sepia"
-                value={effects.sepia}
-                onChange={(v) => setEffects({ sepia: v })}
-              />
-              <EffectSlider
-                label="Invert"
-                value={effects.invert}
-                onChange={(v) => setEffects({ invert: v })}
-              />
-              <EffectSlider
-                label="Blur"
-                value={effects.blur}
-                onChange={(v) => setEffects({ blur: v })}
-                max={20}
-                suffix="px"
-              />
-              <EffectSlider
-                label="Noise"
-                value={effects.noise}
-                onChange={(v) => setEffects({ noise: v })}
-              />
-              <EffectSlider
-                label="Opacity"
-                value={effects.opacity}
-                onChange={(v) => setEffects({ opacity: v })}
+              <Slider
+                value={[overlay.opacity]}
+                onValueChange={([v]) => setOverlayPatch({ opacity: v })}
+                max={100}
+                className="cursor-pointer"
               />
             </div>
-          </PopoverContent>
-        </Popover>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <BackdropTile icon={RiGridLine} label="Pattern" active={patternActive} />
-          </PopoverTrigger>
-          <PopoverContent
-            side="left"
-            align="start"
-            className="w-[240px] space-y-2 bg-popover/95 backdrop-blur-md"
-          >
-            <PopoverHeader
-              title="Patterns"
-              description="Layer geometric textures on top of your backdrop."
-              onReset={() =>
-                setBackdropPattern({
-                  ids: [],
-                  intensity: 50,
-                  thickness: 1,
-                  color: "#FFFFFF",
-                })
-              }
-              resetTitle="Reset patterns"
-            />
-            <div className="grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
-              <button
-                key="none"
-                onClick={() => setPattern({ ids: [] })}
-                title="None"
-                className={cn(
-                  "relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium text-muted-foreground transition-all cursor-pointer",
-                  pattern.ids.length === 0
-                    ? "border-foreground text-foreground ring-1 ring-foreground/30"
-                    : "border-dashed border-border/60 hover:border-foreground/30 hover:text-foreground"
-                )}
+            <div className="space-y-2">
+              <span className="text-[11px] text-muted-foreground">
+                Position
+              </span>
+              <ToggleGroup
+                type="single"
+                value={overlay.position}
+                onValueChange={(v) =>
+                  v &&
+                  setOverlayPatch({ position: v as "overlay" | "underlay" })
+                }
+                className="flex w-full rounded-md bg-secondary/60 p-1"
               >
-                None
-              </button>
-              {BACKDROP_PATTERNS.map((p) => {
-                const selected = pattern.ids.includes(p.id)
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() =>
-                      setPattern({
-                        ids: selected
-                          ? pattern.ids.filter((v) => v !== p.id)
-                          : [...pattern.ids, p.id],
-                      })
-                    }
-                    style={patternCssFor(p.id, pattern.color, pattern.thickness)}
-                    className={cn(
-                      "relative aspect-square overflow-hidden rounded-md border bg-neutral-900 transition-all cursor-pointer",
-                      selected
-                        ? "border-foreground ring-1 ring-foreground/30"
-                        : "border-border/60 hover:border-foreground/30"
-                    )}
-                    title={p.name}
-                  />
-                )
-              })}
+                <ToggleGroupItem
+                  value="overlay"
+                  className="h-7 flex-1 cursor-pointer rounded-[4px] text-[10px] hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                >
+                  Overlay
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="underlay"
+                  className="h-7 flex-1 cursor-pointer rounded-[4px] text-[10px] hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+                >
+                  Underlay
+                </ToggleGroupItem>
+              </ToggleGroup>
             </div>
+          </div>
+        </BackdropControlPopover>
 
-            <div className="space-y-3 pt-3 border-t border-border/40">
-              <div>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <span className="text-[11px] text-muted-foreground">Intensity</span>
-                  <EditableValue
-                    value={pattern.intensity}
-                    onChange={(v) => setPattern({ intensity: v })}
-                    min={0}
-                    max={100}
-                    suffix="%"
-                  />
-                </div>
-                <Slider
-                  value={[pattern.intensity]}
-                  onValueChange={([v]) => setPattern({ intensity: v })}
+        <BackdropControlPopover
+          icon={RiEqualizerLine}
+          label="Effects"
+          active={effectsDirty}
+          title="Effects"
+          description="Color & filter adjustments applied to the backdrop layer."
+          onReset={() =>
+            setBackdropEffects({
+              noise: 0,
+              blur: 0,
+              brightness: 100,
+              contrast: 100,
+              saturation: 100,
+              hue: 0,
+              grayscale: 0,
+              sepia: 0,
+              invert: 0,
+              opacity: 100,
+            })
+          }
+          resetTitle="Reset effects"
+          scrollBody
+          contentClassName="w-[240px]"
+          bodyClassName="space-y-2.5 pr-1"
+        >
+          <EffectSlider
+            label="Brightness"
+            value={effects.brightness}
+            onChange={(v) => setEffects({ brightness: v })}
+            max={200}
+          />
+          <EffectSlider
+            label="Contrast"
+            value={effects.contrast}
+            onChange={(v) => setEffects({ contrast: v })}
+            max={200}
+          />
+          <EffectSlider
+            label="Saturation"
+            value={effects.saturation}
+            onChange={(v) => setEffects({ saturation: v })}
+            max={200}
+          />
+          <EffectSlider
+            label="Hue"
+            value={effects.hue}
+            onChange={(v) => setEffects({ hue: v })}
+            max={360}
+            suffix="°"
+          />
+          <EffectSlider
+            label="Grayscale"
+            value={effects.grayscale}
+            onChange={(v) => setEffects({ grayscale: v })}
+          />
+          <EffectSlider
+            label="Sepia"
+            value={effects.sepia}
+            onChange={(v) => setEffects({ sepia: v })}
+          />
+          <EffectSlider
+            label="Invert"
+            value={effects.invert}
+            onChange={(v) => setEffects({ invert: v })}
+          />
+          <EffectSlider
+            label="Blur"
+            value={effects.blur}
+            onChange={(v) => setEffects({ blur: v })}
+            max={20}
+            suffix="px"
+          />
+          <EffectSlider
+            label="Noise"
+            value={effects.noise}
+            onChange={(v) => setEffects({ noise: v })}
+          />
+          <EffectSlider
+            label="Opacity"
+            value={effects.opacity}
+            onChange={(v) => setEffects({ opacity: v })}
+          />
+        </BackdropControlPopover>
+
+        <BackdropControlPopover
+          icon={RiGridLine}
+          label="Pattern"
+          active={patternActive}
+          title="Patterns"
+          description="Layer geometric textures on top of your backdrop."
+          onReset={() =>
+            setBackdropPattern({
+              ids: [],
+              intensity: 50,
+              thickness: 1,
+              color: "#FFFFFF",
+            })
+          }
+          resetTitle="Reset patterns"
+          contentClassName="w-[240px]"
+        >
+          <div
+            className={cn(
+              "grid max-h-[228px] grid-cols-3 gap-2 overflow-y-auto pr-1",
+              hiddenScrollbarClass
+            )}
+          >
+            <button
+              key="none"
+              onClick={() => setPattern({ ids: [] })}
+              title="None"
+              className={cn(
+                "relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-md border bg-secondary/40 text-[10px] font-medium text-muted-foreground transition-all",
+                pattern.ids.length === 0
+                  ? "border-foreground text-foreground ring-1 ring-foreground/30"
+                  : "border-dashed border-border/60 hover:border-foreground/30 hover:text-foreground"
+              )}
+            >
+              None
+            </button>
+            {BACKDROP_PATTERNS.map((p) => {
+              const selected = pattern.ids.includes(p.id)
+              return (
+                <button
+                  key={p.id}
+                  onClick={() =>
+                    setPattern({
+                      ids: selected
+                        ? pattern.ids.filter((v) => v !== p.id)
+                        : [...pattern.ids, p.id],
+                    })
+                  }
+                  style={patternCssFor(p.id, pattern.color, pattern.thickness)}
+                  className={cn(
+                    "relative aspect-square cursor-pointer overflow-hidden rounded-md border bg-neutral-900 transition-all",
+                    selected
+                      ? "border-foreground ring-1 ring-foreground/30"
+                      : "border-border/60 hover:border-foreground/30"
+                  )}
+                  title={p.name}
+                />
+              )
+            })}
+          </div>
+
+          <div className="space-y-3 border-t border-border/40 pt-3">
+            <div>
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="text-[11px] text-muted-foreground">
+                  Intensity
+                </span>
+                <EditableValue
+                  value={pattern.intensity}
+                  onChange={(v) => setPattern({ intensity: v })}
+                  min={0}
                   max={100}
-                  className="cursor-pointer"
+                  suffix="%"
                 />
               </div>
+              <Slider
+                value={[pattern.intensity]}
+                onValueChange={([v]) => setPattern({ intensity: v })}
+                max={100}
+                className="cursor-pointer"
+              />
+            </div>
 
-              <div>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <span className="text-[11px] text-muted-foreground">Thickness</span>
-                  <EditableValue
-                    value={pattern.thickness}
-                    onChange={(v) => setPattern({ thickness: v })}
-                    min={1}
-                    max={10}
-                    step={0.5}
-                    suffix="px"
-                  />
-                </div>
-                <Slider
-                  value={[pattern.thickness]}
-                  onValueChange={([v]) => setPattern({ thickness: v })}
+            <div>
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="text-[11px] text-muted-foreground">
+                  Thickness
+                </span>
+                <EditableValue
+                  value={pattern.thickness}
+                  onChange={(v) => setPattern({ thickness: v })}
                   min={1}
                   max={10}
                   step={0.5}
+                  suffix="px"
+                />
+              </div>
+              <Slider
+                value={[pattern.thickness]}
+                onValueChange={([v]) => setPattern({ thickness: v })}
+                min={1}
+                max={10}
+                step={0.5}
+                className="cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <span className="mb-2 block text-[11px] text-muted-foreground">
+                Colour
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {patternColors.map((c) => {
+                  const isActive =
+                    pattern.color.trim().toLowerCase() ===
+                    c.trim().toLowerCase()
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setPattern({ color: c })}
+                      className={cn(
+                        "size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
+                        isActive &&
+                          "ring-2 ring-primary ring-offset-1 ring-offset-popover"
+                      )}
+                      style={{ background: c }}
+                    />
+                  )
+                })}
+                <ColorPickerPopover
+                  value={pattern.color}
+                  onChange={(hex) => setPattern({ color: hex })}
+                >
+                  <button
+                    aria-label="Custom pattern color"
+                    className={cn(
+                      "relative size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
+                      !patternColors.some(
+                        (c) =>
+                          c.trim().toLowerCase() ===
+                          pattern.color.trim().toLowerCase()
+                      ) &&
+                        "ring-2 ring-primary ring-offset-1 ring-offset-popover"
+                    )}
+                    style={{
+                      background: patternColors.some(
+                        (c) =>
+                          c.trim().toLowerCase() ===
+                          pattern.color.trim().toLowerCase()
+                      )
+                        ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
+                        : pattern.color,
+                    }}
+                  >
+                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
+                      <RiGradienterLine className="size-3.5" />
+                    </span>
+                  </button>
+                </ColorPickerPopover>
+              </div>
+            </div>
+          </div>
+        </BackdropControlPopover>
+
+        <BackdropControlPopover
+          icon={RiFocus2Line}
+          label="Portrait"
+          active={portraitActive}
+          title="Portrait Mode"
+          description="Cinematic depth - blends a vignette around your screenshot."
+          onReset={() =>
+            setPortrait({
+              mode: "off",
+              intensity: 60,
+              position: 50,
+              distance: 50,
+            })
+          }
+          resetTitle="Reset portrait"
+        >
+          <div className="grid grid-cols-3 gap-1.5">
+            {PORTRAIT_MODES.map((m) => {
+              const active = portrait.mode === m.id
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setPortrait({ ...portrait, mode: m.id })}
+                  className={cn(
+                    "group relative flex aspect-square cursor-pointer flex-col items-center justify-end overflow-hidden rounded-lg border bg-neutral-900 p-1.5 transition-all",
+                    active
+                      ? "border-foreground ring-1 ring-foreground/30"
+                      : "border-border/60 hover:border-foreground/30"
+                  )}
+                  title={m.label}
+                >
+                  <span
+                    aria-hidden
+                    className="absolute inset-0"
+                    style={portraitPreviewCss(m.id)}
+                  />
+                  <span
+                    className={cn(
+                      "relative z-10 rounded-sm bg-black/60 px-1 text-[9px] font-medium text-white/95 backdrop-blur-sm",
+                      active && "bg-foreground text-background"
+                    )}
+                  >
+                    {m.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {portrait.mode !== "off" ? (
+            <div className="space-y-3 border-t border-border/40 pt-2">
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">
+                    Intensity
+                  </span>
+                  <EditableValue
+                    value={portrait.intensity}
+                    onChange={(v) => setPortrait({ ...portrait, intensity: v })}
+                    min={0}
+                    max={100}
+                    suffix="%"
+                  />
+                </div>
+                <Slider
+                  value={[portrait.intensity]}
+                  onValueChange={([v]) =>
+                    setPortrait({ ...portrait, intensity: v })
+                  }
+                  max={100}
                   className="cursor-pointer"
                 />
               </div>
-
               <div>
-                <span className="text-[11px] text-muted-foreground block mb-2">Colour</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {patternColors.map((c) => {
-                    const isActive =
-                      pattern.color.trim().toLowerCase() === c.trim().toLowerCase()
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => setPattern({ color: c })}
-                        className={cn(
-                          "size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
-                          isActive &&
-                          "ring-2 ring-primary ring-offset-1 ring-offset-popover"
-                        )}
-                        style={{ background: c }}
-                      />
-                    )
-                  })}
-                  <ColorPickerPopover
-                    value={pattern.color}
-                    onChange={(hex) => setPattern({ color: hex })}
-                  >
-                    <button
-                      aria-label="Custom pattern color"
-                      className={cn(
-                        "relative size-8 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-110",
-                        !patternColors.some(
-                          (c) =>
-                            c.trim().toLowerCase() ===
-                            pattern.color.trim().toLowerCase()
-                        ) && "ring-2 ring-primary ring-offset-1 ring-offset-popover"
-                      )}
-                      style={{
-                        background: patternColors.some(
-                          (c) =>
-                            c.trim().toLowerCase() ===
-                            pattern.color.trim().toLowerCase()
-                        )
-                          ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
-                          : pattern.color,
-                      }}
-                    >
-                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
-                        <RiGradienterLine className="size-3.5" />
-                      </span>
-                    </button>
-                  </ColorPickerPopover>
-                </div>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <BackdropTile icon={RiFocus2Line} label="Portrait" active={portraitActive} />
-          </PopoverTrigger>
-          <PopoverContent
-            side="left"
-            align="start"
-            className="w-[260px] space-y-2 bg-popover/95 backdrop-blur-md"
-          >
-            <PopoverHeader
-              title="Portrait Mode"
-              description="Cinematic depth — blends a vignette around your screenshot."
-              onReset={() =>
-                setPortrait({
-                  mode: "off",
-                  intensity: 60,
-                  position: 50,
-                  distance: 50,
-                })
-              }
-              resetTitle="Reset portrait"
-            />
-            <div className="grid grid-cols-3 gap-1.5">
-              {PORTRAIT_MODES.map((m) => {
-                const active = portrait.mode === m.id
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setPortrait({ ...portrait, mode: m.id })}
-                    className={cn(
-                      "group relative flex aspect-square flex-col items-center justify-end overflow-hidden rounded-lg border bg-neutral-900 p-1.5 transition-all cursor-pointer",
-                      active
-                        ? "border-foreground ring-1 ring-foreground/30"
-                        : "border-border/60 hover:border-foreground/30"
-                    )}
-                    title={m.label}
-                  >
-                    <span
-                      aria-hidden
-                      className="absolute inset-0"
-                      style={portraitPreviewCss(m.id)}
-                    />
-                    <span
-                      className={cn(
-                        "relative z-10 rounded-sm bg-black/60 px-1 text-[9px] font-medium text-white/95 backdrop-blur-sm",
-                        active && "bg-foreground text-background"
-                      )}
-                    >
-                      {m.label}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            {portrait.mode !== "off" ? (
-              <div className="space-y-3 pt-2 border-t border-border/40">
-                <div>
-                  <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-[11px] text-muted-foreground">Intensity</span>
-                    <EditableValue
-                      value={portrait.intensity}
-                      onChange={(v) => setPortrait({ ...portrait, intensity: v })}
-                      min={0}
-                      max={100}
-                      suffix="%"
-                    />
-                  </div>
-                  <Slider
-                    value={[portrait.intensity]}
-                    onValueChange={([v]) =>
-                      setPortrait({ ...portrait, intensity: v })
-                    }
-                    max={100}
-                    className="cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-[11px] text-muted-foreground">Position</span>
-                    <EditableValue
-                      value={portrait.position}
-                      onChange={(v) => setPortrait({ ...portrait, position: v })}
-                      min={0}
-                      max={100}
-                    />
-                  </div>
-                  <Slider
-                    value={[portrait.position]}
-                    onValueChange={([v]) =>
-                      setPortrait({ ...portrait, position: v })
-                    }
-                    max={100}
-                    className="cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-[11px] text-muted-foreground">Distance</span>
-                    <EditableValue
-                      value={portrait.distance}
-                      onChange={(v) => setPortrait({ ...portrait, distance: v })}
-                      min={0}
-                      max={100}
-                    />
-                  </div>
-                  <Slider
-                    value={[portrait.distance]}
-                    onValueChange={([v]) =>
-                      setPortrait({ ...portrait, distance: v })
-                    }
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">
+                    Position
+                  </span>
+                  <EditableValue
+                    value={portrait.position}
+                    onChange={(v) => setPortrait({ ...portrait, position: v })}
                     min={0}
                     max={100}
-                    className="cursor-pointer"
                   />
                 </div>
+                <Slider
+                  value={[portrait.position]}
+                  onValueChange={([v]) =>
+                    setPortrait({ ...portrait, position: v })
+                  }
+                  max={100}
+                  className="cursor-pointer"
+                />
               </div>
-            ) : null}
-          </PopoverContent>
-        </Popover>
+              <div>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">
+                    Distance
+                  </span>
+                  <EditableValue
+                    value={portrait.distance}
+                    onChange={(v) => setPortrait({ ...portrait, distance: v })}
+                    min={0}
+                    max={100}
+                  />
+                </div>
+                <Slider
+                  value={[portrait.distance]}
+                  onValueChange={([v]) =>
+                    setPortrait({ ...portrait, distance: v })
+                  }
+                  min={0}
+                  max={100}
+                  className="cursor-pointer"
+                />
+              </div>
+            </div>
+          ) : null}
+        </BackdropControlPopover>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <BackdropTile icon={RiMagicLine} label="Filters" active={backdropFilter !== "none"} />
-          </PopoverTrigger>
-          <PopoverContent
-            side="left"
-            align="start"
-            className="w-[260px] space-y-2 bg-popover/95 backdrop-blur-md"
-          >
-            <PopoverHeader
-              title="Filters"
-              description="Apply a colour grade to the background."
-              onReset={() => setBackdropFilter("none")}
-              resetTitle="Reset filter"
-            />
-            <BackdropFilterGrid current={backdropFilter} onChange={setBackdropFilter} />
-          </PopoverContent>
-        </Popover>
+        <BackdropControlPopover
+          icon={RiMagicLine}
+          label="Filters"
+          active={backdropFilter !== "none"}
+          title="Filters"
+          description="Apply a colour grade to the background."
+          onReset={() => setBackdropFilter("none")}
+          resetTitle="Reset filter"
+        >
+          <BackdropFilterGrid
+            current={backdropFilter}
+            onChange={setBackdropFilter}
+          />
+        </BackdropControlPopover>
       </div>
     </div>
   )
