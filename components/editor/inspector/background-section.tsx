@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import debounce from "lodash/debounce"
+import InfiniteScroll from "react-infinite-scroll-component"
 import {
   RiArrowRightLine,
   RiContrastLine,
@@ -50,6 +52,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import { ColorPresetGrid } from "./primitives"
+import { ScrollFadeBody } from "../scroll-fade"
 
 const BACKGROUND_PREVIEW_COUNT = 8
 const GRADIENT_PREVIEW_COUNT = 8
@@ -444,6 +447,8 @@ export function BackgroundSection() {
   const [unsplashResults, setUnsplashResults] = React.useState<
     UnsplashResult[]
   >([])
+  const [unsplashPage, setUnsplashPage] = React.useState(1)
+  const [unsplashHasMore, setUnsplashHasMore] = React.useState(false)
   const [unsplashOpen, setUnsplashOpen] = React.useState(false)
   const [autoResult, setAutoResult] = React.useState<{
     key: string
@@ -496,7 +501,7 @@ export function BackgroundSection() {
     reader.readAsDataURL(file)
   }
 
-  const searchUnsplash = async (overrideQuery?: string) => {
+  const searchUnsplash = React.useCallback(async (overrideQuery?: string, page = 1) => {
     const query = (overrideQuery ?? unsplashQuery).trim()
     if (!query) return
 
@@ -504,10 +509,10 @@ export function BackgroundSection() {
     setUnsplashError(null)
     try {
       const response = await fetch(
-        `/api/unsplash/search?q=${encodeURIComponent(query)}`
+        `/api/unsplash/search?q=${encodeURIComponent(query)}&page=${page}`
       )
       const data = (await response.json()) as
-        | { results: UnsplashResult[] }
+        | { results: UnsplashResult[]; hasMore?: boolean; page?: number }
         | { error?: string }
 
       if (!response.ok || !("results" in data)) {
@@ -518,15 +523,38 @@ export function BackgroundSection() {
         )
       }
 
-      setUnsplashResults(data.results)
+      setUnsplashResults((prev) => (page === 1 ? data.results : [...prev, ...data.results]))
+      setUnsplashPage(page)
+      setUnsplashHasMore(Boolean(data.hasMore))
       setUnsplashStatus("ready")
       setUnsplashOpen(true)
     } catch (error) {
       setUnsplashStatus("error")
+      setUnsplashHasMore(false)
       setUnsplashError(
         error instanceof Error ? error.message : "Unable to search Unsplash"
       )
     }
+  }, [unsplashQuery])
+
+  const debouncedSearchUnsplash = React.useMemo(
+    () =>
+      debounce((query: string) => {
+        void searchUnsplash(query, 1)
+      }, 200),
+    [searchUnsplash]
+  )
+
+  React.useEffect(() => () => debouncedSearchUnsplash.cancel(), [debouncedSearchUnsplash])
+
+  const loadMoreUnsplash = () => {
+    if (
+      unsplashStatus === "loading" ||
+      unsplashStatus === "error" ||
+      !unsplashHasMore
+    )
+      return
+    void searchUnsplash(undefined, unsplashPage + 1)
   }
 
   const selectUnsplashImage = (photo: UnsplashResult) => {
@@ -779,7 +807,11 @@ export function BackgroundSection() {
                   <div className="flex gap-1.5">
                     <input
                       value={unsplashQuery}
-                      onChange={(e) => setUnsplashQuery(e.target.value)}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        setUnsplashQuery(next)
+                        debouncedSearchUnsplash(next)
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") void searchUnsplash()
                       }}
@@ -806,7 +838,7 @@ export function BackgroundSection() {
                         key={q}
                         onClick={() => {
                           setUnsplashQuery(q)
-                          void searchUnsplash(q)
+                          void searchUnsplash(q, 1)
                         }}
                         className={cn(
                           "rounded-md border border-border/60 bg-secondary/30 px-2 py-1 text-[10px] font-medium transition-all cursor-pointer hover:bg-[#9BCD64]/10 hover:border-[#9BCD64]/40 hover:text-foreground",
@@ -822,36 +854,53 @@ export function BackgroundSection() {
                       {unsplashError}
                     </p>
                   ) : null}
-                  <div className="grid max-h-[300px] grid-cols-3 gap-2 overflow-y-auto px-1 [scrollbar-width:thin]">
+                  <ScrollFadeBody
+                    id="unsplash-results-scroll"
+                    rootClassName="h-[300px] max-h-[300px]"
+                    className="p-2"
+                  >
                     {unsplashResults.length > 0 ? (
-                      unsplashResults.map((photo) => (
-                        <button
-                          key={photo.id}
-                          onClick={() => selectUnsplashImage(photo)}
-                          title={`Photo by ${photo.photographer}`}
-                          className={cn(
-                            "aspect-video overflow-hidden rounded-lg border cursor-pointer transition-colors",
-                            background.type === "image" &&
-                              background.value === photo.full
-                              ? "border-transparent ring-1 ring-[#9BCD64]/60 ring-offset-1 ring-offset-popover"
-                              : "border-border/60 hover:border-foreground/30"
-                          )}
-                        >
-                          <img
-                            src={photo.thumb}
-                            alt={photo.alt}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-full w-full object-cover"
-                          />
-                        </button>
-                      ))
+                      <InfiniteScroll
+                        dataLength={unsplashResults.length}
+                        next={loadMoreUnsplash}
+                        hasMore={unsplashHasMore}
+                        loader={
+                          <div className="col-span-3 flex justify-center py-2 text-muted-foreground">
+                            <RiLoader4Line className="size-4 animate-spin" />
+                          </div>
+                        }
+                        scrollableTarget="unsplash-results-scroll"
+                        className="grid w-full grid-cols-3 gap-2.5"
+                      >
+                        {unsplashResults.map((photo) => (
+                          <button
+                            key={photo.id}
+                            onClick={() => selectUnsplashImage(photo)}
+                            title={`Photo by ${photo.photographer}`}
+                            className={cn(
+                              "relative aspect-video overflow-hidden rounded-lg border cursor-pointer transition-colors",
+                              background.type === "image" &&
+                                background.value === photo.full
+                                ? "border-primary/80 ring-2 ring-inset ring-primary/60"
+                                : "border-border/60 hover:border-foreground/30"
+                            )}
+                          >
+                            <img
+                              src={photo.thumb}
+                              alt={photo.alt}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </InfiniteScroll>
                     ) : (
-                      <div className="col-span-3 flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
                         <p className="text-[11px]">Select a topic or search to load photos.</p>
                       </div>
                     )}
-                  </div>
+                  </ScrollFadeBody>
                 </div>
               </PopoverContent>
             </Popover>

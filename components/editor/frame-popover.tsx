@@ -196,13 +196,17 @@ const FRAME_SEARCH_ALIASES: Record<string, string[]> = {
 export function FramePopover({
   value,
   onChange,
+  previewImage,
 }: {
   value: DeviceFrame
   onChange: (frame: DeviceFrame) => void
+  previewImage?: string | null
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
   const { screenshot } = useEditor()
+  const previewScreenshot =
+    previewImage === undefined ? screenshot : previewImage
 
   const current = ALL_OPTIONS.find((o) => o.id === value.id) ?? ALL_OPTIONS[0]
   const currentDevice = getDeviceMockup(current.id)
@@ -316,7 +320,7 @@ export function FramePopover({
                     option={option}
                     selectedColor={currentColor}
                     active={value.id === option.id}
-                    screenshot={screenshot}
+                    screenshot={previewScreenshot}
                     onSelect={() => {
                       selectFrame(option)
                     }}

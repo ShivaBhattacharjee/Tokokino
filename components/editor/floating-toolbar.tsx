@@ -14,6 +14,7 @@ import {
   RiLayoutGridLine,
   RiLayoutRowLine,
   RiResetLeftLine,
+  RiSmartphoneLine,
   RiSparkling2Line,
   RiStackLine,
   RiText,
@@ -22,6 +23,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { toast } from "sonner"
 
 import { AnnotationToolbar } from "@/components/editor/annotation-toolbar"
+import { FramePopover } from "@/components/editor/frame-popover"
 import { LayersPanelContent } from "@/components/editor/layers-popover"
 import {
   ToolbarButton,
@@ -36,6 +38,7 @@ import {
   type EditorTool,
   type EnhancePreset,
   MAX_CANVASES,
+  MAX_SCREENSHOT_SLOTS,
   SCREENSHOT_POSITIONS,
   type ScreenshotPosition,
   screenshotPositionAnchor as screenshotPositionAnchorFn,
@@ -50,38 +53,38 @@ const ENHANCE_PRESETS: {
   swatch: string
   filter?: string
 }[] = [
-    { id: "off", label: "Off", swatch: "linear-gradient(135deg,#888,#555)" },
-    {
-      id: "auto",
-      label: "Auto",
-      swatch: "linear-gradient(135deg,#7dd3fc,#a78bfa)",
-      filter: "brightness(1.04) contrast(1.08) saturate(1.1)",
-    },
-    {
-      id: "vivid",
-      label: "Vivid",
-      swatch: "linear-gradient(135deg,#f43f5e,#f59e0b)",
-      filter: "saturate(1.35) contrast(1.12)",
-    },
-    {
-      id: "soft",
-      label: "Soft",
-      swatch: "linear-gradient(135deg,#fde2e4,#cdb4db)",
-      filter: "brightness(1.06) saturate(0.9)",
-    },
-    {
-      id: "dramatic",
-      label: "Dramatic",
-      swatch: "linear-gradient(135deg,#1f2937,#6b7280)",
-      filter: "contrast(1.25) saturate(1.2)",
-    },
-    {
-      id: "sharp",
-      label: "Sharp",
-      swatch: "linear-gradient(135deg,#10b981,#0ea5e9)",
-      filter: "contrast(1.18)",
-    },
-  ]
+  { id: "off", label: "Off", swatch: "linear-gradient(135deg,#888,#555)" },
+  {
+    id: "auto",
+    label: "Auto",
+    swatch: "linear-gradient(135deg,#7dd3fc,#a78bfa)",
+    filter: "brightness(1.04) contrast(1.08) saturate(1.1)",
+  },
+  {
+    id: "vivid",
+    label: "Vivid",
+    swatch: "linear-gradient(135deg,#f43f5e,#f59e0b)",
+    filter: "saturate(1.35) contrast(1.12)",
+  },
+  {
+    id: "soft",
+    label: "Soft",
+    swatch: "linear-gradient(135deg,#fde2e4,#cdb4db)",
+    filter: "brightness(1.06) saturate(0.9)",
+  },
+  {
+    id: "dramatic",
+    label: "Dramatic",
+    swatch: "linear-gradient(135deg,#1f2937,#6b7280)",
+    filter: "contrast(1.25) saturate(1.2)",
+  },
+  {
+    id: "sharp",
+    label: "Sharp",
+    swatch: "linear-gradient(135deg,#10b981,#0ea5e9)",
+    filter: "contrast(1.18)",
+  },
+]
 
 type BulkLayout = "grid" | "row" | "column"
 
@@ -182,7 +185,7 @@ export function FloatingToolbar() {
                 <button
                   type="button"
                   onClick={() => applyLayout("grid")}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
+                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent"
                 >
                   <RiLayoutGridLine className="size-4" />
                 </button>
@@ -194,7 +197,7 @@ export function FloatingToolbar() {
                 <button
                   type="button"
                   onClick={() => applyLayout("row")}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
+                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent"
                 >
                   <RiLayoutRowLine className="size-4" />
                 </button>
@@ -206,7 +209,7 @@ export function FloatingToolbar() {
                 <button
                   type="button"
                   onClick={() => applyLayout("column")}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
+                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent"
                 >
                   <RiLayoutColumnLine className="size-4" />
                 </button>
@@ -218,7 +221,7 @@ export function FloatingToolbar() {
                 <button
                   type="button"
                   onClick={resetPositions}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent cursor-pointer"
+                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-accent"
                 >
                   <RiResetLeftLine className="size-4" />
                 </button>
@@ -236,7 +239,7 @@ export function FloatingToolbar() {
                     if (id) toast("Canvas added")
                     else toast(`Canvas limit reached (${MAX_CANVASES})`)
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-accent cursor-pointer whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                 >
                   <RiAddLine className="size-4" />
                   Add canvas
@@ -290,8 +293,11 @@ function DefaultToolbarContents() {
     setSelectedTextId,
     addAsset,
     setSelectedAssetId,
+    setSelectedAnnotationShapeId,
+    setIsScreenshotSelected,
     screenshot,
     frame,
+    setFrame,
     enhance,
     setEnhance,
     scale,
@@ -307,14 +313,26 @@ function DefaultToolbarContents() {
     updateAnnotationShape,
     addScreenshotSlot,
     screenshotSlots,
+    updateScreenshotSlot,
     setSelectedScreenshotSlotId,
+    setScreenshotSlotGroupPosition,
   } = useEditor()
   const assetInputRef = React.useRef<HTMLInputElement>(null)
 
-  const selectedText = selectedTextId ? texts.find((t) => t.id === selectedTextId) : null
-  const selectedAsset = selectedAssetId ? assets.find((a) => a.id === selectedAssetId) : null
+  const selectedText = selectedTextId
+    ? texts.find((t) => t.id === selectedTextId)
+    : null
+  const selectedAsset = selectedAssetId
+    ? assets.find((a) => a.id === selectedAssetId)
+    : null
   const selectedAnnotation = selectedAnnotationShapeId
     ? annotationShapes.find((s) => s.id === selectedAnnotationShapeId)
+    : null
+  const selectedScreenshotSlotId = useEditorStore(
+    (s) => s.selectedScreenshotSlotId
+  )
+  const selectedSlot = selectedScreenshotSlotId
+    ? screenshotSlots.find((slot) => slot.id === selectedScreenshotSlotId)
     : null
 
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
@@ -324,22 +342,39 @@ function DefaultToolbarContents() {
 
   const isScreenshotSelected = useEditorStore((s) => s.isScreenshotSelected)
 
-  type PositionTarget = "text" | "asset" | "annotation" | "screenshot" | "canvas" | null
-  const hasDeviceFrame = frame.id !== "none"
-  const hasScalableContent = Boolean(screenshot || hasDeviceFrame)
+  type PositionTarget =
+    | "text"
+    | "asset"
+    | "annotation"
+    | "slot"
+    | "slotGroup"
+    | "screenshot"
+    | "canvas"
+    | null
+  const activeFrame = selectedSlot?.frame ?? frame
+  const activeScale = selectedSlot?.scale ?? scale
+  const activeEnhance = selectedSlot?.enhance ?? enhance
+  const hasDeviceFrame = activeFrame.id !== "none"
+  const hasScalableContent = selectedSlot
+    ? true
+    : Boolean(screenshot || hasDeviceFrame)
   const positionTarget: PositionTarget = selectedText
     ? "text"
     : selectedAsset
       ? "asset"
       : selectedAnnotation
         ? "annotation"
-        : isScreenshotSelected && (screenshot || hasDeviceFrame)
-          ? "screenshot"
-          : bulkEditMode
-            ? "canvas"
-            : screenshot || hasDeviceFrame
-              ? "screenshot"
-              : null
+        : selectedSlot
+          ? "slot"
+          : isScreenshotSelected && (screenshot || hasDeviceFrame)
+            ? "screenshot"
+            : screenshotSlots.length > 0
+              ? "slotGroup"
+              : bulkEditMode
+                ? "canvas"
+                : screenshot || hasDeviceFrame
+                  ? "screenshot"
+                  : null
 
   const currentPositionId = React.useMemo<ScreenshotPosition | null>(() => {
     let xPct: number
@@ -353,14 +388,35 @@ function DefaultToolbarContents() {
     } else if (positionTarget === "annotation" && selectedAnnotation) {
       xPct = selectedAnnotation.xPct
       yPct = selectedAnnotation.yPct
+    } else if (positionTarget === "slot" && selectedSlot) {
+      xPct = selectedSlot.xPct
+      yPct = selectedSlot.yPct
+    } else if (positionTarget === "slotGroup") {
+      if (screenshotSlots.length === 0) return null
+      const bounds = screenshotSlots.reduce(
+        (acc, slot) => ({
+          minX: Math.min(acc.minX, slot.xPct - slot.widthPct / 2),
+          maxX: Math.max(acc.maxX, slot.xPct + slot.widthPct / 2),
+          minY: Math.min(acc.minY, slot.yPct - slot.heightPct / 2),
+          maxY: Math.max(acc.maxY, slot.yPct + slot.heightPct / 2),
+        }),
+        {
+          minX: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY,
+        }
+      )
+      xPct = (bounds.minX + bounds.maxX) / 2
+      yPct = (bounds.minY + bounds.maxY) / 2
     } else if (positionTarget === "canvas") {
       const canvas = canvases.find((c) => c.id === activeCanvasId)
       if (!canvas) return null
       // Map canvas pixel position to grid position
       // Canvas coordinates: center is {0,0}, spread of CANVAS_POS_SPREAD px
       const CANVAS_POS_SPREAD = 600
-      const colPct = ((canvas.position.x / CANVAS_POS_SPREAD) * 50 + 50)
-      const rowPct = ((canvas.position.y / CANVAS_POS_SPREAD) * 50 + 50)
+      const colPct = (canvas.position.x / CANVAS_POS_SPREAD) * 50 + 50
+      const rowPct = (canvas.position.y / CANVAS_POS_SPREAD) * 50 + 50
       const col = Math.round(Math.max(0, Math.min(4, colPct / 25)))
       const row = Math.round(Math.max(0, Math.min(4, rowPct / 25)))
       if (col === 2 && row === 2) return "center"
@@ -374,7 +430,17 @@ function DefaultToolbarContents() {
     const row = Math.round(yPct / 25)
     if (col === 2 && row === 2) return "center"
     return `${row}-${col}` as ScreenshotPosition
-  }, [positionTarget, selectedText, selectedAsset, selectedAnnotation, screenshotPosition, canvases, activeCanvasId])
+  }, [
+    positionTarget,
+    selectedText,
+    selectedAsset,
+    selectedAnnotation,
+    selectedSlot,
+    screenshotSlots,
+    screenshotPosition,
+    canvases,
+    activeCanvasId,
+  ])
 
   const handlePositionClick = (posId: ScreenshotPosition) => {
     const anchor = screenshotPositionAnchorFn(posId)
@@ -383,7 +449,14 @@ function DefaultToolbarContents() {
     } else if (positionTarget === "asset" && selectedAssetId) {
       updateAsset(selectedAssetId, { xPct: anchor.x, yPct: anchor.y })
     } else if (positionTarget === "annotation" && selectedAnnotationShapeId) {
-      updateAnnotationShape(selectedAnnotationShapeId, { xPct: anchor.x, yPct: anchor.y })
+      updateAnnotationShape(selectedAnnotationShapeId, {
+        xPct: anchor.x,
+        yPct: anchor.y,
+      })
+    } else if (positionTarget === "slot" && selectedSlot) {
+      updateScreenshotSlot(selectedSlot.id, { xPct: anchor.x, yPct: anchor.y })
+    } else if (positionTarget === "slotGroup") {
+      setScreenshotSlotGroupPosition({ xPct: anchor.x, yPct: anchor.y })
     } else if (positionTarget === "canvas" && activeCanvasId) {
       // Map anchor percentage (0-100) to canvas pixel coordinates
       // center=50% maps to 0px, 0% maps to -SPREAD, 100% maps to +SPREAD
@@ -403,13 +476,17 @@ function DefaultToolbarContents() {
         ? "asset"
         : positionTarget === "annotation"
           ? "annotation"
-          : positionTarget === "canvas"
-            ? "canvas"
-            : positionTarget === "screenshot"
-              ? hasDeviceFrame
-                ? "device frame"
-                : "screenshot"
-              : null
+          : positionTarget === "slot"
+            ? "screenshot box"
+            : positionTarget === "slotGroup"
+              ? "screenshot boxes"
+              : positionTarget === "canvas"
+                ? "canvas"
+                : positionTarget === "screenshot"
+                  ? hasDeviceFrame
+                    ? "device frame"
+                    : "screenshot"
+                  : null
 
   const handleAssetUpload = (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -422,6 +499,8 @@ function DefaultToolbarContents() {
         const id = addAsset(reader.result)
         setSelectedAssetId(id)
         setSelectedTextId(null)
+        setSelectedScreenshotSlotId(null)
+        setIsScreenshotSelected(false)
         setActiveTool("pointer")
       }
     }
@@ -432,6 +511,8 @@ function DefaultToolbarContents() {
     if (id === "text") {
       const newId = addText()
       setSelectedTextId(newId)
+      setSelectedScreenshotSlotId(null)
+      setIsScreenshotSelected(false)
       setActiveTool("pointer")
       return
     }
@@ -443,13 +524,13 @@ function DefaultToolbarContents() {
     label: string
     icon: React.ComponentType<{ className?: string }>
   }[] = [
-      { id: "pointer", label: "Select", icon: RiCursorLine },
-      { id: "text", label: "Text", icon: RiText },
-      { id: "arrow", label: "Annotate", icon: RiArrowRightUpLine },
-      { id: "position", label: "Position", icon: RiDragMove2Line },
-      { id: "layers", label: "Layers", icon: RiStackLine },
-      { id: "enhance", label: "Enhance", icon: RiSparkling2Line },
-    ]
+    { id: "pointer", label: "Select", icon: RiCursorLine },
+    { id: "text", label: "Text", icon: RiText },
+    { id: "arrow", label: "Annotate", icon: RiArrowRightUpLine },
+    { id: "position", label: "Position", icon: RiDragMove2Line },
+    { id: "layers", label: "Layers", icon: RiStackLine },
+    { id: "enhance", label: "Enhance", icon: RiSparkling2Line },
+  ]
 
   return (
     <>
@@ -477,18 +558,60 @@ function DefaultToolbarContents() {
       <ToolbarButton
         aria-label="Add screenshot box"
         tooltip={
-          screenshotSlots.length >= 6
-            ? "Maximum 6 screenshot boxes"
+          screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
+            ? `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
             : "Add screenshot box"
         }
-        disabled={screenshotSlots.length >= 6}
+        disabled={screenshotSlots.length >= MAX_SCREENSHOT_SLOTS}
         onClick={() => {
           const id = addScreenshotSlot()
-          setSelectedScreenshotSlotId(id)
+          if (id) {
+            setSelectedScreenshotSlotId(id)
+            setSelectedTextId(null)
+            setSelectedAssetId(null)
+            setSelectedAnnotationShapeId(null)
+            setIsScreenshotSelected(false)
+            toast("Screenshot box added")
+          } else {
+            toast(`Screenshot box limit reached (${MAX_SCREENSHOT_SLOTS})`)
+          }
         }}
       >
         <RiGalleryLine className="size-4" />
       </ToolbarButton>
+      <ToolbarPopover
+        tooltip={
+          selectedSlot
+            ? "Frame for selected screenshot box"
+            : "Frame for main screenshot"
+        }
+        contentClassName="w-72 p-3"
+        trigger={({ open }) => (
+          <ToolbarButton
+            aria-label="Frame"
+            active={open || activeFrame.id !== "none"}
+          >
+            <RiSmartphoneLine className="size-4" />
+          </ToolbarButton>
+        )}
+      >
+        <div className="flex flex-col gap-2">
+          <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            {selectedSlot ? "Screenshot box frame" : "Main screenshot frame"}
+          </span>
+          <FramePopover
+            value={activeFrame}
+            previewImage={selectedSlot ? selectedSlot.src : undefined}
+            onChange={(nextFrame) => {
+              if (selectedSlot) {
+                updateScreenshotSlot(selectedSlot.id, { frame: nextFrame })
+                return
+              }
+              setFrame(nextFrame)
+            }}
+          />
+        </div>
+      </ToolbarPopover>
       <span className="mx-1 h-5 w-px bg-border" />
       {items.map((it) => {
         const isActive = activeTool === it.id
@@ -516,36 +639,45 @@ function DefaultToolbarContents() {
         }
 
         if (it.id === "enhance") {
-          const isOn = enhance !== "off"
+          const isOn = activeEnhance !== "off"
+          const canEnhance = selectedSlot
+            ? Boolean(selectedSlot.src)
+            : Boolean(screenshot)
           return (
             <ToolbarPopover
               key={it.id}
-              tooltip={
-                screenshot ? "Enhance image" : "Add a screenshot first"
-              }
+              tooltip={canEnhance ? "Enhance image" : "Add a screenshot first"}
               contentClassName="w-56 p-2"
               trigger={({ open }) => (
                 <ToolbarButton
                   aria-label={it.label}
                   active={open || isOn}
-                  disabled={!screenshot}
+                  disabled={!canEnhance}
                 >
                   <Icon className="size-4" />
                 </ToolbarButton>
               )}
             >
               <div className="flex flex-col gap-2">
-                <span className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                   Enhance
                 </span>
                 <div className="grid grid-cols-3 gap-1.5">
                   {ENHANCE_PRESETS.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => setEnhance(p.id)}
+                      onClick={() => {
+                        if (selectedSlot) {
+                          updateScreenshotSlot(selectedSlot.id, {
+                            enhance: p.id,
+                          })
+                          return
+                        }
+                        setEnhance(p.id)
+                      }}
                       className={cn(
-                        "flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-[11px] transition-all cursor-pointer",
-                        enhance === p.id
+                        "flex cursor-pointer flex-col items-center gap-1 rounded-md border px-2 py-2 text-[11px] transition-all",
+                        activeEnhance === p.id
                           ? "border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/20"
                           : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-foreground/30"
                       )}
@@ -592,17 +724,19 @@ function DefaultToolbarContents() {
               )}
             >
               <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                   Position {positionTargetLabel}
                 </span>
                 <div className="grid grid-cols-5 gap-1.5">
                   {SCREENSHOT_POSITIONS.map((pos) => (
                     <button
                       key={pos.id}
-                      onClick={() => handlePositionClick(pos.id as ScreenshotPosition)}
+                      onClick={() =>
+                        handlePositionClick(pos.id as ScreenshotPosition)
+                      }
                       aria-label={`Move ${positionTargetLabel} to ${positionLabel(pos.id)}`}
                       className={cn(
-                        "flex size-8 items-center justify-center rounded-md border transition-all cursor-pointer",
+                        "flex size-8 cursor-pointer items-center justify-center rounded-md border transition-all",
                         currentPositionId === pos.id
                           ? "border-primary bg-primary text-white"
                           : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-foreground/30"
@@ -641,9 +775,18 @@ function DefaultToolbarContents() {
 
       <ToolbarButton
         aria-label="Zoom out"
-        tooltip={hasScalableContent ? "Zoom out" : "Add a screenshot or frame first"}
-        disabled={!hasScalableContent || scale <= 10}
-        onClick={() => setScale(Math.max(10, scale - 10))}
+        tooltip={
+          hasScalableContent ? "Zoom out" : "Add a screenshot or frame first"
+        }
+        disabled={!hasScalableContent || activeScale <= 10}
+        onClick={() => {
+          const nextScale = Math.max(10, activeScale - 10)
+          if (selectedSlot) {
+            updateScreenshotSlot(selectedSlot.id, { scale: nextScale })
+            return
+          }
+          setScale(nextScale)
+        }}
       >
         <span className="text-base leading-none">−</span>
       </ToolbarButton>
@@ -651,20 +794,35 @@ function DefaultToolbarContents() {
       <button
         type="button"
         disabled={!hasScalableContent}
-        onClick={() => setScale(100)}
+        onClick={() => {
+          if (selectedSlot) {
+            updateScreenshotSlot(selectedSlot.id, { scale: 100 })
+            return
+          }
+          setScale(100)
+        }}
         className={cn(
-          "tabular min-w-[3.25rem] rounded-md px-1 py-1.5 font-mono text-[11px] text-foreground/85 hover:bg-accent cursor-pointer",
-          !hasScalableContent && "opacity-40 cursor-not-allowed"
+          "tabular min-w-[3.25rem] cursor-pointer rounded-md px-1 py-1.5 font-mono text-[11px] text-foreground/85 hover:bg-accent",
+          !hasScalableContent && "cursor-not-allowed opacity-40"
         )}
       >
-        {scale}%
+        {activeScale}%
       </button>
 
       <ToolbarButton
         aria-label="Zoom in"
-        tooltip={hasScalableContent ? "Zoom in" : "Add a screenshot or frame first"}
-        disabled={!hasScalableContent || scale >= 300}
-        onClick={() => setScale(Math.min(300, scale + 10))}
+        tooltip={
+          hasScalableContent ? "Zoom in" : "Add a screenshot or frame first"
+        }
+        disabled={!hasScalableContent || activeScale >= 300}
+        onClick={() => {
+          const nextScale = Math.min(300, activeScale + 10)
+          if (selectedSlot) {
+            updateScreenshotSlot(selectedSlot.id, { scale: nextScale })
+            return
+          }
+          setScale(nextScale)
+        }}
       >
         <span className="text-base leading-none">+</span>
       </ToolbarButton>

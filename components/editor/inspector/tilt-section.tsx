@@ -4,7 +4,11 @@ import * as React from "react"
 
 import { EditableValue } from "@/components/editor/editable-value"
 import { Slider } from "@/components/ui/slider"
-import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
+import {
+  useActiveCanvasField,
+  useEditorStore,
+  useSelectedScreenshotSlot,
+} from "@/lib/editor/store"
 
 function DegreeRow({
   label,
@@ -39,32 +43,50 @@ function DegreeRow({
 }
 
 export function TiltSection() {
-  const tilt = useActiveCanvasField((c) => c.tilt)
-  const scale = useActiveCanvasField((c) => c.scale)
+  const canvasTilt = useActiveCanvasField((c) => c.tilt)
+  const canvasScale = useActiveCanvasField((c) => c.scale)
+  const selectedSlot = useSelectedScreenshotSlot()
+  const tilt = selectedSlot?.tilt ?? canvasTilt
+  const scale = selectedSlot?.scale ?? canvasScale
   const setTilt = useEditorStore((s) => s.setTilt)
   const setScale = useEditorStore((s) => s.setScale)
+  const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
+  const applyTilt = (nextTilt: typeof tilt) => {
+    if (selectedSlot) {
+      updateScreenshotSlot(selectedSlot.id, { tilt: nextTilt })
+      return
+    }
+    setTilt(nextTilt)
+  }
+  const applyScale = (nextScale: number) => {
+    if (selectedSlot) {
+      updateScreenshotSlot(selectedSlot.id, { scale: nextScale })
+      return
+    }
+    setScale(nextScale)
+  }
   return (
     <>
       <DegreeRow
         label="Rotate X"
         value={tilt.rx}
-        onChange={(v) => setTilt({ ...tilt, rx: v })}
+        onChange={(v) => applyTilt({ ...tilt, rx: v })}
       />
       <DegreeRow
         label="Rotate Y"
         value={tilt.ry}
-        onChange={(v) => setTilt({ ...tilt, ry: v })}
+        onChange={(v) => applyTilt({ ...tilt, ry: v })}
       />
       <DegreeRow
         label="Rotate Z"
         value={tilt.rz}
-        onChange={(v) => setTilt({ ...tilt, rz: v })}
+        onChange={(v) => applyTilt({ ...tilt, rz: v })}
       />
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-[11px] text-muted-foreground">Scale</span>
         <EditableValue
           value={scale}
-          onChange={setScale}
+          onChange={applyScale}
           min={10}
           max={300}
           suffix="%"
@@ -72,7 +94,7 @@ export function TiltSection() {
       </div>
       <Slider
         value={[scale]}
-        onValueChange={([v]) => setScale(v)}
+        onValueChange={([v]) => applyScale(v)}
         min={50}
         max={150}
         className="cursor-pointer"

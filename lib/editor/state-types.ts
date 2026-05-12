@@ -316,6 +316,10 @@ export type ScreenshotSlot = {
   widthPct: number
   heightPct: number
   rotation: number
+  padding: number
+  tilt: Tilt
+  scale: number
+  frame: DeviceFrame
   borderRadius: number
   zIndex: number
   shadow: Shadow

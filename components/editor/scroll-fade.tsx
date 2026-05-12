@@ -13,11 +13,13 @@ export const ScrollFadeRootContext =
 
 export function ScrollFadeBody({
   children,
+  id,
   className,
   rootClassName,
   fadeClassName,
 }: {
   children: React.ReactNode
+  id?: string
   className?: string
   rootClassName?: string
   fadeClassName?: string
@@ -49,10 +51,11 @@ export function ScrollFadeBody({
   return (
     <div className={cn("relative min-h-0", rootClassName)}>
       <div
+        id={id}
         ref={scrollRef}
         onScroll={updateScrollState}
         className={cn(
-          "overflow-x-hidden overflow-y-auto",
+          "h-full overflow-x-hidden overflow-y-auto",
           hiddenScrollbarClass,
           className
         )}

@@ -389,7 +389,6 @@ function CanvasViewInner({
       ? null
       : getDeviceMockupAsset(frame.id, frame.color, mockupOrientation)
   const mockupSpec = mockupAsset ? deviceMockupSpec(frame.id) : null
-  const hasFrame = browserFrame || (mockupAsset && mockupSpec)
 
   const startScreenshotDrag = (e: React.PointerEvent<HTMLImageElement>) => {
     if (!canDragScreenshot || !placementDims) return
@@ -399,6 +398,10 @@ function CanvasViewInner({
     e.currentTarget.setPointerCapture(e.pointerId)
     setIsScreenshotSelected(true)
     setIsScreenshotDragging(true)
+    setSelectedTextId(null)
+    setSelectedAssetId(null)
+    setSelectedAnnotationShapeId(null)
+    setSelectedScreenshotSlotId(null)
     dragRef.current = {
       pointerId: e.pointerId,
       startClientX: e.clientX,
@@ -464,6 +467,7 @@ function CanvasViewInner({
     setSelectedTextId(null)
     setSelectedAssetId(null)
     setSelectedAnnotationShapeId(null)
+    setSelectedScreenshotSlotId(null)
     mockupDragRef.current = {
       pointerId: e.pointerId,
       startClientX: e.clientX,
@@ -902,7 +906,9 @@ function CanvasViewInner({
     e.stopPropagation()
     setIsScreenshotSelected(true)
     setSelectedTextId(null)
+    setSelectedAssetId(null)
     setSelectedAnnotationShapeId(null)
+    setSelectedScreenshotSlotId(null)
   }
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -943,7 +949,7 @@ function CanvasViewInner({
           className={cn(
             "relative flex items-center justify-center overflow-hidden ring-1 ring-border/60 transition-shadow",
             bulkEditMode && isActive
-              ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_rgba(120,90,255,0.12)]"
+              ? "shadow-[0_0_0_4px_rgba(120,90,255,0.12)] ring-2 ring-primary/70"
               : "ring-border/40"
           )}
           onClick={() => {
@@ -1006,7 +1012,6 @@ function CanvasViewInner({
             portrait={portrait}
             overlay={overlay}
           />
-
 
           <div
             className="pointer-events-none relative flex h-full w-full items-center justify-center"
@@ -1165,7 +1170,7 @@ function CanvasViewInner({
                 onPointerMove={moveMockup}
                 onPointerUp={stopMockupDrag}
               />
-            ) : screenshotSlots.length > 0 ? null : (
+            ) : (
               <CanvasEmptyState
                 isDragOver={isDragOver}
                 onBrowse={() => fileInputRef.current?.click()}
@@ -1315,7 +1320,8 @@ export function Canvas() {
       if (!rect.width || !rect.height) return
       const hGutter = 48
       const fitW = Math.max(0, rect.width - hGutter) / widthPx
-      const fitH = Math.max(0, rect.height - topGutter - bottomGutter) / heightPx
+      const fitH =
+        Math.max(0, rect.height - topGutter - bottomGutter) / heightPx
       setAutoFit(Math.max(0.05, Math.min(1, Math.min(fitW, fitH))))
     }
     measure()
@@ -1351,7 +1357,7 @@ export function Canvas() {
         <BulkCanvasFlow widthPx={widthPx} heightPx={heightPx} />
       ) : (
         <div
-          className="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
+          className="absolute top-1/2 left-1/2 origin-center transition-transform duration-200 ease-out"
           style={{
             transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) scale(${effectiveScale})`,
           }}

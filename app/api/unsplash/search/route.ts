@@ -25,6 +25,7 @@ type UnsplashSearchPhoto = {
 
 type UnsplashSearchResponse = {
   results: UnsplashSearchPhoto[]
+  total_pages: number
 }
 
 export async function GET(request: Request) {
@@ -37,12 +38,16 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const query = searchParams.get("q")?.trim()
+  const pageParam = searchParams.get("page")
+  const parsedPage = pageParam ? Number.parseInt(pageParam, 10) : 1
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
   if (!query) {
     return NextResponse.json({ error: "Missing search query" }, { status: 400 })
   }
 
   const params = new URLSearchParams({
     query,
+    page: String(page),
     per_page: "12",
     orientation: "landscape",
     content_filter: "high",
@@ -68,6 +73,8 @@ export async function GET(request: Request) {
 
   const data = (await response.json()) as UnsplashSearchResponse
   return NextResponse.json({
+    page,
+    hasMore: page < data.total_pages,
     results: data.results.map((photo) => ({
       id: photo.id,
       alt: photo.alt_description ?? "Unsplash photo",

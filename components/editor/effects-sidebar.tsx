@@ -10,7 +10,7 @@ import {
 import { FramePopover } from "@/components/editor/frame-popover"
 import { getFrameAspectCompatibilityWarning } from "@/lib/editor/frame-aspect-compatibility"
 import { cn } from "@/lib/utils"
-import { useEditor } from "@/lib/editor/store"
+import { useEditor, useSelectedScreenshotSlot } from "@/lib/editor/store"
 import type { AspectState, DeviceFrame } from "@/lib/editor/store"
 
 export function EffectsSidebar({
@@ -19,7 +19,10 @@ export function EffectsSidebar({
   className?: string
   stacked?: boolean
 }) {
-  const { aspect, frame, setAspect, setFrame } = useEditor()
+  const { aspect, frame, setAspect, setFrame, updateScreenshotSlot } =
+    useEditor()
+  const selectedSlot = useSelectedScreenshotSlot()
+  const activeFrame = selectedSlot?.frame ?? frame
 
   const [customSize, setCustomSize] = React.useState<{
     w: number
@@ -64,7 +67,11 @@ export function EffectsSidebar({
                   const nextAspect = { id, w: custom.w, h: custom.h }
                   setAspect(nextAspect)
                   setCustomSize(custom)
-                  showCompatibilityWarning(nextAspect, frame, "Custom size")
+                  showCompatibilityWarning(
+                    nextAspect,
+                    activeFrame,
+                    "Custom size"
+                  )
                   return
                 }
                 const opt = findAspectOption(id)
@@ -72,7 +79,7 @@ export function EffectsSidebar({
                   const nextAspect = { id, w: opt.w, h: opt.h }
                   setAspect(nextAspect)
                   setCustomSize(null)
-                  showCompatibilityWarning(nextAspect, frame, opt.name)
+                  showCompatibilityWarning(nextAspect, activeFrame, opt.name)
                 }
               }}
             />
@@ -85,8 +92,13 @@ export function EffectsSidebar({
           <div>
             <SectionLabel>Frame</SectionLabel>
             <FramePopover
-              value={frame}
+              value={activeFrame}
+              previewImage={selectedSlot ? selectedSlot.src : undefined}
               onChange={(nextFrame) => {
+                if (selectedSlot) {
+                  updateScreenshotSlot(selectedSlot.id, { frame: nextFrame })
+                  return
+                }
                 setFrame(nextFrame)
                 showCompatibilityWarning(
                   aspect,

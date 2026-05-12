@@ -9,6 +9,7 @@ import {
   sampleImageColorsRaw,
   useActiveCanvasField,
   useEditorStore,
+  useSelectedScreenshotSlot,
 } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
@@ -26,12 +27,31 @@ const BORDER_PRESETS = [
 const DEFAULT_BORDER_COLOR = BORDER_PRESETS[0]
 
 export function BorderSection() {
-  const border = useActiveCanvasField((c) => c.border)
-  const borderRadius = useActiveCanvasField((c) => c.borderRadius)
+  const canvasBorder = useActiveCanvasField((c) => c.border)
+  const canvasBorderRadius = useActiveCanvasField((c) => c.borderRadius)
   const background = useActiveCanvasField((c) => c.background)
-  const screenshot = useActiveCanvasField((c) => c.screenshot)
+  const canvasScreenshot = useActiveCanvasField((c) => c.screenshot)
+  const selectedSlot = useSelectedScreenshotSlot()
+  const border = selectedSlot?.border ?? canvasBorder
+  const borderRadius = selectedSlot?.borderRadius ?? canvasBorderRadius
+  const screenshot = selectedSlot?.src ?? canvasScreenshot
   const setBorder = useEditorStore((s) => s.setBorder)
   const setBorderRadius = useEditorStore((s) => s.setBorderRadius)
+  const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
+  const applyBorder = (nextBorder: typeof border) => {
+    if (selectedSlot) {
+      updateScreenshotSlot(selectedSlot.id, { border: nextBorder })
+      return
+    }
+    setBorder(nextBorder)
+  }
+  const applyBorderRadius = (nextRadius: number) => {
+    if (selectedSlot) {
+      updateScreenshotSlot(selectedSlot.id, { borderRadius: nextRadius })
+      return
+    }
+    setBorderRadius(nextRadius)
+  }
   const enabled = border.color !== null
   const currentColor = border.color || DEFAULT_BORDER_COLOR
 
@@ -150,7 +170,7 @@ export function BorderSection() {
           <span className="text-[11px] text-muted-foreground">Radius</span>
           <EditableValue
             value={borderRadius}
-            onChange={setBorderRadius}
+            onChange={applyBorderRadius}
             min={0}
             max={48}
             suffix="px"
@@ -158,7 +178,7 @@ export function BorderSection() {
         </div>
         <Slider
           value={[borderRadius]}
-          onValueChange={([v]) => setBorderRadius(v)}
+          onValueChange={([v]) => applyBorderRadius(v)}
           max={48}
           className="cursor-pointer"
         />
@@ -172,7 +192,7 @@ export function BorderSection() {
           size="sm"
           checked={enabled}
           onCheckedChange={(on) =>
-            setBorder({ ...border, color: on ? DEFAULT_BORDER_COLOR : null })
+            applyBorder({ ...border, color: on ? DEFAULT_BORDER_COLOR : null })
           }
           className="cursor-pointer"
         />
@@ -183,7 +203,7 @@ export function BorderSection() {
           <span className="text-[11px] text-muted-foreground">Width</span>
           <EditableValue
             value={border.width}
-            onChange={(v) => setBorder({ ...border, width: v })}
+            onChange={(v) => applyBorder({ ...border, width: v })}
             min={0}
             max={12}
             suffix="px"
@@ -191,7 +211,7 @@ export function BorderSection() {
         </div>
         <Slider
           value={[border.width]}
-          onValueChange={([v]) => setBorder({ ...border, width: v })}
+          onValueChange={([v]) => applyBorder({ ...border, width: v })}
           min={0}
           max={12}
           className="cursor-pointer"
@@ -205,7 +225,7 @@ export function BorderSection() {
           </span>
           <EditableValue
             value={border.padding}
-            onChange={(v) => setBorder({ ...border, padding: v })}
+            onChange={(v) => applyBorder({ ...border, padding: v })}
             min={0}
             max={80}
             suffix="px"
@@ -213,7 +233,7 @@ export function BorderSection() {
         </div>
         <Slider
           value={[border.padding]}
-          onValueChange={([v]) => setBorder({ ...border, padding: v })}
+          onValueChange={([v]) => applyBorder({ ...border, padding: v })}
           min={0}
           max={80}
           className="cursor-pointer"
@@ -229,7 +249,7 @@ export function BorderSection() {
               onClick={() => {
                 const patch: Partial<typeof border> = { style: t.id }
                 if (!border.color) patch.color = "#ffffff"
-                setBorder({ ...border, ...patch })
+                applyBorder({ ...border, ...patch })
               }}
               className={cn(
                 "flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border p-1.5 transition-all",
@@ -256,9 +276,9 @@ export function BorderSection() {
         <ColorPresetGrid
           presets={finalPresets}
           selected={enabled ? currentColor : null}
-          onSelect={(c) => setBorder({ ...border, color: c })}
+          onSelect={(c) => applyBorder({ ...border, color: c })}
           customColor={isCustom ? currentColor : DEFAULT_BORDER_COLOR}
-          onCustomColor={(hex) => setBorder({ ...border, color: hex })}
+          onCustomColor={(hex) => applyBorder({ ...border, color: hex })}
           isCustom={isCustom}
           customLabel="Custom border color"
           tileShape="rect"

@@ -27,6 +27,7 @@ import {
   RiDraggable,
   RiEyeCloseLine,
   RiEyeLine,
+  RiGalleryLine,
   RiImage2Line,
   RiLock2Line,
   RiMoreFill,
@@ -51,7 +52,7 @@ import { getDeviceMockup } from "@/lib/mockups"
 import { BROWSER_FRAMES } from "@/lib/browser-frame"
 import { cn } from "@/lib/utils"
 
-type EditableLayerType = "screenshot" | "asset" | "text" | "annotation"
+type EditableLayerType = "screenshot" | "slot" | "asset" | "text" | "annotation"
 
 type EditorLayer = {
   key: string
@@ -107,6 +108,8 @@ export function LayersPanelContent() {
     background,
     screenshotLayer,
     updateScreenshotLayer,
+    screenshotSlots,
+    updateScreenshotSlot,
     assets,
     updateAsset,
     texts,
@@ -119,6 +122,10 @@ export function LayersPanelContent() {
     setSelectedTextId,
     selectedAnnotationShapeId,
     setSelectedAnnotationShapeId,
+    selectedScreenshotSlotId,
+    setSelectedScreenshotSlotId,
+    isScreenshotSelected,
+    setIsScreenshotSelected,
     setActiveTool,
     canvases,
     activeCanvasId,
@@ -163,6 +170,24 @@ export function LayersPanelContent() {
       })
     }
 
+    for (const [index, slot] of screenshotSlots.entries()) {
+      next.push({
+        key: `slot:${slot.id}`,
+        id: slot.id,
+        type: "slot",
+        name: `Screenshot box ${index + 1}`,
+        meta:
+          slot.frame.id === "none"
+            ? "Screenshot box"
+            : `Frame · ${slot.frame.id.replace(/_/g, " ")}`,
+        zIndex: slot.zIndex,
+        hidden: Boolean(slot.hidden),
+        opacity: slot.opacity,
+        blendMode: slot.blendMode,
+        thumbnail: slot.src ?? undefined,
+      })
+    }
+
     for (const text of texts) {
       const name = text.content.replace(/\s+/g, " ").trim()
       next.push({
@@ -193,7 +218,14 @@ export function LayersPanelContent() {
     }
 
     return next.sort((a, b) => b.zIndex - a.zIndex)
-  }, [assets, annotationShapes, screenshot, screenshotLayer, texts])
+  }, [
+    assets,
+    annotationShapes,
+    screenshot,
+    screenshotLayer,
+    screenshotSlots,
+    texts,
+  ])
 
   const activeKey =
     selectedLayerKey ??
@@ -203,7 +235,11 @@ export function LayersPanelContent() {
         ? `text:${selectedTextId}`
         : selectedAnnotationShapeId
           ? `annotation:${selectedAnnotationShapeId}`
-          : (layers[0]?.key ?? null))
+          : selectedScreenshotSlotId
+            ? `slot:${selectedScreenshotSlotId}`
+            : isScreenshotSelected
+              ? "screenshot:main"
+              : (layers[0]?.key ?? null))
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -221,6 +257,7 @@ export function LayersPanelContent() {
     }
 
     if (layer.type === "screenshot") updateScreenshotLayer(layerPatch)
+    if (layer.type === "slot") updateScreenshotSlot(layer.id, layerPatch)
     if (layer.type === "asset") updateAsset(layer.id, layerPatch)
     if (layer.type === "text") updateText(layer.id, layerPatch)
     if (layer.type === "annotation") updateAnnotationShape(layer.id, layerPatch)
@@ -254,6 +291,8 @@ export function LayersPanelContent() {
   function selectLayer(layer: EditorLayer) {
     setSelectedLayerKey(layer.key)
     setActiveTool("pointer")
+    setIsScreenshotSelected(layer.type === "screenshot")
+    setSelectedScreenshotSlotId(layer.type === "slot" ? layer.id : null)
     setSelectedAssetId(layer.type === "asset" ? layer.id : null)
     setSelectedTextId(layer.type === "text" ? layer.id : null)
     setSelectedAnnotationShapeId(layer.type === "annotation" ? layer.id : null)
@@ -276,7 +315,7 @@ export function LayersPanelContent() {
                   }
                 }}
                 className={cn(
-                  "shrink-0 rounded px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer",
+                  "shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] font-medium transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -292,7 +331,9 @@ export function LayersPanelContent() {
       <div className="mb-1 flex items-baseline justify-between px-1.5">
         <span className="label-eyebrow">Layers</span>
         <span className="tabular font-mono text-[10px] text-muted-foreground">
-          {(layers.length + 1 + (frame.id !== "none" ? 1 : 0)).toString().padStart(2, "0")}
+          {(layers.length + 1 + (frame.id !== "none" ? 1 : 0))
+            .toString()
+            .padStart(2, "0")}
         </span>
       </div>
 
@@ -332,7 +373,9 @@ export function LayersPanelContent() {
         <FrameLockedLayer
           frame={frame}
           onReplace={(f) => setFrame(f)}
-          onRemove={() => setFrame({ id: "none", color: "black", orientation: "vertical" })}
+          onRemove={() =>
+            setFrame({ id: "none", color: "black", orientation: "vertical" })
+          }
         />
       ) : null}
 
@@ -527,9 +570,7 @@ function LayerEffects({
         </div>
         <Popover open={blendOpen} onOpenChange={setBlendOpen}>
           <PopoverTrigger asChild>
-            <button
-              className="flex h-8 w-full cursor-pointer items-center justify-between rounded-md border border-border/60 bg-background px-2 text-[12px] transition-colors outline-none hover:border-foreground/30 focus:border-primary/60"
-            >
+            <button className="flex h-8 w-full cursor-pointer items-center justify-between rounded-md border border-border/60 bg-background px-2 text-[12px] transition-colors outline-none hover:border-foreground/30 focus:border-primary/60">
               <span>{activeLabel}</span>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -566,7 +607,7 @@ function LayerEffects({
                     className={cn(
                       "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition-colors",
                       active
-                        ? "bg-primary/10 text-primary font-medium"
+                        ? "bg-primary/10 font-medium text-primary"
                         : "text-foreground hover:bg-accent"
                     )}
                   >
@@ -633,6 +674,7 @@ function BackgroundLayerPreview({
 function LayerIcon({ type }: { type: EditableLayerType }) {
   if (type === "text") return <RiText className="size-3.5" />
   if (type === "annotation") return <RiPencilRulerLine className="size-3.5" />
+  if (type === "slot") return <RiGalleryLine className="size-3.5" />
   return <RiImage2Line className="size-3.5" />
 }
 
@@ -704,7 +746,7 @@ function FrameLockedLayer({
           >
             {availableColors.length > 1 ? (
               <div className="mb-2">
-                <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <div className="mb-1.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
                   Color
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -725,8 +767,8 @@ function FrameLockedLayer({
                         className={cn(
                           "size-6 rounded-full border-2 transition-all",
                           isActive
-                            ? "border-foreground scale-110 shadow-md"
-                            : "border-transparent hover:border-foreground/30 hover:scale-105"
+                            ? "scale-110 border-foreground shadow-md"
+                            : "border-transparent hover:scale-105 hover:border-foreground/30"
                         )}
                         style={frameColorSwatch(color)}
                       />

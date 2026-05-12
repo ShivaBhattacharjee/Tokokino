@@ -11,7 +11,10 @@ import {
 } from "@remixicon/react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useActiveCanvasField } from "@/lib/editor/store"
+import {
+  useActiveCanvasField,
+  useSelectedScreenshotSlot,
+} from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
 import { BackdropSection } from "./inspector/backdrop-section"
@@ -24,7 +27,9 @@ import { TiltSection } from "./inspector/tilt-section"
 
 export function Inspector({ className }: { className?: string }) {
   const frameId = useActiveCanvasField((c) => c.frame.id)
-  const hasDeviceFrame = frameId !== "none"
+  const selectedSlot = useSelectedScreenshotSlot()
+  const activeFrameId = selectedSlot?.frame.id ?? frameId
+  const hasDeviceFrame = activeFrameId !== "none"
 
   return (
     <aside

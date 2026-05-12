@@ -4,12 +4,26 @@ import * as React from "react"
 
 import { EditableValue } from "@/components/editor/editable-value"
 import { Slider } from "@/components/ui/slider"
-import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
+import {
+  useActiveCanvasField,
+  useEditorStore,
+  useSelectedScreenshotSlot,
+} from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
 export function PaddingSection() {
-  const padding = useActiveCanvasField((c) => c.padding)
+  const canvasPadding = useActiveCanvasField((c) => c.padding)
+  const selectedSlot = useSelectedScreenshotSlot()
+  const padding = selectedSlot?.padding ?? canvasPadding
   const setPadding = useEditorStore((s) => s.setPadding)
+  const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
+  const applyPadding = (value: number) => {
+    if (selectedSlot) {
+      updateScreenshotSlot(selectedSlot.id, { padding: value })
+      return
+    }
+    setPadding(value)
+  }
   const quick = [16, 40, 80, 120]
   return (
     <>
@@ -17,7 +31,7 @@ export function PaddingSection() {
         <span className="text-[11px] text-muted-foreground">Inset</span>
         <EditableValue
           value={padding}
-          onChange={setPadding}
+          onChange={applyPadding}
           min={0}
           max={240}
           suffix="px"
@@ -25,7 +39,7 @@ export function PaddingSection() {
       </div>
       <Slider
         value={[padding]}
-        onValueChange={([v]) => setPadding(v)}
+        onValueChange={([v]) => applyPadding(v)}
         max={240}
         className="mb-3 cursor-pointer"
       />
@@ -33,9 +47,9 @@ export function PaddingSection() {
         {quick.map((q) => (
           <button
             key={q}
-            onClick={() => setPadding(q)}
+            onClick={() => applyPadding(q)}
             className={cn(
-              "tabular h-8 rounded-md border font-mono text-[11px] transition-colors cursor-pointer",
+              "tabular h-8 cursor-pointer rounded-md border font-mono text-[11px] transition-colors",
               padding === q
                 ? "border-primary/30 bg-primary text-white"
                 : "border-border/60 bg-secondary/40 text-foreground/80 hover:border-foreground/25"

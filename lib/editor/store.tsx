@@ -178,6 +178,7 @@ const HISTORY_LIMIT = 100
 const GROUP_MERGE_MS = 600
 
 export const MAX_CANVASES = 20
+export const MAX_SCREENSHOT_SLOTS = 3
 
 type SetPatch =
   | Partial<EditorState>
@@ -208,10 +209,7 @@ type EditorActions = {
   setScale: (n: number, canvasId?: string) => void
   setCanvasZoom: (n: number) => void
   setScreenshotPosition: (p: ScreenshotPosition, canvasId?: string) => void
-  setScreenshotOffset: (
-    o: { x: number; y: number },
-    canvasId?: string
-  ) => void
+  setScreenshotOffset: (o: { x: number; y: number }, canvasId?: string) => void
   updateScreenshotLayer: (
     patch: Partial<ScreenshotLayer>,
     canvasId?: string
@@ -281,9 +279,11 @@ type EditorActions = {
   duplicateCanvas: (id?: string) => string | null
   setActiveCanvasId: (id: string) => void
   setCanvasPosition: (id: string, position: { x: number; y: number }) => void
-  setCanvasPositions: (positions: Record<string, { x: number; y: number }>) => void
+  setCanvasPositions: (
+    positions: Record<string, { x: number; y: number }>
+  ) => void
   requestBulkFitView: () => void
-  addScreenshotSlot: (canvasId?: string) => string
+  addScreenshotSlot: (canvasId?: string) => string | null
   updateScreenshotSlot: (
     id: string,
     patch: Partial<ScreenshotSlot>,
@@ -297,6 +297,10 @@ type EditorActions = {
   deleteScreenshotSlot: (id: string, canvasId?: string) => void
   duplicateScreenshotSlot: (id: string, canvasId?: string) => string | null
   arrangeScreenshotSlotsInRow: (canvasId?: string) => void
+  setScreenshotSlotGroupPosition: (
+    position: { xPct: number; yPct: number },
+    canvasId?: string
+  ) => void
 }
 
 type EditorStore = {
@@ -323,6 +327,7 @@ const computeNextZ = (items: { zIndex: number }[]) => {
 
 const getLayerItems = (c: CanvasState) => [
   c.screenshotLayer,
+  ...c.screenshotSlots,
   ...c.assets,
   ...c.texts,
   ...c.annotationShapes,
@@ -332,6 +337,10 @@ const computeNextLayerZ = (c: CanvasState) => computeNextZ(getLayerItems(c))
 
 const getLayerRefs = (c: CanvasState) => [
   { key: "screenshot", zIndex: c.screenshotLayer.zIndex },
+  ...c.screenshotSlots.map((slot) => ({
+    key: `slot:${slot.id}`,
+    zIndex: slot.zIndex,
+  })),
   ...c.assets.map((asset) => ({
     key: `asset:${asset.id}`,
     zIndex: asset.zIndex,
@@ -358,6 +367,10 @@ function applyLayerOrder(
       ...c.screenshotLayer,
       zIndex: zByKey.get("screenshot") ?? c.screenshotLayer.zIndex,
     },
+    screenshotSlots: c.screenshotSlots.map((slot) => ({
+      ...slot,
+      zIndex: zByKey.get(`slot:${slot.id}`) ?? slot.zIndex,
+    })),
     assets: c.assets.map((asset) => ({
       ...asset,
       zIndex: zByKey.get(`asset:${asset.id}`) ?? asset.zIndex,
@@ -387,18 +400,23 @@ function moveLayerInStack(
   return applyLayerOrder(c, refs)
 }
 
-const SLOT_ROW_MARGIN = 6
-const SLOT_ROW_GAP = 3
-const SLOT_DEFAULT_HEIGHT_PCT = 62
+const SLOT_ROW_GAP = 4
+const SLOT_DEFAULT_HEIGHT_PCT = 64
+
+const slotWidthForCount = (count: number) => {
+  if (count <= 2) return 30
+  return 28
+}
 
 const layoutSlotsInRow = (slots: ScreenshotSlot[]): ScreenshotSlot[] => {
   const n = slots.length
   if (n === 0) return slots
-  const usableW = Math.max(20, 100 - 2 * SLOT_ROW_MARGIN - (n - 1) * SLOT_ROW_GAP)
-  const widthPct = usableW / n
+  const widthPct = slotWidthForCount(n)
+  const totalW = widthPct * n + SLOT_ROW_GAP * (n - 1)
+  const startX = 50 - totalW / 2
   return slots.map((slot, i) => ({
     ...slot,
-    xPct: SLOT_ROW_MARGIN + widthPct / 2 + i * (widthPct + SLOT_ROW_GAP),
+    xPct: startX + widthPct / 2 + i * (widthPct + SLOT_ROW_GAP),
     yPct: 50,
     widthPct,
     heightPct: SLOT_DEFAULT_HEIGHT_PCT,
@@ -414,9 +432,17 @@ const createScreenshotSlot = (
   src: null,
   xPct: 50,
   yPct: 50,
-  widthPct: 60,
+  widthPct: slotWidthForCount(1),
   heightPct: SLOT_DEFAULT_HEIGHT_PCT,
   rotation: 0,
+  padding: 0,
+  tilt: { rx: 0, ry: 0, rz: 0 },
+  scale: 100,
+  frame: {
+    id: "none",
+    color: "black",
+    orientation: "vertical",
+  },
   borderRadius: 12,
   zIndex,
   shadow: {
@@ -435,6 +461,8 @@ const createScreenshotSlot = (
 
 const CANVAS_BASE_W = 1100
 const CANVAS_GAP = 80
+
+const clampPct = (value: number) => Math.max(-20, Math.min(120, value))
 
 /**
  * Place a new canvas adjacent to an existing canvas without overlap.
@@ -458,20 +486,23 @@ const placementAfterCanvas = (
 
   const collidesWithExisting = (pos: { x: number; y: number }) =>
     state.canvases.some(
-      (c) => Math.abs(c.position.x - pos.x) < 1 && Math.abs(c.position.y - pos.y) < 1
+      (c) =>
+        Math.abs(c.position.x - pos.x) < 1 && Math.abs(c.position.y - pos.y) < 1
     )
 
   // Anchor: the source canvas (when duplicating) or the rightmost canvas.
   const src = sourceId
     ? state.canvases.find((c) => c.id === sourceId)
-    : state.canvases.reduce((best, c) =>
-        c.position.x > best.position.x ? c : best,
-      state.canvases[0])
+    : state.canvases.reduce(
+        (best, c) => (c.position.x > best.position.x ? c : best),
+        state.canvases[0]
+      )
 
   if (!src) {
-    const rightmost = state.canvases.reduce((max, c) =>
-      c.position.x > max.position.x ? c : max,
-      state.canvases[0])
+    const rightmost = state.canvases.reduce(
+      (max, c) => (c.position.x > max.position.x ? c : max),
+      state.canvases[0]
+    )
     return { x: rightmost.position.x + strideX, y: rightmost.position.y }
   }
 
@@ -480,9 +511,10 @@ const placementAfterCanvas = (
   if (!collidesWithExisting(candidate)) return candidate
 
   // Otherwise, find the rightmost canvas overall and place after it.
-  const rightmost = state.canvases.reduce((max, c) =>
-    c.position.x > max.position.x ? c : max,
-    state.canvases[0])
+  const rightmost = state.canvases.reduce(
+    (max, c) => (c.position.x > max.position.x ? c : max),
+    state.canvases[0]
+  )
   candidate = { x: rightmost.position.x + strideX, y: rightmost.position.y }
   if (!collidesWithExisting(candidate)) return candidate
 
@@ -585,8 +617,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       commitCanvas(canvasId, { borderRadius: n }, "borderRadius"),
     setCanvasBorderRadius: (n, canvasId) =>
       commitCanvas(canvasId, { canvasBorderRadius: n }, "canvasBorderRadius"),
-    setBorder: (b, canvasId) =>
-      commitCanvas(canvasId, { border: b }, "border"),
+    setBorder: (b, canvasId) => commitCanvas(canvasId, { border: b }, "border"),
     setBackdropEffects: (e, canvasId) =>
       commitCanvas(
         canvasId,
@@ -624,8 +655,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }),
         "screenshotLayer"
       ),
-    setShadow: (s, canvasId) =>
-      commitCanvas(canvasId, { shadow: s }, "shadow"),
+    setShadow: (s, canvasId) => commitCanvas(canvasId, { shadow: s }, "shadow"),
     setOverlay: (o, canvasId) =>
       commitCanvas(canvasId, { overlay: o }, "overlay"),
     setFrame: (f, canvasId) => commitCanvas(canvasId, { frame: f }, "frame"),
@@ -643,7 +673,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const id = makeId()
       commitCanvas(
         canvasId,
-        (canvas) => ({ annotations: [...canvas.annotations, { ...stroke, id }] }),
+        (canvas) => ({
+          annotations: [...canvas.annotations, { ...stroke, id }],
+        }),
         `annotation-stroke-${id}`
       )
       return id
@@ -898,19 +930,22 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setSelectedAssetId: (id) => set({ selectedAssetId: id }),
     setSelectedAnnotationShapeId: (id) =>
       set({ selectedAnnotationShapeId: id }),
-    setSelectedScreenshotSlotId: (id) =>
-      set({ selectedScreenshotSlotId: id }),
-    setIsScreenshotSelected: (selected) => set({ isScreenshotSelected: selected }),
+    setSelectedScreenshotSlotId: (id) => set({ selectedScreenshotSlotId: id }),
+    setIsScreenshotSelected: (selected) =>
+      set({ isScreenshotSelected: selected }),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
     setBulkEditMode: (b) => {
       if (!b) {
         // Reset all canvas positions to center when disabling bulk edit
-        commit((state) => ({
-          canvases: state.canvases.map((c) => ({
-            ...c,
-            position: { x: 0, y: 0 },
-          })),
-        }), null)
+        commit(
+          (state) => ({
+            canvases: state.canvases.map((c) => ({
+              ...c,
+              position: { x: 0, y: 0 },
+            })),
+          }),
+          null
+        )
       }
       set({ bulkEditMode: b })
     },
@@ -964,6 +999,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selectedTextId: null,
         selectedAssetId: null,
         selectedAnnotationShapeId: null,
+        selectedScreenshotSlotId: null,
+        isScreenshotSelected: false,
         bulkEditMode: true,
         bulkFitViewSeq: s.bulkFitViewSeq + 1,
       }))
@@ -975,7 +1012,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const remaining = state.canvases.filter((c) => c.id !== id)
         const activeCanvasId =
           state.activeCanvasId === id
-            ? remaining[0]?.id ?? state.activeCanvasId
+            ? (remaining[0]?.id ?? state.activeCanvasId)
             : state.activeCanvasId
         return { canvases: remaining, activeCanvasId }
       }, null)
@@ -983,6 +1020,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selectedTextId: null,
         selectedAssetId: null,
         selectedAnnotationShapeId: null,
+        selectedScreenshotSlotId: null,
+        isScreenshotSelected: false,
       })
     },
     duplicateCanvas: (sourceId) => {
@@ -1021,6 +1060,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selectedTextId: null,
         selectedAssetId: null,
         selectedAnnotationShapeId: null,
+        selectedScreenshotSlotId: null,
+        isScreenshotSelected: false,
       })
     },
     setCanvasPosition: (id, position) => {
@@ -1047,14 +1088,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set((s) => ({ bulkFitViewSeq: s.bulkFitViewSeq + 1 })),
 
     addScreenshotSlot: (canvasId) => {
+      const targetId = canvasId ?? get().present.activeCanvasId
+      const target = get().present.canvases.find(
+        (canvas) => canvas.id === targetId
+      )
+      if (!target || target.screenshotSlots.length >= MAX_SCREENSHOT_SLOTS) {
+        return null
+      }
       const id = makeId()
       commitCanvas(
-        canvasId,
+        targetId,
         (canvas) => {
-          const next = createScreenshotSlot(
-            { id },
-            computeNextLayerZ(canvas)
-          )
+          const next = createScreenshotSlot({ id }, computeNextLayerZ(canvas))
           return {
             screenshotSlots: layoutSlotsInRow([
               ...canvas.screenshotSlots,
@@ -1097,10 +1142,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         null
       ),
     duplicateScreenshotSlot: (id, canvasId) => {
+      const targetId = canvasId ?? get().present.activeCanvasId
+      const target = get().present.canvases.find(
+        (canvas) => canvas.id === targetId
+      )
+      if (!target || target.screenshotSlots.length >= MAX_SCREENSHOT_SLOTS) {
+        return null
+      }
       const copyId = makeId()
       let didCopy = false
       commitCanvas(
-        canvasId,
+        targetId,
         (canvas) => {
           const src = canvas.screenshotSlots.find((slot) => slot.id === id)
           if (!src) return { screenshotSlots: canvas.screenshotSlots }
@@ -1128,6 +1180,43 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           screenshotSlots: layoutSlotsInRow(canvas.screenshotSlots),
         }),
         null
+      ),
+    setScreenshotSlotGroupPosition: (position, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          if (canvas.screenshotSlots.length === 0) {
+            return { screenshotSlots: canvas.screenshotSlots }
+          }
+
+          const bounds = canvas.screenshotSlots.reduce(
+            (acc, slot) => ({
+              minX: Math.min(acc.minX, slot.xPct - slot.widthPct / 2),
+              maxX: Math.max(acc.maxX, slot.xPct + slot.widthPct / 2),
+              minY: Math.min(acc.minY, slot.yPct - slot.heightPct / 2),
+              maxY: Math.max(acc.maxY, slot.yPct + slot.heightPct / 2),
+            }),
+            {
+              minX: Number.POSITIVE_INFINITY,
+              maxX: Number.NEGATIVE_INFINITY,
+              minY: Number.POSITIVE_INFINITY,
+              maxY: Number.NEGATIVE_INFINITY,
+            }
+          )
+          const centerX = (bounds.minX + bounds.maxX) / 2
+          const centerY = (bounds.minY + bounds.maxY) / 2
+          const dx = position.xPct - centerX
+          const dy = position.yPct - centerY
+
+          return {
+            screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+              ...slot,
+              xPct: clampPct(slot.xPct + dx),
+              yPct: clampPct(slot.yPct + dy),
+            })),
+          }
+        },
+        "screenshot-slot-group-position"
       ),
   }
 })
@@ -1162,13 +1251,24 @@ export function useCanvasById(id: string): CanvasState | undefined {
   return useEditorStore((s) => s.present.canvases.find((c) => c.id === id))
 }
 
+export function useSelectedScreenshotSlot(): ScreenshotSlot | null {
+  const selectedId = useEditorStore((s) => s.selectedScreenshotSlotId)
+  return useActiveCanvasField((canvas) =>
+    selectedId
+      ? (canvas.screenshotSlots.find((slot) => slot.id === selectedId) ?? null)
+      : null
+  )
+}
+
 const FALLBACK_CANVAS: CanvasState = {
   ...DEFAULT_CANVAS_BASE,
   id: "__fallback__",
   position: { x: 0, y: 0 },
 }
 
-export function useActiveCanvasField<T>(selector: (canvas: CanvasState) => T): T {
+export function useActiveCanvasField<T>(
+  selector: (canvas: CanvasState) => T
+): T {
   const scopeId = React.useContext(CanvasIdContext)
   return useEditorStore((s) => {
     const id = scopeId ?? s.present.activeCanvasId
@@ -1257,11 +1357,13 @@ export function useEditor(): EditorContext {
     canRedo: store.future.length > 0,
 
     setActiveTool: store.setActiveTool,
-    setScreenshot: (s, canvasId) => store.setScreenshot(s, canvasId ?? targetId),
+    setScreenshot: (s, canvasId) =>
+      store.setScreenshot(s, canvasId ?? targetId),
     applyCroppedScreenshot: (s, region, canvasId) =>
       store.applyCroppedScreenshot(s, region, canvasId ?? targetId),
     setAspect: store.setAspect,
-    setBackground: (b, canvasId) => store.setBackground(b, canvasId ?? targetId),
+    setBackground: (b, canvasId) =>
+      store.setBackground(b, canvasId ?? targetId),
     setPadding: (n, canvasId) => store.setPadding(n, canvasId ?? targetId),
     setBorderRadius: (n, canvasId) =>
       store.setBorderRadius(n, canvasId ?? targetId),
@@ -1357,6 +1459,8 @@ export function useEditor(): EditorContext {
       store.duplicateScreenshotSlot(id, canvasId ?? targetId),
     arrangeScreenshotSlotsInRow: (canvasId) =>
       store.arrangeScreenshotSlotsInRow(canvasId ?? targetId),
+    setScreenshotSlotGroupPosition: (position, canvasId) =>
+      store.setScreenshotSlotGroupPosition(position, canvasId ?? targetId),
     canvasCount: store.present.canvases.length,
   }
 }

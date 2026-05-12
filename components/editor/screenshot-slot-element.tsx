@@ -9,7 +9,13 @@ import {
 } from "@remixicon/react"
 import { toast } from "sonner"
 
-import { CanvasEmptyState } from "@/components/editor/canvas/canvas-empty-state"
+import { DeviceFrameEmptyContent } from "@/components/editor/canvas/device-frame-empty-content"
+import {
+  deviceMockupSpec,
+  frameFitStyle,
+  mockupScreenClipStyle,
+  mockupScreenTransform,
+} from "@/components/editor/canvas/helpers"
 import {
   ToolbarButton,
   ToolbarDeleteButton,
@@ -19,14 +25,26 @@ import {
   ToolbarPopover,
   ToolbarSurface,
 } from "@/components/editor/toolbar/primitives"
+import { Arc } from "@/components/ui/arc"
+import { Chrome } from "@/components/ui/chrome"
+import { Safari } from "@/components/ui/safari"
 import { Slider } from "@/components/ui/slider"
+import {
+  ARC_BROWSER_FRAME_ID,
+  CHROME_BROWSER_FRAME_ID,
+  isBrowserFrame,
+  resolveBrowserFrameColor,
+} from "@/lib/browser-frame"
 import {
   assetFilterCss,
   enhanceFilterCss,
+  MAX_SCREENSHOT_SLOTS,
   type ScreenshotSlot,
   shadowCss,
+  shadowDropFilterCss,
   useEditor,
 } from "@/lib/editor/store"
+import { getDeviceMockup, getDeviceMockupAsset } from "@/lib/mockups"
 import { cn } from "@/lib/utils"
 
 type DragState = {
@@ -40,21 +58,6 @@ type DragState = {
   lastXPct: number
   lastYPct: number
   moved: boolean
-}
-
-type ResizeHandleId = "ml" | "mr" | "mt" | "mb" | "tl" | "tr" | "bl" | "br"
-
-type ResizeState = {
-  pointerId: number
-  handle: ResizeHandleId
-  startX: number
-  startY: number
-  startXPct: number
-  startYPct: number
-  startWidthPct: number
-  startHeightPct: number
-  canvasW: number
-  canvasH: number
 }
 
 const readFileAsDataUrl = (file: File): Promise<string> =>
@@ -91,7 +94,6 @@ export function ScreenshotSlotView({
   const elRef = React.useRef<HTMLDivElement>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
-  const resizeRef = React.useRef<ResizeState | null>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
 
@@ -225,94 +227,20 @@ export function ScreenshotSlotView({
     dragRef.current = null
   }
 
-  const startResize =
-    (handle: ResizeHandleId) => (e: React.PointerEvent<HTMLButtonElement>) => {
-      const canvas = canvasRef.current
-      const el = elRef.current
-      if (!canvas || !el) return
-      e.stopPropagation()
-      e.preventDefault()
-      e.currentTarget.setPointerCapture(e.pointerId)
-      const rect = canvas.getBoundingClientRect()
-      resizeRef.current = {
-        pointerId: e.pointerId,
-        handle,
-        startX: e.clientX,
-        startY: e.clientY,
-        startXPct: slot.xPct,
-        startYPct: slot.yPct,
-        startWidthPct: slot.widthPct,
-        startHeightPct: slot.heightPct,
-        canvasW: rect.width,
-        canvasH: rect.height,
-      }
-    }
-
-  const moveResize = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const rs = resizeRef.current
-    if (!rs || rs.pointerId !== e.pointerId) return
-    const dxPct = ((e.clientX - rs.startX) / rs.canvasW) * 100
-    const dyPct = ((e.clientY - rs.startY) / rs.canvasH) * 100
-
-    let newW = rs.startWidthPct
-    let newH = rs.startHeightPct
-    let xShift = 0
-    let yShift = 0
-
-    const isCorner =
-      rs.handle === "tl" ||
-      rs.handle === "tr" ||
-      rs.handle === "bl" ||
-      rs.handle === "br"
-
-    if (isCorner) {
-      const signX = rs.handle === "tr" || rs.handle === "br" ? 1 : -1
-      const signY = rs.handle === "bl" || rs.handle === "br" ? 1 : -1
-      newW = Math.max(5, rs.startWidthPct + signX * dxPct)
-      newH = Math.max(5, rs.startHeightPct + signY * dyPct)
-      xShift = (signX * (newW - rs.startWidthPct)) / 2
-      yShift = (signY * (newH - rs.startHeightPct)) / 2
-    } else {
-      switch (rs.handle) {
-        case "ml":
-          newW = Math.max(5, rs.startWidthPct - dxPct)
-          xShift = -(newW - rs.startWidthPct) / 2
-          break
-        case "mr":
-          newW = Math.max(5, rs.startWidthPct + dxPct)
-          xShift = (newW - rs.startWidthPct) / 2
-          break
-        case "mt":
-          newH = Math.max(5, rs.startHeightPct - dyPct)
-          yShift = -(newH - rs.startHeightPct) / 2
-          break
-        case "mb":
-          newH = Math.max(5, rs.startHeightPct + dyPct)
-          yShift = (newH - rs.startHeightPct) / 2
-          break
-      }
-    }
-
-    updateScreenshotSlot(slot.id, {
-      widthPct: Math.min(150, newW),
-      heightPct: Math.min(150, newH),
-      xPct: Math.max(-20, Math.min(120, rs.startXPct + xShift)),
-      yPct: Math.max(-20, Math.min(120, rs.startYPct + yShift)),
-    })
-  }
-
-  const endResize = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (resizeRef.current?.pointerId === e.pointerId) {
-      resizeRef.current = null
-    }
-  }
-
   const computedShadow = shadowCss(slot.shadow)
+  const computedShadowFilter = shadowDropFilterCss(slot.shadow)
   const enhanceFilter = enhanceFilterCss(slot.enhance)
   const filterChain = [enhanceFilter, assetFilterCss(slot.filter)]
     .filter(Boolean)
     .join(" ")
     .trim()
+  const contentTransform = [
+    "perspective(1400px)",
+    `rotateX(${slot.tilt.rx}deg)`,
+    `rotateY(${slot.tilt.ry}deg)`,
+    `rotateZ(${slot.tilt.rz}deg)`,
+    `scale(${slot.scale / 100})`,
+  ].join(" ")
 
   const containerStyle: React.CSSProperties = {
     left: `${slot.xPct}%`,
@@ -327,10 +255,19 @@ export function ScreenshotSlotView({
     containerStyle.mixBlendMode = slot.blendMode
   }
 
+  const contentStyle: React.CSSProperties = {
+    padding: `${Math.max(0, Math.min(240, slot.padding)) / 12}%`,
+  }
+
+  const transformedStyle: React.CSSProperties = {
+    transform: contentTransform,
+    transformStyle: "preserve-3d",
+    opacity: slot.opacity / 100,
+  }
+
   const imageBoxStyle: React.CSSProperties = {
     borderRadius: slot.borderRadius,
     boxShadow: computedShadow,
-    opacity: slot.opacity / 100,
   }
   if (slot.border.color && slot.border.width > 0) {
     imageBoxStyle.outline = `${slot.border.width}px ${slot.border.style || "solid"} ${slot.border.color}`
@@ -377,40 +314,21 @@ export function ScreenshotSlotView({
         )}
         style={containerStyle}
       >
-        {slot.src ? (
+        <div className="absolute inset-0" style={contentStyle}>
           <div
             className={cn(
-              "relative h-full w-full overflow-hidden bg-black/40",
+              "relative h-full w-full",
               isSelected &&
                 "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
             )}
-            style={imageBoxStyle}
+            style={transformedStyle}
           >
-            <img
-              src={slot.src}
-              alt=""
-              draggable={false}
-              className="block h-full w-full select-none object-cover"
-              style={{
-                filter: filterChain || undefined,
-              }}
-            />
-          </div>
-        ) : (
-          <div
-            className={cn(
-              "relative h-full w-full overflow-hidden",
-              isSelected &&
-                "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
-            )}
-            style={{
-              borderRadius: slot.borderRadius,
-              boxShadow: computedShadow,
-            }}
-          >
-            <CanvasEmptyState
+            <ScreenshotSlotContent
+              slot={slot}
               isDragOver={isDragOver}
-              isActive={isSelected}
+              imageBoxStyle={imageBoxStyle}
+              filterChain={filterChain}
+              shadowFilter={computedShadowFilter}
               onBrowse={() => {
                 setSelectedScreenshotSlotId(slot.id)
                 setSelectedAssetId(null)
@@ -421,41 +339,7 @@ export function ScreenshotSlotView({
               }}
             />
           </div>
-        )}
-
-        {isSelected ? (
-          <>
-            {(
-              [
-                ["ml", "top-1/2", "left-0", "-translate-x-1/2 -translate-y-1/2", "ew-resize"],
-                ["mr", "top-1/2", "right-0", "translate-x-1/2 -translate-y-1/2", "ew-resize"],
-                ["mt", "top-0", "left-1/2", "-translate-x-1/2 -translate-y-1/2", "ns-resize"],
-                ["mb", "bottom-0", "left-1/2", "-translate-x-1/2 translate-y-1/2", "ns-resize"],
-                ["tl", "top-0", "left-0", "-translate-x-1/2 -translate-y-1/2", "nwse-resize"],
-                ["tr", "top-0", "right-0", "translate-x-1/2 -translate-y-1/2", "nesw-resize"],
-                ["bl", "bottom-0", "left-0", "-translate-x-1/2 translate-y-1/2", "nesw-resize"],
-                ["br", "bottom-0", "right-0", "translate-x-1/2 translate-y-1/2", "nwse-resize"],
-              ] as const
-            ).map(([id, vClass, hClass, transformClass, cursor]) => (
-              <button
-                key={id}
-                aria-label={`Resize ${id}`}
-                onPointerDown={startResize(id)}
-                onPointerMove={moveResize}
-                onPointerUp={endResize}
-                onPointerCancel={endResize}
-                onClick={(e) => e.stopPropagation()}
-                className={cn(
-                  "absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
-                  vClass,
-                  hClass,
-                  transformClass
-                )}
-                style={{ cursor }}
-              />
-            ))}
-          </>
-        ) : null}
+        </div>
       </div>
 
       {isSelected && toolbarRect && typeof document !== "undefined"
@@ -495,6 +379,256 @@ export function ScreenshotSlotView({
         : null}
     </>
   )
+}
+
+function ScreenshotSlotContent({
+  slot,
+  isDragOver,
+  imageBoxStyle,
+  filterChain,
+  shadowFilter,
+  onBrowse,
+}: {
+  slot: ScreenshotSlot
+  isDragOver: boolean
+  imageBoxStyle: React.CSSProperties
+  filterChain: string
+  shadowFilter: string | undefined
+  onBrowse: () => void
+}) {
+  const browserFrame = isBrowserFrame(slot.frame.id)
+
+  if (browserFrame) {
+    return (
+      <BrowserSlotFrame
+        slot={slot}
+        filterChain={filterChain}
+        shadowFilter={shadowFilter}
+        onBrowse={onBrowse}
+      />
+    )
+  }
+
+  if (slot.frame.id !== "none") {
+    return (
+      <DeviceSlotFrame
+        slot={slot}
+        filterChain={filterChain}
+        shadowFilter={shadowFilter}
+        onBrowse={onBrowse}
+      />
+    )
+  }
+
+  return (
+    <div
+      className="relative h-full w-full overflow-hidden bg-black/40"
+      style={imageBoxStyle}
+    >
+      {slot.src ? (
+        <img
+          src={slot.src}
+          alt=""
+          draggable={false}
+          className="block h-full w-full object-cover select-none"
+          style={{
+            filter: filterChain || undefined,
+          }}
+        />
+      ) : (
+        <ScreenshotSlotEmpty isDragOver={isDragOver} onBrowse={onBrowse} />
+      )}
+    </div>
+  )
+}
+
+function BrowserSlotFrame({
+  slot,
+  filterChain,
+  shadowFilter,
+  onBrowse,
+}: {
+  slot: ScreenshotSlot
+  filterChain: string
+  shadowFilter: string | undefined
+  onBrowse: () => void
+}) {
+  const color = resolveBrowserFrameColor(slot.frame.color)
+  const colorMode = color === "dark" ? "dark" : "light"
+  const frameStyle: React.CSSProperties = {
+    filter: [shadowFilter, filterChain].filter(Boolean).join(" ") || undefined,
+  }
+
+  if (slot.frame.id === ARC_BROWSER_FRAME_ID) {
+    return (
+      <Arc
+        imageSrc={slot.src ?? undefined}
+        colorMode={colorMode}
+        className="h-full w-full"
+        style={frameStyle}
+      >
+        {!slot.src ? <ScreenshotSlotEmpty onBrowse={onBrowse} /> : null}
+      </Arc>
+    )
+  }
+
+  if (slot.frame.id === CHROME_BROWSER_FRAME_ID) {
+    return (
+      <Chrome
+        imageSrc={slot.src ?? undefined}
+        colorMode={colorMode}
+        className="h-full w-full"
+        style={frameStyle}
+      >
+        {!slot.src ? <ScreenshotSlotEmpty onBrowse={onBrowse} /> : null}
+      </Chrome>
+    )
+  }
+
+  return (
+    <Safari
+      imageSrc={slot.src ?? undefined}
+      colorMode={colorMode}
+      className="h-full w-full"
+      style={frameStyle}
+    >
+      {!slot.src ? <ScreenshotSlotEmpty onBrowse={onBrowse} /> : null}
+    </Safari>
+  )
+}
+
+function DeviceSlotFrame({
+  slot,
+  filterChain,
+  shadowFilter,
+  onBrowse,
+}: {
+  slot: ScreenshotSlot
+  filterChain: string
+  shadowFilter: string | undefined
+  onBrowse: () => void
+}) {
+  const mockupDevice = getDeviceMockup(slot.frame.id)
+  const mockupOrientation = mockupDevice?.orientations.includes("portrait")
+    ? "portrait"
+    : "landscape"
+  const mockupRotation =
+    slot.frame.orientation === "horizontal" && mockupOrientation === "portrait"
+      ? -90
+      : 0
+  const mockupAsset = getDeviceMockupAsset(
+    slot.frame.id,
+    slot.frame.color,
+    mockupOrientation
+  )
+  const mockupSpec = mockupAsset ? deviceMockupSpec(slot.frame.id) : null
+  const horizontalScreenStyle = mockupRotation
+    ? rotatedScreenContentStyle(mockupSpec?.screen.aspectRatio, -mockupRotation)
+    : undefined
+
+  if (!mockupAsset || !mockupSpec) {
+    return (
+      <div className="relative h-full w-full overflow-hidden bg-black/40">
+        {slot.src ? (
+          <img
+            src={slot.src}
+            alt=""
+            draggable={false}
+            className="block h-full w-full object-cover select-none"
+            style={{ filter: filterChain || undefined }}
+          />
+        ) : (
+          <ScreenshotSlotEmpty onBrowse={onBrowse} />
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative h-full w-full" style={{ containerType: "size" }}>
+      <div
+        className="absolute top-1/2 left-1/2 max-h-full max-w-full"
+        style={{
+          ...frameFitStyle(mockupSpec.aspectRatio),
+          transform: `translate(-50%, -50%)${
+            mockupRotation ? ` rotate(${mockupRotation}deg)` : ""
+          }`,
+          filter:
+            [shadowFilter, filterChain].filter(Boolean).join(" ") || undefined,
+        }}
+      >
+        <div className="absolute inset-0 z-0 flex items-center justify-center">
+          <div
+            className="relative w-full overflow-hidden bg-black"
+            style={{
+              aspectRatio: mockupSpec.screen.aspectRatio,
+              ...mockupScreenClipStyle(mockupSpec.screen),
+              transform: mockupScreenTransform(mockupSpec.screen),
+            }}
+          >
+            {slot.src ? (
+              <img
+                src={slot.src}
+                alt=""
+                draggable={false}
+                className={cn(
+                  "pointer-events-none max-w-none object-cover object-center select-none",
+                  mockupRotation ? "absolute top-1/2 left-1/2" : "h-full w-full"
+                )}
+                style={horizontalScreenStyle}
+              />
+            ) : (
+              <ScreenshotSlotEmpty onBrowse={onBrowse} />
+            )}
+          </div>
+        </div>
+        <img
+          src={mockupAsset.src}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain select-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+function ScreenshotSlotEmpty({
+  isDragOver = false,
+  onBrowse,
+}: {
+  isDragOver?: boolean
+  onBrowse: () => void
+}) {
+  return (
+    <div
+      data-drag-over={isDragOver}
+      className="absolute inset-0 bg-black/35 data-[drag-over=true]:bg-primary/15"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)",
+        backgroundSize: "16px 16px",
+        containerType: "inline-size",
+      }}
+    >
+      <DeviceFrameEmptyContent onBrowse={onBrowse} className="text-white" />
+    </div>
+  )
+}
+
+function rotatedScreenContentStyle(
+  aspectRatio: string | undefined,
+  rotation: number
+): React.CSSProperties | undefined {
+  if (!aspectRatio) return undefined
+  const [w, h] = aspectRatio.split("/").map((part) => Number(part.trim()))
+  if (!w || !h) return undefined
+  const scale = Math.max(w / h, h / w)
+  return {
+    width: `${scale * 100}%`,
+    height: `${scale * 100}%`,
+    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+  }
 }
 
 type DragHandlers = {
@@ -545,6 +679,7 @@ function ScreenshotSlotToolbar({
         onDuplicate={() => {
           const id = duplicateScreenshotSlot(slot.id)
           if (id) setSelectedScreenshotSlotId(id)
+          else toast(`Screenshot box limit reached (${MAX_SCREENSHOT_SLOTS})`)
         }}
       />
 
@@ -574,10 +709,7 @@ function ScreenshotSlotToolbar({
         tooltip="Style"
         contentClassName="w-64 p-3"
         trigger={({ open }) => (
-          <ToolbarButton
-            aria-label="Style"
-            active={open}
-          >
+          <ToolbarButton aria-label="Style" active={open}>
             <RiSparkling2Line className="size-4" />
           </ToolbarButton>
         )}

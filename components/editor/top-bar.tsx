@@ -266,6 +266,12 @@ function OpenProjectDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[960px] w-[960px] h-[640px] flex flex-col p-0 bg-popover/95 backdrop-blur-md border-border/60 overflow-hidden">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Open project</DialogTitle>
+          <DialogDescription>
+            Choose a template or import an existing project file.
+          </DialogDescription>
+        </DialogHeader>
         <div className="flex h-full">
           {/* Left Sidebar */}
           <div className="w-64 border-r border-border/60 bg-secondary/10 flex flex-col p-4 gap-2">
