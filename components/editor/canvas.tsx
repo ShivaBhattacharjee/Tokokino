@@ -1432,13 +1432,13 @@ function MainScreenshotRowItem({
     <div
       className={cn(
         "group/main-row pointer-events-auto",
-        activeTool === "pointer" && screenshot && "cursor-grab",
+        activeTool === "pointer" && "cursor-grab",
         isScreenshotDragging && "cursor-grabbing"
       )}
       style={mergedStyle}
       onClick={onSelect}
       onPointerDown={(e) => {
-        if (!screenshot || activeTool !== "pointer") return
+        if (activeTool !== "pointer") return
         e.stopPropagation()
         onPointerDown(e)
       }}

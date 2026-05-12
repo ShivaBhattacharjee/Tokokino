@@ -298,6 +298,8 @@ type EditorActions = {
   ) => void
   deleteScreenshotSlot: (id: string, canvasId?: string) => void
   duplicateScreenshotSlot: (id: string, canvasId?: string) => string | null
+  bringScreenshotSlotToFront: (id: string, canvasId?: string) => void
+  sendScreenshotSlotToBack: (id: string, canvasId?: string) => void
   arrangeScreenshotSlotsInRow: (canvasId?: string) => void
   setScreenshotSlotGroupPosition: (
     position: { xPct: number; yPct: number },
@@ -1191,6 +1193,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       )
       return didCopy ? copyId : null
     },
+    bringScreenshotSlotToFront: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `slot:${id}`, "front"),
+        `slot-layer-${id}`
+      ),
+    sendScreenshotSlotToBack: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => moveLayerInStack(canvas, `slot:${id}`, "back"),
+        `slot-layer-${id}`
+      ),
     arrangeScreenshotSlotsInRow: (canvasId) =>
       commitCanvas(
         canvasId,
@@ -1478,6 +1492,10 @@ export function useEditor(): EditorContext {
       store.deleteScreenshotSlot(id, canvasId ?? targetId),
     duplicateScreenshotSlot: (id, canvasId) =>
       store.duplicateScreenshotSlot(id, canvasId ?? targetId),
+    bringScreenshotSlotToFront: (id, canvasId) =>
+      store.bringScreenshotSlotToFront(id, canvasId ?? targetId),
+    sendScreenshotSlotToBack: (id, canvasId) =>
+      store.sendScreenshotSlotToBack(id, canvasId ?? targetId),
     arrangeScreenshotSlotsInRow: (canvasId) =>
       store.arrangeScreenshotSlotsInRow(canvasId ?? targetId),
     setScreenshotSlotGroupPosition: (position, canvasId) =>

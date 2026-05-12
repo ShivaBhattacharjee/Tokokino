@@ -161,7 +161,17 @@ function BrowserFrameVisual({
     filter: [shadowFilter, imageFilter].filter(Boolean).join(" ") || undefined,
   }
   const emptyContent = !src ? (
-    <DeviceFrameEmptyContent onBrowse={onBrowse} />
+    <div
+      className="relative size-full bg-black text-white"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)",
+        backgroundSize: "16px 16px",
+        containerType: "inline-size",
+      }}
+    >
+      <DeviceFrameEmptyContent onBrowse={onBrowse} />
+    </div>
   ) : null
 
   if (frame.id === ARC_BROWSER_FRAME_ID) {
@@ -219,6 +229,8 @@ function DeviceFrameVisual({
   imageFilter?: string
   shadowFilter?: string
 }) {
+  const screenRef = React.useRef<HTMLDivElement | null>(null)
+  const [screenWidth, setScreenWidth] = React.useState<number | undefined>()
   const mockupDevice = getDeviceMockup(frame.id)
   const orientation = mockupDevice?.orientations.includes("portrait")
     ? "portrait"
@@ -230,6 +242,19 @@ function DeviceFrameVisual({
   const horizontalScreenStyle = rotation
     ? rotatedScreenContentStyle(spec?.screen.aspectRatio, -rotation)
     : undefined
+
+  React.useLayoutEffect(() => {
+    const node = screenRef.current
+    if (!node || typeof ResizeObserver === "undefined") return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      setScreenWidth(entry.contentRect.width)
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [mockupAsset?.src])
 
   if (!mockupAsset || !spec) {
     return (
@@ -257,10 +282,11 @@ function DeviceFrameVisual({
       >
         <div className="absolute inset-0 z-0 flex items-center justify-center">
           <div
+            ref={screenRef}
             className="relative w-full overflow-hidden bg-black"
             style={{
               aspectRatio: spec.screen.aspectRatio,
-              ...mockupScreenClipStyle(spec.screen),
+              ...mockupScreenClipStyle(spec.screen, screenWidth),
               transform: mockupScreenTransform(spec.screen),
               containerType: "inline-size",
             }}
