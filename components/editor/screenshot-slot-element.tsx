@@ -97,6 +97,9 @@ export function ScreenshotSlotView({
     bulkViewportZoom,
   } = useEditor()
   const isSelected = selectedScreenshotSlotId === slot.id
+  const hoverActionsScale = bulkEditMode
+    ? Math.max(0.45, Math.min(1, bulkViewportZoom))
+    : 1
 
   const elRef = React.useRef<HTMLDivElement>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -397,6 +400,10 @@ export function ScreenshotSlotView({
             {slot.src ? (
               <BoxHoverActions
                 hoverGroupClass="group-hover/slot:opacity-100"
+                disabled={bulkCanvasDragging}
+                layoutKey={`${bulkViewportZoom}:${hoverActionsScale}`}
+                controlScale={hoverActionsScale}
+                measureRef={elRef}
                 onCrop={() => onCropRequest(slot.id)}
                 onReplaceFile={(file) => void handleFiles([file])}
                 onDelete={() => {

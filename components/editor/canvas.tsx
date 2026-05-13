@@ -371,6 +371,10 @@ function CanvasViewInner({
   const rowTotalWidth =
     rowItemWidth * rowItemCount + SCREENSHOT_ROW_GAP * (rowItemCount - 1)
   const rowStartX = 50 - rowTotalWidth / 2
+  const hoverActionsScale = bulkEditMode
+    ? Math.max(0.45, Math.min(1, bulkViewportZoom))
+    : 1
+  const hoverActionsLayoutKey = `${effectiveScale}:${bulkViewportZoom}:${hoverActionsScale}:${widthPx}:${heightPx}`
   const mainScreenshotRowStyle: React.CSSProperties | null =
     screenshotSlots.length > 0
       ? {
@@ -1090,6 +1094,9 @@ function CanvasViewInner({
               filterChain={enhanceFilter}
               isSelected={isScreenshotSelected}
               bulkCanvasDragging={bulkCanvasDragging}
+              hoverActionsInline={bulkEditMode}
+              hoverActionsLayoutKey={hoverActionsLayoutKey}
+              hoverActionsScale={hoverActionsScale}
               toolbarScale={
                 bulkEditMode ? bulkToolbarScale(bulkViewportZoom) : 1
               }
@@ -1153,6 +1160,12 @@ function CanvasViewInner({
                   screenshotAnchor={screenshotAnchor}
                   enhanceFilter={enhanceFilter}
                   isScreenshotDragging={isScreenshotDragging}
+                  hoverActionsDisabled={
+                    bulkCanvasDragging || isScreenshotDragging
+                  }
+                  hoverActionsInline={bulkEditMode}
+                  hoverActionsLayoutKey={hoverActionsLayoutKey}
+                  hoverActionsScale={hoverActionsScale}
                   activeTool={activeTool}
                   stageRef={stageRef}
                   imageRef={imageRef}
@@ -1429,6 +1442,9 @@ type MainScreenshotRowItemProps = {
   filterChain: string | undefined
   isSelected: boolean
   bulkCanvasDragging: boolean
+  hoverActionsInline: boolean
+  hoverActionsLayoutKey: string
+  hoverActionsScale: number
   toolbarScale: number
   activeTool: import("@/lib/editor/store").EditorTool
   isScreenshotDragging: boolean
@@ -1459,6 +1475,9 @@ function MainScreenshotRowItem({
   filterChain,
   isSelected,
   bulkCanvasDragging,
+  hoverActionsInline,
+  hoverActionsLayoutKey,
+  hoverActionsScale,
   toolbarScale,
   activeTool,
   isScreenshotDragging,
@@ -1583,6 +1602,11 @@ function MainScreenshotRowItem({
           {screenshot && activeTool === "pointer" ? (
             <BoxHoverActions
               hoverGroupClass="group-hover/main-row:opacity-100"
+              disabled={bulkCanvasDragging || isScreenshotDragging}
+              inline={hoverActionsInline}
+              layoutKey={hoverActionsLayoutKey}
+              controlScale={hoverActionsInline ? 1 : hoverActionsScale}
+              measureRef={rowRef}
               onCrop={onCropClick}
               onReplaceFile={onReplaceFile}
               onDelete={onDelete}

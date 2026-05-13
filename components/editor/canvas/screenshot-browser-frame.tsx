@@ -34,6 +34,10 @@ type ScreenshotBrowserFrameProps = {
   screenshotAnchor: { x: number; y: number }
   enhanceFilter: string | undefined
   isScreenshotDragging: boolean
+  hoverActionsDisabled?: boolean
+  hoverActionsInline?: boolean
+  hoverActionsLayoutKey?: string | number
+  hoverActionsScale?: number
   activeTool: EditorTool
   stageRef: React.RefObject<HTMLDivElement | null>
   imageRef: React.RefObject<HTMLImageElement | null>
@@ -77,6 +81,10 @@ export function ScreenshotBrowserFrame({
   screenshotAnchor,
   enhanceFilter,
   isScreenshotDragging,
+  hoverActionsDisabled,
+  hoverActionsInline,
+  hoverActionsLayoutKey,
+  hoverActionsScale,
   activeTool,
   stageRef,
   imageRef,
@@ -91,6 +99,7 @@ export function ScreenshotBrowserFrame({
   onReplaceFile,
   onDelete,
 }: ScreenshotBrowserFrameProps) {
+  const frameRef = React.useRef<HTMLDivElement>(null)
   const frame = getBrowserFrame(frameId)
   const frameFitStyle = browserFrameFitStyle(
     frame?.aspectRatio ?? BROWSER_FRAME_ASPECT_RATIO
@@ -105,6 +114,7 @@ export function ScreenshotBrowserFrame({
       style={{ containerType: "size" }}
     >
       <div
+        ref={frameRef}
         className={cn(
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
           screenshotLayer.hidden && "pointer-events-none",
@@ -183,6 +193,11 @@ export function ScreenshotBrowserFrame({
               "group-hover/browser-frame:opacity-100",
               isScreenshotDragging && "!opacity-0"
             )}
+            disabled={hoverActionsDisabled}
+            inline={hoverActionsInline}
+            layoutKey={hoverActionsLayoutKey}
+            controlScale={hoverActionsInline ? 1 : hoverActionsScale}
+            measureRef={frameRef}
             onCrop={onCropClick}
             onReplaceFile={onReplaceFile}
             onDelete={onDelete}

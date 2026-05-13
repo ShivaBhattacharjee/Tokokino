@@ -330,7 +330,7 @@ export function FramePopover({
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 justify-items-center gap-1.5">
+              <div className={frameSectionGridClass(section.id)}>
                 {section.options.map((option, optIdx) => (
                   <motion.div
                     key={option.id}
@@ -349,6 +349,7 @@ export function FramePopover({
                       selectedColor={currentColor}
                       active={value.id === option.id}
                       screenshot={previewScreenshot}
+                      compact={isCompactFrameSection(section.id)}
                       onSelect={() => {
                         selectFrame(option)
                       }}
@@ -459,12 +460,14 @@ function DeviceTile({
   selectedColor,
   active,
   screenshot,
+  compact = false,
   onSelect,
 }: {
   option: FrameOption
   selectedColor: string
   active: boolean
   screenshot: string | null
+  compact?: boolean
   onSelect: () => void
 }) {
   const device = option.isDevice ? getDeviceMockup(option.id) : undefined
@@ -486,13 +489,19 @@ function DeviceTile({
       onClick={onSelect}
       aria-pressed={active}
       className={cn(
-        "group flex min-h-[150px] flex-col items-center gap-1.5 rounded-lg p-2.5 transition-colors",
+        "group flex flex-col items-center rounded-lg transition-colors",
+        compact ? "min-h-[132px] gap-1 p-1.5" : "min-h-[150px] gap-1.5 p-2.5",
         active
           ? "bg-accent"
           : "bg-secondary/25 hover:bg-secondary/55"
       )}
     >
-      <div className="flex h-[88px] w-full items-center justify-center">
+      <div
+        className={cn(
+          "flex w-full items-center justify-center",
+          compact ? "h-[78px]" : "h-[88px]"
+        )}
+      >
         {option.kind === "browser" ? (
           <BrowserTilePreview
             frameId={option.id}
@@ -520,6 +529,7 @@ function DeviceTile({
       <span
         className={cn(
           "line-clamp-2 w-full text-center text-[11px] leading-[1.05rem]",
+          compact && "text-[10.5px] leading-[0.95rem]",
           active ? "text-foreground" : "text-foreground/82"
         )}
       >
@@ -529,6 +539,19 @@ function DeviceTile({
         {option.w && option.h ? `${option.w}×${option.h}` : "bare"}
       </span>
     </button>
+  )
+}
+
+function isCompactFrameSection(sectionId: string) {
+  return sectionId === "iphone" || sectionId === "android" || sectionId === "watch"
+}
+
+function frameSectionGridClass(sectionId: string) {
+  return cn(
+    "grid justify-items-center",
+    isCompactFrameSection(sectionId)
+      ? "grid-cols-4 gap-x-1 gap-y-2"
+      : "grid-cols-3 gap-1.5"
   )
 }
 

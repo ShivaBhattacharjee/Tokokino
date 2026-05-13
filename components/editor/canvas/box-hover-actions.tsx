@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils"
 
 type BoxHoverActionsProps = {
   hoverGroupClass: string
+  disabled?: boolean
+  inline?: boolean
+  layoutKey?: string | number
+  controlScale?: number
+  measureRef?: React.RefObject<HTMLElement | null>
   onCrop: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
@@ -15,14 +20,25 @@ type BoxHoverActionsProps = {
 
 export function BoxHoverActions({
   hoverGroupClass,
+  disabled = false,
+  inline = false,
+  layoutKey,
+  controlScale = 1,
+  measureRef,
   onCrop,
   onReplaceFile,
   onDelete,
 }: BoxHoverActionsProps) {
   const anchorRef = React.useRef<HTMLDivElement>(null)
+  const controlsRef = React.useRef<HTMLDivElement>(null)
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
   const hideTimerRef = React.useRef<number | null>(null)
+  const hoverTargetActiveRef = React.useRef(false)
+  const controlsActiveRef = React.useRef(false)
   const [visible, setVisible] = React.useState(false)
+  const [visibleLayoutKey, setVisibleLayoutKey] = React.useState<
+    string | number | undefined
+  >(undefined)
   const [rect, setRect] = React.useState<DOMRect | null>(null)
 
   const clearHideTimer = React.useCallback(() => {
@@ -34,29 +50,49 @@ export function BoxHoverActions({
   const scheduleHide = React.useCallback(() => {
     clearHideTimer()
     hideTimerRef.current = window.setTimeout(() => {
-      setVisible(false)
+      if (!hoverTargetActiveRef.current && !controlsActiveRef.current) {
+        setVisible(false)
+      }
       hideTimerRef.current = null
-    }, 120)
+    }, 180)
   }, [clearHideTimer])
 
   React.useEffect(() => {
     const anchor = anchorRef.current
-    const positionTarget = anchor?.parentElement
     const hoverTarget =
-      anchor?.closest<HTMLElement>("[data-box-hover-target]") ?? positionTarget
-    if (!positionTarget || !hoverTarget) return
+      measureRef?.current ??
+      anchor?.closest<HTMLElement>("[data-box-hover-target]") ??
+      anchor?.parentElement
+    if (!anchor || !hoverTarget) return
 
-    const updateRect = () => setRect(positionTarget.getBoundingClientRect())
+    const updateRect = () =>
+      setRect((measureRef?.current ?? anchor).getBoundingClientRect())
     const show = () => {
+      if (disabled) return
+      hoverTargetActiveRef.current = true
       clearHideTimer()
       updateRect()
+      setVisibleLayoutKey(layoutKey)
       setVisible(true)
+    }
+    const hideFromTarget = (event: PointerEvent | FocusEvent) => {
+      const nextTarget = event.relatedTarget
+      if (
+        nextTarget instanceof Node &&
+        controlsRef.current?.contains(nextTarget)
+      ) {
+        controlsActiveRef.current = true
+        return
+      }
+      hoverTargetActiveRef.current = false
+      scheduleHide()
     }
 
     hoverTarget.addEventListener("pointerenter", show)
-    hoverTarget.addEventListener("pointerleave", scheduleHide)
+    hoverTarget.addEventListener("pointermove", show)
+    hoverTarget.addEventListener("pointerleave", hideFromTarget)
     hoverTarget.addEventListener("focusin", show)
-    hoverTarget.addEventListener("focusout", scheduleHide)
+    hoverTarget.addEventListener("focusout", hideFromTarget)
     window.addEventListener("scroll", updateRect, true)
     window.addEventListener("resize", updateRect)
     updateRect()
@@ -64,13 +100,33 @@ export function BoxHoverActions({
     return () => {
       clearHideTimer()
       hoverTarget.removeEventListener("pointerenter", show)
-      hoverTarget.removeEventListener("pointerleave", scheduleHide)
+      hoverTarget.removeEventListener("pointermove", show)
+      hoverTarget.removeEventListener("pointerleave", hideFromTarget)
       hoverTarget.removeEventListener("focusin", show)
-      hoverTarget.removeEventListener("focusout", scheduleHide)
+      hoverTarget.removeEventListener("focusout", hideFromTarget)
       window.removeEventListener("scroll", updateRect, true)
       window.removeEventListener("resize", updateRect)
     }
-  }, [clearHideTimer, scheduleHide])
+  }, [clearHideTimer, disabled, layoutKey, measureRef, scheduleHide])
+
+  const controlsVisible =
+    visible && !disabled && visibleLayoutKey === layoutKey
+  const controls = (
+    <>
+      <BoxActionButton label="Crop image" onClick={onCrop}>
+        <RiCropLine className="size-4" />
+      </BoxActionButton>
+      <BoxActionButton
+        label="Replace image"
+        onClick={() => replaceInputRef.current?.click()}
+      >
+        <RiRefreshLine className="size-4" />
+      </BoxActionButton>
+      <BoxActionButton label="Delete image" destructive onClick={onDelete}>
+        <RiDeleteBinLine className="size-4" />
+      </BoxActionButton>
+    </>
+  )
 
   return (
     <>
@@ -93,37 +149,72 @@ export function BoxHoverActions({
           e.target.value = ""
         }}
       />
-      {visible && rect && typeof document !== "undefined"
+      {inline ? (
+        <div
+          className={cn(
+            "pointer-events-none absolute top-1/2 left-1/2 z-[1100] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2 opacity-0 transition-opacity duration-200",
+            !disabled && hoverGroupClass
+          )}
+          style={{
+            transform: `translate(-50%, -50%) scale(${controlScale})`,
+            transformOrigin: "center",
+          }}
+        >
+          {controls}
+        </div>
+      ) : null}
+      {!inline && controlsVisible && rect && typeof document !== "undefined"
         ? createPortal(
             <div
+              ref={controlsRef}
               className="pointer-events-auto fixed flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2 transition-opacity duration-200"
               style={{
                 top: rect.top + rect.height / 2,
                 left: rect.left + rect.width / 2,
                 zIndex: 1100,
+                transform: `translate(-50%, -50%) scale(${controlScale})`,
+                transformOrigin: "center",
               }}
               onPointerEnter={() => {
+                controlsActiveRef.current = true
                 clearHideTimer()
                 setVisible(true)
               }}
-              onPointerLeave={scheduleHide}
+              onPointerLeave={(event) => {
+                const nextTarget = event.relatedTarget
+                controlsActiveRef.current = false
+                if (
+                  nextTarget instanceof Node &&
+                  anchorRef.current
+                    ?.closest<HTMLElement>("[data-box-hover-target]")
+                    ?.contains(nextTarget)
+                ) {
+                  hoverTargetActiveRef.current = true
+                  return
+                }
+                scheduleHide()
+              }}
+              onFocus={() => {
+                controlsActiveRef.current = true
+                clearHideTimer()
+                setVisible(true)
+              }}
+              onBlur={(event) => {
+                const nextTarget = event.relatedTarget
+                controlsActiveRef.current = false
+                if (
+                  nextTarget instanceof Node &&
+                  anchorRef.current
+                    ?.closest<HTMLElement>("[data-box-hover-target]")
+                    ?.contains(nextTarget)
+                ) {
+                  hoverTargetActiveRef.current = true
+                  return
+                }
+                scheduleHide()
+              }}
             >
-              <BoxActionButton label="Crop image" onClick={onCrop}>
-                <RiCropLine className="size-4" />
-              </BoxActionButton>
-              <BoxActionButton
-                label="Replace image"
-                onClick={() => replaceInputRef.current?.click()}
-              >
-                <RiRefreshLine className="size-4" />
-              </BoxActionButton>
-              <BoxActionButton
-                label="Delete image"
-                destructive
-                onClick={onDelete}
-              >
-                <RiDeleteBinLine className="size-4" />
-              </BoxActionButton>
+              {controls}
             </div>,
             document.body
           )
