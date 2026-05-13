@@ -10,6 +10,8 @@ import {
 } from "@remixicon/react"
 
 import {
+  bulkToolbarScale,
+  floatingToolbarTransform,
   ToolbarButton,
   ToolbarDeleteButton,
   ToolbarDivider,
@@ -72,6 +74,9 @@ export function AssetElementView({
     setSelectedAnnotationShapeId,
     updateAsset,
     deleteAsset,
+    bulkEditMode,
+    bulkCanvasDragging,
+    bulkViewportZoom,
   } = useEditor()
   const isSelected = selectedAssetId === asset.id
 
@@ -82,7 +87,7 @@ export function AssetElementView({
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
 
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) {
+    if (bulkCanvasDragging || !isSelected || !elRef.current) {
       setToolbarRect(null)
       return
     }
@@ -98,12 +103,13 @@ export function AssetElementView({
       window.removeEventListener("scroll", update, true)
       window.removeEventListener("resize", update)
     }
-  }, [isSelected])
+  }, [bulkCanvasDragging, isSelected])
 
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) return
+    if (bulkCanvasDragging || !isSelected || !elRef.current) return
     setToolbarRect(elRef.current.getBoundingClientRect())
   }, [
+    bulkCanvasDragging,
     isSelected,
     asset.xPct,
     asset.yPct,
@@ -424,7 +430,10 @@ export function AssetElementView({
         ) : null}
       </div>
 
-      {isSelected && toolbarRect && typeof document !== "undefined"
+      {!bulkCanvasDragging &&
+      isSelected &&
+      toolbarRect &&
+      typeof document !== "undefined"
         ? createPortal(
             (() => {
               const flipBelow = toolbarRect.top < 80
@@ -432,6 +441,9 @@ export function AssetElementView({
                 ? toolbarRect.bottom + 12
                 : toolbarRect.top - 12
               const left = toolbarRect.left + toolbarRect.width / 2
+              const scale = bulkEditMode
+                ? bulkToolbarScale(bulkViewportZoom)
+                : 1
               return (
                 <div
                   data-editor-floating-toolbar-target={`asset:${asset.id}`}
@@ -439,9 +451,10 @@ export function AssetElementView({
                   style={{
                     top,
                     left,
-                    transform: flipBelow
-                      ? "translate(-50%, 0)"
-                      : "translate(-50%, -100%)",
+                    transform: floatingToolbarTransform(flipBelow, scale),
+                    transformOrigin: flipBelow
+                      ? "top center"
+                      : "bottom center",
                   }}
                 >
                   <div className="pointer-events-auto">

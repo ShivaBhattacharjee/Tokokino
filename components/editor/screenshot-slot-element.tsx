@@ -8,6 +8,8 @@ import { BoxHoverActions } from "@/components/editor/canvas/box-hover-actions"
 import { FramedScreenshotVisual } from "@/components/editor/canvas/framed-screenshot-visual"
 import { snapBoxToTarget } from "@/components/editor/canvas/helpers"
 import {
+  bulkToolbarScale,
+  floatingToolbarTransform,
   ToolbarDeleteButton,
   ToolbarDivider,
   ToolbarDragHandle,
@@ -90,6 +92,9 @@ export function ScreenshotSlotView({
     bringScreenshotSlotToFront,
     sendScreenshotSlotToBack,
     setIsScreenshotSelected,
+    bulkEditMode,
+    bulkCanvasDragging,
+    bulkViewportZoom,
   } = useEditor()
   const isSelected = selectedScreenshotSlotId === slot.id
 
@@ -103,7 +108,7 @@ export function ScreenshotSlotView({
   >(null)
 
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) {
+    if (bulkCanvasDragging || !isSelected || !elRef.current) {
       setToolbarRect(null)
       return
     }
@@ -119,12 +124,13 @@ export function ScreenshotSlotView({
       window.removeEventListener("scroll", update, true)
       window.removeEventListener("resize", update)
     }
-  }, [isSelected])
+  }, [bulkCanvasDragging, isSelected])
 
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) return
+    if (bulkCanvasDragging || !isSelected || !elRef.current) return
     setToolbarRect(elRef.current.getBoundingClientRect())
   }, [
+    bulkCanvasDragging,
     isSelected,
     slot.xPct,
     slot.yPct,
@@ -358,7 +364,7 @@ export function ScreenshotSlotView({
           void handleFiles(e.dataTransfer.files)
         }}
         className={cn(
-          "group/slot absolute select-none",
+          "group/slot nodrag nopan absolute select-none",
           isSelected ? "cursor-grabbing" : "cursor-grab"
         )}
         style={containerStyle}
@@ -402,7 +408,10 @@ export function ScreenshotSlotView({
         </div>
       </div>
 
-      {isSelected && toolbarRect && typeof document !== "undefined"
+      {!bulkCanvasDragging &&
+      isSelected &&
+      toolbarRect &&
+      typeof document !== "undefined"
         ? createPortal(
             (() => {
               const flipBelow = toolbarRect.top < 80
@@ -410,6 +419,9 @@ export function ScreenshotSlotView({
                 ? toolbarRect.bottom + 12
                 : toolbarRect.top - 12
               const left = toolbarRect.left + toolbarRect.width / 2
+              const scale = bulkEditMode
+                ? bulkToolbarScale(bulkViewportZoom)
+                : 1
               return (
                 <div
                   data-editor-floating-toolbar-target={`slot:${slot.id}`}
@@ -417,9 +429,10 @@ export function ScreenshotSlotView({
                   style={{
                     top,
                     left,
-                    transform: flipBelow
-                      ? "translate(-50%, 0)"
-                      : "translate(-50%, -100%)",
+                    transform: floatingToolbarTransform(flipBelow, scale),
+                    transformOrigin: flipBelow
+                      ? "top center"
+                      : "bottom center",
                   }}
                 >
                   <div className="pointer-events-auto">

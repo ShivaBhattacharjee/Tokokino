@@ -6,6 +6,10 @@ import { RiRefreshLine } from "@remixicon/react"
 
 import { type AnnotationShape, useEditor } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
+import {
+  bulkToolbarScale,
+  floatingToolbarTransform,
+} from "@/components/editor/toolbar/primitives"
 
 import {
   ARROW_ENDPOINT_HANDLES,
@@ -83,6 +87,9 @@ export function AnnotationShapeElement({
     setSelectedAssetId,
     updateAnnotationShape,
     deleteAnnotationShape,
+    bulkEditMode,
+    bulkCanvasDragging,
+    bulkViewportZoom,
   } = useEditor()
   const isSelected = selectedAnnotationShapeId === shape.id
   const dashArray = lineDashArray(shape.lineStyle)
@@ -107,7 +114,8 @@ export function AnnotationShapeElement({
     const el = elRef.current
     const update = () => {
       const rect = el.getBoundingClientRect()
-      if (isSelected) setToolbarRect(rect)
+      if (bulkCanvasDragging) setToolbarRect(null)
+      else if (isSelected) setToolbarRect(rect)
       setElementSize((current) => {
         const width = Math.max(1, el.offsetWidth)
         const height = Math.max(1, el.offsetHeight)
@@ -130,12 +138,13 @@ export function AnnotationShapeElement({
       window.removeEventListener("scroll", update, true)
       window.removeEventListener("resize", update)
     }
-  }, [isSelected])
+  }, [bulkCanvasDragging, isSelected])
 
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) return
+    if (bulkCanvasDragging || !isSelected || !elRef.current) return
     setToolbarRect(elRef.current.getBoundingClientRect())
   }, [
+    bulkCanvasDragging,
     isSelected,
     shape.xPct,
     shape.yPct,
@@ -628,7 +637,10 @@ export function AnnotationShapeElement({
           </button>
         </div>
       ) : null}
-      {isSelected && toolbarRect && typeof document !== "undefined"
+      {!bulkCanvasDragging &&
+      isSelected &&
+      toolbarRect &&
+      typeof document !== "undefined"
         ? createPortal(
             (() => {
               const flipBelow = toolbarRect.top < 80
@@ -636,6 +648,9 @@ export function AnnotationShapeElement({
                 ? toolbarRect.bottom + 12
                 : toolbarRect.top - 12
               const left = toolbarRect.left + toolbarRect.width / 2
+              const scale = bulkEditMode
+                ? bulkToolbarScale(bulkViewportZoom)
+                : 1
               return (
                 <div
                   data-editor-floating-toolbar-target={`annotation-shape:${shape.id}`}
@@ -643,9 +658,10 @@ export function AnnotationShapeElement({
                   style={{
                     top,
                     left,
-                    transform: flipBelow
-                      ? "translate(-50%, 0)"
-                      : "translate(-50%, -100%)",
+                    transform: floatingToolbarTransform(flipBelow, scale),
+                    transformOrigin: flipBelow
+                      ? "top center"
+                      : "bottom center",
                   }}
                 >
                   <div className="pointer-events-auto">

@@ -11,7 +11,8 @@ import { AnnotationShapeElement } from "@/components/editor/annotation-shape-ele
 import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
 import {
-  ToolbarDeleteButton,
+  bulkToolbarScale,
+  floatingToolbarTransform,
   ToolbarDivider,
   ToolbarDragHandle,
   ToolbarDuplicateButton,
@@ -138,6 +139,8 @@ function CanvasViewInner({
     setIsScreenshotSelected,
   } = useEditor()
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
+  const bulkViewportZoom = useEditorStore((s) => s.bulkViewportZoom)
   const canvasRef = React.useRef<HTMLDivElement>(null)
   const generatedAnnotationMaskId = React.useId()
   const annotationMaskId = `annotation-mask-${generatedAnnotationMaskId.replace(/:/g, "")}`
@@ -793,7 +796,8 @@ function CanvasViewInner({
         element.style.top = `${elementMove.nextYPct}%`
         positionFloatingToolbar(
           `${elementMove.type}:${elementMove.id}`,
-          element.getBoundingClientRect()
+          element.getBoundingClientRect(),
+          bulkEditMode ? bulkToolbarScale(bulkViewportZoom) : 1
         )
       }
 
@@ -865,7 +869,8 @@ function CanvasViewInner({
         Object.assign(element.style, shapeStyle)
         positionFloatingToolbar(
           `annotation-shape:${shapeDrag.shapeId}`,
-          element.getBoundingClientRect()
+          element.getBoundingClientRect(),
+          bulkEditMode ? bulkToolbarScale(bulkViewportZoom) : 1
         )
       }
 
@@ -1083,6 +1088,10 @@ function CanvasViewInner({
               shadowFilter={computedShadowFilter}
               filterChain={enhanceFilter}
               isSelected={isScreenshotSelected}
+              bulkCanvasDragging={bulkCanvasDragging}
+              toolbarScale={
+                bulkEditMode ? bulkToolbarScale(bulkViewportZoom) : 1
+              }
               activeTool={activeTool}
               isScreenshotDragging={isScreenshotDragging}
               onSelect={handleScreenshotClickSelect}
@@ -1119,9 +1128,7 @@ function CanvasViewInner({
           <div
             className={cn(
               "pointer-events-none flex items-center justify-center",
-              mainScreenshotRowStyle
-                ? "hidden"
-                : "relative h-full w-full"
+              mainScreenshotRowStyle ? "hidden" : "relative h-full w-full"
             )}
             style={
               mainScreenshotRowStyle
@@ -1392,7 +1399,8 @@ function CanvasViewInner({
         }}
         screenshotUrl={
           croppingSlotId
-            ? (screenshotSlots.find((s) => s.id === croppingSlotId)?.src ?? null)
+            ? (screenshotSlots.find((s) => s.id === croppingSlotId)?.src ??
+              null)
             : null
         }
         onCrop={(cropped) => {
@@ -1419,6 +1427,8 @@ type MainScreenshotRowItemProps = {
   shadowFilter: string | undefined
   filterChain: string | undefined
   isSelected: boolean
+  bulkCanvasDragging: boolean
+  toolbarScale: number
   activeTool: import("@/lib/editor/store").EditorTool
   isScreenshotDragging: boolean
   onSelect: (e: React.MouseEvent | React.PointerEvent) => void
@@ -1447,6 +1457,8 @@ function MainScreenshotRowItem({
   shadowFilter,
   filterChain,
   isSelected,
+  bulkCanvasDragging,
+  toolbarScale,
   activeTool,
   isScreenshotDragging,
   onSelect,
@@ -1465,7 +1477,12 @@ function MainScreenshotRowItem({
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
 
   React.useEffect(() => {
-    if (!isSelected || activeTool !== "pointer" || !rowRef.current) {
+    if (
+      bulkCanvasDragging ||
+      !isSelected ||
+      activeTool !== "pointer" ||
+      !rowRef.current
+    ) {
       setToolbarRect(null)
       return
     }
@@ -1481,17 +1498,33 @@ function MainScreenshotRowItem({
       window.removeEventListener("scroll", update, true)
       window.removeEventListener("resize", update)
     }
-  }, [isSelected, activeTool])
+  }, [bulkCanvasDragging, isSelected, activeTool])
 
   React.useEffect(() => {
-    if (!isSelected || activeTool !== "pointer" || !rowRef.current) return
+    if (
+      bulkCanvasDragging ||
+      !isSelected ||
+      activeTool !== "pointer" ||
+      !rowRef.current
+    ) {
+      return
+    }
     setToolbarRect(rowRef.current.getBoundingClientRect())
-  }, [isSelected, activeTool, offset.x, offset.y, style.left, style.top])
+  }, [
+    bulkCanvasDragging,
+    isSelected,
+    activeTool,
+    offset.x,
+    offset.y,
+    style.left,
+    style.top,
+  ])
 
   const baseTransform = (style.transform as string | undefined) ?? ""
   const mergedStyle: React.CSSProperties = {
     ...style,
-    transform: `${baseTransform} translate(${offset.x}px, ${offset.y}px)`.trim(),
+    transform:
+      `${baseTransform} translate(${offset.x}px, ${offset.y}px)`.trim(),
   }
   return (
     <>
@@ -1524,7 +1557,8 @@ function MainScreenshotRowItem({
             transform,
             transformStyle: "preserve-3d",
             opacity: imgStyle.opacity as number | undefined,
-            mixBlendMode: imgStyle.mixBlendMode as React.CSSProperties["mixBlendMode"],
+            mixBlendMode:
+              imgStyle.mixBlendMode as React.CSSProperties["mixBlendMode"],
             borderRadius: imgStyle.borderRadius as number | undefined,
             boxShadow:
               frame.id === "none"
@@ -1556,6 +1590,7 @@ function MainScreenshotRowItem({
       </div>
 
       {isSelected &&
+      !bulkCanvasDragging &&
       activeTool === "pointer" &&
       toolbarRect &&
       typeof document !== "undefined"
@@ -1573,9 +1608,13 @@ function MainScreenshotRowItem({
                   style={{
                     top,
                     left,
-                    transform: flipBelow
-                      ? "translate(-50%, 0)"
-                      : "translate(-50%, -100%)",
+                    transform: floatingToolbarTransform(
+                      flipBelow,
+                      toolbarScale
+                    ),
+                    transformOrigin: flipBelow
+                      ? "top center"
+                      : "bottom center",
                   }}
                 >
                   <div className="pointer-events-auto">

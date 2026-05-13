@@ -218,10 +218,21 @@ function BulkCanvasFlowInner({
 }) {
   const canvases = useEditorStore((s) => s.present.canvases)
   const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
+  const setBulkCanvasDragging = useEditorStore((s) => s.setBulkCanvasDragging)
+  const setBulkViewportZoom = useEditorStore((s) => s.setBulkViewportZoom)
   const fitViewSeq = useEditorStore((s) => s.bulkFitViewSeq)
   const { fitView } = useReactFlow()
   const { resolvedTheme } = useTheme()
   const colorMode = resolvedTheme === "dark" ? "dark" : "light"
+  const viewportZoom = useFlowStore((s) => s.transform[2])
+
+  React.useEffect(() => {
+    setBulkViewportZoom(viewportZoom)
+  }, [setBulkViewportZoom, viewportZoom])
+
+  React.useEffect(() => {
+    return () => setBulkViewportZoom(1)
+  }, [setBulkViewportZoom])
 
   React.useEffect(() => {
     if (fitViewSeq === 0) return
@@ -275,18 +286,28 @@ function BulkCanvasFlowInner({
 
   const onNodeDragStart: OnNodeDrag<CanvasFlowNode> = React.useCallback(() => {
     draggingRef.current = true
-  }, [])
+    setBulkCanvasDragging(true)
+  }, [setBulkCanvasDragging])
 
   const onNodeDragStop: OnNodeDrag<CanvasFlowNode> = React.useCallback(
     (_e, node) => {
       draggingRef.current = false
+      setBulkCanvasDragging(false)
       setCanvasPosition(node.id, {
         x: node.position.x + widthPx / 2,
         y: node.position.y + heightPx / 2,
       })
     },
-    [setCanvasPosition, widthPx, heightPx]
+    [setBulkCanvasDragging, setCanvasPosition, widthPx, heightPx]
   )
+
+  const onViewportMoveStart = React.useCallback(() => {
+    setBulkCanvasDragging(true)
+  }, [setBulkCanvasDragging])
+
+  const onViewportMoveEnd = React.useCallback(() => {
+    setBulkCanvasDragging(false)
+  }, [setBulkCanvasDragging])
 
   return (
     <div className="absolute inset-0 bg-background dark:bg-black">
@@ -296,6 +317,8 @@ function BulkCanvasFlowInner({
         onNodesChange={onNodesChange}
         onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStop}
+        onMoveStart={onViewportMoveStart}
+        onMoveEnd={onViewportMoveEnd}
         minZoom={0.05}
         maxZoom={2}
         panOnDrag

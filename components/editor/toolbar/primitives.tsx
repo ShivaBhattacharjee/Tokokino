@@ -31,6 +31,16 @@ export const popoverContentClass =
 export const toolbarSurfaceClass =
   "pointer-events-auto flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
 
+export function bulkToolbarScale(zoom: number) {
+  if (!Number.isFinite(zoom) || zoom <= 0) return 1
+  return Math.max(0.5, Math.min(1, Math.sqrt(zoom)))
+}
+
+export function floatingToolbarTransform(flipBelow: boolean, scale = 1) {
+  const placement = flipBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)"
+  return scale === 1 ? placement : `${placement} scale(${scale})`
+}
+
 type Side = "top" | "bottom" | "left" | "right"
 type Align = "start" | "center" | "end"
 
@@ -312,4 +322,3 @@ export function ToolbarLayerOrderMenu({
     </ToolbarPopover>
   )
 }
-

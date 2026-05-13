@@ -274,6 +274,8 @@ type EditorActions = {
   setIsScreenshotSelected: (selected: boolean) => void
   setIsPreviewMode: (p: boolean) => void
   setBulkEditMode: (b: boolean) => void
+  setBulkCanvasDragging: (dragging: boolean) => void
+  setBulkViewportZoom: (zoom: number) => void
   setBulkScale: (n: number) => void
   reset: () => void
   undo: () => void
@@ -317,6 +319,8 @@ type EditorStore = {
   _lastTs: number
   isPreviewMode: boolean
   bulkEditMode: boolean
+  bulkCanvasDragging: boolean
+  bulkViewportZoom: number
   bulkScale: number
   bulkFitViewSeq: number
   selectedTextId: string | null
@@ -586,6 +590,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     _lastTs: 0,
     isPreviewMode: false,
     bulkEditMode: false,
+    bulkCanvasDragging: false,
+    bulkViewportZoom: 1,
     bulkScale: 65,
     bulkFitViewSeq: 0,
     selectedTextId: null,
@@ -974,8 +980,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           null
         )
       }
-      set({ bulkEditMode: b })
+      set({ bulkEditMode: b, bulkCanvasDragging: false, bulkViewportZoom: 1 })
     },
+    setBulkCanvasDragging: (dragging) =>
+      set({ bulkCanvasDragging: dragging }),
+    setBulkViewportZoom: (zoom) =>
+      set({ bulkViewportZoom: Math.max(0.05, Math.min(2, zoom)) }),
     setBulkScale: (n) => set({ bulkScale: Math.max(20, Math.min(100, n)) }),
 
     undo: () => {
@@ -1010,6 +1020,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         future: [],
         _lastGroup: null,
         _lastTs: 0,
+        bulkCanvasDragging: false,
+        bulkViewportZoom: 1,
       })
     },
     addCanvas: () => {
@@ -1029,6 +1041,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selectedScreenshotSlotId: null,
         isScreenshotSelected: false,
         bulkEditMode: true,
+        bulkCanvasDragging: false,
+        bulkViewportZoom: 1,
         bulkFitViewSeq: s.bulkFitViewSeq + 1,
       }))
       return id
@@ -1331,6 +1345,8 @@ export type EditorContext = Omit<EditorState, "canvases"> &
   EditorActions & {
     isPreviewMode: boolean
     bulkEditMode: boolean
+    bulkCanvasDragging: boolean
+    bulkViewportZoom: number
     bulkScale: number
     selectedTextId: string | null
     selectedAssetId: string | null
@@ -1394,6 +1410,8 @@ export function useEditor(): EditorContext {
 
     isPreviewMode: store.isPreviewMode,
     bulkEditMode: store.bulkEditMode,
+    bulkCanvasDragging: store.bulkCanvasDragging,
+    bulkViewportZoom: store.bulkViewportZoom,
     bulkScale: store.bulkScale,
     selectedTextId: store.selectedTextId,
     selectedAssetId: store.selectedAssetId,
@@ -1489,6 +1507,8 @@ export function useEditor(): EditorContext {
     setIsScreenshotSelected: store.setIsScreenshotSelected,
     setIsPreviewMode: store.setIsPreviewMode,
     setBulkEditMode: store.setBulkEditMode,
+    setBulkCanvasDragging: store.setBulkCanvasDragging,
+    setBulkViewportZoom: store.setBulkViewportZoom,
     setBulkScale: store.setBulkScale,
     reset: store.reset,
     undo: store.undo,

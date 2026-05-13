@@ -154,7 +154,11 @@ function nearestSnapDelta(
   return { delta: bestDelta, snapped: bestDistance !== Infinity }
 }
 
-export function positionFloatingToolbar(target: string, rect: DOMRect) {
+export function positionFloatingToolbar(
+  target: string,
+  rect: DOMRect,
+  scale = 1
+) {
   if (typeof document === "undefined") return
   const toolbar = document.querySelector<HTMLElement>(
     `[data-editor-floating-toolbar-target="${CSS.escape(target)}"]`
@@ -162,11 +166,11 @@ export function positionFloatingToolbar(target: string, rect: DOMRect) {
   if (!toolbar) return
 
   const flipBelow = rect.top < 80
+  const placement = flipBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)"
   toolbar.style.top = `${flipBelow ? rect.bottom + 12 : rect.top - 12}px`
   toolbar.style.left = `${rect.left + rect.width / 2}px`
-  toolbar.style.transform = flipBelow
-    ? "translate(-50%, 0)"
-    : "translate(-50%, -100%)"
+  toolbar.style.transform = scale === 1 ? placement : `${placement} scale(${scale})`
+  toolbar.style.transformOrigin = flipBelow ? "top center" : "bottom center"
 }
 
 export function deviceMockupSpec(deviceId: string) {

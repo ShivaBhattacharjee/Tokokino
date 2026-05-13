@@ -5,6 +5,10 @@ import { createPortal } from "react-dom"
 import { RiRefreshLine } from "@remixicon/react"
 
 import { TextToolbar } from "@/components/editor/text-toolbar"
+import {
+  bulkToolbarScale,
+  floatingToolbarTransform,
+} from "@/components/editor/toolbar/primitives"
 import { type TextElement, pickContrastColorAtPosition, useEditor } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
@@ -56,7 +60,7 @@ type ResizeState = {
 const DRAG_THRESHOLD = 4
 
 export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props) {
-  const { canvasZoom, selectedTextId, setSelectedTextId, setSelectedAnnotationShapeId, updateText, deleteText, screenshot, background } =
+  const { canvasZoom, selectedTextId, setSelectedTextId, setSelectedAnnotationShapeId, updateText, deleteText, screenshot, background, bulkEditMode, bulkCanvasDragging, bulkViewportZoom } =
     useEditor()
   const isSelected = selectedTextId === text.id
   const [editingRequested, setEditingRequested] = React.useState(false)
@@ -155,7 +159,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
 
   /* ---- Track text bounding rect so the toolbar (rendered in a portal) tracks the text ---- */
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) {
+    if (bulkCanvasDragging || !isSelected || !elRef.current) {
       setToolbarRect(null)
       return
     }
@@ -171,12 +175,13 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
       window.removeEventListener("scroll", update, true)
       window.removeEventListener("resize", update)
     }
-  }, [isSelected])
+  }, [bulkCanvasDragging, isSelected])
 
   React.useEffect(() => {
-    if (!isSelected || !elRef.current) return
+    if (bulkCanvasDragging || !isSelected || !elRef.current) return
     setToolbarRect(elRef.current.getBoundingClientRect())
   }, [
+    bulkCanvasDragging,
     isSelected,
     text.xPct,
     text.yPct,
@@ -718,7 +723,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
         </div>
       )}
     </div>
-    {isSelected && toolbarRect && typeof document !== "undefined"
+    {!bulkCanvasDragging && isSelected && toolbarRect && typeof document !== "undefined"
       ? createPortal(
           (() => {
             const flipBelow = toolbarRect.top < 80
@@ -726,6 +731,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
               ? toolbarRect.bottom + 12
               : toolbarRect.top - 12
             const left = toolbarRect.left + toolbarRect.width / 2
+            const scale = bulkEditMode ? bulkToolbarScale(bulkViewportZoom) : 1
             return (
               <div
                 data-editor-floating-toolbar-target={`text:${text.id}`}
@@ -733,9 +739,8 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
                 style={{
                   top,
                   left,
-                  transform: flipBelow
-                    ? "translate(-50%, 0)"
-                    : "translate(-50%, -100%)",
+                  transform: floatingToolbarTransform(flipBelow, scale),
+                  transformOrigin: flipBelow ? "top center" : "bottom center",
                 }}
               >
                 <div className="pointer-events-auto">
