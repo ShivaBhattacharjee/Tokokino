@@ -438,7 +438,7 @@ function moveLayerInStack(
 }
 
 const SLOT_ROW_MARGIN = 1
-const SLOT_ROW_GAP = 1
+const SLOT_ROW_GAP = 2
 const SLOT_DEFAULT_HEIGHT_PCT = 28
 
 const slotWidthForCount = (count: number) => {
@@ -1184,6 +1184,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               id,
               frame: { ...canvas.frame },
               frameAddress: canvas.frameAddress,
+              padding: 0,
             },
             computeNextLayerZ(canvas)
           )

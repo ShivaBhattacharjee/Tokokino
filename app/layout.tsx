@@ -62,18 +62,34 @@ export const metadata: Metadata = {
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
 const fontMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
 const fontInter = Inter({ subsets: ["latin"], variable: "--font-inter" })
-const fontPoppins = Poppins({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"], variable: "--font-poppins" })
-const fontPlayfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" })
+const fontPoppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
+})
+const fontPlayfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+})
 const fontRoboto = Roboto({ subsets: ["latin"], variable: "--font-roboto" })
-const fontSpaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk" })
+const fontSpaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+})
 const fontOutfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" })
 const fontCaveat = Caveat({ subsets: ["latin"], variable: "--font-caveat" })
-const fontFiraCode = Fira_Code({ subsets: ["latin"], variable: "--font-fira-code" })
+const fontFiraCode = Fira_Code({
+  subsets: ["latin"],
+  variable: "--font-fira-code",
+})
 const fontLora = Lora({ subsets: ["latin"], variable: "--font-lora" })
 const fontNunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" })
 const fontRaleway = Raleway({ subsets: ["latin"], variable: "--font-raleway" })
 const fontOswald = Oswald({ subsets: ["latin"], variable: "--font-oswald" })
-const fontDancingScript = Dancing_Script({ subsets: ["latin"], variable: "--font-dancing-script" })
+const fontDancingScript = Dancing_Script({
+  subsets: ["latin"],
+  variable: "--font-dancing-script",
+})
 const fontDoto = Doto({ subsets: ["latin"], variable: "--font-doto" })
 
 export default function RootLayout({
@@ -106,7 +122,7 @@ export default function RootLayout({
         "font-sans"
       )}
     >
-      <body>
+      <body className="mx-auto max-w-[1800px]">
         <ThemeProvider defaultTheme="dark">
           <TooltipProvider delayDuration={150}>
             {children}

@@ -54,6 +54,124 @@ type CanvasNodeData = {
 
 type CanvasFlowNode = Node<CanvasNodeData, "canvas">
 
+function CanvasNodeToolbar({
+  canvasId,
+  isActive,
+  canvasCount,
+  onActivate,
+  onDuplicate,
+  removeCanvas,
+}: {
+  canvasId: string
+  isActive: boolean
+  canvasCount: number
+  onActivate: () => void
+  onDuplicate: () => void
+  removeCanvas: (id: string) => void
+}) {
+  const zoom = useFlowStore((s) => s.transform[2])
+  const inverseZoom = zoom > 0 ? Math.min(10, 1 / Math.sqrt(zoom / 2)) : 1
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: "100%",
+        left: "50%",
+        transformOrigin: "bottom center",
+        transform: `translate(-50%, -${12 * inverseZoom}px) scale(${inverseZoom})`,
+      }}
+      className="z-10 flex items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Drag to move canvas"
+            className={cn(
+              "canvas-drag-handle inline-flex size-9 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing",
+              isActive ? "bg-accent text-foreground" : ""
+            )}
+            onClick={(e) => {
+              e.stopPropagation()
+              onActivate()
+            }}
+          >
+            <RiDragMove2Line className="size-4" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top">Drag to move</TooltipContent>
+      </Tooltip>
+
+      <span className="nodrag mx-0.5 h-5 w-px bg-border" />
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={canvasCount >= MAX_CANVASES}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDuplicate()
+            }}
+            aria-label="Duplicate canvas"
+            className="nodrag inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+          >
+            <RiFileCopyLine className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          {canvasCount >= MAX_CANVASES
+            ? `Canvas limit reached (${MAX_CANVASES})`
+            : "Duplicate"}
+        </TooltipContent>
+      </Tooltip>
+
+      {canvasCount > 1 ? (
+        <>
+          <span className="nodrag mx-0.5 h-5 w-px bg-border" />
+          <AlertDialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialogTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Delete canvas"
+                    className="nodrag inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10"
+                  >
+                    <RiDeleteBinLine className="size-4" />
+                  </button>
+                </AlertDialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top">Delete</TooltipContent>
+            </Tooltip>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete canvas?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will remove the canvas and all its content.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => removeCanvas(canvasId)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 function CanvasNode({ data }: NodeProps<CanvasFlowNode>) {
   const { canvasId, widthPx, heightPx } = data
   const isActive = useEditorStore(
@@ -73,114 +191,20 @@ function CanvasNode({ data }: NodeProps<CanvasFlowNode>) {
     else toast(`Canvas limit reached (${MAX_CANVASES})`)
   }, [canvasId])
 
-  const zoom = useFlowStore((s) => s.transform[2])
-  // Counter-scale the toolbar against the canvas zoom so it stays readable,
-  // but cap and soften the inverse so it does not become huge when fit-view
-  // pushes the zoom well below 1.
-  const inverseZoom = zoom > 0 ? Math.min(10, 1 / Math.sqrt(zoom/2)) : 1
-
   return (
     <div
       style={{ width: widthPx, height: heightPx }}
       className="relative"
       onClick={onActivate}
     >
-      <div
-        style={{
-          position: "absolute",
-          bottom: "100%",
-          left: "50%",
-          transformOrigin: "bottom center",
-          transform: `translate(-50%, -${12 * inverseZoom}px) scale(${inverseZoom})`,
-        }}
-        className="z-10 flex items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Drag to move canvas"
-              className={cn(
-                "canvas-drag-handle inline-flex size-9 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing",
-                isActive ? "bg-accent text-foreground" : ""
-              )}
-              onClick={(e) => {
-                e.stopPropagation()
-                onActivate()
-              }}
-            >
-              <RiDragMove2Line className="size-4" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="top">Drag to move</TooltipContent>
-        </Tooltip>
-
-        <span className="nodrag mx-0.5 h-5 w-px bg-border" />
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              disabled={canvasCount >= MAX_CANVASES}
-              onClick={(e) => {
-                e.stopPropagation()
-                onDuplicate()
-              }}
-              aria-label="Duplicate canvas"
-              className="nodrag inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
-            >
-              <RiFileCopyLine className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            {canvasCount >= MAX_CANVASES
-              ? `Canvas limit reached (${MAX_CANVASES})`
-              : "Duplicate"}
-          </TooltipContent>
-        </Tooltip>
-
-        {canvasCount > 1 ? (
-          <>
-            <span className="nodrag mx-0.5 h-5 w-px bg-border" />
-            <AlertDialog>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label="Delete canvas"
-                      className="nodrag inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10"
-                    >
-                      <RiDeleteBinLine className="size-4" />
-                    </button>
-                  </AlertDialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="top">Delete</TooltipContent>
-              </Tooltip>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete canvas?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will remove the canvas and all its content.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => removeCanvas(canvasId)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </>
-        ) : null}
-      </div>
+      <CanvasNodeToolbar
+        canvasId={canvasId}
+        isActive={isActive}
+        canvasCount={canvasCount}
+        onActivate={onActivate}
+        onDuplicate={onDuplicate}
+        removeCanvas={removeCanvas}
+      />
 
       <CanvasView
         canvasId={canvasId}
@@ -224,11 +248,6 @@ function BulkCanvasFlowInner({
   const { fitView } = useReactFlow()
   const { resolvedTheme } = useTheme()
   const colorMode = resolvedTheme === "dark" ? "dark" : "light"
-  const viewportZoom = useFlowStore((s) => s.transform[2])
-
-  React.useEffect(() => {
-    setBulkViewportZoom(viewportZoom)
-  }, [setBulkViewportZoom, viewportZoom])
 
   React.useEffect(() => {
     return () => setBulkViewportZoom(1)
@@ -305,9 +324,13 @@ function BulkCanvasFlowInner({
     setBulkCanvasDragging(true)
   }, [setBulkCanvasDragging])
 
-  const onViewportMoveEnd = React.useCallback(() => {
-    setBulkCanvasDragging(false)
-  }, [setBulkCanvasDragging])
+  const onViewportMoveEnd = React.useCallback(
+    (_e: unknown, viewport: { x: number; y: number; zoom: number }) => {
+      setBulkCanvasDragging(false)
+      setBulkViewportZoom(viewport.zoom)
+    },
+    [setBulkCanvasDragging, setBulkViewportZoom]
+  )
 
   return (
     <div className="absolute inset-0 bg-background dark:bg-black">

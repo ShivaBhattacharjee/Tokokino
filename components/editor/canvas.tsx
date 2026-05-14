@@ -360,13 +360,14 @@ function CanvasViewInner({
   const aw = autoDims ? autoDims.w : aspect.w || 16
   const ah = autoDims ? autoDims.h : aspect.h || 10
   const aspectRatio = `${aw} / ${ah}`
-  const screenshotBoxAspect =
-    frame.id === "none" && naturalDims
-      ? `${naturalDims.w} / ${naturalDims.h}`
-      : aw / ah < 0.85
-        ? "10 / 14"
-        : "16 / 10"
   const rowItemCount = screenshotSlots.length + 1
+  const inRowMode = screenshotSlots.length > 0
+  const rowFallbackAspect = aw / ah < 0.85 ? "10 / 14" : "16 / 10"
+  const screenshotBoxAspect = inRowMode
+    ? rowFallbackAspect
+    : frame.id === "none" && naturalDims
+      ? `${naturalDims.w} / ${naturalDims.h}`
+      : rowFallbackAspect
   const rowItemWidth = screenshotRowItemWidth(rowItemCount)
   const rowTotalWidth =
     rowItemWidth * rowItemCount + SCREENSHOT_ROW_GAP * (rowItemCount - 1)

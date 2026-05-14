@@ -106,9 +106,6 @@ export function ScreenshotSlotView({
   const dragRef = React.useRef<DragState | null>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
-  const [bareImageAspectRatio, setBareImageAspectRatio] = React.useState<
-    string | null
-  >(null)
 
   React.useEffect(() => {
     if (bulkCanvasDragging || !isSelected || !elRef.current) {
@@ -142,28 +139,6 @@ export function ScreenshotSlotView({
     slot.rotation,
     canvasAspectRatio,
   ])
-
-  React.useEffect(() => {
-    if (!slot.src || slot.frame.id !== "none") {
-      setBareImageAspectRatio(null)
-      return
-    }
-
-    let cancelled = false
-    const image = new Image()
-    image.onload = () => {
-      if (cancelled || !image.naturalWidth || !image.naturalHeight) return
-      setBareImageAspectRatio(`${image.naturalWidth} / ${image.naturalHeight}`)
-    }
-    image.onerror = () => {
-      if (!cancelled) setBareImageAspectRatio(null)
-    }
-    image.src = slot.src
-
-    return () => {
-      cancelled = true
-    }
-  }, [slot.frame.id, slot.src])
 
   const select = (e: React.MouseEvent | React.PointerEvent) => {
     e.stopPropagation()
@@ -293,8 +268,7 @@ export function ScreenshotSlotView({
     `rotateZ(${slot.tilt.rz}deg)`,
     `scale(${slot.scale / 100})`,
   ].join(" ")
-  const boxAspectRatio =
-    bareImageAspectRatio ?? (canvasAspectRatio < 0.85 ? "10 / 14" : "16 / 10")
+  const boxAspectRatio = canvasAspectRatio < 0.85 ? "10 / 14" : "16 / 10"
 
   const containerStyle: React.CSSProperties = {
     left: `${slot.xPct}%`,
