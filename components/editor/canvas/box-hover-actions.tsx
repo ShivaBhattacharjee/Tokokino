@@ -152,15 +152,21 @@ export function BoxHoverActions({
       {inline ? (
         <div
           className={cn(
-            "pointer-events-none absolute top-1/2 left-1/2 z-[1100] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2 opacity-0 transition-opacity duration-200",
+            "pointer-events-none absolute top-1/2 left-0 z-[1100] flex w-full -translate-y-1/2 items-center justify-center gap-2 opacity-0 transition-opacity duration-200",
             !disabled && hoverGroupClass
           )}
-          style={{
-            transform: `translate(-50%, -50%) scale(${controlScale})`,
-            transformOrigin: "center",
-          }}
         >
-          {controls}
+          <div
+            style={{
+              transform: `scale(${controlScale})`,
+              transformOrigin: "center",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            {controls}
+          </div>
         </div>
       ) : null}
       {!inline && controlsVisible && rect && typeof document !== "undefined"

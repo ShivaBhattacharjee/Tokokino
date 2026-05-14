@@ -1604,7 +1604,7 @@ function MainScreenshotRowItem({
             <BoxHoverActions
               hoverGroupClass="group-hover/main-row:opacity-100"
               disabled={bulkCanvasDragging || isScreenshotDragging}
-              inline={hoverActionsInline}
+              inline
               layoutKey={hoverActionsLayoutKey}
               controlScale={hoverActionsInline ? 1 : hoverActionsScale}
               measureRef={rowRef}

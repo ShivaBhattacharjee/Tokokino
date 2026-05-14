@@ -122,13 +122,15 @@ export default function RootLayout({
         "font-sans"
       )}
     >
-      <body className="mx-auto max-w-[1800px]">
-        <ThemeProvider defaultTheme="dark">
-          <TooltipProvider delayDuration={150}>
-            {children}
-            <Toaster />
-          </TooltipProvider>
-        </ThemeProvider>
+      <body>
+        <div className="mx-auto max-w-[1800px]">
+          <ThemeProvider defaultTheme="dark">
+            <TooltipProvider delayDuration={150}>
+              {children}
+              <Toaster />
+            </TooltipProvider>
+          </ThemeProvider>
+        </div>
       </body>
     </html>
   )

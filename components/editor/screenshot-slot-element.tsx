@@ -375,8 +375,9 @@ export function ScreenshotSlotView({
               <BoxHoverActions
                 hoverGroupClass="group-hover/slot:opacity-100"
                 disabled={bulkCanvasDragging}
+                inline
                 layoutKey={`${bulkViewportZoom}:${hoverActionsScale}`}
-                controlScale={hoverActionsScale}
+                controlScale={bulkEditMode ? 1 : hoverActionsScale}
                 measureRef={elRef}
                 onCrop={() => onCropRequest(slot.id)}
                 onReplaceFile={(file) => void handleFiles([file])}
