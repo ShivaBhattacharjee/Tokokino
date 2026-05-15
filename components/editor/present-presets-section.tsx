@@ -262,7 +262,7 @@ export function PresentPresetsSection() {
             <div
               aria-hidden
               inert
-              className="relative h-[176px] overflow-hidden rounded-[6px] bg-white/[0.035] [&_*]:pointer-events-none"
+              className="relative h-[176px] overflow-hidden rounded-[6px] isolate [&_*]:pointer-events-none"
             >
               <PresentPresetPreview
                 aspect={aspect}
@@ -354,7 +354,7 @@ function PresentPresetPreview({
   return (
     <div ref={previewRef} className="pointer-events-none absolute inset-0">
       <div
-        className="absolute top-1/2 left-1/2 overflow-hidden ring-1 ring-white/10"
+        className="absolute top-1/2 left-1/2 overflow-hidden [contain:paint] ring-1 ring-white/10"
         style={{
           width: stageWidth,
           height: stageHeight,
