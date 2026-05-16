@@ -19,6 +19,8 @@ type BoxEmptyStateProps = {
   contentRotation?: number
   /** Static visual only — no popovers, inputs, or click handlers. */
   presentational?: boolean
+  /** Use the normal fixed-size upload card instead of cqw fluid sizing. */
+  plainWideCard?: boolean
 }
 
 export function BoxEmptyState({
@@ -28,6 +30,7 @@ export function BoxEmptyState({
   compact = false,
   contentRotation = 0,
   presentational = false,
+  plainWideCard = false,
 }: BoxEmptyStateProps) {
   const handleCapture = onCapture ? () => onCapture() : undefined
   const rotationStyle = contentRotation
@@ -78,7 +81,7 @@ export function BoxEmptyState({
             style={rotationStyle}
           >
             <UploadCard
-              fluid
+              fluid={!plainWideCard}
               isDragOver={isDragOver}
               onBrowse={onBrowse}
               onCapture={handleCapture}

@@ -14,6 +14,7 @@ type BoxHoverActionsProps = {
   mode?: "buttons" | "menu"
   layoutKey?: string | number
   controlScale?: number
+  actionSize?: "default" | "lg"
   measureRef?: React.RefObject<HTMLElement | null>
   onCrop: () => void
   onReplaceFile: (file: File) => void
@@ -27,6 +28,7 @@ export function BoxHoverActions({
   mode = "buttons",
   layoutKey,
   controlScale = 1,
+  actionSize = "default",
   measureRef,
   onCrop,
   onReplaceFile,
@@ -142,17 +144,27 @@ export function BoxHoverActions({
       />
     ) : (
       <>
-        <BoxActionButton label="Crop image" onClick={onCrop}>
-          <RiCropLine className="size-4" />
+        <BoxActionButton size={actionSize} label="Crop image" onClick={onCrop}>
+          <RiCropLine className={actionSize === "lg" ? "size-5" : "size-4"} />
         </BoxActionButton>
         <BoxActionButton
+          size={actionSize}
           label="Replace image"
           onClick={() => replaceInputRef.current?.click()}
         >
-          <RiRefreshLine className="size-4" />
+          <RiRefreshLine
+            className={actionSize === "lg" ? "size-5" : "size-4"}
+          />
         </BoxActionButton>
-        <BoxActionButton label="Delete image" destructive onClick={onDelete}>
-          <RiDeleteBinLine className="size-4" />
+        <BoxActionButton
+          size={actionSize}
+          label="Delete image"
+          destructive
+          onClick={onDelete}
+        >
+          <RiDeleteBinLine
+            className={actionSize === "lg" ? "size-5" : "size-4"}
+          />
         </BoxActionButton>
       </>
     )
@@ -194,7 +206,7 @@ export function BoxHoverActions({
               transformOrigin: "center",
               display: "flex",
               alignItems: "center",
-              gap: "0.5rem",
+              gap: actionSize === "lg" ? "0.75rem" : "0.5rem",
             }}
           >
             {controls}
@@ -262,11 +274,13 @@ export function BoxHoverActions({
 }
 
 function BoxActionButton({
+  size = "default",
   label,
   destructive,
   onClick,
   children,
 }: {
+  size?: "default" | "lg"
   label: string
   destructive?: boolean
   onClick: () => void
@@ -284,7 +298,8 @@ function BoxActionButton({
         onClick()
       }}
       className={cn(
-        "pointer-events-auto flex size-9 items-center justify-center rounded-full bg-black/70 text-white shadow-lg ring-1 ring-white/10 backdrop-blur-md transition-all hover:scale-105 hover:bg-black/85",
+        "pointer-events-auto flex items-center justify-center rounded-full bg-black/70 text-white shadow-lg ring-1 ring-white/10 backdrop-blur-md transition-all hover:scale-105 hover:bg-black/85",
+        size === "lg" ? "size-12" : "size-9",
         destructive && "hover:bg-red-500/90"
       )}
     >

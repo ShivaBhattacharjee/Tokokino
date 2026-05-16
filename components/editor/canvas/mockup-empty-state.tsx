@@ -57,6 +57,7 @@ export function MockupEmptyState({
   const [stageWidth, setStageWidth] = React.useState<number | undefined>(
     undefined
   )
+  const desktopFrame = isDesktopMockup(mockupAsset.deviceId)
 
   React.useLayoutEffect(() => {
     const node = screenRef.current
@@ -120,6 +121,7 @@ export function MockupEmptyState({
               onBrowse={onBrowse}
               contentRotation={mockupRotation ? -mockupRotation : 0}
               compact={compact}
+              plainWideCard={desktopFrame}
             />
           </div>
         </div>
@@ -132,5 +134,13 @@ export function MockupEmptyState({
         />
       </div>
     </div>
+  )
+}
+
+function isDesktopMockup(deviceId: string) {
+  return (
+    deviceId.startsWith("macbook") ||
+    deviceId.startsWith("imac") ||
+    deviceId.includes("display")
   )
 }

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import type { DeviceMockupAsset, DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
 
+import { BoxHoverActions } from "./box-hover-actions"
 import {
   frameFitStyle,
   framePositionTransform,
@@ -86,6 +87,7 @@ export function ScreenshotMockup({
   // frame PNG (rounded corners, notch, etc). drop-shadow filters do that;
   // box-shadow would cast a rectangular shadow off the bounding box.
   const stageWidth = placementDims?.stageW ?? measuredStageWidth
+  const desktopFrame = isDesktopMockup(mockupAsset.deviceId)
   const horizontalScreenStyle = mockupRotation
     ? rotatedScreenContentStyle(mockupSpec.screen.aspectRatio, -mockupRotation)
     : undefined
@@ -184,7 +186,35 @@ export function ScreenshotMockup({
 
         {showHoverActions &&
         activeTool === "pointer" &&
-        !screenshotLayer.hidden ? (
+        !screenshotLayer.hidden &&
+        desktopFrame ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+            <div
+              className="relative w-full overflow-visible"
+              style={{
+                aspectRatio: mockupSpec.screen.aspectRatio,
+                ...mockupScreenClipStyle(mockupSpec.screen, stageWidth),
+                transform: mockupScreenTransform(mockupSpec.screen),
+              }}
+            >
+              <BoxHoverActions
+                hoverGroupClass={cn(
+                  "group-hover/mockup:opacity-100",
+                  isScreenshotDragging && "!opacity-0"
+                )}
+                disabled={isScreenshotDragging}
+                inline
+                actionSize="lg"
+                controlScale={1 / mockupSpec.screen.scale}
+                onCrop={onCropClick}
+                onReplaceFile={onReplaceFile}
+                onDelete={onDelete}
+              />
+            </div>
+          </div>
+        ) : showHoverActions &&
+          activeTool === "pointer" &&
+          !screenshotLayer.hidden ? (
           <div
             className={cn(
               "pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
@@ -206,6 +236,14 @@ export function ScreenshotMockup({
         ) : null}
       </div>
     </div>
+  )
+}
+
+function isDesktopMockup(deviceId: string) {
+  return (
+    deviceId.startsWith("macbook") ||
+    deviceId.startsWith("imac") ||
+    deviceId.includes("display")
   )
 }
 
