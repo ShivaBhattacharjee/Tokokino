@@ -3,7 +3,7 @@
 import * as React from "react"
 
 import { BoxHoverActions } from "@/components/editor/canvas/box-hover-actions"
-import { DeviceFrameEmptyContent } from "@/components/editor/canvas/device-frame-empty-content"
+import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
 import { Arc } from "@/components/ui/arc"
 import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
@@ -71,6 +71,7 @@ type BrowserFrameEmptyStateProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  compact?: boolean
 }
 
 export function ScreenshotBrowserFrame({
@@ -234,6 +235,7 @@ export function BrowserFrameEmptyState({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  compact = false,
 }: BrowserFrameEmptyStateProps) {
   const [url, setUrl] = React.useState("")
   const frame = getBrowserFrame(frameId)
@@ -287,6 +289,7 @@ export function BrowserFrameEmptyState({
               url={url}
               onUrlChange={setUrl}
               onBrowse={onBrowse}
+              compact={compact}
             />
           </Arc>
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
@@ -301,6 +304,7 @@ export function BrowserFrameEmptyState({
               url={url}
               onUrlChange={setUrl}
               onBrowse={onBrowse}
+              compact={compact}
             />
           </Chrome>
         ) : (
@@ -315,6 +319,7 @@ export function BrowserFrameEmptyState({
               url={url}
               onUrlChange={setUrl}
               onBrowse={onBrowse}
+              compact={compact}
             />
           </Safari>
         )}
@@ -348,34 +353,20 @@ function parseAspectRatio(aspectRatio: string) {
 
 function BrowserFrameEmptyContent({
   isDragOver,
-  url,
-  onUrlChange,
   onBrowse,
+  compact = false,
 }: {
   isDragOver: boolean
   url: string
   onUrlChange: (url: string) => void
   onBrowse: () => void
+  compact?: boolean
 }) {
   return (
-    <div
-      data-drag-over={isDragOver}
-      className={cn(
-        "relative size-full bg-black text-white transition-all duration-200",
-        "data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/60"
-      )}
-      style={{
-        backgroundImage:
-          "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)",
-        backgroundSize: "16px 16px",
-        containerType: "inline-size",
-      }}
-    >
-      <DeviceFrameEmptyContent
-        url={url}
-        onUrlChange={onUrlChange}
-        onBrowse={onBrowse}
-      />
-    </div>
+    <BoxEmptyState
+      isDragOver={isDragOver}
+      onBrowse={onBrowse}
+      compact={compact}
+    />
   )
 }

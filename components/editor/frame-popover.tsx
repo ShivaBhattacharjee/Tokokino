@@ -36,10 +36,9 @@ import {
 } from "@/lib/mockups"
 import type { DeviceFrame, FrameOrientation } from "@/lib/editor/store"
 import { useActiveCanvasField } from "@/lib/editor/store"
-import {
-  DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH,
-  DeviceFrameEmptyContent,
-} from "@/components/editor/canvas/device-frame-empty-content"
+import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
+
+const DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH = 280
 import {
   deviceMockupSpec,
   mockupScreenClipStyle,
@@ -708,7 +707,7 @@ function ScaledEmptyContent({
         containerType: "inline-size",
       }}
     >
-      <DeviceFrameEmptyContent presentational />
+      <BoxEmptyState presentational onBrowse={() => undefined} />
     </div>
   )
 }

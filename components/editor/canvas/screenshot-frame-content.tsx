@@ -11,7 +11,7 @@ import type {
 import { getDeviceMockup, getDeviceMockupAsset } from "@/lib/mockups"
 
 import { BoxEmptyState } from "./box-empty-state"
-import { DeviceFrameEmptyState } from "./device-frame-empty-state"
+import { MockupEmptyState } from "./mockup-empty-state"
 import { deviceMockupSpec, framePositionTransform } from "./helpers"
 import { ScreenshotBare } from "./screenshot-bare"
 import {
@@ -245,13 +245,15 @@ export function ScreenshotFrameContent({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        compact={emptyCompact}
       />
     )
   }
 
   if (mockupAsset && mockupSpec) {
     return (
-      <DeviceFrameEmptyState
+      <MockupEmptyState
+        compact={emptyCompact}
         mockupAsset={mockupAsset}
         mockupSpec={mockupSpec}
         isDragOver={isDragOver}

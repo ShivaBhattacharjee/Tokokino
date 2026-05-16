@@ -95,6 +95,15 @@ export function TopBar() {
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
 
+  React.useEffect(() => {
+    if (!canUndo) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [canUndo])
+
   const handleCopyPng = React.useCallback(async () => {
     if (isCopyingPng) return
     setIsCopyingPng(true)

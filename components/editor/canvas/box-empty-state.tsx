@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { RiAddLine } from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
 import { EmptyStateBackdrop } from "./empty-state-backdrop"
@@ -12,7 +13,12 @@ type BoxEmptyStateProps = {
   onCapture?: () => void
   url?: string
   onUrlChange?: (value: string) => void
+  /** Force compact `+` trigger. Otherwise auto-detected by container width. */
   compact?: boolean
+  /** Counter-rotate inner content (used when the device mockup is rotated). */
+  contentRotation?: number
+  /** Static visual only — no popovers, inputs, or click handlers. */
+  presentational?: boolean
 }
 
 export function BoxEmptyState({
@@ -20,31 +26,77 @@ export function BoxEmptyState({
   onBrowse,
   onCapture,
   compact = false,
+  contentRotation = 0,
+  presentational = false,
 }: BoxEmptyStateProps) {
+  const handleCapture = onCapture ? () => onCapture() : undefined
+  const rotationStyle = contentRotation
+    ? { transform: `rotate(${contentRotation}deg)` }
+    : undefined
+
+  if (presentational) {
+    return (
+      <EmptyStateBackdrop
+        className="pointer-events-none flex items-center justify-center p-[3cqw] text-white"
+        style={{ containerType: "inline-size" }}
+      >
+        <span
+          aria-hidden
+          style={rotationStyle}
+          className="grid size-[18cqw] max-h-16 min-h-7 max-w-16 min-w-7 place-items-center rounded-xl border-2 border-primary bg-neutral-900/95 text-white shadow-lg"
+        >
+          <RiAddLine className="size-[55%]" />
+        </span>
+      </EmptyStateBackdrop>
+    )
+  }
+
   return (
     <EmptyStateBackdrop
       data-drag-over={isDragOver}
       className={cn(
-        "flex items-center justify-center p-[3cqw] text-white transition-all",
+        "@container flex items-center justify-center p-[3cqw] text-white transition-all",
         "data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/40"
       )}
       style={{ containerType: "inline-size" }}
     >
       {compact ? (
-        <UploadCard
-          compact
-          isDragOver={isDragOver}
-          onBrowse={onBrowse}
-          onCapture={onCapture ? () => onCapture() : undefined}
-        />
+        <div style={rotationStyle}>
+          <UploadCard
+            compact
+            isDragOver={isDragOver}
+            onBrowse={onBrowse}
+            onCapture={handleCapture}
+            showHint
+          />
+        </div>
       ) : (
-        <UploadCard
-          fluid
-          isDragOver={isDragOver}
-          onBrowse={onBrowse}
-          onCapture={onCapture ? () => onCapture() : undefined}
-          className="w-full"
-        />
+        <>
+          {/* Wide containers (desktop, browser, iPad horizontal) — full card */}
+          <div
+            className="hidden w-full max-w-[420px] @md:block"
+            style={rotationStyle}
+          >
+            <UploadCard
+              fluid
+              isDragOver={isDragOver}
+              onBrowse={onBrowse}
+              onCapture={handleCapture}
+              showHint
+              className="w-full"
+            />
+          </div>
+          {/* Narrow containers (phone, iPad portrait) — compact + */}
+          <div className="@md:hidden" style={rotationStyle}>
+            <UploadCard
+              compact
+              isDragOver={isDragOver}
+              onBrowse={onBrowse}
+              onCapture={handleCapture}
+              showHint
+            />
+          </div>
+        </>
       )}
     </EmptyStateBackdrop>
   )

@@ -4,7 +4,7 @@ import * as React from "react"
 import {
   RiAddLine,
   RiCameraLine,
-  RiGlobeLine,
+  RiLink,
   RiSettings3Line,
   RiUploadLine,
 } from "@remixicon/react"
@@ -79,7 +79,7 @@ function CaptureSettingsPopover({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           aria-label="Capture settings"
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-white/50 transition-all hover:bg-white/12 hover:text-white/80 data-[state=open]:bg-white/16 data-[state=open]:text-white"
+          className="grid size-10 shrink-0 place-items-center rounded-md bg-white/[0.06] text-white/50 transition-all hover:bg-white/12 hover:text-white/80 data-[state=open]:bg-white/16 data-[state=open]:text-white"
         >
           <RiSettings3Line className="size-4" />
         </button>
@@ -284,8 +284,11 @@ export function UploadCard({
           Upload Screenshot
         </button>
         <div className="flex items-center gap-[1.5cqw]">
-          <label className="flex min-h-[8cqw] flex-1 items-center gap-[2cqw] rounded-[2.5cqw] bg-white/[0.06] px-[3cqw] transition-colors focus-within:bg-white/[0.1]">
-            <RiGlobeLine className="size-[clamp(0.55rem,1.9cqw,0.8rem)] shrink-0 text-white/40" />
+          <label
+            onPointerDown={(e) => e.stopPropagation()}
+            className="flex min-h-[8cqw] flex-1 items-center gap-[2cqw] rounded-[2.5cqw] bg-white/[0.06] px-[3cqw] transition-colors focus-within:bg-white/[0.1]"
+          >
+            <RiLink className="size-[clamp(0.55rem,1.9cqw,0.8rem)] shrink-0 text-white/40" />
             <input
               type="text"
               inputMode="url"
@@ -317,6 +320,16 @@ export function UploadCard({
           <RiCameraLine className="size-[clamp(0.55rem,1.9cqw,0.8rem)]" />
           Capture Screenshot
         </button>
+        {showHint && (
+          <div className="-mx-[2cqw] mt-[0.5cqw] -mb-[2cqw] flex items-center justify-center border-t border-white/8 px-[3cqw] py-[2cqw]">
+            <span className="inline-flex items-center gap-[1.5cqw] text-[clamp(0.45rem,1.4cqw,0.7rem)] text-white/35">
+              <kbd className="rounded border border-white/14 bg-white/[0.06] px-[1.2cqw] py-[0.3cqw] font-mono text-[clamp(0.4rem,1.2cqw,0.62rem)] text-white/60">
+                ⌘V
+              </kbd>
+              paste · drop · or click upload
+            </span>
+          </div>
+        )}
       </div>
     )
   }
@@ -331,7 +344,7 @@ export function UploadCard({
           onBrowse()
         }}
         className={cn(
-          "flex w-full items-center justify-center gap-2.5 rounded-2xl px-5 py-4 text-[14px] font-semibold tracking-[-0.02em] transition-all",
+          "flex w-full items-center justify-center gap-2.5 rounded-lg px-5 py-4 text-[14px] font-semibold tracking-[-0.02em] transition-all",
           isDragOver
             ? "bg-primary/70 text-white"
             : "bg-primary text-white hover:brightness-110 active:brightness-95"
@@ -341,8 +354,11 @@ export function UploadCard({
         Upload Screenshot
       </button>
       <div className="flex items-center gap-1.5">
-        <label className="flex min-h-10 flex-1 items-center gap-2 rounded-xl bg-white/[0.06] px-3 text-left transition-colors focus-within:bg-white/[0.1]">
-          <RiGlobeLine className="size-4 shrink-0 text-white/40" />
+        <label
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex min-h-10 flex-1 items-center gap-2 rounded-md bg-white/[0.06] px-3 text-left transition-colors focus-within:bg-white/[0.1]"
+        >
+          <RiLink className="size-4 shrink-0 text-white/40" />
           <input
             type="text"
             inputMode="url"
@@ -367,7 +383,7 @@ export function UploadCard({
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => handleCapture(e)}
         className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.06] py-2.5 text-[13px] font-medium text-white/60 transition-all hover:bg-white/10 hover:text-white/90",
+          "flex w-full items-center justify-center gap-2 rounded-md bg-white/[0.06] py-2.5 text-[13px] font-medium text-white/60 transition-all hover:bg-white/10 hover:text-white/90",
           url === PREFIX && "cursor-default opacity-50"
         )}
       >

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { motion } from "motion/react"
 
 import { cn } from "@/lib/utils"
@@ -9,7 +10,8 @@ const WORDMARK = "Noctivy"
 
 export function BrandLogo({ className }: { className?: string }) {
   return (
-    <div
+    <Link
+      href="/"
       className={cn("flex min-w-0 items-center gap-0 select-none", className)}
       aria-label={WORDMARK}
     >
@@ -62,7 +64,7 @@ export function BrandLogo({ className }: { className?: string }) {
           </motion.span>
         ))}
       </motion.span>
-    </div>
+    </Link>
   )
 }
 

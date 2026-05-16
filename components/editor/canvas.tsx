@@ -38,7 +38,7 @@ import {
   computeRowLayout,
   slotBoxAspectRatio,
 } from "@/lib/editor/screenshot-layout"
-import { DeviceFrameEmptyState } from "./canvas/device-frame-empty-state"
+import { MockupEmptyState } from "./canvas/mockup-empty-state"
 import { deviceMockupSpec, screenshotPlacementStyle } from "./canvas/helpers"
 import { MainScreenshotRowItem } from "./canvas/main-screenshot-row-item"
 import { ScreenshotBare } from "./canvas/screenshot-bare"
@@ -646,6 +646,13 @@ function CanvasViewInner({
                   activeTool={activeTool}
                   addressValue={frameAddress}
                   onAddressChange={setFrameAddress}
+                  compact={
+                    tilt.rx !== 0 ||
+                    tilt.ry !== 0 ||
+                    tilt.rz !== 0 ||
+                    scale !== 100 ||
+                    screenshotSlots.length > 0
+                  }
                   onPointerDown={(e) => {
                     if (document.activeElement instanceof HTMLElement) {
                       document.activeElement.blur()
@@ -656,7 +663,7 @@ function CanvasViewInner({
                   onPointerUp={stopMockupDrag}
                 />
               ) : mockupAsset && mockupSpec ? (
-                <DeviceFrameEmptyState
+                <MockupEmptyState
                   mockupAsset={mockupAsset}
                   mockupSpec={mockupSpec}
                   isDragOver={isDragOver}
@@ -669,6 +676,13 @@ function CanvasViewInner({
                   screenshotAnchor={screenshotAnchor}
                   isScreenshotDragging={isScreenshotDragging}
                   activeTool={activeTool}
+                  compact={
+                    tilt.rx !== 0 ||
+                    tilt.ry !== 0 ||
+                    tilt.rz !== 0 ||
+                    scale !== 100 ||
+                    screenshotSlots.length > 0
+                  }
                   onPointerDown={(e) => {
                     if (document.activeElement instanceof HTMLElement) {
                       document.activeElement.blur()

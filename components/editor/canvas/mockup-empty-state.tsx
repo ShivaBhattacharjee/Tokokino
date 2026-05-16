@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import type { EditorTool } from "@/lib/editor/store"
 import type { DeviceMockupAsset, DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
 
-import { DeviceFrameEmptyContent } from "./device-frame-empty-content"
+import { BoxEmptyState } from "./box-empty-state"
 import {
   frameFitStyle,
   framePositionTransform,
@@ -16,7 +16,7 @@ import {
 
 type DeviceMockupSpec = (typeof DEVICE_MOCKUP_SPECS)[string]
 
-type DeviceFrameEmptyStateProps = {
+type MockupEmptyStateProps = {
   mockupAsset: DeviceMockupAsset
   mockupSpec: DeviceMockupSpec
   isDragOver: boolean
@@ -32,9 +32,10 @@ type DeviceFrameEmptyStateProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  compact?: boolean
 }
 
-export function DeviceFrameEmptyState({
+export function MockupEmptyState({
   mockupAsset,
   mockupSpec,
   isDragOver,
@@ -50,12 +51,12 @@ export function DeviceFrameEmptyState({
   onPointerDown,
   onPointerMove,
   onPointerUp,
-}: DeviceFrameEmptyStateProps) {
+  compact = false,
+}: MockupEmptyStateProps) {
   const screenRef = React.useRef<HTMLDivElement | null>(null)
   const [stageWidth, setStageWidth] = React.useState<number | undefined>(
     undefined
   )
-  const [url, setUrl] = React.useState("")
 
   React.useLayoutEffect(() => {
     const node = screenRef.current
@@ -96,7 +97,8 @@ export function DeviceFrameEmptyState({
           }),
           transformOrigin: "center",
           transformStyle: "preserve-3d",
-          filter: [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined,
+          filter:
+            [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined,
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -106,30 +108,18 @@ export function DeviceFrameEmptyState({
         <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
           <div
             ref={screenRef}
-            data-drag-over={isDragOver}
-            className={cn(
-              "pointer-events-auto relative w-full overflow-hidden bg-black text-white",
-              "data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/60"
-            )}
             style={{
               aspectRatio: mockupSpec.screen.aspectRatio,
               ...mockupScreenClipStyle(mockupSpec.screen, stageWidth),
               transform: mockupScreenTransform(mockupSpec.screen),
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)",
-              backgroundSize: "16px 16px",
-              containerType: "inline-size",
             }}
+            className="pointer-events-auto relative w-full overflow-hidden"
           >
-            <DeviceFrameEmptyContent
-              url={url}
-              onUrlChange={setUrl}
+            <BoxEmptyState
+              isDragOver={isDragOver}
               onBrowse={onBrowse}
-              style={
-                mockupRotation
-                  ? { transform: `rotate(${-mockupRotation}deg)` }
-                  : undefined
-              }
+              contentRotation={mockupRotation ? -mockupRotation : 0}
+              compact={compact}
             />
           </div>
         </div>
