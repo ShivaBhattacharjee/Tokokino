@@ -1,11 +1,7 @@
 "use client"
 
 import * as React from "react"
-import {
-  RiCropLine,
-  RiDeleteBinLine,
-  RiRefreshLine,
-} from "@remixicon/react"
+import { RiCropLine, RiDeleteBinLine, RiRefreshLine } from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
@@ -42,6 +38,7 @@ type ScreenshotBareProps = {
   onCropClick: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  shadowBoxTarget?: boolean
 }
 
 export function ScreenshotBare({
@@ -69,6 +66,7 @@ export function ScreenshotBare({
   onCropClick,
   onReplaceFile,
   onDelete,
+  shadowBoxTarget = false,
 }: ScreenshotBareProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -81,6 +79,7 @@ export function ScreenshotBare({
       <img
         ref={imageRef}
         data-box-hover-target
+        data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
         src={screenshot}
         alt="Screenshot"
         draggable={false}

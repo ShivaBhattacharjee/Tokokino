@@ -197,6 +197,7 @@ export function ScreenshotFrameContent({
           selectedTextId={null}
           stageRef={stageRef}
           imageRef={imageRef}
+          shadowBoxTarget={frame.id === "none"}
           onContainerPointerDown={() => undefined}
           onSelect={onSelect}
           onPointerDown={(e) =>
@@ -260,6 +261,7 @@ export function ScreenshotFrameContent({
 
   return (
     <div
+      data-editor-shadow-box-target={frame.id === "none" ? "" : undefined}
       className="relative h-full w-full overflow-hidden bg-black/40"
       style={emptyBareStyle(bareStyle)}
     >

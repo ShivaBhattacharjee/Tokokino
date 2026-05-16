@@ -229,6 +229,14 @@ export function shadowCss(shadow: Shadow): string | undefined {
   return `${(dx * unit).toFixed(1)}px ${(dy * unit).toFixed(1)}px ${blur.toFixed(1)}px ${spread}px ${shadowRgba(color, opacity)}`
 }
 
+export const SHADOW_PREVIEW_VAR = "--editor-shadow-preview"
+
+/** Box-shadow that supports live direction preview without clobbering React styles. */
+export function shadowBoxShadowCss(committed: string | undefined): string | undefined {
+  if (!committed) return undefined
+  return `var(${SHADOW_PREVIEW_VAR}, ${committed})`
+}
+
 /**
  * Convert the box-shadow string produced by `shadowCss` into a chain of
  * `drop-shadow(...)` filter functions. Use this when the shadow should follow

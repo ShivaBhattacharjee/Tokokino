@@ -467,6 +467,8 @@ function DefaultToolbarContents() {
     : Boolean(screenshot || hasDeviceFrame)
   const hasAnyScreenshotContent =
     Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
+  const hasMainScreenshotTarget =
+    Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
   const positionTarget: PositionTarget =
     groupAllScreenshots && hasAnyScreenshotContent
       ? "allScreenshots"
@@ -478,11 +480,11 @@ function DefaultToolbarContents() {
             ? "annotation"
             : selectedSlot
               ? "slot"
-              : isScreenshotSelected && (screenshot || hasDeviceFrame)
+              : isScreenshotSelected && hasMainScreenshotTarget
                 ? "screenshot"
                 : screenshotSlots.length > 0
                   ? "slotGroup"
-                  : bulkEditMode
+                    : bulkEditMode
                     ? "canvas"
                     : screenshot || hasDeviceFrame
                       ? "screenshot"

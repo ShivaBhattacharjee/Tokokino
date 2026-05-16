@@ -13,12 +13,15 @@ import { bulkToolbarScale } from "@/components/editor/toolbar/primitives"
 import { cn } from "@/lib/utils"
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
 import {
+  shadowBoxShadowCss,
+  shadowCss,
+  shadowDropFilterCss,
+} from "@/lib/editor/css-utils"
+import {
   CanvasScope,
   effectsFilterCss,
   enhanceFilterCss,
   overlayUrl,
-  shadowCss,
-  shadowDropFilterCss,
   screenshotPositionAnchor,
   useCanvasScopeId,
   useEditor,
@@ -251,7 +254,7 @@ function CanvasViewInner({
     borderRadius,
     transform,
     transformStyle: "preserve-3d",
-    boxShadow: computedShadow,
+    boxShadow: shadowBoxShadowCss(computedShadow),
     filter: enhanceFilter,
     opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
   }
@@ -492,6 +495,7 @@ function CanvasViewInner({
 
           {!mainScreenshotRowStyle ? (
             <div
+              data-editor-shadow-preview-scope="canvas"
               className="pointer-events-none relative flex h-full w-full items-center justify-center"
               style={{
                 padding: `${(padding / 1200) * 100}%`,
@@ -590,6 +594,7 @@ function CanvasViewInner({
                     selectedTextId={selectedTextId}
                     stageRef={stageRef}
                     imageRef={imageRef}
+                    shadowBoxTarget={frame.id === "none"}
                     onContainerPointerDown={(e) => {
                       if (e.target === e.currentTarget) {
                         setIsScreenshotSelected(false)

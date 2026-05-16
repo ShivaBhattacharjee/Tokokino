@@ -541,8 +541,6 @@ function PresentMainScreenshot({
               canvas.frame.id,
               canvas.borderRadius
             ),
-            boxShadow:
-              canvas.frame.id === "none" ? shadowCss(canvas.shadow) : undefined,
           }}
         >
           <CanvasFrameContent

@@ -26,13 +26,12 @@ import {
 } from "@/components/editor/toolbar/primitives"
 import { isBrowserFrame } from "@/lib/browser-frame"
 import { slotBoxAspectRatio } from "@/lib/editor/screenshot-layout"
+import { shadowBoxShadowCss, shadowCss, shadowDropFilterCss } from "@/lib/editor/css-utils"
 import {
   assetFilterCss,
   enhanceFilterCss,
   MAX_SCREENSHOT_SLOTS,
-  shadowCss,
   type ScreenshotSlot,
-  shadowDropFilterCss,
   useEditor,
 } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
@@ -284,7 +283,9 @@ export function ScreenshotSlotView({
     transform: `translate(-50%, -50%) rotate(${slot.rotation}deg)`,
     zIndex: 60 + slot.zIndex,
     display: slot.hidden ? "none" : undefined,
-    transition: isBeingDragged ? undefined : "left 300ms ease-out, top 300ms ease-out",
+    transition: isBeingDragged
+      ? undefined
+      : "left 300ms ease-out, top 300ms ease-out",
   }
   if (slot.blendMode && slot.blendMode !== "normal") {
     containerStyle.mixBlendMode = slot.blendMode
@@ -305,7 +306,7 @@ export function ScreenshotSlotView({
   }
   const bareImgStyle: React.CSSProperties = {
     borderRadius: bareBorderRadius,
-    boxShadow: shadowCss(slot.shadow),
+    boxShadow: shadowBoxShadowCss(shadowCss(slot.shadow)),
     filter: filterChain || undefined,
   }
   if (imageBoxOutline?.color && imageBoxOutline.width > 0) {
@@ -340,6 +341,7 @@ export function ScreenshotSlotView({
         ref={elRef}
         data-box-hover-target
         data-screenshot-slot-id={slot.id}
+        data-editor-shadow-preview-scope={slot.id}
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}

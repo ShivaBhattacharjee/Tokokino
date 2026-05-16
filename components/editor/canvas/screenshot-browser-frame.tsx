@@ -106,9 +106,6 @@ export function ScreenshotBrowserFrame({
   const frameFitStyle = browserFrameFitStyle(
     frame?.aspectRatio ?? BROWSER_FRAME_ASPECT_RATIO
   )
-  const combinedFilter =
-    [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined
-
   return (
     <div
       data-box-hover-target
@@ -116,6 +113,9 @@ export function ScreenshotBrowserFrame({
       style={{ containerType: "size" }}
     >
       <div
+        data-editor-shadow-filter-target
+        data-editor-shadow-filter-base={shadowFilter || ""}
+        data-editor-enhance-filter={enhanceFilter || ""}
         ref={frameRef}
         className={cn(
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
@@ -135,7 +135,9 @@ export function ScreenshotBrowserFrame({
             transform,
           }),
           transformOrigin: "center",
-          filter: combinedFilter,
+          filter:
+            [shadowFilter, enhanceFilter].filter(Boolean).join(" ") ||
+            undefined,
           opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
           mixBlendMode:
             screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal"

@@ -151,6 +151,9 @@ export function MainScreenshotRowItem({
     ...style,
     transform:
       `${baseTransform} translate(${offset.x}px, ${offset.y}px)`.trim(),
+    transition: isScreenshotDragging
+      ? undefined
+      : "left 300ms ease-out, top 300ms ease-out",
   }
   const selectionRadius = frameSelectionRadius(
     frame.id,
@@ -164,6 +167,7 @@ export function MainScreenshotRowItem({
       <div
         ref={rowRef}
         data-box-hover-target
+        data-editor-shadow-preview-scope="canvas"
         className={cn(
           "group/main-row pointer-events-auto",
           activeTool === "pointer" && "cursor-grab",
@@ -194,10 +198,6 @@ export function MainScreenshotRowItem({
               mixBlendMode:
                 imgStyle.mixBlendMode as React.CSSProperties["mixBlendMode"],
               borderRadius: selectionRadius,
-              boxShadow:
-                frame.id === "none"
-                  ? (imgStyle.boxShadow as string | undefined)
-                  : undefined,
             }}
           >
             <ScreenshotFrameContent

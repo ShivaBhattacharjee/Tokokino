@@ -85,8 +85,6 @@ export function ScreenshotMockup({
   // For device frames the shadow must follow the alpha silhouette of the
   // frame PNG (rounded corners, notch, etc). drop-shadow filters do that;
   // box-shadow would cast a rectangular shadow off the bounding box.
-  const combinedFilter =
-    [shadowFilter, enhanceFilter].filter(Boolean).join(" ") || undefined
   const stageWidth = placementDims?.stageW ?? measuredStageWidth
   const horizontalScreenStyle = mockupRotation
     ? rotatedScreenContentStyle(mockupSpec.screen.aspectRatio, -mockupRotation)
@@ -117,6 +115,9 @@ export function ScreenshotMockup({
       style={{ containerType: "size" }}
     >
       <div
+        data-editor-shadow-filter-target
+        data-editor-shadow-filter-base={shadowFilter || ""}
+        data-editor-enhance-filter={enhanceFilter || ""}
         className={cn(
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
           screenshotLayer.hidden && "pointer-events-none",
@@ -136,7 +137,9 @@ export function ScreenshotMockup({
             rotation: mockupRotation,
           }),
           transformOrigin: "center",
-          filter: combinedFilter,
+          filter:
+            [shadowFilter, enhanceFilter].filter(Boolean).join(" ") ||
+            undefined,
           opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
           mixBlendMode:
             screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal"

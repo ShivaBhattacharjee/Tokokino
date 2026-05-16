@@ -127,7 +127,7 @@ export default function RootLayout({
           <ThemeProvider defaultTheme="dark">
             <TooltipProvider delayDuration={150}>
               {children}
-              <Toaster />
+              <Toaster position="top-center" />
             </TooltipProvider>
           </ThemeProvider>
         </div>

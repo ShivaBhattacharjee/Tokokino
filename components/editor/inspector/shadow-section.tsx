@@ -1,8 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { RiArrowRightLine, RiFocus3Line } from "@remixicon/react"
+import {
+  Background,
+  BackgroundVariant,
+  ReactFlow,
+  ReactFlowProvider,
+} from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
 
+import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import { EditableValue } from "@/components/editor/editable-value"
 import { Slider } from "@/components/ui/slider"
 import {
@@ -10,35 +17,346 @@ import {
   useEditorStore,
   useSelectedScreenshotSlot,
 } from "@/lib/editor/store"
+import {
+  SHADOW_PREVIEW_VAR,
+  shadowCss,
+  shadowDropFilterCss,
+} from "@/lib/editor/css-utils"
 import { cn } from "@/lib/utils"
 
-import { ColorPresetGrid, SubHeader } from "./primitives"
-
 const SHADOW_COLOR_PRESETS = [
-  "#000000",
-  "#1e293b",
-  "#7c3aed",
-  "#2563eb",
-  "#0891b2",
-  "#059669",
-  "#d97706",
-  "#dc2626",
+  "#050505",
+  "#2b3346",
+  "#7b6a86",
+  "#a66c5f",
+  "#5f897a",
 ]
 
-const LIGHT_POSITIONS = Array.from({ length: 25 }, (_, i) => {
-  const r = Math.floor(i / 5)
-  const c = i % 5
-  const dx = c - 2
-  const dy = r - 2
-  const isCenter = dx === 0 && dy === 0
-  return {
-    id: isCenter ? "center" : `${r}-${c}`,
-    isCenter,
-    angle: isCenter ? 0 : (Math.atan2(dy, dx) * 180) / Math.PI,
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+type LightPoint = { row: number; col: number }
+
+function lightSourceToPoint(lightSource: string): LightPoint {
+  if (lightSource === "center") return { row: 2, col: 2 }
+
+  const [row, col] = lightSource.split("-").map(Number)
+  if (!Number.isFinite(row) || !Number.isFinite(col)) {
+    return { row: 2, col: 2 }
   }
-})
+
+  return {
+    row: clamp(row, 0, 4),
+    col: clamp(col, 0, 4),
+  }
+}
+
+function pointToLightSource(row: number, col: number) {
+  const safeRow = clamp(row, 0, 4)
+  const safeCol = clamp(col, 0, 4)
+  const isCenter = Math.abs(safeRow - 2) < 0.01 && Math.abs(safeCol - 2) < 0.01
+  return isCenter ? "center" : `${safeRow.toFixed(2)}-${safeCol.toFixed(2)}`
+}
+
+function attrEscape(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+}
+
+function DirectionField({
+  color,
+  disabled,
+  lightSource,
+  onChange,
+  onPreview,
+}: {
+  color: string
+  disabled: boolean
+  lightSource: string
+  onChange: (id: string) => void
+  onPreview: (id: string | null) => void
+}) {
+  const sourcePoint = lightSourceToPoint(lightSource)
+  const orbRef = React.useRef<HTMLDivElement | null>(null)
+  const glowRef = React.useRef<HTMLDivElement | null>(null)
+  const draggingRef = React.useRef(false)
+  const draftPointRef = React.useRef(sourcePoint)
+  const committedLightSourceRef = React.useRef(lightSource)
+  const previewLightSourceRef = React.useRef(lightSource)
+  const x = (sourcePoint.col / 4) * 100
+  const y = (sourcePoint.row / 4) * 100
+  const glowOpacity = disabled ? 0.25 : 0.75
+  const glowBackground = `radial-gradient(circle, ${color}70 0%, transparent 70%)`
+
+  const moveVisualPoint = React.useCallback(
+    (nextPoint: LightPoint) => {
+      draftPointRef.current = nextPoint
+      const nextX = (nextPoint.col / 4) * 100
+      const nextY = (nextPoint.row / 4) * 100
+
+      if (orbRef.current) {
+        orbRef.current.style.cssText = `left: calc(${nextX}% - 14px); top: calc(${nextY}% - 14px);`
+      }
+
+      if (glowRef.current) {
+        glowRef.current.style.cssText = `left: calc(${nextX}% - 48px); top: calc(${nextY}% - 48px); background: ${glowBackground}; opacity: ${glowOpacity};`
+      }
+    },
+    [glowBackground, glowOpacity]
+  )
+
+  React.useLayoutEffect(() => {
+    if (draggingRef.current) return
+    moveVisualPoint(sourcePoint)
+  }, [moveVisualPoint, sourcePoint])
+
+  const pointFromPointer = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const nextX = clamp((event.clientX - rect.left) / rect.width, 0, 1)
+      const nextY = clamp((event.clientY - rect.top) / rect.height, 0, 1)
+      return {
+        col: nextX * 4,
+        row: nextY * 4,
+      }
+    },
+    []
+  )
+
+  const previewPoint = React.useCallback(
+    (nextPoint: LightPoint) => {
+      const nextLightSource = pointToLightSource(nextPoint.row, nextPoint.col)
+      if (nextLightSource === previewLightSourceRef.current) return
+      previewLightSourceRef.current = nextLightSource
+      onPreview(nextLightSource)
+    },
+    [onPreview]
+  )
+
+  const commitPoint = React.useCallback(
+    (nextPoint: LightPoint) => {
+      const nextLightSource = pointToLightSource(nextPoint.row, nextPoint.col)
+      if (nextLightSource === committedLightSourceRef.current) return
+
+      committedLightSourceRef.current = nextLightSource
+      onChange(nextLightSource)
+    },
+    [onChange]
+  )
+
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (disabled) return
+
+      event.currentTarget.setPointerCapture(event.pointerId)
+      committedLightSourceRef.current = lightSource
+      previewLightSourceRef.current = lightSource
+      draggingRef.current = true
+      const nextPoint = pointFromPointer(event)
+      moveVisualPoint(nextPoint)
+      previewPoint(nextPoint)
+    },
+    [disabled, lightSource, moveVisualPoint, pointFromPointer, previewPoint]
+  )
+
+  const handlePointerMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (disabled || !draggingRef.current || event.buttons !== 1) return
+      const nextPoint = pointFromPointer(event)
+      moveVisualPoint(nextPoint)
+      previewPoint(nextPoint)
+    },
+    [disabled, moveVisualPoint, pointFromPointer, previewPoint]
+  )
+
+  const handlePointerUp = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (disabled || !draggingRef.current) return
+
+      const nextPoint = pointFromPointer(event)
+      moveVisualPoint(nextPoint)
+      draggingRef.current = false
+      commitPoint(nextPoint)
+    },
+    [commitPoint, disabled, moveVisualPoint, pointFromPointer]
+  )
+
+  const handlePointerCancel = React.useCallback(() => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    commitPoint(draftPointRef.current)
+  }, [commitPoint])
+
+  const handleLostPointerCapture = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!draggingRef.current || event.buttons === 1) return
+      draggingRef.current = false
+      commitPoint(draftPointRef.current)
+    },
+    [commitPoint]
+  )
+
+  const handleKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (disabled) return
+
+      let { row, col } = sourcePoint
+      if (event.key === "ArrowLeft") col -= 0.25
+      else if (event.key === "ArrowRight") col += 0.25
+      else if (event.key === "ArrowUp") row -= 0.25
+      else if (event.key === "ArrowDown") row += 0.25
+      else if (event.key === "Home") {
+        row = 2
+        col = 2
+      } else {
+        return
+      }
+
+      event.preventDefault()
+      onChange(pointToLightSource(row, col))
+    },
+    [disabled, sourcePoint, onChange]
+  )
+
+  return (
+    <div
+      role="slider"
+      tabIndex={disabled ? -1 : 0}
+      aria-label="Shadow light direction"
+      aria-valuenow={Math.round((x + y) / 2)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuetext={`${Math.round(x)}% horizontal, ${Math.round(y)}% vertical`}
+      aria-disabled={disabled}
+      onKeyDown={handleKeyDown}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onLostPointerCapture={handleLostPointerCapture}
+      className={cn(
+        "group relative h-[132px] w-full max-w-full overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_30px_rgba(44,36,25,0.06)] transition outline-none dark:border-white/10 dark:bg-[#202020] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        disabled
+          ? "cursor-not-allowed opacity-55"
+          : "cursor-grab focus-visible:ring-2 focus-visible:ring-[#f65d72]/50 active:cursor-grabbing"
+      )}
+    >
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={[]}
+          edges={[]}
+          minZoom={1}
+          maxZoom={1}
+          panOnDrag={false}
+          panOnScroll={false}
+          zoomOnScroll={false}
+          zoomOnPinch={false}
+          zoomOnDoubleClick={false}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          selectionOnDrag={false}
+          edgesFocusable={false}
+          nodesFocusable={false}
+          preventScrolling={false}
+          proOptions={{ hideAttribution: true }}
+          className="pointer-events-none absolute inset-0 text-black/25 dark:text-white/15"
+          colorMode="system"
+          style={{ background: "transparent" }}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={14}
+            size={1.4}
+            color="currentColor"
+          />
+        </ReactFlow>
+      </ReactFlowProvider>
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.38),rgba(136,180,143,0.06)_48%,rgba(255,90,114,0.05))] dark:bg-[linear-gradient(145deg,rgba(255,255,255,0.08),transparent_54%)]" />
+      <div
+        ref={glowRef}
+        className="pointer-events-none absolute size-24 rounded-full blur-2xl will-change-[left,top]"
+        style={{
+          left: `calc(${x}% - 48px)`,
+          top: `calc(${y}% - 48px)`,
+          background: glowBackground,
+          opacity: glowOpacity,
+        }}
+      />
+      <div
+        ref={orbRef}
+        className="absolute z-10 size-7 rounded-full border-[3px] border-white bg-[#111] shadow-[0_0_0_1px_rgba(0,0,0,0.65),0_10px_24px_rgba(0,0,0,0.35)] transition-transform will-change-[left,top] group-active:scale-105"
+        style={{ left: `calc(${x}% - 14px)`, top: `calc(${y}% - 14px)` }}
+      >
+        <span
+          className="absolute inset-1.5 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ColorRail({
+  color,
+  isCustomColor,
+  onChange,
+}: {
+  color: string
+  isCustomColor: boolean
+  onChange: (color: string) => void
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-center gap-2.5">
+      {SHADOW_COLOR_PRESETS.map((preset) => {
+        const active =
+          !isCustomColor && color.toLowerCase() === preset.toLowerCase()
+        return (
+          <button
+            key={preset}
+            type="button"
+            aria-label={`Use ${preset} shadow`}
+            onClick={() => onChange(preset)}
+            className={cn(
+              "size-7 rounded-full border border-white/10 transition hover:scale-105",
+              active
+                ? "ring-2 ring-[#f65d72] ring-offset-2 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
+                : "ring-1 ring-black/30"
+            )}
+            style={{ backgroundColor: preset }}
+          />
+        )
+      })}
+      <ColorPickerPopover
+        value={isCustomColor ? color : "#000000"}
+        onChange={onChange}
+        side="left"
+        align="center"
+      >
+        <button
+          type="button"
+          aria-label="Choose custom shadow color"
+          className={cn(
+            "relative size-8 rounded-full border border-white/15 transition hover:scale-105",
+            isCustomColor
+              ? "ring-2 ring-[#f65d72] ring-offset-2 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
+              : "ring-1 ring-black/30"
+          )}
+          style={{
+            background: isCustomColor
+              ? color
+              : "conic-gradient(from 180deg, #f87171, #f59e0b, #34d399, #38bdf8, #a78bfa, #f472b6, #f87171)",
+          }}
+        >
+          <span className="absolute inset-2 rounded-full border border-white/80" />
+        </button>
+      </ColorPickerPopover>
+    </div>
+  )
+}
 
 export function ShadowSection() {
+  const previewFrameRef = React.useRef<number | null>(null)
   const canvasShadow = useActiveCanvasField((c) => c.shadow)
   const selectedSlot = useSelectedScreenshotSlot()
   const shadow = selectedSlot?.shadow ?? canvasShadow
@@ -51,19 +369,110 @@ export function ShadowSection() {
     }
     setShadow(nextShadow)
   }
-  const { type, intensity, lightSource, color = "#000000" } = shadow
+  const { type, intensity, lightSource, color = "#050505" } = shadow
 
-  const setType = (t: typeof shadow.type) => {
-    if (t === "hard") {
-      applyShadow({ ...shadow, type: t, intensity: 100, lightSource: "2-0" })
+  const enabled = type !== "none"
+  const directionalDisabled = !enabled || type === "glow" || type === "float"
+  const isCustomColor = !SHADOW_COLOR_PRESETS.some(
+    (preset) => preset.toLowerCase() === color.toLowerCase()
+  )
+
+  const setType = (nextType: typeof shadow.type) => {
+    if (nextType === "hard") {
+      applyShadow({
+        ...shadow,
+        type: nextType,
+        intensity: 100,
+        lightSource: "2-0",
+      })
       return
     }
-    applyShadow({ ...shadow, type: t })
+    applyShadow({ ...shadow, type: nextType })
   }
   const setIntensity = (n: number) => applyShadow({ ...shadow, intensity: n })
   const setLightSource = (id: string) =>
     applyShadow({ ...shadow, lightSource: id })
   const setColor = (c: string) => applyShadow({ ...shadow, color: c })
+  const shadowPreviewScopeId = selectedSlot?.id ?? "canvas"
+  const resetPreviewStyles = React.useCallback(() => {
+    const scope = document.querySelector<HTMLElement>(
+      `[data-editor-shadow-preview-scope="${attrEscape(shadowPreviewScopeId)}"]`
+    )
+    if (!scope) return
+
+    const boxTargets = Array.from(
+      scope.querySelectorAll<HTMLElement>("[data-editor-shadow-box-target]")
+    )
+    boxTargets.forEach((el) => {
+      el.style.removeProperty(SHADOW_PREVIEW_VAR)
+    })
+    scope
+      .querySelectorAll<HTMLElement>("[data-editor-shadow-filter-target]")
+      .forEach((el) => {
+        const baseFilter = el.dataset.editorShadowFilterBase || ""
+        const enhanceFilter = el.dataset.editorEnhanceFilter || ""
+        const nextFilter = [baseFilter, enhanceFilter].filter(Boolean).join(" ")
+        el.style.filter = nextFilter
+      })
+  }, [shadowPreviewScopeId])
+
+  const previewLightSource = React.useCallback(
+    (nextLightSource: string | null) => {
+      if (previewFrameRef.current !== null) {
+        cancelAnimationFrame(previewFrameRef.current)
+        previewFrameRef.current = null
+      }
+
+      previewFrameRef.current = requestAnimationFrame(() => {
+        previewFrameRef.current = null
+        const scope = document.querySelector<HTMLElement>(
+          `[data-editor-shadow-preview-scope="${attrEscape(shadowPreviewScopeId)}"]`
+        )
+        if (!scope) return
+        const boxTargets = Array.from(
+          scope.querySelectorAll<HTMLElement>("[data-editor-shadow-box-target]")
+        )
+        const filterTargets = Array.from(
+          scope.querySelectorAll<HTMLElement>(
+            "[data-editor-shadow-filter-target]"
+          )
+        )
+
+        if (!nextLightSource) {
+          resetPreviewStyles()
+          return
+        }
+
+        const previewShadow = { ...shadow, lightSource: nextLightSource }
+        const boxShadow = shadowCss(previewShadow) ?? "none"
+        const dropFilter = shadowDropFilterCss(previewShadow) ?? " "
+
+        boxTargets.forEach((el) => {
+          el.style.setProperty(SHADOW_PREVIEW_VAR, boxShadow)
+        })
+        filterTargets.forEach((el) => {
+          const enhanceFilter = el.dataset.editorEnhanceFilter || ""
+          el.style.filter = [dropFilter, enhanceFilter]
+            .filter(Boolean)
+            .join(" ")
+        })
+      })
+    },
+    [resetPreviewStyles, shadow, shadowPreviewScopeId]
+  )
+
+  React.useEffect(() => {
+    resetPreviewStyles()
+  }, [resetPreviewStyles, shadow])
+
+  React.useEffect(() => {
+    return () => {
+      if (previewFrameRef.current !== null) {
+        cancelAnimationFrame(previewFrameRef.current)
+      }
+      resetPreviewStyles()
+    }
+  }, [resetPreviewStyles])
 
   const thumbBg = "bg-transparent"
   const thumbCard = "rounded-[3px] bg-black dark:bg-white"
@@ -150,16 +559,13 @@ export function ShadowSection() {
     },
   ]
 
-  const isDisabled = type === "none"
-  const lightSourceDisabled = isDisabled || type === "glow" || type === "float"
-  const isCustomColor = !SHADOW_COLOR_PRESETS.includes(color)
-
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-3">
       <div className="grid grid-cols-3 gap-2">
         {types.map((t) => (
           <button
             key={t.id}
+            type="button"
             onClick={() => setType(t.id)}
             className={cn(
               "flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border p-1.5 transition-all",
@@ -181,23 +587,27 @@ export function ShadowSection() {
         ))}
       </div>
 
-      <div className={cn(isDisabled && "pointer-events-none opacity-50")}>
-        <SubHeader>Color</SubHeader>
-        <ColorPresetGrid
-          presets={SHADOW_COLOR_PRESETS}
-          selected={isCustomColor ? null : color}
-          onSelect={setColor}
-          customColor={isCustomColor ? color : "#000000"}
-          onCustomColor={setColor}
-          isCustom={isCustomColor}
-          customLabel="Custom shadow color"
-          tileShape="rect"
-        />
-      </div>
+      <div
+        className={cn(
+          "min-w-0 rounded-2xl border border-black/10 bg-white p-3 shadow-[0_14px_30px_rgba(44,36,25,0.08)] dark:border-white/8 dark:bg-[#151515] dark:shadow-none",
+          !enabled && "opacity-55"
+        )}
+      >
+        <div className="mb-3 min-w-0">
+          <span className="mb-3 block text-[11px] font-medium text-black/50 dark:text-white/55">
+            Color
+          </span>
+          <ColorRail
+            color={color}
+            isCustomColor={isCustomColor}
+            onChange={setColor}
+          />
+        </div>
 
-      <div className={cn(isDisabled && "pointer-events-none opacity-50")}>
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-[11px] text-muted-foreground">Intensity</span>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] font-medium text-black/50 dark:text-white/55">
+            Intensity
+          </span>
           <EditableValue
             value={intensity}
             onChange={setIntensity}
@@ -210,42 +620,19 @@ export function ShadowSection() {
           value={[intensity]}
           onValueChange={([v]) => setIntensity(v)}
           max={100}
-          className="cursor-pointer"
+          disabled={!enabled}
+          className="mt-3 cursor-pointer [&_[data-slot=slider-range]]:bg-[#f65d72] [&_[data-slot=slider-thumb]]:rounded-full [&_[data-slot=slider-thumb]]:border-[#f65d72] [&_[data-slot=slider-track]]:bg-black/10 dark:[&_[data-slot=slider-track]]:bg-white/10"
         />
       </div>
 
-      <div
-        className={cn(lightSourceDisabled && "pointer-events-none opacity-50")}
-      >
-        <SubHeader>Light Source</SubHeader>
-        <div className="mt-2">
-          <div className="grid w-full grid-cols-5 gap-1.5">
-            {LIGHT_POSITIONS.map((pos) => {
-              const isActive = lightSource === pos.id
-              return (
-                <button
-                  key={pos.id}
-                  onClick={() => setLightSource(pos.id)}
-                  className={cn(
-                    "flex aspect-square w-full cursor-pointer items-center justify-center rounded-md border transition-all",
-                    isActive
-                      ? "border-primary bg-primary text-white"
-                      : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-foreground/30"
-                  )}
-                >
-                  {pos.isCenter ? (
-                    <RiFocus3Line className="size-3.5" />
-                  ) : (
-                    <RiArrowRightLine
-                      className="size-3.5"
-                      style={{ transform: `rotate(${pos.angle}deg)` }}
-                    />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+      <div className={cn(directionalDisabled && "pointer-events-none")}>
+        <DirectionField
+          color={color}
+          disabled={directionalDisabled}
+          lightSource={lightSource}
+          onChange={setLightSource}
+          onPreview={previewLightSource}
+        />
       </div>
     </div>
   )

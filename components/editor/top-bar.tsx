@@ -3,10 +3,8 @@
 import * as React from "react"
 import {
   RiAddLine,
-  RiArrowDownSLine,
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
-  RiDownload2Line,
   RiEyeLine,
   RiFileCopyLine,
   RiFolderOpenLine,
@@ -17,6 +15,8 @@ import {
   RiShareForwardLine,
   RiUploadCloud2Line,
   RiLayoutMasonryLine,
+  RiArrowUpCircleLine,
+  RiEqualizerLine,
 } from "@remixicon/react"
 import { toast } from "sonner"
 
@@ -98,10 +98,10 @@ export function TopBar() {
     setIsCopyingPng(true)
     try {
       await copyCanvasAsPng(activeCanvasId, "1080p")
-      toast("Copied PNG · 1080p")
+      toast.success("Copied PNG · 1080p ✨")
     } catch (err) {
       console.error(err)
-      toast("Copy failed")
+      toast.error("Copy failed ❌")
     } finally {
       setIsCopyingPng(false)
     }
@@ -127,7 +127,7 @@ export function TopBar() {
     }
     setBulkEditMode(false)
     setShowDisableDialog(false)
-    toast("Bulk edit disabled")
+    toast.success("Bulk edit disabled 📁")
   }
 
   return (
@@ -159,7 +159,7 @@ export function TopBar() {
           <TopBarButton
             label="Save"
             icon={RiSaveLine}
-            onClick={() => toast("Saved")}
+            onClick={() => toast.success("Project saved 💾")}
           />
         </div>
 
@@ -207,7 +207,7 @@ export function TopBar() {
                   className="cursor-pointer"
                   onClick={() => {
                     reset()
-                    toast("Reset to defaults")
+                    toast.success("Reset to defaults 🧹")
                   }}
                 >
                   Reset
@@ -256,7 +256,7 @@ export function TopBar() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => toast("Share link copied")}
+                onClick={() => toast.success("Share link copied 🔗")}
               >
                 <RiShareForwardLine />
                 Share
@@ -272,7 +272,6 @@ export function TopBar() {
                 size="lg"
                 onClick={handleCopyPng}
                 disabled={isCopyingPng}
-                className="w-[104px]"
               >
                 <RiFileCopyLine />
                 Copy
@@ -312,12 +311,12 @@ function ExportControls() {
     setIsExporting(true)
     try {
       await exportCanvas(activeCanvasId, format, resolution)
-      toast(
-        `Exported ${EXPORT_FORMAT_LABELS[format]} · ${EXPORT_RESOLUTION_LABELS[resolution]}`
+      toast.success(
+        `Exported ${EXPORT_FORMAT_LABELS[format]} · ${EXPORT_RESOLUTION_LABELS[resolution]} 🚀`
       )
     } catch (err) {
       console.error(err)
-      toast("Export failed")
+      toast.error("Export failed ❌")
     } finally {
       setIsExporting(false)
     }
@@ -327,35 +326,33 @@ function ExportControls() {
   const dimsLabel = dims ? `${dims.width} × ${dims.height}` : "—"
 
   return (
-    <div className="flex items-stretch">
-      <Button
-        size="lg"
+    <div className="flex h-8 items-stretch overflow-hidden rounded-md bg-primary text-white shadow-sm transition-all hover:shadow-md">
+      {/* Export Zone */}
+      <button
         disabled={isExporting}
-        className={cn(
-          "h-8 w-[112px] rounded-r-none px-3 text-[12px] font-medium text-white"
-        )}
+        className="flex items-center gap-2 px-3.5 transition-colors hover:bg-white/10 disabled:opacity-50"
         onClick={handleExport}
       >
-        <RiDownload2Line />
-        <span className="hidden sm:inline">Export</span>
-      </Button>
+        <RiArrowUpCircleLine className="size-4" />
+        <span className="text-[12px] font-medium tracking-tight">
+          Export {EXPORT_RESOLUTION_LABELS[resolution]} •{" "}
+          {EXPORT_FORMAT_LABELS[format]}
+        </span>
+      </button>
+
+      <div className="w-px bg-white/20" />
+
+      {/* Settings Zone */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
-            size="lg"
-            aria-label="Export options"
-            disabled={isExporting}
-            className={cn(
-              "h-8 rounded-l-none border-l border-white/20 px-1.5 text-white"
-            )}
-          >
-            <RiArrowDownSLine className="size-3.5" />
-          </Button>
+          <button className="flex items-center px-2.5 transition-colors hover:bg-white/10">
+            <RiEqualizerLine className="size-4" />
+          </button>
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          sideOffset={6}
-          className="w-64 gap-3 rounded-xl border border-border/60 bg-popover/95 p-2 backdrop-blur-md data-open:zoom-in-100 data-closed:zoom-out-100"
+          sideOffset={8}
+          className="w-64 gap-3 rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
         >
           <SegmentedRow
             options={EXPORT_FORMATS.map((f) => ({
@@ -659,7 +656,7 @@ function MobileOverflowMenu({
               className="cursor-pointer"
               onClick={() => {
                 reset()
-                toast("Reset to defaults")
+                toast.success("Reset to defaults 🧹")
               }}
             >
               Reset
@@ -695,11 +692,11 @@ function MobileOverflowMenu({
           <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
             File
           </DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => toast("Opening…")}>
+          <DropdownMenuItem onClick={() => toast.success("Opening… 📂")}>
             <RiFolderOpenLine />
             Open
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toast("Saved")}>
+          <DropdownMenuItem onClick={() => toast.success("Project saved 💾")}>
             <RiSaveLine />
             Save
           </DropdownMenuItem>
@@ -716,8 +713,8 @@ function MobileOverflowMenu({
             disabled={atCanvasCap}
             onClick={() => {
               const id = addCanvas()
-              if (id) toast("Canvas added")
-              else toast(`Canvas limit reached (${MAX_CANVASES})`)
+              if (id) toast.success("Canvas added ➕")
+              else toast.error(`Canvas limit reached (${MAX_CANVASES}) ⚠️`)
             }}
           >
             <RiAddLine />
@@ -738,10 +735,7 @@ function MobileOverflowMenu({
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
-            Share
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => toast("Share link copied")}>
+          <DropdownMenuItem onClick={() => toast.success("Share link copied 🔗")}>
             <RiShareForwardLine />
             Copy link
           </DropdownMenuItem>
