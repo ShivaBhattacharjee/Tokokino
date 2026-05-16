@@ -704,17 +704,19 @@ function CanvasViewInner({
             <AssetElementView key={a.id} asset={a} canvasRef={canvasRef} />
           ))}
 
-          {screenshotSlots.map((slot) => (
-            <ScreenshotSlotView
-              key={slot.id}
-              slot={slot}
-              canvasRef={canvasRef}
-              canvasAspectRatio={aw / ah}
-              rowLayout={slotRowLayoutById?.get(slot.id) ?? null}
-              onCropRequest={(id) => setCroppingSlotId(id)}
-              onCenterGuideChange={updateCenterGuides}
-            />
-          ))}
+          <AnimatePresence>
+            {screenshotSlots.map((slot) => (
+              <ScreenshotSlotView
+                key={slot.id}
+                slot={slot}
+                canvasRef={canvasRef}
+                canvasAspectRatio={aw / ah}
+                rowLayout={slotRowLayoutById?.get(slot.id) ?? null}
+                onCropRequest={(id) => setCroppingSlotId(id)}
+                onCenterGuideChange={updateCenterGuides}
+              />
+            ))}
+          </AnimatePresence>
 
           {texts.map((t) => (
             <TextElementView
@@ -962,7 +964,7 @@ export function Canvas() {
       {isBulkScroll ? (
         <BulkCanvasFlow widthPx={widthPx} heightPx={heightPx} />
       ) : useCustomAnim ? (
-        <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ perspective: 1400 }}>
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden" style={{ perspective: 1400 }}>
           <AnimatePresence mode="wait" custom={animDirection}>
             {canvases[animIndex] && (
               <motion.div
@@ -999,7 +1001,7 @@ export function Canvas() {
           <button
             type="button"
             onClick={goPrev}
-            className="absolute left-4 z-10 size-12 rounded-full border border-border/50 bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors cursor-pointer shadow-lg"
+            className="absolute left-4 z-10 flex size-12 cursor-pointer items-center justify-center rounded-full border border-border/50 bg-background/80 shadow-lg backdrop-blur-sm transition-colors hover:bg-background"
             aria-label="Previous"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -1007,7 +1009,7 @@ export function Canvas() {
           <button
             type="button"
             onClick={goNext}
-            className="absolute right-4 z-10 size-12 rounded-full border border-border/50 bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors cursor-pointer shadow-lg"
+            className="absolute right-4 z-10 flex size-12 cursor-pointer items-center justify-center rounded-full border border-border/50 bg-background/80 shadow-lg backdrop-blur-sm transition-colors hover:bg-background"
             aria-label="Next"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1015,15 +1017,15 @@ export function Canvas() {
         </div>
       ) : isPreviewCarousel ? (
         <Carousel
-          className="w-full h-full"
+          className="h-full w-full"
           opts={{ align: "center", loop: true }}
           setApi={setCarouselApi}
         >
-          <CarouselContent wrapperClassName="h-full" className="h-full ml-0">
+          <CarouselContent wrapperClassName="h-full" className="ml-0 h-full">
             {canvases.map((canvas) => (
               <CarouselItem
                 key={canvas.id}
-                className="h-full flex items-center justify-center pl-0"
+                className="flex h-full items-center justify-center pl-0"
               >
                 <div
                   className="origin-center"

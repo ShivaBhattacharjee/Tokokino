@@ -566,7 +566,7 @@ function DefaultToolbarContents() {
 
   const handlePositionClick = (posId: ScreenshotPosition) => {
     const emitHideFloatingToolbar = (
-      kind: "text" | "asset" | "annotation",
+      kind: "text" | "asset" | "annotation" | "slot",
       id: string
     ) => {
       window.dispatchEvent(
@@ -598,6 +598,7 @@ function DefaultToolbarContents() {
         yPct: anchor.y,
       })
     } else if (positionTarget === "slot" && latestSelectedSlot) {
+      emitHideFloatingToolbar("slot", latestSelectedSlot.id)
       updateScreenshotSlot(latestSelectedSlot.id, {
         xPct: anchor.x,
         yPct: anchor.y,
@@ -897,7 +898,7 @@ function DefaultToolbarContents() {
                     <button
                       key={pos.id}
                       onClick={() =>
-                        handlePositionClick(pos.id as ScreenshotPosition)
+                        handlePositionClick(pos.id)
                       }
                       aria-label={`Move ${positionTargetLabel} to ${positionLabel(pos.id)}`}
                       className={cn(

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { createPortal } from "react-dom"
+import { motion } from "motion/react"
 import { RiSmartphoneLine } from "@remixicon/react"
 import { toast } from "sonner"
 
@@ -106,6 +107,19 @@ export function ScreenshotSlotView({
   const [isBeingDragged, setIsBeingDragged] = React.useState(false)
   const [isDragOver, setIsDragOver] = React.useState(false)
   const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
+  const [hideFloatingToolbar, setHideFloatingToolbar] = React.useState(false)
+
+  React.useEffect(() => {
+    const onHideToolbar = (event: Event) => {
+      const detail = (event as CustomEvent<{ kind?: string; id?: string; durationMs?: number }>).detail
+      if (detail?.kind !== "slot" || detail.id !== slot.id) return
+      setHideFloatingToolbar(true)
+      const durationMs = detail.durationMs ?? 320
+      window.setTimeout(() => setHideFloatingToolbar(false), durationMs)
+    }
+    window.addEventListener("beautiful-screenshots:hide-floating-toolbar", onHideToolbar)
+    return () => window.removeEventListener("beautiful-screenshots:hide-floating-toolbar", onHideToolbar)
+  }, [slot.id])
 
   React.useEffect(() => {
     if (bulkCanvasDragging || !isSelected || !elRef.current) {
@@ -141,6 +155,15 @@ export function ScreenshotSlotView({
     rowLayout?.widthPct,
     rowLayout?.xPct,
   ])
+
+  React.useEffect(() => {
+    if (bulkCanvasDragging || !isSelected || hideFloatingToolbar || !elRef.current) return
+    const id = window.requestAnimationFrame(() => {
+      if (!elRef.current) return
+      setToolbarRect(elRef.current.getBoundingClientRect())
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [bulkCanvasDragging, hideFloatingToolbar, isSelected, slot.id])
 
   const select = (e: { stopPropagation: () => void }) => {
     e.stopPropagation()
@@ -209,7 +232,7 @@ export function ScreenshotSlotView({
       lastYPct: slot.yPct,
       moved: false,
     }
-    ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    ;(e.currentTarget).setPointerCapture(e.pointerId)
   }
 
   const moveDrag = (e: React.PointerEvent<Element>) => {
@@ -365,6 +388,13 @@ export function ScreenshotSlotView({
         )}
         style={containerStyle}
       >
+        <motion.div
+          className="absolute inset-0"
+          initial={{ opacity: 0, scale: 0.82 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.82 }}
+          transition={{ type: "spring", stiffness: 420, damping: 28, mass: 0.75 }}
+        >
         <div className="absolute inset-0" style={contentStyle}>
           <div
             className={cn(
@@ -427,10 +457,12 @@ export function ScreenshotSlotView({
             ) : null}
           </div>
         </div>
+        </motion.div>
       </div>
 
       {!bulkCanvasDragging &&
       isSelected &&
+      !hideFloatingToolbar &&
       toolbarRect &&
       typeof document !== "undefined"
         ? createPortal(

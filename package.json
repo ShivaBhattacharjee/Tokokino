@@ -12,11 +12,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "lint:strict": "eslint --max-warnings=0",
+    "lint:fix:strict": "eslint --fix --max-warnings=0",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
+    "prepare": "husky",
     "build:thumbs": "node scripts/build-overlay-thumbs.mjs",
     "build:device-mockup-thumbs": "node scripts/build-device-mockup-thumbs.mjs",
     "build:backgrounds": "node scripts/build-background-thumbs.mjs"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": "eslint --fix"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -58,11 +65,17 @@
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.1.7",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-tailwindcss": "4.0.0-alpha.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
     "postcss": "^8",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.3"
   }
 }
