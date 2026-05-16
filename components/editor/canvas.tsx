@@ -213,11 +213,18 @@ function CanvasViewInner({
     ? Math.max(0.45, Math.min(1, bulkViewportZoom))
     : 1
   const hoverActionsLayoutKey = `${inRowMode ? "row" : "single"}:${screenshotSlots.length}:${effectiveScale}:${bulkViewportZoom}:${hoverActionsScale}:${widthPx}:${heightPx}`
+  const screenshotAnchor = screenshotPositionAnchor(screenshotPosition)
   const mainScreenshotRowStyle: React.CSSProperties | null = mainRowLayout
     ? {
         position: "absolute",
-        left: `${mainRowLayout.xPct}%`,
-        top: "50%",
+        left:
+          screenshotPosition === "center"
+            ? `${mainRowLayout.xPct}%`
+            : `${screenshotAnchor.x}%`,
+        top:
+          screenshotPosition === "center"
+            ? "50%"
+            : `${screenshotAnchor.y}%`,
         width: `${mainRowLayout.widthPct}%`,
         aspectRatio: screenshotBoxAspect,
         transform: "translate(-50%, -50%)",
@@ -232,7 +239,6 @@ function CanvasViewInner({
     `rotateZ(var(--canvas-ts-rz, ${tilt.rz}deg))`,
     `scale(var(--canvas-ts-scale, ${scale / 100}))`,
   ].join(" ")
-  const screenshotAnchor = screenshotPositionAnchor(screenshotPosition)
 
   const computedShadow = shadowCss(shadow)
   const computedShadowFilter = shadowDropFilterCss(shadow)

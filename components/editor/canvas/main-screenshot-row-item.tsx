@@ -185,7 +185,6 @@ export function MainScreenshotRowItem({
             className={cn(
               "relative h-full w-full",
               isSelected &&
-                activeTool === "pointer" &&
                 "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
             )}
             style={{

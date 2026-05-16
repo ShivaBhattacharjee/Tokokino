@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   RiAddLine,
+  RiArrowDownSLine,
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
   RiDownload2Line,
@@ -39,6 +40,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  EXPORT_FORMAT_EXTENSION,
+  EXPORT_FORMAT_LABELS,
+  EXPORT_RESOLUTION_LABELS,
+  ExportFormat,
+  ExportResolution,
+  exportCanvas,
+  getOutputDims,
+} from "@/lib/editor/export"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import {
@@ -256,16 +271,142 @@ export function TopBar() {
         />
 
         {/* Export (always visible) */}
-        <Button
-          size="lg"
-          className={cn("h-8 px-3 text-[12px] font-medium text-white")}
-          onClick={() => toast("Export coming soon")}
-        >
-          <RiDownload2Line />
-          <span className="hidden sm:inline">Export</span>
-        </Button>
+        <ExportControls />
       </div>
     </header>
+  )
+}
+
+const EXPORT_FORMATS: ExportFormat[] = ["png", "jpeg", "webp"]
+const EXPORT_RESOLUTIONS: ExportResolution[] = ["hd", "4k", "8k"]
+
+function ExportControls() {
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const [format, setFormat] = React.useState<ExportFormat>("png")
+  const [resolution, setResolution] = React.useState<ExportResolution>("hd")
+  const [isExporting, setIsExporting] = React.useState(false)
+  const [open, setOpen] = React.useState(false)
+
+  const handleExport = React.useCallback(async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      await exportCanvas(activeCanvasId, format, resolution)
+      toast(
+        `Exported ${EXPORT_FORMAT_LABELS[format]} · ${EXPORT_RESOLUTION_LABELS[resolution]}`
+      )
+    } catch (err) {
+      console.error(err)
+      toast("Export failed")
+    } finally {
+      setIsExporting(false)
+    }
+  }, [activeCanvasId, format, resolution, isExporting])
+
+  const dims = open ? getOutputDims(activeCanvasId, resolution) : null
+  const dimsLabel = dims ? `${dims.width} × ${dims.height}` : "—"
+
+  return (
+    <div className="flex items-stretch">
+      <Button
+        size="lg"
+        disabled={isExporting}
+        className={cn(
+          "h-8 rounded-r-none px-3 text-[12px] font-medium text-white"
+        )}
+        onClick={handleExport}
+      >
+        <RiDownload2Line />
+        <span className="hidden sm:inline">
+          {isExporting ? "Exporting…" : "Export"}
+        </span>
+      </Button>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            size="lg"
+            aria-label="Export options"
+            disabled={isExporting}
+            className={cn(
+              "h-8 rounded-l-none border-l border-white/20 px-1.5 text-white"
+            )}
+          >
+            <RiArrowDownSLine className="size-3.5" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={6}
+          className="w-64 gap-3 rounded-xl border border-border/60 bg-popover/95 p-2 backdrop-blur-md data-open:zoom-in-100 data-closed:zoom-out-100"
+        >
+          <SegmentedRow
+            options={EXPORT_FORMATS.map((f) => ({
+              value: f,
+              label: EXPORT_FORMAT_LABELS[f],
+            }))}
+            value={format}
+            onChange={(v) => setFormat(v as ExportFormat)}
+          />
+          <SegmentedRow
+            options={EXPORT_RESOLUTIONS.map((r) => ({
+              value: r,
+              label: EXPORT_RESOLUTION_LABELS[r],
+            }))}
+            value={resolution}
+            onChange={(v) => setResolution(v as ExportResolution)}
+          />
+          <div className="flex flex-col gap-1 px-1 pt-1">
+            <SummaryRow label="Resolution" value={dimsLabel} />
+            <div className="h-px bg-border/50" />
+            <SummaryRow label="Format" value={EXPORT_FORMAT_EXTENSION[format]} />
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  )
+}
+
+function SegmentedRow({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: string }[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="flex w-full items-center gap-1 rounded-full bg-secondary/50 p-1">
+      {options.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex-1 cursor-pointer rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+              active
+                ? "bg-background text-foreground shadow-sm ring-1 ring-border/60"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-[12px] text-muted-foreground">{label}</span>
+      <span className="rounded-full bg-secondary/60 px-2.5 py-1 font-mono text-[11px] text-foreground">
+        {value}
+      </span>
+    </div>
   )
 }
 

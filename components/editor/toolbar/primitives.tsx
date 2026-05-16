@@ -182,6 +182,7 @@ export function ToolbarPopover({
         <PopoverTrigger asChild>{triggerNode}</PopoverTrigger>
       )}
       <PopoverContent
+        data-editor-toolbar-popover
         side={side}
         align={align}
         sideOffset={sideOffset}

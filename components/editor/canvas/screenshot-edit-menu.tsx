@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   RiArrowLeftLine,
   RiCameraLine,
+  RiCheckLine,
   RiCropLine,
   RiDeleteBinLine,
   RiGlobeLine,
@@ -11,7 +12,9 @@ import {
   RiRefreshLine,
 } from "@remixicon/react"
 import { motion } from "motion/react"
+import { Select as SelectPrimitive } from "radix-ui"
 
+import { ScrollFadeBody } from "@/components/editor/scroll-fade"
 import {
   Popover,
   PopoverContent,
@@ -339,13 +342,13 @@ export function ScreenshotFrameSettings({
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="z-[1200] max-h-72">
+          <FrameSelectContent>
             {deviceOptions.map((device) => (
-              <SelectItem key={device.id} value={device.id}>
+              <FrameSelectItem key={device.id} value={device.id}>
                 {device.name}
-              </SelectItem>
+              </FrameSelectItem>
             ))}
-          </SelectContent>
+          </FrameSelectContent>
         </Select>
       </div>
 
@@ -491,6 +494,52 @@ function EditMenuItem({
         ) : null}
       </span>
     </motion.button>
+  )
+}
+
+function FrameSelectContent({ children }: { children: React.ReactNode }) {
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Content
+        data-slot="select-content"
+        className="relative z-[1200] max-h-[240px] min-w-32 origin-(--radix-select-content-transform-origin) overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+        position="item-aligned"
+      >
+        <ScrollFadeBody
+          rootClassName="max-h-[240px]"
+          className="max-h-[240px]"
+          fadeClassName="from-popover"
+        >
+          <SelectPrimitive.Viewport>
+            <div className="p-1">{children}</div>
+          </SelectPrimitive.Viewport>
+        </ScrollFadeBody>
+      </SelectPrimitive.Content>
+    </SelectPrimitive.Portal>
+  )
+}
+
+function FrameSelectItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+  return (
+    <SelectPrimitive.Item
+      data-slot="select-item"
+      className={cn(
+        "relative flex min-h-7 w-full cursor-default items-center gap-2 rounded-md px-2 py-1 text-xs/relaxed outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
+        className
+      )}
+      {...props}
+    >
+      <span className="pointer-events-none absolute right-2 flex items-center justify-center">
+        <SelectPrimitive.ItemIndicator>
+          <RiCheckLine className="pointer-events-none size-3.5" />
+        </SelectPrimitive.ItemIndicator>
+      </span>
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    </SelectPrimitive.Item>
   )
 }
 

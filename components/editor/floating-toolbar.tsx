@@ -453,6 +453,15 @@ function DefaultToolbarContents() {
 
   const handlePositionClick = (posId: ScreenshotPosition) => {
     const anchor = screenshotPositionAnchorFn(posId)
+    const latest = useEditorStore.getState()
+    const latestSlotId = latest.selectedScreenshotSlotId
+    const latestCanvas = latest.present.canvases.find(
+      (c) => c.id === latest.present.activeCanvasId
+    )
+    const latestSelectedSlot = latestSlotId
+      ? (latestCanvas?.screenshotSlots.find((s) => s.id === latestSlotId) ??
+        null)
+      : null
     if (positionTarget === "text" && selectedTextId) {
       updateText(selectedTextId, { xPct: anchor.x, yPct: anchor.y })
     } else if (positionTarget === "asset" && selectedAssetId) {
@@ -462,9 +471,12 @@ function DefaultToolbarContents() {
         xPct: anchor.x,
         yPct: anchor.y,
       })
-    } else if (positionTarget === "slot" && selectedSlot) {
-      updateScreenshotSlot(selectedSlot.id, { xPct: anchor.x, yPct: anchor.y })
-    } else if (positionTarget === "slotGroup") {
+    } else if (positionTarget === "slot" && latestSelectedSlot) {
+      updateScreenshotSlot(latestSelectedSlot.id, {
+        xPct: anchor.x,
+        yPct: anchor.y,
+      })
+    } else if (positionTarget === "slotGroup" && !latestSelectedSlot) {
       setScreenshotSlotGroupPosition({ xPct: anchor.x, yPct: anchor.y })
     } else if (positionTarget === "canvas" && activeCanvasId) {
       // Map anchor percentage (0-100) to canvas pixel coordinates
