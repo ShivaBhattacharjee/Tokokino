@@ -49,6 +49,7 @@ type ScreenshotFrameContentProps = {
   applyTransformWhenEmpty?: boolean
   /** Show a compact icon trigger instead of the full upload card */
   emptyCompact?: boolean
+  objectFit?: "contain" | "cover" | "fill"
 }
 
 const CENTER_ANCHOR = { x: 50, y: 50 }
@@ -95,6 +96,7 @@ export function ScreenshotFrameContent({
   screenshotAnchor = CENTER_ANCHOR,
   applyTransformWhenEmpty = false,
   emptyCompact = false,
+  objectFit = "contain",
 }: ScreenshotFrameContentProps) {
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
@@ -205,6 +207,7 @@ export function ScreenshotFrameContent({
           selectedTextId={null}
           stageRef={stageRef}
           imageRef={imageRef}
+          objectFit={objectFit}
           shadowBoxTarget={frame.id === "none"}
           onContainerPointerDown={() => undefined}
           onSelect={onSelect}

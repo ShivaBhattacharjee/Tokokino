@@ -8,6 +8,7 @@ import {
   RiCursorLine,
   RiDragMove2Line,
   RiFocus3Line,
+  RiFullscreenLine,
   RiGalleryLine,
   RiGroupLine,
   RiImageAddLine,
@@ -21,6 +22,7 @@ import {
 } from "@remixicon/react"
 import { AnimatePresence, motion } from "motion/react"
 import { toast } from "sonner"
+import { useShallow } from "zustand/react/shallow"
 
 import { AnnotationToolbar } from "@/components/editor/annotation-toolbar"
 import { LayersPanelContent } from "@/components/editor/layers-popover"
@@ -41,6 +43,7 @@ import {
   SCREENSHOT_POSITIONS,
   type ScreenshotPosition,
   screenshotPositionAnchor as screenshotPositionAnchorFn,
+  useActiveCanvasField,
   useEditor,
   useEditorStore,
 } from "@/lib/editor/store"
@@ -239,7 +242,9 @@ function computeArrangedPositions(
 
 export function FloatingToolbar() {
   const { activeTool, setActiveTool, addCanvas, bulkEditMode } = useEditor()
-  const canvases = useEditorStore((s) => s.present.canvases)
+  const canvasIds = useEditorStore(
+    useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
+  )
   const aspect = useEditorStore((s) => s.present.aspect)
   const setCanvasPositions = useEditorStore((s) => s.setCanvasPositions)
   const requestBulkFitView = useEditorStore((s) => s.requestBulkFitView)
@@ -251,22 +256,21 @@ export function FloatingToolbar() {
       const ah = aspect.h || 10
       const widthPx = BASE_CANVAS_WIDTH
       const heightPx = (BASE_CANVAS_WIDTH * ah) / aw
-      const ids = canvases.map((c) => c.id)
       setCanvasPositions(
-        computeArrangedPositions(ids, layout, widthPx, heightPx)
+        computeArrangedPositions(canvasIds, layout, widthPx, heightPx)
       )
       requestBulkFitView()
     },
-    [aspect.w, aspect.h, canvases, setCanvasPositions, requestBulkFitView]
+    [aspect.w, aspect.h, canvasIds, setCanvasPositions, requestBulkFitView]
   )
 
   const resetPositions = React.useCallback(() => {
     const positions: Record<string, { x: number; y: number }> = {}
-    for (const c of canvases) positions[c.id] = { x: 0, y: 0 }
+    for (const id of canvasIds) positions[id] = { x: 0, y: 0 }
     setCanvasPositions(positions)
     requestBulkFitView()
     toast("Positions reset")
-  }, [canvases, setCanvasPositions, requestBulkFitView])
+  }, [canvasIds, setCanvasPositions, requestBulkFitView])
 
   const showBulkBar = bulkEditMode && !isAnnotateMode
 
@@ -335,7 +339,7 @@ export function FloatingToolbar() {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  disabled={canvases.length >= MAX_CANVASES}
+                  disabled={canvasIds.length >= MAX_CANVASES}
                   onClick={() => {
                     const id = addCanvas()
                     if (!id) toast(`Canvas limit reached (${MAX_CANVASES})`)
@@ -347,7 +351,7 @@ export function FloatingToolbar() {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                {canvases.length >= MAX_CANVASES
+                {canvasIds.length >= MAX_CANVASES
                   ? `Canvas limit reached (${MAX_CANVASES})`
                   : "Insert a new canvas"}
               </TooltipContent>
@@ -419,6 +423,8 @@ function DefaultToolbarContents() {
     updateScreenshotSlot,
     setSelectedScreenshotSlotId,
     setScreenshotSlotGroupPosition,
+    objectFit,
+    setObjectFit,
   } = useEditor()
   const assetInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -439,7 +445,7 @@ function DefaultToolbarContents() {
     : null
 
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
-  const canvases = useEditorStore((s) => s.present.canvases)
+  const activeCanvasPosition = useActiveCanvasField((c) => c.position)
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
 
@@ -523,13 +529,11 @@ function DefaultToolbarContents() {
       xPct = (bounds.minX + bounds.maxX) / 2
       yPct = (bounds.minY + bounds.maxY) / 2
     } else if (positionTarget === "canvas") {
-      const canvas = canvases.find((c) => c.id === activeCanvasId)
-      if (!canvas) return null
       // Map canvas pixel position to grid position
       // Canvas coordinates: center is {0,0}, spread of CANVAS_POS_SPREAD px
       const CANVAS_POS_SPREAD = 600
-      const colPct = (canvas.position.x / CANVAS_POS_SPREAD) * 50 + 50
-      const rowPct = (canvas.position.y / CANVAS_POS_SPREAD) * 50 + 50
+      const colPct = (activeCanvasPosition.x / CANVAS_POS_SPREAD) * 50 + 50
+      const rowPct = (activeCanvasPosition.y / CANVAS_POS_SPREAD) * 50 + 50
       return positionIdFromPercent(colPct, rowPct)
     } else if (positionTarget === "allScreenshots") {
       return screenshotPositionFromOffset(screenshotPosition, screenshotOffset)
@@ -560,8 +564,7 @@ function DefaultToolbarContents() {
     frame,
     screenshotPosition,
     screenshotOffset,
-    canvases,
-    activeCanvasId,
+    activeCanvasPosition,
   ])
 
   const handlePositionClick = (posId: ScreenshotPosition) => {
@@ -748,6 +751,98 @@ function DefaultToolbarContents() {
       >
         <RiGalleryLine className="size-4" />
       </ToolbarButton>
+
+      {(() => {
+        const fitFrame = selectedSlot?.frame ?? frame
+        const fitHasScreenshot = selectedSlot ? Boolean(selectedSlot.src) : Boolean(screenshot)
+        const showImageFit = fitFrame.id === "none" && fitHasScreenshot
+        if (!showImageFit) return null
+        const currentFit = selectedSlot?.objectFit ?? objectFit ?? "contain"
+        const FIT_OPTIONS: {
+          value: "contain" | "cover" | "fill"
+          label: string
+          icon: React.ReactNode
+          desc: string
+        }[] = [
+          {
+            value: "contain",
+            label: "Contain",
+            desc: "Fit inside",
+            icon: (
+              <svg viewBox="0 0 32 32" className="size-full" fill="none">
+                <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current opacity-30" strokeWidth="1.5" strokeDasharray="3 2" />
+                <rect x="7" y="5" width="18" height="22" rx="2" className="fill-current opacity-25" />
+                <rect x="7" y="5" width="18" height="22" rx="2" className="stroke-current" strokeWidth="1.5" />
+              </svg>
+            ),
+          },
+          {
+            value: "cover",
+            label: "Cover",
+            desc: "Fill & crop",
+            icon: (
+              <svg viewBox="0 0 32 32" className="size-full" fill="none">
+                <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current opacity-30" strokeWidth="1.5" strokeDasharray="3 2" />
+                <rect x="2" y="2" width="28" height="28" rx="3" className="fill-current opacity-25" />
+                <rect x="-2" y="4" width="36" height="24" rx="2" className="stroke-current" strokeWidth="1.5" />
+              </svg>
+            ),
+          },
+          {
+            value: "fill",
+            label: "Fill",
+            desc: "Stretch",
+            icon: (
+              <svg viewBox="0 0 32 32" className="size-full" fill="none">
+                <rect x="2" y="2" width="28" height="28" rx="3" className="fill-current opacity-25" />
+                <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current" strokeWidth="1.5" />
+                <path d="M8 8L5 5M24 8l3-3M8 24l-3 3M24 24l3 3" className="stroke-current opacity-50" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            ),
+          },
+        ]
+        return (
+          <ToolbarPopover
+            tooltip="Image fit"
+            contentClassName="w-56 p-2"
+            trigger={({ open }) => (
+              <ToolbarButton aria-label="Image fit" active={open}>
+                <RiFullscreenLine className="size-4" />
+              </ToolbarButton>
+            )}
+          >
+            <div className="flex flex-col gap-2">
+              <span className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                Image Fit
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {FIT_OPTIONS.map(({ value, label, desc, icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      if (selectedSlot) {
+                        updateScreenshotSlot(selectedSlot.id, { objectFit: value })
+                      } else {
+                        setObjectFit(value)
+                      }
+                    }}
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center gap-1.5 rounded-md border px-2 py-2.5 text-[11px] transition-all",
+                      currentFit === value
+                        ? "border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/20"
+                        : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-foreground/30"
+                    )}
+                  >
+                    <span className="size-7">{icon}</span>
+                    <span className="font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </ToolbarPopover>
+        )
+      })()}
+
       <span className="mx-1 h-5 w-px bg-border" />
       {items.map((it) => {
         const isActive = activeTool === it.id

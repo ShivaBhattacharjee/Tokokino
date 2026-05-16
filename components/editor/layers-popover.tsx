@@ -19,6 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { useShallow } from "zustand/react/shallow"
 import {
   RiArrowDownSLine,
   RiArrowUpSLine,
@@ -47,6 +48,7 @@ import {
   type AssetBlendMode,
   type DeviceFrame,
   useEditor,
+  useEditorStore,
 } from "@/lib/editor/store"
 import { getDeviceMockup } from "@/lib/mockups"
 import { BROWSER_FRAMES } from "@/lib/browser-frame"
@@ -130,12 +132,14 @@ export function LayersPanelContent() {
     isScreenshotSelected,
     setIsScreenshotSelected,
     setActiveTool,
-    canvases,
     activeCanvasId,
     setActiveCanvasId,
     frame,
     setFrame,
   } = useEditor()
+  const canvasIds = useEditorStore(
+    useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
+  )
   const [selectedLayerKey, setSelectedLayerKey] = React.useState<string | null>(
     null
   )
@@ -328,17 +332,17 @@ export function LayersPanelContent() {
 
   return (
     <div className="w-[300px] p-2">
-      {canvases.length > 1 ? (
+      {canvasIds.length > 1 ? (
         <div className="mb-2 flex items-center gap-1 overflow-x-auto rounded-md border border-border/60 bg-secondary/20 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {canvases.map((canvas, index) => {
-            const isActive = canvas.id === activeCanvasId
+          {canvasIds.map((canvasId, index) => {
+            const isActive = canvasId === activeCanvasId
             return (
               <button
-                key={canvas.id}
+                key={canvasId}
                 type="button"
                 onClick={() => {
-                  if (canvas.id !== activeCanvasId) {
-                    setActiveCanvasId(canvas.id)
+                  if (canvasId !== activeCanvasId) {
+                    setActiveCanvasId(canvasId)
                     setSelectedLayerKey(null)
                   }
                 }}

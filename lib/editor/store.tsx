@@ -227,6 +227,7 @@ type EditorActions = {
   setOverlay: (o: Overlay, canvasId?: string) => void
   setFrame: (f: DeviceFrame, canvasId?: string) => void
   setFrameAddress: (address: string, canvasId?: string) => void
+  setObjectFit: (fit: "contain" | "cover" | "fill", canvasId?: string) => void
   bringScreenshotToFront: (canvasId?: string) => void
   sendScreenshotToBack: (canvasId?: string) => void
   setPortrait: (p: Portrait, canvasId?: string) => void
@@ -780,6 +781,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       ),
     setFrameAddress: (address, canvasId) =>
       commitCanvas(canvasId, { frameAddress: address }, "frame-address"),
+    setObjectFit: (fit, canvasId) =>
+      commitCanvas(canvasId, { objectFit: fit }, "objectFit"),
     bringScreenshotToFront: (canvasId) =>
       commitCanvas(
         canvasId,
@@ -1507,22 +1510,46 @@ export type EditorContext = Omit<EditorState, "canvases"> &
   }
 
 export function useEditor(): EditorContext {
-  const store = useEditorStore()
   const scopeId = React.useContext(CanvasIdContext)
-  const targetId = scopeId ?? store.present.activeCanvasId
-  const canvas =
-    store.present.canvases.find((c) => c.id === targetId) ??
-    store.present.canvases[0] ??
-    FALLBACK_CANVAS
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const targetId = scopeId ?? activeCanvasId
+  const activeTool = useEditorStore((s) => s.present.activeTool)
+  const aspect = useEditorStore((s) => s.present.aspect)
+  const canvasZoom = useEditorStore((s) => s.present.canvasZoom)
+  const annotation = useEditorStore((s) => s.present.annotation)
+  const canvas = useActiveCanvasField((c) => c)
+  const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
+  const isPreviewAutoScroll = useEditorStore((s) => s.isPreviewAutoScroll)
+  const previewAutoScrollDelay = useEditorStore(
+    (s) => s.previewAutoScrollDelay
+  )
+  const previewAnimation = useEditorStore((s) => s.previewAnimation)
+  const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
+  const bulkViewportZoom = useEditorStore((s) => s.bulkViewportZoom)
+  const bulkScale = useEditorStore((s) => s.bulkScale)
+  const selectedTextId = useEditorStore((s) => s.selectedTextId)
+  const selectedAssetId = useEditorStore((s) => s.selectedAssetId)
+  const selectedAnnotationShapeId = useEditorStore(
+    (s) => s.selectedAnnotationShapeId
+  )
+  const selectedScreenshotSlotId = useEditorStore(
+    (s) => s.selectedScreenshotSlotId
+  )
+  const isScreenshotSelected = useEditorStore((s) => s.isScreenshotSelected)
+  const canUndo = useEditorStore((s) => s.past.length > 0)
+  const canRedo = useEditorStore((s) => s.future.length > 0)
+  const canvasCount = useEditorStore((s) => s.present.canvases.length)
+  const store = useEditorStore.getState()
 
   return {
     // shared editor state
-    activeTool: store.present.activeTool,
-    aspect: store.present.aspect,
-    canvasZoom: store.present.canvasZoom,
-    annotation: store.present.annotation,
+    activeTool,
+    aspect,
+    canvasZoom,
+    annotation,
     canvases: store.present.canvases,
-    activeCanvasId: store.present.activeCanvasId,
+    activeCanvasId,
     canvasScopeId: canvas.id,
 
     // flattened canvas state
@@ -1553,22 +1580,23 @@ export function useEditor(): EditorContext {
     annotations: canvas.annotations,
     annotationShapes: canvas.annotationShapes,
     screenshotSlots: canvas.screenshotSlots,
+    objectFit: canvas.objectFit,
 
-    isPreviewMode: store.isPreviewMode,
-    isPreviewAutoScroll: store.isPreviewAutoScroll,
-    previewAutoScrollDelay: store.previewAutoScrollDelay,
-    previewAnimation: store.previewAnimation,
-    bulkEditMode: store.bulkEditMode,
-    bulkCanvasDragging: store.bulkCanvasDragging,
-    bulkViewportZoom: store.bulkViewportZoom,
-    bulkScale: store.bulkScale,
-    selectedTextId: store.selectedTextId,
-    selectedAssetId: store.selectedAssetId,
-    selectedAnnotationShapeId: store.selectedAnnotationShapeId,
-    selectedScreenshotSlotId: store.selectedScreenshotSlotId,
-    isScreenshotSelected: store.isScreenshotSelected,
-    canUndo: store.past.length > 0,
-    canRedo: store.future.length > 0,
+    isPreviewMode,
+    isPreviewAutoScroll,
+    previewAutoScrollDelay,
+    previewAnimation,
+    bulkEditMode,
+    bulkCanvasDragging,
+    bulkViewportZoom,
+    bulkScale,
+    selectedTextId,
+    selectedAssetId,
+    selectedAnnotationShapeId,
+    selectedScreenshotSlotId,
+    isScreenshotSelected,
+    canUndo,
+    canRedo,
 
     setActiveTool: store.setActiveTool,
     setScreenshot: (s, canvasId) =>
@@ -1606,6 +1634,8 @@ export function useEditor(): EditorContext {
     setShadow: (s, canvasId) => store.setShadow(s, canvasId ?? targetId),
     setOverlay: (o, canvasId) => store.setOverlay(o, canvasId ?? targetId),
     setFrame: (f, canvasId) => store.setFrame(f, canvasId ?? targetId),
+    setObjectFit: (fit, canvasId) =>
+      store.setObjectFit(fit, canvasId ?? targetId),
     setFrameAddress: (address, canvasId) =>
       store.setFrameAddress(address, canvasId ?? targetId),
     bringScreenshotToFront: (canvasId) =>
@@ -1696,7 +1726,7 @@ export function useEditor(): EditorContext {
       store.arrangeScreenshotSlotsInRow(canvasId ?? targetId),
     setScreenshotSlotGroupPosition: (position, canvasId) =>
       store.setScreenshotSlotGroupPosition(position, canvasId ?? targetId),
-    canvasCount: store.present.canvases.length,
+    canvasCount,
   }
 }
 

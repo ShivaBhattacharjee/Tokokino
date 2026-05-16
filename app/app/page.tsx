@@ -9,7 +9,7 @@ import { IpadProSidebar } from "@/components/editor/ipad-pro-sidebar"
 import { MobileControls } from "@/components/editor/mobile-controls"
 import { MobileOnlyWarning } from "@/components/editor/mobile-only-warning"
 import { TopBar } from "@/components/editor/top-bar"
-import { EditorProvider, useEditor } from "@/lib/editor/store"
+import { EditorProvider, useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,12 +38,20 @@ const ANIMATION_OPTIONS: { label: string; value: PreviewAnimation; desc: string 
 ]
 
 function EditorLayout() {
-  const {
-    isPreviewMode, setIsPreviewMode,
-    isPreviewAutoScroll, setIsPreviewAutoScroll,
-    previewAutoScrollDelay, setPreviewAutoScrollDelay,
-    previewAnimation, setPreviewAnimation,
-  } = useEditor()
+  const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
+  const setIsPreviewMode = useEditorStore((s) => s.setIsPreviewMode)
+  const isPreviewAutoScroll = useEditorStore((s) => s.isPreviewAutoScroll)
+  const setIsPreviewAutoScroll = useEditorStore(
+    (s) => s.setIsPreviewAutoScroll
+  )
+  const previewAutoScrollDelay = useEditorStore(
+    (s) => s.previewAutoScrollDelay
+  )
+  const setPreviewAutoScrollDelay = useEditorStore(
+    (s) => s.setPreviewAutoScrollDelay
+  )
+  const previewAnimation = useEditorStore((s) => s.previewAnimation)
+  const setPreviewAnimation = useEditorStore((s) => s.setPreviewAnimation)
 
   const [settingsOpen, setSettingsOpen] = React.useState(false)
 
@@ -69,7 +77,7 @@ function EditorLayout() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 flex flex-col items-center gap-2"
+            className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2"
           >
             {/* Settings panel */}
             <AnimatePresence>
@@ -79,14 +87,14 @@ function EditorLayout() {
                   animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
                   exit={{ opacity: 0, y: 8, scale: 0.95, filter: "blur(3px)" }}
                   transition={{ duration: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
-                  className="rounded-2xl border border-foreground/12 bg-background/90 shadow-2xl backdrop-blur-xl p-4 w-64 space-y-4"
+                  className="w-64 space-y-4 rounded-2xl border border-foreground/12 bg-background/90 p-4 shadow-2xl backdrop-blur-xl"
                 >
                   {/* Delay */}
                   <div>
-                    <p className="text-[10px] font-semibold tracking-wider text-foreground/40 uppercase mb-2">
+                    <p className="mb-2 text-[10px] font-semibold tracking-wider text-foreground/40 uppercase">
                       Slide duration
                     </p>
-                    <div className="flex gap-1 flex-wrap">
+                    <div className="flex flex-wrap gap-1">
                       {DELAY_OPTIONS.map((opt) => (
                         <button
                           key={opt.value}
@@ -107,7 +115,7 @@ function EditorLayout() {
 
                   {/* Animation */}
                   <div>
-                    <p className="text-[10px] font-semibold tracking-wider text-foreground/40 uppercase mb-2">
+                    <p className="mb-2 text-[10px] font-semibold tracking-wider text-foreground/40 uppercase">
                       Transition
                     </p>
                     <div className="flex gap-1">
@@ -135,12 +143,12 @@ function EditorLayout() {
             {/* Bottom bar */}
             <div className="flex items-center gap-2">
               {/* Play + settings pill */}
-              <div className="flex items-center rounded-xl border border-foreground/15 bg-background/80 shadow-xl backdrop-blur-md overflow-hidden h-10">
+              <div className="flex h-10 items-center overflow-hidden rounded-xl border border-foreground/15 bg-background/80 shadow-xl backdrop-blur-md">
                 <button
                   type="button"
                   onClick={() => setIsPreviewAutoScroll(!isPreviewAutoScroll)}
                   title={isPreviewAutoScroll ? "Stop slideshow" : "Start slideshow"}
-                  className="flex items-center px-3 h-full text-foreground hover:bg-foreground/6 transition-colors cursor-pointer"
+                  className="flex h-full cursor-pointer items-center px-3 text-foreground transition-colors hover:bg-foreground/6"
                 >
                   {isPreviewAutoScroll ? (
                     <RiStopCircleLine className="size-4" />
@@ -148,7 +156,7 @@ function EditorLayout() {
                     <RiPlayCircleLine className="size-4" />
                   )}
                 </button>
-                <div className="w-px h-5 bg-foreground/12" />
+                <div className="h-5 w-px bg-foreground/12" />
                 <button
                   type="button"
                   onClick={() => setSettingsOpen((v) => !v)}
@@ -177,7 +185,7 @@ function EditorLayout() {
                   setIsPreviewAutoScroll(false)
                   setSettingsOpen(false)
                 }}
-                className="cursor-pointer border border-foreground/15 bg-background/80 px-4 h-10 text-foreground shadow-xl backdrop-blur-md hover:bg-background/95"
+                className="h-10 cursor-pointer border border-foreground/15 bg-background/80 px-4 text-foreground shadow-xl backdrop-blur-md hover:bg-background/95"
               >
                 <RiEyeLine className="mr-2 size-4" />
                 Exit Preview

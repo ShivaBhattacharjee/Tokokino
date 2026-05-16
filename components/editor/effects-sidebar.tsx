@@ -12,7 +12,11 @@ import { PresentPresetsSection } from "@/components/editor/present-presets-secti
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { getFrameAspectCompatibilityWarning } from "@/lib/editor/frame-aspect-compatibility"
 import { cn } from "@/lib/utils"
-import { useEditor, useSelectedScreenshotSlot } from "@/lib/editor/store"
+import {
+  useActiveCanvasField,
+  useEditorStore,
+  useSelectedScreenshotSlot,
+} from "@/lib/editor/store"
 import type { AspectState, DeviceFrame } from "@/lib/editor/store"
 
 export function EffectsSidebar({
@@ -21,8 +25,11 @@ export function EffectsSidebar({
   className?: string
   stacked?: boolean
 }) {
-  const { aspect, frame, setAspect, setFrame, updateScreenshotSlot } =
-    useEditor()
+  const aspect = useEditorStore((s) => s.present.aspect)
+  const frame = useActiveCanvasField((c) => c.frame)
+  const setAspect = useEditorStore((s) => s.setAspect)
+  const setFrame = useEditorStore((s) => s.setFrame)
+  const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
   const selectedSlot = useSelectedScreenshotSlot()
   const activeFrame = selectedSlot?.frame ?? frame
 

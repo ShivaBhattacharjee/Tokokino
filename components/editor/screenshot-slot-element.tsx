@@ -3,7 +3,7 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { motion } from "motion/react"
-import { RiSmartphoneLine } from "@remixicon/react"
+import { RiFullscreenLine, RiSmartphoneLine } from "@remixicon/react"
 import { toast } from "sonner"
 
 import { BoxHoverActions } from "@/components/editor/canvas/box-hover-actions"
@@ -384,6 +384,7 @@ export function ScreenshotSlotView({
               bareStyle={bareImgStyle}
               applyTransformWhenEmpty
               emptyCompact
+              objectFit={slot.objectFit ?? "contain"}
               activeTool={activeTool}
               isDragging={false}
               stageRef={stageRef}
@@ -495,6 +496,47 @@ export function ScreenshotSlotView({
                           }
                         />
                       </ToolbarPopover>
+                      {slot.frame.id === "none" && slot.src && (
+                        <>
+                          <ToolbarDivider />
+                          <ToolbarPopover
+                            tooltip="Image fit"
+                            contentClassName="w-44 p-2"
+                            trigger={({ open }) => (
+                              <ToolbarButton aria-label="Image fit" active={open}>
+                                <RiFullscreenLine className="size-4" />
+                              </ToolbarButton>
+                            )}
+                          >
+                            <div className="flex flex-col gap-1">
+                              {(
+                                [
+                                  { value: "contain", label: "Contain" },
+                                  { value: "cover", label: "Cover" },
+                                  { value: "fill", label: "Fill" },
+                                ] as const
+                              ).map(({ value, label }) => (
+                                <button
+                                  key={value}
+                                  onClick={() =>
+                                    updateScreenshotSlot(slot.id, {
+                                      objectFit: value,
+                                    })
+                                  }
+                                  className={cn(
+                                    "rounded px-3 py-1.5 text-left text-sm transition-colors",
+                                    (slot.objectFit ?? "contain") === value
+                                      ? "bg-white/15 text-white"
+                                      : "text-white/60 hover:bg-white/10 hover:text-white"
+                                  )}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </ToolbarPopover>
+                        </>
+                      )}
                       <ToolbarDeleteButton
                         ariaLabel="Delete screenshot box"
                         onDelete={() => {

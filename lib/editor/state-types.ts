@@ -334,6 +334,7 @@ export type ScreenshotSlot = {
   blendMode: AssetBlendMode
   hidden?: boolean
   frameAddress: string
+  objectFit?: "contain" | "cover" | "fill"
 }
 
 export type CanvasPosition = { x: number; y: number }
@@ -366,6 +367,7 @@ export type CanvasState = {
   annotationShapes: AnnotationShape[]
   screenshotSlots: ScreenshotSlot[]
   frameAddress: string
+  objectFit?: "contain" | "cover" | "fill"
 }
 
 export type EditorState = {

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { toast } from "sonner"
+import { useShallow } from "zustand/react/shallow"
 
 import { CornerMarkers } from "@/components/editor/corner-marker"
 import { CropModal } from "@/components/editor/crop-modal"
@@ -132,6 +133,8 @@ function CanvasViewInner({
     setSelectedAnnotationShapeId,
     isScreenshotSelected,
     setIsScreenshotSelected,
+    objectFit,
+    setObjectFit,
   } = useEditor()
   const scopeId = useCanvasScopeId()
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
@@ -490,6 +493,8 @@ function CanvasViewInner({
               onBringToFront={() => bringScreenshotToFront()}
               onSendToBack={() => sendScreenshotToBack()}
               onFrameChange={setFrame}
+              objectFit={objectFit ?? "contain"}
+              onObjectFitChange={setObjectFit}
               stageRef={stageRef}
               imageRef={imageRef}
               onImageLoad={handleImageLoad}
@@ -606,6 +611,7 @@ function CanvasViewInner({
                     stageRef={stageRef}
                     imageRef={imageRef}
                     shadowBoxTarget={frame.id === "none"}
+                    objectFit={frame.id === "none" ? (objectFit ?? "contain") : undefined}
                     onContainerPointerDown={(e) => {
                       if (e.target === e.currentTarget) {
                         setIsScreenshotSelected(false)
@@ -839,7 +845,26 @@ export function CanvasView(props: CanvasViewProps) {
 }
 
 export function Canvas() {
-  const canvases = useEditorStore((s) => s.present.canvases)
+  const canvasLayoutKeys = useEditorStore(
+    useShallow((s) =>
+      s.present.canvases.map(
+        (canvas) =>
+          `${canvas.id}\u0000${canvas.position.x}\u0000${canvas.position.y}`
+      )
+    )
+  )
+  const canvasLayouts = React.useMemo(
+    () =>
+      canvasLayoutKeys.map((key) => {
+        const [id, x, y] = key.split("\u0000")
+        return { id, position: { x: Number(x), y: Number(y) } }
+      }),
+    [canvasLayoutKeys]
+  )
+  const canvasIds = React.useMemo(
+    () => canvasLayouts.map((canvas) => canvas.id),
+    [canvasLayouts]
+  )
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const aspect = useEditorStore((s) => s.present.aspect)
   const canvasZoom = useEditorStore((s) => s.present.canvasZoom)
@@ -888,7 +913,7 @@ export function Canvas() {
   const effectiveScale = autoFit * zoomScale
 
   const isBulkScroll = bulkEditMode && !isPreviewMode
-  const isPreviewCarousel = isPreviewMode && canvases.length > 1
+  const isPreviewCarousel = isPreviewMode && canvasIds.length > 1
   const isPreviewAutoScroll = useEditorStore((s) => s.isPreviewAutoScroll)
   const previewAutoScrollDelay = useEditorStore((s) => s.previewAutoScrollDelay)
   const previewAnimation = useEditorStore((s) => s.previewAnimation)
@@ -897,35 +922,40 @@ export function Canvas() {
   const [animDirection, setAnimDirection] = React.useState(1)
 
   const useCustomAnim = isPreviewCarousel && previewAnimation !== "slide"
+  const boundedAnimIndex = canvasIds.length
+    ? Math.min(animIndex, canvasIds.length - 1)
+    : 0
 
   const goNext = React.useCallback(() => {
+    if (canvasIds.length === 0) return
     setAnimDirection(1)
     setAnimIndex((i) => {
-      const next = (i + 1) % canvases.length
-      setActiveCanvasId(canvases[next].id)
+      const next = (i + 1) % canvasIds.length
+      setActiveCanvasId(canvasIds[next])
       return next
     })
-  }, [canvases, setActiveCanvasId])
+  }, [canvasIds, setActiveCanvasId])
 
   const goPrev = React.useCallback(() => {
+    if (canvasIds.length === 0) return
     setAnimDirection(-1)
     setAnimIndex((i) => {
-      const prev = (i - 1 + canvases.length) % canvases.length
-      setActiveCanvasId(canvases[prev].id)
+      const prev = (i - 1 + canvasIds.length) % canvasIds.length
+      setActiveCanvasId(canvasIds[prev])
       return prev
     })
-  }, [canvases, setActiveCanvasId])
+  }, [canvasIds, setActiveCanvasId])
 
   React.useEffect(() => {
     if (!carouselApi) return
     const onSelect = () => {
       const idx = carouselApi.selectedScrollSnap()
-      const canvas = canvases[idx]
-      if (canvas) setActiveCanvasId(canvas.id)
+      const canvasId = canvasIds[idx]
+      if (canvasId) setActiveCanvasId(canvasId)
     }
     carouselApi.on("select", onSelect)
     return () => { carouselApi.off("select", onSelect) }
-  }, [carouselApi, canvases, setActiveCanvasId])
+  }, [carouselApi, canvasIds, setActiveCanvasId])
 
   React.useEffect(() => {
     if (!isPreviewAutoScroll) return
@@ -987,9 +1017,9 @@ export function Canvas() {
       ) : useCustomAnim ? (
         <div className="relative flex h-full w-full items-center justify-center overflow-hidden" style={{ perspective: 1400 }}>
           <AnimatePresence mode="wait" custom={animDirection}>
-            {canvases[animIndex] && (
+            {canvasIds[boundedAnimIndex] && (
               <motion.div
-                key={canvases[animIndex].id}
+                key={canvasIds[boundedAnimIndex]}
                 custom={animDirection}
                 variants={animVariants}
                 initial="enter"
@@ -1008,7 +1038,7 @@ export function Canvas() {
                   }}
                 >
                   <CanvasView
-                    canvasId={canvases[animIndex].id}
+                    canvasId={canvasIds[boundedAnimIndex]}
                     isActive={true}
                     widthPx={widthPx}
                     heightPx={heightPx}
@@ -1043,9 +1073,9 @@ export function Canvas() {
           setApi={setCarouselApi}
         >
           <CarouselContent wrapperClassName="h-full" className="ml-0 h-full">
-            {canvases.map((canvas) => (
+            {canvasIds.map((canvasId) => (
               <CarouselItem
-                key={canvas.id}
+                key={canvasId}
                 className="flex h-full items-center justify-center pl-0"
               >
                 <div
@@ -1057,12 +1087,12 @@ export function Canvas() {
                   }}
                 >
                   <CanvasView
-                    canvasId={canvas.id}
-                    isActive={canvas.id === activeCanvasId}
+                    canvasId={canvasId}
+                    isActive={canvasId === activeCanvasId}
                     widthPx={widthPx}
                     heightPx={heightPx}
                     effectiveScale={effectiveScale}
-                    onActivate={() => setActiveCanvasId(canvas.id)}
+                    onActivate={() => setActiveCanvasId(canvasId)}
                   />
                 </div>
               </CarouselItem>
@@ -1079,7 +1109,7 @@ export function Canvas() {
           }}
         >
           <div className="relative">
-            {canvases.map((canvas) => {
+            {canvasLayouts.map((canvas) => {
               const isActive = canvas.id === activeCanvasId
               return (
                 <div

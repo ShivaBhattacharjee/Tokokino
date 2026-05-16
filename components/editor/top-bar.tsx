@@ -19,11 +19,12 @@ import {
   RiEqualizerLine,
 } from "@remixicon/react"
 import { toast } from "sonner"
+import { useShallow } from "zustand/react/shallow"
 
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { MAX_CANVASES, useEditor, useEditorStore } from "@/lib/editor/store"
+import { MAX_CANVASES, useEditorStore } from "@/lib/editor/store"
 import {
   Dialog,
   DialogContent,
@@ -77,20 +78,20 @@ import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "motion/react"
 
 export function TopBar() {
-  const {
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    reset,
-    setIsPreviewMode,
-    removeCanvas,
-    bulkEditMode,
-    setBulkEditMode,
-    canvasCount,
-  } = useEditor()
+  const undo = useEditorStore((s) => s.undo)
+  const redo = useEditorStore((s) => s.redo)
+  const canUndo = useEditorStore((s) => s.past.length > 0)
+  const canRedo = useEditorStore((s) => s.future.length > 0)
+  const reset = useEditorStore((s) => s.reset)
+  const setIsPreviewMode = useEditorStore((s) => s.setIsPreviewMode)
+  const removeCanvas = useEditorStore((s) => s.removeCanvas)
+  const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const setBulkEditMode = useEditorStore((s) => s.setBulkEditMode)
+  const canvasCount = useEditorStore((s) => s.present.canvases.length)
   const [showDisableDialog, setShowDisableDialog] = React.useState(false)
-  const canvases = useEditorStore((s) => s.present.canvases)
+  const canvasIds = useEditorStore(
+    useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
+  )
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
@@ -133,9 +134,9 @@ export function TopBar() {
 
   const handleDisableBulkEdit = () => {
     // Remove all non-active canvases
-    const toRemove = canvases.filter((c) => c.id !== activeCanvasId)
-    for (const c of toRemove) {
-      removeCanvas(c.id)
+    const toRemove = canvasIds.filter((id) => id !== activeCanvasId)
+    for (const id of toRemove) {
+      removeCanvas(id)
     }
     setBulkEditMode(false)
     setShowDisableDialog(false)
@@ -664,16 +665,14 @@ function MobileOverflowMenu({
   onCopyPng: () => void
   isCopyingPng: boolean
 }) {
-  const {
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    reset,
-    setIsPreviewMode,
-    addCanvas,
-    canvasCount,
-  } = useEditor()
+  const undo = useEditorStore((s) => s.undo)
+  const redo = useEditorStore((s) => s.redo)
+  const canUndo = useEditorStore((s) => s.past.length > 0)
+  const canRedo = useEditorStore((s) => s.future.length > 0)
+  const reset = useEditorStore((s) => s.reset)
+  const setIsPreviewMode = useEditorStore((s) => s.setIsPreviewMode)
+  const addCanvas = useEditorStore((s) => s.addCanvas)
+  const canvasCount = useEditorStore((s) => s.present.canvases.length)
   const atCanvasCap = canvasCount >= MAX_CANVASES
   const [showResetAlert, setShowResetAlert] = React.useState(false)
   return (

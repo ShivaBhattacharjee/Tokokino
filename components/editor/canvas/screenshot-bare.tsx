@@ -39,6 +39,7 @@ type ScreenshotBareProps = {
   onReplaceFile: (file: File) => void
   onDelete: () => void
   shadowBoxTarget?: boolean
+  objectFit?: "contain" | "cover" | "fill"
 }
 
 export function ScreenshotBare({
@@ -67,13 +68,14 @@ export function ScreenshotBare({
   onReplaceFile,
   onDelete,
   shadowBoxTarget = false,
+  objectFit = "contain",
 }: ScreenshotBareProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
 
   return (
     <div
       ref={stageRef}
-      className="group/screenshot pointer-events-none relative h-full w-full"
+      className={cn("group/screenshot pointer-events-none relative h-full w-full", (objectFit === "cover" || objectFit === "fill") && "overflow-hidden")}
       onPointerDown={onContainerPointerDown}
     >
       <img
@@ -100,7 +102,10 @@ export function ScreenshotBare({
               }),
         }}
         className={cn(
-          "pointer-events-auto absolute max-h-full max-w-full object-contain select-none",
+          "pointer-events-auto absolute select-none",
+          objectFit === "cover" && "h-full w-full object-cover",
+          objectFit === "fill" && "h-full w-full object-fill",
+          objectFit === "contain" && "max-h-full max-w-full object-contain",
           screenshotLayer.hidden && "pointer-events-none",
           isScreenshotDragging || suppressTransition
             ? "cursor-grabbing transition-none"
