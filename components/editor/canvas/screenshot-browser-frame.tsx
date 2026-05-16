@@ -1,9 +1,16 @@
 "use client"
 
 import * as React from "react"
+import { RiAddLine } from "@remixicon/react"
 
 import { BoxHoverActions } from "@/components/editor/canvas/box-hover-actions"
-import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
+import { EmptyStateBackdrop } from "@/components/editor/canvas/empty-state-backdrop"
+import { UploadCard } from "@/components/editor/canvas/upload-card"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Arc } from "@/components/ui/arc"
 import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
@@ -195,25 +202,37 @@ export function ScreenshotBrowserFrame({
           />
         )}
 
-        {showHoverActions &&
-        activeTool === "pointer" &&
-        !screenshotLayer.hidden ? (
+      </div>
+      {showHoverActions && activeTool === "pointer" && !screenshotLayer.hidden ? (
+        <div
+          className="pointer-events-none absolute top-0 left-0 max-h-full max-w-full"
+          style={{
+            ...frameFitStyle,
+            left: "50%",
+            top: "50%",
+            transform: framePositionTransform({
+              anchor: screenshotAnchor,
+              offset: screenshotOffset,
+              transform: "",
+            }),
+            transformOrigin: "center",
+          }}
+        >
           <BoxHoverActions
             hoverGroupClass={cn(
               "group-hover/browser-frame:opacity-100",
               isScreenshotDragging && "!opacity-0"
             )}
             disabled={hoverActionsDisabled}
-            inline={hoverActionsInline}
+            inline
             layoutKey={hoverActionsLayoutKey}
             controlScale={hoverActionsInline ? 1 : hoverActionsScale}
-            measureRef={stageRef}
             onCrop={onCropClick}
             onReplaceFile={onReplaceFile}
             onDelete={onDelete}
           />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -324,6 +343,27 @@ export function BrowserFrameEmptyState({
           </Safari>
         )}
       </div>
+      {compact ? (
+        <div
+          className="pointer-events-none absolute top-0 left-0 max-h-full max-w-full"
+          style={{
+            ...frameFitStyle,
+            left: "50%",
+            top: "50%",
+            transform: framePositionTransform({
+              anchor: screenshotAnchor,
+              offset: screenshotOffset,
+              transform: "",
+            }),
+            transformOrigin: "center",
+          }}
+        >
+          <BrowserFrameCompactUpload
+            isDragOver={isDragOver}
+            onBrowse={onBrowse}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -363,10 +403,73 @@ function BrowserFrameEmptyContent({
   compact?: boolean
 }) {
   return (
-    <BoxEmptyState
-      isDragOver={isDragOver}
-      onBrowse={onBrowse}
-      compact={compact}
-    />
+    <div className="relative size-full">
+      <EmptyStateBackdrop
+        data-drag-over={isDragOver}
+        className={cn(
+          "flex size-full items-center justify-center text-white transition-all",
+          compact && "pointer-events-none",
+          "data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/40"
+        )}
+      >
+        {compact ? null : (
+          <UploadCard
+            isDragOver={isDragOver}
+            onBrowse={onBrowse}
+            showHint
+            className="w-full max-w-[400px]"
+          />
+        )}
+      </EmptyStateBackdrop>
+    </div>
+  )
+}
+
+function BrowserFrameCompactUpload({
+  isDragOver,
+  onBrowse,
+}: {
+  isDragOver: boolean
+  onBrowse: () => void
+}) {
+  const stopPointer = (e: React.PointerEvent) => e.stopPropagation()
+  const stopClick = (e: React.MouseEvent) => e.stopPropagation()
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Add screenshot"
+            onPointerDownCapture={stopPointer}
+            onPointerMoveCapture={stopPointer}
+            onPointerUpCapture={stopPointer}
+            onPointerDown={stopPointer}
+            onPointerMove={stopPointer}
+            onPointerUp={stopPointer}
+            onClick={stopClick}
+            className="group pointer-events-auto grid size-28 cursor-pointer place-items-center border-0 bg-transparent p-0"
+          >
+            <span className="grid size-16 place-items-center rounded-2xl border-2 border-primary bg-neutral-900/95 text-white shadow-[0_0_0_4px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)] backdrop-blur-sm transition-all group-hover:scale-105 group-hover:bg-neutral-800 group-active:scale-95 group-data-[state=open]:scale-105">
+              <RiAddLine className="size-8" />
+            </span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="bottom"
+          align="center"
+          sideOffset={8}
+          onPointerDown={stopPointer}
+          className="w-[320px] rounded-2xl border border-white/10 bg-neutral-900 p-0 text-white shadow-2xl"
+        >
+          <UploadCard
+            isDragOver={isDragOver}
+            onBrowse={onBrowse}
+            showHint
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }

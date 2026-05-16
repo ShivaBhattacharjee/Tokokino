@@ -203,7 +203,10 @@ export function MainScreenshotRowItem({
 
             {screenshot && activeTool === "pointer" ? (
               <BoxHoverActions
-                hoverGroupClass="group-hover/main-row:opacity-100"
+                hoverGroupClass={cn(
+                  "group-hover/main-row:opacity-100",
+                  isSelected && isBrowserFrame(frame.id) && "opacity-100"
+                )}
                 disabled={bulkCanvasDragging || isScreenshotDragging}
                 inline
                 mode={

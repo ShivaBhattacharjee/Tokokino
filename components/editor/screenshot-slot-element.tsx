@@ -406,7 +406,10 @@ export function ScreenshotSlotView({
 
             {slot.src ? (
               <BoxHoverActions
-                hoverGroupClass="group-hover/slot:opacity-100"
+                hoverGroupClass={cn(
+                  "group-hover/slot:opacity-100",
+                  isSelected && isBrowserFrame(slot.frame.id) && "opacity-100"
+                )}
                 disabled={bulkCanvasDragging}
                 inline
                 mode={

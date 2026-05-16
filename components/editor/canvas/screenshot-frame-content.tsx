@@ -193,7 +193,7 @@ export function ScreenshotFrameContent({
           screenshot={src}
           imgStyle={bareStyle ?? {}}
           positionedStyle={null}
-          transform=""
+          transform={contentTransform}
           screenshotLeft={undefined}
           screenshotTop={undefined}
           placementDims={null}
@@ -208,15 +208,9 @@ export function ScreenshotFrameContent({
           shadowBoxTarget={frame.id === "none"}
           onContainerPointerDown={() => undefined}
           onSelect={onSelect}
-          onPointerDown={(e) =>
-            onPointerDown(e)
-          }
-          onPointerMove={(e) =>
-            onPointerMove(e)
-          }
-          onPointerUp={(e) =>
-            onPointerUp(e)
-          }
+          onPointerDown={(e) => onPointerDown(e)}
+          onPointerMove={(e) => onPointerMove(e)}
+          onPointerUp={(e) => onPointerUp(e)}
           onImageLoad={handleImageLoad}
           onCropClick={onCrop}
           onReplaceFile={onReplaceFile}
@@ -276,7 +270,11 @@ export function ScreenshotFrameContent({
   return (
     <div
       data-editor-shadow-box-target={frame.id === "none" ? "" : undefined}
-      className="relative h-full w-full overflow-hidden"
+      className={`relative h-full w-full overflow-hidden${
+        applyTransformWhenEmpty
+          ? " transition-transform duration-300 ease-out"
+          : ""
+      }`}
       style={applyTransformWhenEmpty ? bareStyle : emptyBareStyle(bareStyle)}
     >
       <BoxEmptyState

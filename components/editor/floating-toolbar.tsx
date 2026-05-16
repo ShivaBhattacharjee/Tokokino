@@ -461,12 +461,12 @@ function DefaultToolbarContents() {
   const activeScale = selectedSlot?.scale ?? scale
   const activeEnhance = selectedSlot?.enhance ?? enhance
   const hasDeviceFrame = activeFrame.id !== "none"
+  const hasMainScreenshotTarget =
+    Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
   const hasScalableContent = selectedSlot
     ? true
-    : Boolean(screenshot || hasDeviceFrame)
+    : hasMainScreenshotTarget
   const hasAnyScreenshotContent =
-    Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
-  const hasMainScreenshotTarget =
     Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
   const positionTarget: PositionTarget =
     groupAllScreenshots && hasAnyScreenshotContent
