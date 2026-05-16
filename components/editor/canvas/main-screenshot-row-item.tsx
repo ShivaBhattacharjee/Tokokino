@@ -207,6 +207,7 @@ export function MainScreenshotRowItem({
               shadowFilter={shadowFilter}
               contentTransform={transform}
               bareStyle={imgStyle}
+              applyTransformWhenEmpty
               activeTool={activeTool}
               isDragging={isScreenshotDragging}
               stageRef={stageRef}

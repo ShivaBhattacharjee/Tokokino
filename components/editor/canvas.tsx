@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { motion } from "motion/react"
+import { motion, AnimatePresence } from "motion/react"
 import { toast } from "sonner"
 
 import { CornerMarkers } from "@/components/editor/corner-marker"
@@ -48,6 +48,14 @@ import {
 } from "./canvas/screenshot-browser-frame"
 import { ScreenshotMockup } from "./canvas/screenshot-mockup"
 import { BulkCanvasFlow } from "./bulk-canvas-flow"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel"
 import { ScreenshotSlotView } from "./screenshot-slot-element"
 import { useAnnotationInteractions } from "./canvas/use-annotation-interactions"
 import { useImageFileIntake } from "./canvas/use-image-file-intake"
@@ -127,6 +135,7 @@ function CanvasViewInner({
   } = useEditor()
   const scopeId = useCanvasScopeId()
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
   const bulkViewportZoom = useEditorStore((s) => s.bulkViewportZoom)
   const canvasRef = React.useRef<HTMLDivElement>(null)
@@ -400,10 +409,12 @@ function CanvasViewInner({
             height: heightPx,
           }}
           className={cn(
-            "relative flex items-center justify-center overflow-hidden ring-1 ring-border/60 transition-shadow",
-            bulkEditMode && isActive
-              ? "shadow-[0_0_0_4px_rgba(120,90,255,0.12)] ring-2 ring-primary/70"
-              : "ring-border/40"
+            "relative flex items-center justify-center overflow-hidden transition-shadow",
+            isPreviewMode
+              ? "ring-0"
+              : bulkEditMode && isActive
+                ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_rgba(120,90,255,0.12)]"
+                : "ring-1 ring-border/40"
           )}
           onClick={() => {
             if (!isActive) {
@@ -854,6 +865,80 @@ export function Canvas() {
   const effectiveScale = autoFit * zoomScale
 
   const isBulkScroll = bulkEditMode && !isPreviewMode
+  const isPreviewCarousel = isPreviewMode && canvases.length > 1
+  const isPreviewAutoScroll = useEditorStore((s) => s.isPreviewAutoScroll)
+  const previewAutoScrollDelay = useEditorStore((s) => s.previewAutoScrollDelay)
+  const previewAnimation = useEditorStore((s) => s.previewAnimation)
+  const [carouselApi, setCarouselApi] = React.useState<CarouselApi>()
+  const [animIndex, setAnimIndex] = React.useState(0)
+  const [animDirection, setAnimDirection] = React.useState(1)
+
+  const useCustomAnim = isPreviewCarousel && previewAnimation !== "slide"
+
+  const goNext = React.useCallback(() => {
+    setAnimDirection(1)
+    setAnimIndex((i) => {
+      const next = (i + 1) % canvases.length
+      setActiveCanvasId(canvases[next].id)
+      return next
+    })
+  }, [canvases, setActiveCanvasId])
+
+  const goPrev = React.useCallback(() => {
+    setAnimDirection(-1)
+    setAnimIndex((i) => {
+      const prev = (i - 1 + canvases.length) % canvases.length
+      setActiveCanvasId(canvases[prev].id)
+      return prev
+    })
+  }, [canvases, setActiveCanvasId])
+
+  React.useEffect(() => {
+    if (!carouselApi) return
+    const onSelect = () => {
+      const idx = carouselApi.selectedScrollSnap()
+      const canvas = canvases[idx]
+      if (canvas) setActiveCanvasId(canvas.id)
+    }
+    carouselApi.on("select", onSelect)
+    return () => { carouselApi.off("select", onSelect) }
+  }, [carouselApi, canvases, setActiveCanvasId])
+
+  React.useEffect(() => {
+    if (!isPreviewAutoScroll) return
+    if (useCustomAnim) {
+      const id = setInterval(() => goNext(), previewAutoScrollDelay)
+      return () => clearInterval(id)
+    }
+    if (!carouselApi) return
+    const id = setInterval(() => carouselApi.scrollNext(), previewAutoScrollDelay)
+    return () => clearInterval(id)
+  }, [isPreviewAutoScroll, carouselApi, previewAutoScrollDelay, useCustomAnim, goNext])
+
+  const animVariants = React.useMemo(() => {
+    if (previewAnimation === "fade") {
+      return {
+        enter: { opacity: 0 },
+        center: { opacity: 1 },
+        exit: { opacity: 0 },
+      }
+    }
+    if (previewAnimation === "zoom") {
+      return {
+        enter: { opacity: 0, scale: 0.88 },
+        center: { opacity: 1, scale: 1 },
+        exit: { opacity: 0, scale: 1.1 },
+      }
+    }
+    if (previewAnimation === "flip") {
+      return {
+        enter: (dir: number) => ({ opacity: 0, rotateY: dir > 0 ? -80 : 80 }),
+        center: { opacity: 1, rotateY: 0 },
+        exit: (dir: number) => ({ opacity: 0, rotateY: dir > 0 ? 80 : -80 }),
+      }
+    }
+    return { enter: {}, center: {}, exit: {} }
+  }, [previewAnimation])
 
   return (
     <section
@@ -876,6 +961,93 @@ export function Canvas() {
 
       {isBulkScroll ? (
         <BulkCanvasFlow widthPx={widthPx} heightPx={heightPx} />
+      ) : useCustomAnim ? (
+        <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ perspective: 1400 }}>
+          <AnimatePresence mode="wait" custom={animDirection}>
+            {canvases[animIndex] && (
+              <motion.div
+                key={canvases[animIndex].id}
+                custom={animDirection}
+                variants={animVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+                className="absolute origin-center"
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                <div
+                  className="origin-center"
+                  style={{
+                    transform: `scale(${effectiveScale})`,
+                    width: widthPx,
+                    height: heightPx,
+                  }}
+                >
+                  <CanvasView
+                    canvasId={canvases[animIndex].id}
+                    isActive={true}
+                    widthPx={widthPx}
+                    heightPx={heightPx}
+                    effectiveScale={effectiveScale}
+                    onActivate={() => {}}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <button
+            type="button"
+            onClick={goPrev}
+            className="absolute left-4 z-10 size-12 rounded-full border border-border/50 bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors cursor-pointer shadow-lg"
+            aria-label="Previous"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            className="absolute right-4 z-10 size-12 rounded-full border border-border/50 bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors cursor-pointer shadow-lg"
+            aria-label="Next"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      ) : isPreviewCarousel ? (
+        <Carousel
+          className="w-full h-full"
+          opts={{ align: "center", loop: true }}
+          setApi={setCarouselApi}
+        >
+          <CarouselContent wrapperClassName="h-full" className="h-full ml-0">
+            {canvases.map((canvas) => (
+              <CarouselItem
+                key={canvas.id}
+                className="h-full flex items-center justify-center pl-0"
+              >
+                <div
+                  className="origin-center"
+                  style={{
+                    transform: `scale(${effectiveScale})`,
+                    width: widthPx,
+                    height: heightPx,
+                  }}
+                >
+                  <CanvasView
+                    canvasId={canvas.id}
+                    isActive={canvas.id === activeCanvasId}
+                    widthPx={widthPx}
+                    heightPx={heightPx}
+                    effectiveScale={effectiveScale}
+                    onActivate={() => setActiveCanvasId(canvas.id)}
+                  />
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="left-4 size-12 [&_svg]:size-6" />
+          <CarouselNext className="right-4 size-12 [&_svg]:size-6" />
+        </Carousel>
       ) : (
         <div
           className="absolute top-1/2 left-1/2 origin-center transition-transform duration-200 ease-out"

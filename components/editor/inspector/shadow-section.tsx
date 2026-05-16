@@ -17,11 +17,6 @@ import {
   useEditorStore,
   useSelectedScreenshotSlot,
 } from "@/lib/editor/store"
-import {
-  SHADOW_PREVIEW_VAR,
-  shadowCss,
-  shadowDropFilterCss,
-} from "@/lib/editor/css-utils"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 
@@ -60,23 +55,17 @@ function pointToLightSource(row: number, col: number) {
   return isCenter ? "center" : `${safeRow.toFixed(2)}-${safeCol.toFixed(2)}`
 }
 
-function attrEscape(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-}
-
 function DirectionField({
   color,
   disabled,
   lightSource,
   onChange,
-  onPreview,
   resolvedTheme,
 }: {
   color: string
   disabled: boolean
   lightSource: string
   onChange: (id: string) => void
-  onPreview: (id: string | null) => void
   resolvedTheme: string | undefined
 }) {
   const sourcePoint = lightSourceToPoint(lightSource)
@@ -85,7 +74,6 @@ function DirectionField({
   const draggingRef = React.useRef(false)
   const draftPointRef = React.useRef(sourcePoint)
   const committedLightSourceRef = React.useRef(lightSource)
-  const previewLightSourceRef = React.useRef(lightSource)
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
   const x = (sourcePoint.col / 4) * 100
@@ -128,16 +116,6 @@ function DirectionField({
     []
   )
 
-  const previewPoint = React.useCallback(
-    (nextPoint: LightPoint) => {
-      const nextLightSource = pointToLightSource(nextPoint.row, nextPoint.col)
-      if (nextLightSource === previewLightSourceRef.current) return
-      previewLightSourceRef.current = nextLightSource
-      onPreview(nextLightSource)
-    },
-    [onPreview]
-  )
-
   const commitPoint = React.useCallback(
     (nextPoint: LightPoint) => {
       const nextLightSource = pointToLightSource(nextPoint.row, nextPoint.col)
@@ -155,13 +133,12 @@ function DirectionField({
 
       event.currentTarget.setPointerCapture(event.pointerId)
       committedLightSourceRef.current = lightSource
-      previewLightSourceRef.current = lightSource
       draggingRef.current = true
       const nextPoint = pointFromPointer(event)
       moveVisualPoint(nextPoint)
-      previewPoint(nextPoint)
+      commitPoint(nextPoint)
     },
-    [disabled, lightSource, moveVisualPoint, pointFromPointer, previewPoint]
+    [disabled, lightSource, moveVisualPoint, pointFromPointer, commitPoint]
   )
 
   const handlePointerMove = React.useCallback(
@@ -169,9 +146,9 @@ function DirectionField({
       if (disabled || !draggingRef.current || event.buttons !== 1) return
       const nextPoint = pointFromPointer(event)
       moveVisualPoint(nextPoint)
-      previewPoint(nextPoint)
+      commitPoint(nextPoint)
     },
-    [disabled, moveVisualPoint, pointFromPointer, previewPoint]
+    [disabled, moveVisualPoint, pointFromPointer, commitPoint]
   )
 
   const handlePointerUp = React.useCallback(
@@ -363,7 +340,6 @@ function ColorRail({
 }
 
 export function ShadowSection() {
-  const previewFrameRef = React.useRef<number | null>(null)
   const canvasShadow = useActiveCanvasField((c) => c.shadow)
   const selectedSlot = useSelectedScreenshotSlot()
   const shadow = selectedSlot?.shadow ?? canvasShadow
@@ -401,86 +377,6 @@ export function ShadowSection() {
   const setLightSource = (id: string) =>
     applyShadow({ ...shadow, lightSource: id })
   const setColor = (c: string) => applyShadow({ ...shadow, color: c })
-  const shadowPreviewScopeId = selectedSlot?.id ?? "canvas"
-  const resetPreviewStyles = React.useCallback(() => {
-    const scope = document.querySelector<HTMLElement>(
-      `[data-editor-shadow-preview-scope="${attrEscape(shadowPreviewScopeId)}"]`
-    )
-    if (!scope) return
-
-    const boxTargets = Array.from(
-      scope.querySelectorAll<HTMLElement>("[data-editor-shadow-box-target]")
-    )
-    boxTargets.forEach((el) => {
-      el.style.removeProperty(SHADOW_PREVIEW_VAR)
-    })
-    scope
-      .querySelectorAll<HTMLElement>("[data-editor-shadow-filter-target]")
-      .forEach((el) => {
-        const baseFilter = el.dataset.editorShadowFilterBase || ""
-        const enhanceFilter = el.dataset.editorEnhanceFilter || ""
-        const nextFilter = [baseFilter, enhanceFilter].filter(Boolean).join(" ")
-        el.style.filter = nextFilter
-      })
-  }, [shadowPreviewScopeId])
-
-  const previewLightSource = React.useCallback(
-    (nextLightSource: string | null) => {
-      if (previewFrameRef.current !== null) {
-        cancelAnimationFrame(previewFrameRef.current)
-        previewFrameRef.current = null
-      }
-
-      previewFrameRef.current = requestAnimationFrame(() => {
-        previewFrameRef.current = null
-        const scope = document.querySelector<HTMLElement>(
-          `[data-editor-shadow-preview-scope="${attrEscape(shadowPreviewScopeId)}"]`
-        )
-        if (!scope) return
-        const boxTargets = Array.from(
-          scope.querySelectorAll<HTMLElement>("[data-editor-shadow-box-target]")
-        )
-        const filterTargets = Array.from(
-          scope.querySelectorAll<HTMLElement>(
-            "[data-editor-shadow-filter-target]"
-          )
-        )
-
-        if (!nextLightSource) {
-          resetPreviewStyles()
-          return
-        }
-
-        const previewShadow = { ...shadow, lightSource: nextLightSource }
-        const boxShadow = shadowCss(previewShadow) ?? "none"
-        const dropFilter = shadowDropFilterCss(previewShadow) ?? " "
-
-        boxTargets.forEach((el) => {
-          el.style.setProperty(SHADOW_PREVIEW_VAR, boxShadow)
-        })
-        filterTargets.forEach((el) => {
-          const enhanceFilter = el.dataset.editorEnhanceFilter || ""
-          el.style.filter = [dropFilter, enhanceFilter]
-            .filter(Boolean)
-            .join(" ")
-        })
-      })
-    },
-    [resetPreviewStyles, shadow, shadowPreviewScopeId]
-  )
-
-  React.useEffect(() => {
-    resetPreviewStyles()
-  }, [resetPreviewStyles, shadow])
-
-  React.useEffect(() => {
-    return () => {
-      if (previewFrameRef.current !== null) {
-        cancelAnimationFrame(previewFrameRef.current)
-      }
-      resetPreviewStyles()
-    }
-  }, [resetPreviewStyles])
 
   const thumbBg = "bg-transparent"
   const thumbCard = "rounded-[3px] bg-black dark:bg-white"
@@ -653,7 +549,6 @@ export function ShadowSection() {
           disabled={directionalDisabled}
           lightSource={lightSource}
           onChange={setLightSource}
-          onPreview={previewLightSource}
           resolvedTheme={resolvedTheme}
         />
       </div>

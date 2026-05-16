@@ -45,6 +45,8 @@ type ScreenshotFrameContentProps = {
   contentTransform?: string
   screenshotOffset?: { x: number; y: number }
   screenshotAnchor?: { x: number; y: number }
+  /** Keep transform in the empty-state container (needed for preset previews) */
+  applyTransformWhenEmpty?: boolean
 }
 
 const CENTER_ANCHOR = { x: 50, y: 50 }
@@ -89,6 +91,7 @@ export function ScreenshotFrameContent({
   contentTransform = "",
   screenshotOffset = ZERO_OFFSET,
   screenshotAnchor = CENTER_ANCHOR,
+  applyTransformWhenEmpty = false,
 }: ScreenshotFrameContentProps) {
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
@@ -268,8 +271,8 @@ export function ScreenshotFrameContent({
   return (
     <div
       data-editor-shadow-box-target={frame.id === "none" ? "" : undefined}
-      className="relative h-full w-full overflow-hidden bg-black/40"
-      style={emptyBareStyle(bareStyle)}
+      className="relative h-full w-full overflow-hidden"
+      style={applyTransformWhenEmpty ? bareStyle : emptyBareStyle(bareStyle)}
     >
       <BoxEmptyState isDragOver={isDragOver} onBrowse={onBrowse} />
     </div>

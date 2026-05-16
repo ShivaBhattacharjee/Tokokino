@@ -266,6 +266,7 @@ function BulkCanvasFlowInner({
   )
 
   const draggingRef = React.useRef(false)
+  const [isReady, setIsReady] = React.useState(false)
 
   React.useEffect(() => {
     if (draggingRef.current) return
@@ -342,6 +343,10 @@ function BulkCanvasFlowInner({
         onNodeDragStop={onNodeDragStop}
         onMoveStart={onViewportMoveStart}
         onMoveEnd={onViewportMoveEnd}
+        onInit={(instance) => {
+          instance.fitView({ padding: 0.2 })
+          requestAnimationFrame(() => setIsReady(true))
+        }}
         minZoom={0.05}
         maxZoom={2}
         panOnDrag
@@ -355,7 +360,11 @@ function BulkCanvasFlowInner({
         colorMode={colorMode}
         fitView
         fitViewOptions={{ padding: 0.2 }}
-        style={{ background: "transparent" }}
+        style={{
+          background: "transparent",
+          opacity: isReady ? 1 : 0,
+          transition: "opacity 150ms ease-out",
+        }}
       >
         <GlassControls />
       </ReactFlow>

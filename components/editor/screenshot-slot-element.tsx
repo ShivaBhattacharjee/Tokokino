@@ -306,6 +306,8 @@ export function ScreenshotSlotView({
     borderRadius: bareBorderRadius,
     boxShadow: shadowBoxShadowCss(shadowCss(slot.shadow)),
     filter: filterChain || undefined,
+    transform: contentTransform,
+    transformStyle: "preserve-3d" as const,
   }
   if (imageBoxOutline?.color && imageBoxOutline.width > 0) {
     bareImgStyle.outline = `${imageBoxOutline.width}px ${imageBoxOutline.style || "solid"} ${imageBoxOutline.color}`
@@ -381,6 +383,7 @@ export function ScreenshotSlotView({
               shadowFilter={computedShadowFilter}
               contentTransform={contentTransform}
               bareStyle={bareImgStyle}
+              applyTransformWhenEmpty
               activeTool={activeTool}
               isDragging={false}
               stageRef={stageRef}

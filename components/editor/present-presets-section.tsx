@@ -602,6 +602,7 @@ function CanvasFrameContent({
       onDelete={() => undefined}
       screenshotAnchor={screenshotAnchor}
       screenshotOffset={screenshotOffset}
+      applyTransformWhenEmpty
     />
   )
 }
@@ -700,6 +701,7 @@ function PresentSlot({
             onCrop={() => undefined}
             onReplaceFile={() => undefined}
             onDelete={() => undefined}
+            applyTransformWhenEmpty
           />
         </div>
       </div>

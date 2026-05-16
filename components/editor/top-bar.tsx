@@ -127,7 +127,6 @@ export function TopBar() {
     }
     setBulkEditMode(false)
     setShowDisableDialog(false)
-    toast.success("Bulk edit disabled 📁")
   }
 
   return (

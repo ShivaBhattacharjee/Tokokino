@@ -125,7 +125,7 @@ const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
     type: "drop",
     intensity: 40,
     lightSource: "center",
-    color: "#000000",
+    color: "#050505",
   },
   overlay: {
     id: null,
@@ -288,6 +288,9 @@ type EditorActions = {
   setSelectedScreenshotSlotId: (id: string | null) => void
   setIsScreenshotSelected: (selected: boolean) => void
   setIsPreviewMode: (p: boolean) => void
+  setIsPreviewAutoScroll: (a: boolean) => void
+  setPreviewAutoScrollDelay: (d: number) => void
+  setPreviewAnimation: (a: "slide" | "fade" | "zoom" | "flip") => void
   setBulkEditMode: (b: boolean) => void
   setBulkCanvasDragging: (dragging: boolean) => void
   setBulkViewportZoom: (zoom: number) => void
@@ -333,6 +336,9 @@ type EditorStore = {
   _lastGroup: string | null
   _lastTs: number
   isPreviewMode: boolean
+  isPreviewAutoScroll: boolean
+  previewAutoScrollDelay: number
+  previewAnimation: "slide" | "fade" | "zoom" | "flip"
   bulkEditMode: boolean
   bulkCanvasDragging: boolean
   bulkViewportZoom: number
@@ -521,7 +527,7 @@ const createScreenshotSlot = (
     type: "drop",
     intensity: 35,
     lightSource: "center",
-    color: "#000000",
+    color: "#050505",
   },
   border: { color: null, width: 1, style: "solid", padding: 0 },
   enhance: "off",
@@ -645,6 +651,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     _lastGroup: null,
     _lastTs: 0,
     isPreviewMode: false,
+    isPreviewAutoScroll: false,
+    previewAutoScrollDelay: 3000,
+    previewAnimation: "slide" as const,
     bulkEditMode: false,
     bulkCanvasDragging: false,
     bulkViewportZoom: 1,
@@ -1071,6 +1080,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setIsScreenshotSelected: (selected) =>
       set({ isScreenshotSelected: selected }),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
+    setIsPreviewAutoScroll: (a) => set({ isPreviewAutoScroll: a }),
+    setPreviewAnimation: (a) => set({ previewAnimation: a }),
+    setPreviewAutoScrollDelay: (d) => set({ previewAutoScrollDelay: d }),
     setBulkEditMode: (b) => {
       if (!b) {
         // Reset all canvas positions to center when disabling bulk edit
@@ -1475,6 +1487,9 @@ export type EditorContext = Omit<EditorState, "canvases"> &
   CanvasState &
   EditorActions & {
     isPreviewMode: boolean
+    isPreviewAutoScroll: boolean
+    previewAutoScrollDelay: number
+  previewAnimation: "slide" | "fade" | "zoom" | "flip"
     bulkEditMode: boolean
     bulkCanvasDragging: boolean
     bulkViewportZoom: number
@@ -1540,6 +1555,9 @@ export function useEditor(): EditorContext {
     screenshotSlots: canvas.screenshotSlots,
 
     isPreviewMode: store.isPreviewMode,
+    isPreviewAutoScroll: store.isPreviewAutoScroll,
+    previewAutoScrollDelay: store.previewAutoScrollDelay,
+    previewAnimation: store.previewAnimation,
     bulkEditMode: store.bulkEditMode,
     bulkCanvasDragging: store.bulkCanvasDragging,
     bulkViewportZoom: store.bulkViewportZoom,
@@ -1643,6 +1661,9 @@ export function useEditor(): EditorContext {
     setSelectedScreenshotSlotId: store.setSelectedScreenshotSlotId,
     setIsScreenshotSelected: store.setIsScreenshotSelected,
     setIsPreviewMode: store.setIsPreviewMode,
+    setIsPreviewAutoScroll: store.setIsPreviewAutoScroll,
+    setPreviewAutoScrollDelay: store.setPreviewAutoScrollDelay,
+    setPreviewAnimation: store.setPreviewAnimation,
     setBulkEditMode: store.setBulkEditMode,
     setBulkCanvasDragging: store.setBulkCanvasDragging,
     setBulkViewportZoom: store.setBulkViewportZoom,

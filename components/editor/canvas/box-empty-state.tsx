@@ -2,8 +2,8 @@
 
 import * as React from "react"
 
-import { DeviceFrameEmptyContent } from "@/components/editor/canvas/device-frame-empty-content"
 import { cn } from "@/lib/utils"
+import { UploadCard } from "./upload-card"
 
 type BoxEmptyStateProps = {
   isDragOver?: boolean
@@ -17,14 +17,12 @@ export function BoxEmptyState({
   isDragOver = false,
   onBrowse,
   onCapture,
-  url,
-  onUrlChange,
 }: BoxEmptyStateProps) {
   return (
     <div
       data-drag-over={isDragOver}
       className={cn(
-        "relative size-full bg-black/40 text-white transition-all",
+        "relative flex size-full items-center justify-center p-[6cqw] text-white transition-all",
         "data-[drag-over=true]:bg-primary/15 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/60"
       )}
       style={{
@@ -34,11 +32,12 @@ export function BoxEmptyState({
         containerType: "inline-size",
       }}
     >
-      <DeviceFrameEmptyContent
-        url={url}
-        onUrlChange={onUrlChange}
+      <UploadCard
+        fluid
+        isDragOver={isDragOver}
         onBrowse={onBrowse}
-        onCapture={onCapture}
+        onCapture={onCapture ? (url) => onCapture() : undefined}
+        className="w-full max-w-[80cqw]"
       />
     </div>
   )
