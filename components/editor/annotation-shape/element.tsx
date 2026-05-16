@@ -10,6 +10,7 @@ import {
   bulkToolbarScale,
   floatingToolbarTransform,
 } from "@/components/editor/toolbar/primitives"
+import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 
 import {
   ARROW_ENDPOINT_HANDLES,
@@ -107,100 +108,48 @@ export function AnnotationShapeElement({
   const [isAdjustingArrowEndpoint, setIsAdjustingArrowEndpoint] =
     React.useState(false)
   const [isRotating, setIsRotating] = React.useState(false)
-  const [hideFloatingToolbar, setHideFloatingToolbar] = React.useState(false)
-  const [shouldAnimatePositionMove, setShouldAnimatePositionMove] =
-    React.useState(false)
-  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
   const [elementSize, setElementSize] = React.useState({
     width: 120,
     height: 48,
   })
   const rotation = shape.rotation ?? 0
 
-  React.useEffect(() => {
-    const onHideToolbar = (event: Event) => {
-      const detail = (
-        event as CustomEvent<{
-          kind?: string
-          id?: string
-          durationMs?: number
-        }>
-      ).detail
-      if (detail?.kind !== "annotation" || detail.id !== shape.id) return
-      setHideFloatingToolbar(true)
-      const durationMs = detail.durationMs ?? 320
-      setShouldAnimatePositionMove(true)
-      window.setTimeout(() => setHideFloatingToolbar(false), durationMs)
-      window.setTimeout(() => setShouldAnimatePositionMove(false), durationMs)
-    }
-
-    window.addEventListener(
-      "beautiful-screenshots:hide-floating-toolbar",
-      onHideToolbar
-    )
-    return () => {
-      window.removeEventListener(
-        "beautiful-screenshots:hide-floating-toolbar",
-        onHideToolbar
-      )
-    }
-  }, [shape.id])
+  const { toolbarRect, hideFloatingToolbar, shouldAnimatePositionMove, measureRect, setToolbarRect } =
+    useFloatingToolbarRect({
+      elRef,
+      isSelected,
+      bulkCanvasDragging,
+      kind: "annotation",
+      elementId: shape.id,
+      trackPositionAnimate: true,
+      onResize: (el) => {
+        setElementSize((current) => {
+          const width = Math.max(1, el.offsetWidth)
+          const height = Math.max(1, el.offsetHeight)
+          if (
+            Math.abs(current.width - width) < 0.5 &&
+            Math.abs(current.height - height) < 0.5
+          ) {
+            return current
+          }
+          return { width, height }
+        })
+      },
+    })
 
   React.useEffect(() => {
-    if (!elRef.current) {
-      return
-    }
-    const el = elRef.current
-    const update = () => {
-      const rect = el.getBoundingClientRect()
-      if (bulkCanvasDragging) setToolbarRect(null)
-      else if (isSelected) setToolbarRect(rect)
-      setElementSize((current) => {
-        const width = Math.max(1, el.offsetWidth)
-        const height = Math.max(1, el.offsetHeight)
-        if (
-          Math.abs(current.width - width) < 0.5 &&
-          Math.abs(current.height - height) < 0.5
-        ) {
-          return current
-        }
-        return { width, height }
-      })
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener("scroll", update, true)
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("scroll", update, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [bulkCanvasDragging, isSelected])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || !elRef.current) return
-    setToolbarRect(elRef.current.getBoundingClientRect())
+    if (bulkCanvasDragging || !isSelected) return
+    measureRect()
   }, [
     bulkCanvasDragging,
     isSelected,
+    measureRect,
     shape.xPct,
     shape.yPct,
     shape.widthPct,
     shape.heightPct,
     rotation,
   ])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || hideFloatingToolbar || !elRef.current)
-      return
-    const id = window.requestAnimationFrame(() => {
-      if (!elRef.current) return
-      setToolbarRect(elRef.current.getBoundingClientRect())
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [bulkCanvasDragging, hideFloatingToolbar, isSelected, shape.id])
 
   React.useEffect(() => {
     if (!isSelected) return

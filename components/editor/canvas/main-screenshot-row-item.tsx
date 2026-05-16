@@ -17,6 +17,7 @@ import {
 } from "@/components/editor/toolbar/primitives"
 import { isBrowserFrame } from "@/lib/browser-frame"
 import type { DeviceFrame, EditorTool } from "@/lib/editor/store"
+import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
 
 import { BoxHoverActions } from "./box-hover-actions"
@@ -99,54 +100,29 @@ export function MainScreenshotRowItem({
   onPointerUp,
 }: MainScreenshotRowItemProps) {
   const rowRef = React.useRef<HTMLDivElement | null>(null)
-  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
+
+  const { toolbarRect, hideFloatingToolbar, measureRect } = useFloatingToolbarRect({
+    elRef: rowRef,
+    isSelected,
+    bulkCanvasDragging,
+    kind: "screenshot",
+    elementId: null,
+  })
 
   React.useEffect(() => {
-    if (
-      bulkCanvasDragging ||
-      !isSelected ||
-      activeTool !== "pointer" ||
-      !rowRef.current
-    ) {
-      setToolbarRect(null)
-      return
-    }
-
-    const el = rowRef.current
-    const update = () => setToolbarRect(el.getBoundingClientRect())
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener("scroll", update, true)
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("scroll", update, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [bulkCanvasDragging, isSelected, activeTool])
-
-  React.useEffect(() => {
-    if (
-      bulkCanvasDragging ||
-      !isSelected ||
-      activeTool !== "pointer" ||
-      !rowRef.current
-    ) {
-      return
-    }
-    setToolbarRect(rowRef.current.getBoundingClientRect())
+    if (bulkCanvasDragging || !isSelected) return
+    measureRect()
   }, [
     bulkCanvasDragging,
     isSelected,
-    activeTool,
+    measureRect,
     offset.x,
     offset.y,
     style.left,
     style.top,
   ])
 
-  const baseTransform = (style.transform as string | undefined) ?? ""
+  const baseTransform = (style.transform) ?? ""
   const mergedStyle: React.CSSProperties = {
     ...style,
     transform:
@@ -194,7 +170,7 @@ export function MainScreenshotRowItem({
             style={{
               opacity: imgStyle.opacity as number | undefined,
               mixBlendMode:
-                imgStyle.mixBlendMode as React.CSSProperties["mixBlendMode"],
+                imgStyle.mixBlendMode,
               borderRadius: selectionRadius,
             }}
           >
@@ -248,7 +224,7 @@ export function MainScreenshotRowItem({
 
       {isSelected &&
       !bulkCanvasDragging &&
-      activeTool === "pointer" &&
+      !hideFloatingToolbar &&
       toolbarRect &&
       typeof document !== "undefined"
         ? createPortal(

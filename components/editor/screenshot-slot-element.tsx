@@ -35,6 +35,7 @@ import {
   type ScreenshotSlot,
   useEditor,
 } from "@/lib/editor/store"
+import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
 
 type DragState = {
@@ -106,46 +107,23 @@ export function ScreenshotSlotView({
   const dragRef = React.useRef<DragState | null>(null)
   const [isBeingDragged, setIsBeingDragged] = React.useState(false)
   const [isDragOver, setIsDragOver] = React.useState(false)
-  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
-  const [hideFloatingToolbar, setHideFloatingToolbar] = React.useState(false)
+
+  const { toolbarRect, hideFloatingToolbar, measureRect, setToolbarRect } =
+    useFloatingToolbarRect({
+      elRef,
+      isSelected,
+      bulkCanvasDragging,
+      kind: "slot",
+      elementId: slot.id,
+    })
 
   React.useEffect(() => {
-    const onHideToolbar = (event: Event) => {
-      const detail = (event as CustomEvent<{ kind?: string; id?: string; durationMs?: number }>).detail
-      if (detail?.kind !== "slot" || detail.id !== slot.id) return
-      setHideFloatingToolbar(true)
-      const durationMs = detail.durationMs ?? 320
-      window.setTimeout(() => setHideFloatingToolbar(false), durationMs)
-    }
-    window.addEventListener("beautiful-screenshots:hide-floating-toolbar", onHideToolbar)
-    return () => window.removeEventListener("beautiful-screenshots:hide-floating-toolbar", onHideToolbar)
-  }, [slot.id])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || !elRef.current) {
-      setToolbarRect(null)
-      return
-    }
-    const el = elRef.current
-    const update = () => setToolbarRect(el.getBoundingClientRect())
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener("scroll", update, true)
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("scroll", update, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [bulkCanvasDragging, isSelected])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || !elRef.current) return
-    setToolbarRect(elRef.current.getBoundingClientRect())
+    if (bulkCanvasDragging || !isSelected) return
+    measureRect()
   }, [
     bulkCanvasDragging,
     isSelected,
+    measureRect,
     slot.xPct,
     slot.yPct,
     slot.widthPct,
@@ -155,15 +133,6 @@ export function ScreenshotSlotView({
     rowLayout?.widthPct,
     rowLayout?.xPct,
   ])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || hideFloatingToolbar || !elRef.current) return
-    const id = window.requestAnimationFrame(() => {
-      if (!elRef.current) return
-      setToolbarRect(elRef.current.getBoundingClientRect())
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [bulkCanvasDragging, hideFloatingToolbar, isSelected, slot.id])
 
   const select = (e: { stopPropagation: () => void }) => {
     e.stopPropagation()

@@ -10,6 +10,7 @@ import {
   floatingToolbarTransform,
 } from "@/components/editor/toolbar/primitives"
 import { type TextElement, pickContrastColorAtPosition, useEditor } from "@/lib/editor/store"
+import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -66,14 +67,19 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
   const isSelected = selectedTextId === text.id
   const [editingRequested, setEditingRequested] = React.useState(false)
   const [isDragging, setIsDragging] = React.useState(false)
-  const [hideFloatingToolbar, setHideFloatingToolbar] = React.useState(false)
-  const [shouldAnimatePositionMove, setShouldAnimatePositionMove] =
-    React.useState(false)
   const [isRotateSnapped, setIsRotateSnapped] = React.useState(false)
   const isEditing = isSelected && editingRequested
   const elRef = React.useRef<HTMLDivElement>(null)
-  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
   const editorRef = React.useRef<HTMLDivElement>(null)
+  const { toolbarRect, hideFloatingToolbar, shouldAnimatePositionMove, measureRect, setToolbarRect } =
+    useFloatingToolbarRect({
+      elRef,
+      isSelected,
+      bulkCanvasDragging,
+      kind: "text",
+      elementId: text.id,
+      trackPositionAnimate: true,
+    })
   const dragRef = React.useRef<DragState | null>(null)
   const rotateRef = React.useRef<RotateState | null>(null)
   const resizeRef = React.useRef<ResizeState | null>(null)
@@ -100,36 +106,6 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     sel?.addRange(range)
   }, [isEditing, text.content])
 
-  React.useEffect(() => {
-    const onHideToolbar = (
-      event: Event
-    ) => {
-      const detail = (
-        event as CustomEvent<{
-          kind?: string
-          id?: string
-          durationMs?: number
-        }>
-      ).detail
-      if (detail?.kind !== "text" || detail.id !== text.id) return
-      setHideFloatingToolbar(true)
-      const durationMs = detail.durationMs ?? 320
-      setShouldAnimatePositionMove(true)
-      window.setTimeout(() => setHideFloatingToolbar(false), durationMs)
-      window.setTimeout(() => setShouldAnimatePositionMove(false), durationMs)
-    }
-
-    window.addEventListener(
-      "beautiful-screenshots:hide-floating-toolbar",
-      onHideToolbar
-    )
-    return () => {
-      window.removeEventListener(
-        "beautiful-screenshots:hide-floating-toolbar",
-        onHideToolbar
-      )
-    }
-  }, [text.id])
 
   React.useEffect(() => {
     const selectText = (event: Event) => {
@@ -192,32 +168,13 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [background, screenshot])
 
-  /* ---- Track text bounding rect so the toolbar (rendered in a portal) tracks the text ---- */
   React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || !elRef.current) {
-      setToolbarRect(null)
-      return
-    }
-    const el = elRef.current
-    const update = () => setToolbarRect(el.getBoundingClientRect())
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener("scroll", update, true)
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("scroll", update, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [bulkCanvasDragging, isSelected])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || !elRef.current) return
-    setToolbarRect(elRef.current.getBoundingClientRect())
+    if (bulkCanvasDragging || !isSelected) return
+    measureRect()
   }, [
     bulkCanvasDragging,
     isSelected,
+    measureRect,
     text.xPct,
     text.yPct,
     text.rotation,
@@ -228,16 +185,6 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     text.widthPx,
     text.heightPx,
   ])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || hideFloatingToolbar || !elRef.current)
-      return
-    const id = window.requestAnimationFrame(() => {
-      if (!elRef.current) return
-      setToolbarRect(elRef.current.getBoundingClientRect())
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [bulkCanvasDragging, hideFloatingToolbar, isSelected, text.id])
 
   /* ---- Drag (move) ---- */
 
@@ -251,7 +198,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     setSelectedTextId(t.id)
     setSelectedAnnotationShapeId(null)
     setEditingRequested(false)
-    ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
+    ;(e.currentTarget).setPointerCapture?.(e.pointerId)
     const rect = canvas.getBoundingClientRect()
     dragRef.current = {
       pointerId: e.pointerId,
@@ -263,7 +210,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
       canvasH: rect.height,
       moved: false,
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [canvasRef, setSelectedAnnotationShapeId, setSelectedTextId])
 
   const moveDrag = React.useCallback((e: React.PointerEvent<Element>) => {
@@ -640,7 +587,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
         <div data-export-hidden="true" className="contents">
           {/* Snapping Guidelines */}
           {isRotateSnapped && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[-1] flex items-center justify-center">
+            <div className="pointer-events-none absolute top-1/2 left-1/2 z-[-1] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
               <div className="absolute w-[4000px] border-t border-dashed border-[#9BCD64]/95" />
               <div className="absolute h-[4000px] border-l border-dashed border-[#9BCD64]/95" />
             </div>
@@ -654,7 +601,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
             onPointerUp={endRotate}
             onPointerCancel={endRotate}
             onClick={(e) => e.stopPropagation()}
-            className="absolute -bottom-9 left-1/2 z-10 flex size-7 items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md cursor-grab"
+            className="absolute -bottom-9 left-1/2 z-10 flex size-7 cursor-grab items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md"
             style={{
               transform: `translate(-50%, 0) ${counterRotate}`,
               transformOrigin: "top center",

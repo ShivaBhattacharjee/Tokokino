@@ -566,7 +566,7 @@ function DefaultToolbarContents() {
 
   const handlePositionClick = (posId: ScreenshotPosition) => {
     const emitHideFloatingToolbar = (
-      kind: "text" | "asset" | "annotation" | "slot",
+      kind: "text" | "asset" | "annotation" | "slot" | "screenshot",
       id: string
     ) => {
       window.dispatchEvent(
@@ -613,6 +613,7 @@ function DefaultToolbarContents() {
       const y = ((anchor.y - 50) / 50) * CANVAS_POS_SPREAD
       setCanvasPosition(activeCanvasId, { x, y })
     } else if (positionTarget === "screenshot") {
+      emitHideFloatingToolbar("screenshot", "")
       if (screenshotSlots.length > 0) {
         setScreenshotPlacement(
           posId,

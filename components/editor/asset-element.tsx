@@ -29,6 +29,7 @@ import {
   assetFilterCss,
   useEditor,
 } from "@/lib/editor/store"
+import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
 
 type DragState = {
@@ -86,83 +87,32 @@ export function AssetElementView({
   const imgRef = React.useRef<HTMLImageElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
   const resizeRef = React.useRef<ResizeState | null>(null)
-  const [toolbarRect, setToolbarRect] = React.useState<DOMRect | null>(null)
-  const [hideFloatingToolbar, setHideFloatingToolbar] = React.useState(false)
-  const [shouldAnimatePositionMove, setShouldAnimatePositionMove] =
-    React.useState(false)
   const [isDragging, setIsDragging] = React.useState(false)
   const [isResizing, setIsResizing] = React.useState(false)
 
-  React.useEffect(() => {
-    const onHideToolbar = (event: Event) => {
-      const detail = (
-        event as CustomEvent<{
-          kind?: string
-          id?: string
-          durationMs?: number
-        }>
-      ).detail
-      if (detail?.kind !== "asset" || detail.id !== asset.id) return
-      setHideFloatingToolbar(true)
-      const durationMs = detail.durationMs ?? 320
-      setShouldAnimatePositionMove(true)
-      window.setTimeout(() => setHideFloatingToolbar(false), durationMs)
-      window.setTimeout(() => setShouldAnimatePositionMove(false), durationMs)
-    }
-
-    window.addEventListener(
-      "beautiful-screenshots:hide-floating-toolbar",
-      onHideToolbar
-    )
-    return () => {
-      window.removeEventListener(
-        "beautiful-screenshots:hide-floating-toolbar",
-        onHideToolbar
-      )
-    }
-  }, [asset.id])
+  const { toolbarRect, hideFloatingToolbar, shouldAnimatePositionMove, measureRect, setToolbarRect } =
+    useFloatingToolbarRect({
+      elRef,
+      isSelected,
+      bulkCanvasDragging,
+      kind: "asset",
+      elementId: asset.id,
+      trackPositionAnimate: true,
+    })
 
   React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || !elRef.current) {
-      setToolbarRect(null)
-      return
-    }
-    const el = elRef.current
-    const update = () => setToolbarRect(el.getBoundingClientRect())
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener("scroll", update, true)
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("scroll", update, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [bulkCanvasDragging, isSelected])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || !elRef.current) return
-    setToolbarRect(elRef.current.getBoundingClientRect())
+    if (bulkCanvasDragging || !isSelected) return
+    measureRect()
   }, [
     bulkCanvasDragging,
     isSelected,
+    measureRect,
     asset.xPct,
     asset.yPct,
     asset.widthPct,
     asset.heightPct,
     asset.rotation,
   ])
-
-  React.useEffect(() => {
-    if (bulkCanvasDragging || !isSelected || hideFloatingToolbar || !elRef.current)
-      return
-    const id = window.requestAnimationFrame(() => {
-      if (!elRef.current) return
-      setToolbarRect(elRef.current.getBoundingClientRect())
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [asset.id, bulkCanvasDragging, hideFloatingToolbar, isSelected])
 
   const select = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -215,7 +165,7 @@ export function AssetElementView({
       moved: false,
     }
     setIsDragging(true)
-    ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    ;(e.currentTarget).setPointerCapture(e.pointerId)
   }
 
   const moveDrag = (e: React.PointerEvent<Element>) => {
