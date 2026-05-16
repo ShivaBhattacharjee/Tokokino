@@ -63,9 +63,11 @@ type ResizeState = {
 export function AssetElementView({
   asset,
   canvasRef,
+  previewMode,
 }: {
   asset: AssetElement
   canvasRef: React.RefObject<HTMLDivElement | null>
+  previewMode?: boolean
 }) {
   const {
     selectedAssetId,
@@ -342,11 +344,11 @@ export function AssetElementView({
           className={cn(
             "block h-full w-full select-none",
             asset.heightPct != null ? "object-fill" : "object-contain",
-            isSelected &&
+            isSelected && !previewMode &&
               "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
           )}
         />
-        {isSelected ? (
+        {isSelected && !previewMode ? (
           <>
             {/* Resize handles - 4 edges + 4 corners */}
             {(
@@ -430,7 +432,8 @@ export function AssetElementView({
         ) : null}
       </div>
 
-      {!bulkCanvasDragging &&
+      {!previewMode &&
+      !bulkCanvasDragging &&
       isSelected &&
       toolbarRect &&
       typeof document !== "undefined"

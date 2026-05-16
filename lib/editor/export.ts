@@ -2,6 +2,7 @@ import { toPng, toJpeg, toBlob } from "html-to-image"
 
 export type ExportFormat = "png" | "jpeg" | "webp"
 export type ExportResolution = "hd" | "4k" | "8k"
+export type CopyResolution = "1080p"
 
 export const EXPORT_RESOLUTION_WIDTHS: Record<ExportResolution, number> = {
   hd: 1920,
@@ -25,6 +26,10 @@ export const EXPORT_FORMAT_EXTENSION: Record<ExportFormat, string> = {
   png: ".png",
   jpeg: ".jpeg",
   webp: ".webp",
+}
+
+export const COPY_RESOLUTION_WIDTHS: Record<CopyResolution, number> = {
+  "1080p": 1080,
 }
 
 function findCanvasElement(canvasId: string): HTMLElement | null {
@@ -101,6 +106,7 @@ export async function exportCanvas(
       --tw-ring-offset-shadow: 0 0 #0000 !important;
     }
     [data-export-hidden="true"] { display: none !important; }
+    [data-selection-border="true"] { border: none !important; }
   `
   document.head.appendChild(exportStyle)
 
@@ -152,6 +158,62 @@ export async function exportCanvas(
     } finally {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
     }
+  } finally {
+    exportStyle.remove()
+  }
+}
+
+export async function copyCanvasAsPng(
+  canvasId: string,
+  resolution: CopyResolution = "1080p"
+): Promise<void> {
+  const node = findCanvasElement(canvasId)
+  if (!node) throw new Error("Canvas not found")
+  if (!navigator?.clipboard?.write) {
+    throw new Error("Clipboard write is not supported")
+  }
+
+  const rect = node.getBoundingClientRect()
+  const renderedWidth = rect.width || node.offsetWidth
+  if (!renderedWidth) throw new Error("Canvas has zero width")
+
+  const targetWidth = COPY_RESOLUTION_WIDTHS[resolution]
+  const pixelRatio = targetWidth / renderedWidth
+
+  const filterExportHidden = (node: Node) => {
+    if (node instanceof Element) {
+      if (node.getAttribute("data-export-hidden") === "true") return false
+    }
+    return true
+  }
+
+  const exportStyle = document.createElement("style")
+  exportStyle.id = "__export-override"
+  exportStyle.textContent = `
+    * {
+      outline: none !important;
+      caret-color: transparent !important;
+      --tw-ring-shadow: 0 0 #0000 !important;
+      --tw-ring-offset-shadow: 0 0 #0000 !important;
+    }
+    [data-export-hidden="true"] { display: none !important; }
+    [data-selection-border="true"] { border: none !important; }
+  `
+  document.head.appendChild(exportStyle)
+
+  try {
+    const blob = await toBlob(node, {
+      pixelRatio,
+      cacheBust: true,
+      filter: filterExportHidden,
+    })
+    if (!blob) throw new Error("Could not capture canvas")
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "image/png": blob,
+      }),
+    ])
   } finally {
     exportStyle.remove()
   }

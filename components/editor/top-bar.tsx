@@ -46,6 +46,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
+  copyCanvasAsPng,
   EXPORT_FORMAT_EXTENSION,
   EXPORT_FORMAT_LABELS,
   EXPORT_RESOLUTION_LABELS,
@@ -90,6 +91,21 @@ export function TopBar() {
   const [showDisableDialog, setShowDisableDialog] = React.useState(false)
   const canvases = useEditorStore((s) => s.present.canvases)
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const [isCopyingPng, setIsCopyingPng] = React.useState(false)
+
+  const handleCopyPng = React.useCallback(async () => {
+    if (isCopyingPng) return
+    setIsCopyingPng(true)
+    try {
+      await copyCanvasAsPng(activeCanvasId, "1080p")
+      toast("Copied PNG · 1080p")
+    } catch (err) {
+      console.error(err)
+      toast("Copy failed")
+    } finally {
+      setIsCopyingPng(false)
+    }
+  }, [activeCanvasId, isCopyingPng])
 
   const handleBulkEditClick = () => {
     if (!bulkEditMode) {
@@ -254,7 +270,9 @@ export function TopBar() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => toast("Image copied to clipboard")}
+                onClick={handleCopyPng}
+                disabled={isCopyingPng}
+                className="w-[104px]"
               >
                 <RiFileCopyLine />
                 Copy
@@ -268,6 +286,8 @@ export function TopBar() {
         <MobileOverflowMenu
           bulkEditMode={bulkEditMode}
           onBulkEditClick={handleBulkEditClick}
+          onCopyPng={handleCopyPng}
+          isCopyingPng={isCopyingPng}
         />
 
         {/* Export (always visible) */}
@@ -312,14 +332,12 @@ function ExportControls() {
         size="lg"
         disabled={isExporting}
         className={cn(
-          "h-8 rounded-r-none px-3 text-[12px] font-medium text-white"
+          "h-8 w-[112px] rounded-r-none px-3 text-[12px] font-medium text-white"
         )}
         onClick={handleExport}
       >
         <RiDownload2Line />
-        <span className="hidden sm:inline">
-          {isExporting ? "Exporting…" : "Export"}
-        </span>
+        <span className="hidden sm:inline">Export</span>
       </Button>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -601,9 +619,13 @@ function TopBarButton({
 function MobileOverflowMenu({
   bulkEditMode,
   onBulkEditClick,
+  onCopyPng,
+  isCopyingPng,
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
+  onCopyPng: () => void
+  isCopyingPng: boolean
 }) {
   const {
     undo,
@@ -723,9 +745,9 @@ function MobileOverflowMenu({
             <RiShareForwardLine />
             Copy link
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toast("Image copied to clipboard")}>
+          <DropdownMenuItem onClick={onCopyPng} disabled={isCopyingPng}>
             <RiFileCopyLine />
-            Copy as PNG
+            {isCopyingPng ? "Copying PNG…" : "Copy as PNG"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

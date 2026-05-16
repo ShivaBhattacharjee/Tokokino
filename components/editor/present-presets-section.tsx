@@ -422,10 +422,10 @@ function PresentPresetPreview({
           />
         ))}
         {canvas.assets.map((a) => (
-          <AssetElementView key={a.id} asset={a} canvasRef={nullCanvasRef} />
+          <AssetElementView key={a.id} asset={a} canvasRef={nullCanvasRef} previewMode />
         ))}
         {canvas.texts.map((t) => (
-          <TextElementView key={t.id} text={t} canvasRef={nullCanvasRef} />
+          <TextElementView key={t.id} text={t} canvasRef={nullCanvasRef} previewMode />
         ))}
         {[...canvas.annotationShapes]
           .sort((a, b) => a.zIndex - b.zIndex)
@@ -434,6 +434,7 @@ function PresentPresetPreview({
               key={shape.id}
               shape={shape}
               canvasRef={nullCanvasRef}
+              previewMode
             />
           ))}
         {canvas.annotations

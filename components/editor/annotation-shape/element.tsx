@@ -75,10 +75,12 @@ export function AnnotationShapeElement({
   shape,
   canvasRef,
   onCenterGuideChange,
+  previewMode,
 }: {
   shape: AnnotationShape
   canvasRef: React.RefObject<HTMLDivElement | null>
   onCenterGuideChange?: (guides: { x: boolean; y: boolean }) => void
+  previewMode?: boolean
 }) {
   const {
     selectedAnnotationShapeId,
@@ -567,7 +569,7 @@ export function AnnotationShapeElement({
           </svg>
         )}
       </div>
-      {isSelected ? (
+      {isSelected && !previewMode ? (
         <div
           ref={selectionChromeRef}
           data-annotation-selection-chrome-id={shape.id}
@@ -638,7 +640,8 @@ export function AnnotationShapeElement({
           </button>
         </div>
       ) : null}
-      {!bulkCanvasDragging &&
+      {!previewMode &&
+      !bulkCanvasDragging &&
       isSelected &&
       toolbarRect &&
       typeof document !== "undefined"

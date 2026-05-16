@@ -16,6 +16,7 @@ type Props = {
   text: TextElement
   canvasRef: React.RefObject<HTMLDivElement | null>
   onCenterGuideChange?: (guides: { x: boolean; y: boolean }) => void
+  previewMode?: boolean
 }
 
 type DragState = {
@@ -59,7 +60,7 @@ type ResizeState = {
 
 const DRAG_THRESHOLD = 4
 
-export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props) {
+export function TextElementView({ text, canvasRef, onCenterGuideChange, previewMode }: Props) {
   const { canvasZoom, selectedTextId, setSelectedTextId, setSelectedAnnotationShapeId, updateText, deleteText, screenshot, background, bulkEditMode, bulkCanvasDragging, bulkViewportZoom } =
     useEditor()
   const isSelected = selectedTextId === text.id
@@ -587,7 +588,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
         }
       } : undefined}
     >
-      {isSelected && !isEditing ? (
+      {isSelected && !isEditing && !previewMode ? (
         <div data-export-hidden="true" className="contents">
           {/* Snapping Guidelines */}
           {isRotateSnapped && (
@@ -701,6 +702,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
             "whitespace-pre-wrap break-words px-2 py-1",
             showBorder && "rounded-md"
           )}
+          data-selection-border={!text.borderColor && isSelected ? "true" : undefined}
           style={{
             fontFamily: text.fontFamily,
             fontSize: text.fontSize,
@@ -723,7 +725,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange }: Props)
         </div>
       )}
     </div>
-    {!bulkCanvasDragging && isSelected && toolbarRect && typeof document !== "undefined"
+    {!previewMode && !bulkCanvasDragging && isSelected && toolbarRect && typeof document !== "undefined"
       ? createPortal(
           (() => {
             const flipBelow = toolbarRect.top < 80
