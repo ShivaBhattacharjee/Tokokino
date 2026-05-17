@@ -999,6 +999,7 @@ function CanvasFrameContent({
       onDelete={() => undefined}
       screenshotAnchor={screenshotAnchor}
       screenshotOffset={screenshotOffset}
+      objectFit={canvas.objectFit ?? "contain"}
       applyTransformWhenEmpty
       emptyCompact={emptyCompact}
       aspectW={aspectW}
@@ -1102,6 +1103,7 @@ function PresentSlot({
             onCrop={() => undefined}
             onReplaceFile={() => undefined}
             onDelete={() => undefined}
+            objectFit={slot.objectFit ?? "contain"}
             applyTransformWhenEmpty
             emptyCompact
           />
