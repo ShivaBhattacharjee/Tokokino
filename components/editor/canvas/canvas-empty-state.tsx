@@ -28,7 +28,7 @@ export function CanvasEmptyState({
       data-drag-over={isDragOver}
       data-active={isActive}
       className={cn(
-        "pointer-events-auto relative flex h-full w-full items-center justify-center text-white transition-all duration-300",
+        "pointer-events-auto relative flex h-full w-full items-center justify-center text-foreground transition-all duration-300",
         !previewStyle && "px-4 py-3 sm:px-6 md:px-8",
         "data-[drag-over=true]:scale-[1.005]"
       )}
@@ -38,7 +38,7 @@ export function CanvasEmptyState({
         data-drag-over={isDragOver}
         data-active={isActive}
         className={cn(
-          "flex h-full w-full items-center justify-center rounded-3xl border border-white/8",
+          "flex h-full w-full items-center justify-center rounded-3xl border border-border/30 dark:border-white/8",
           "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35"
         )}
       >

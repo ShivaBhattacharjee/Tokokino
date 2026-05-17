@@ -40,13 +40,13 @@ export function BoxEmptyState({
   if (presentational) {
     return (
       <EmptyStateBackdrop
-        className="pointer-events-none flex items-center justify-center p-[3cqw] text-white"
+        className="pointer-events-none flex items-center justify-center p-[3cqw] text-foreground"
         style={{ containerType: "inline-size" }}
       >
         <span
           aria-hidden
           style={rotationStyle}
-          className="grid size-[18cqw] max-h-16 min-h-7 max-w-16 min-w-7 place-items-center rounded-xl border-2 border-primary bg-neutral-900/95 text-white shadow-lg"
+          className="grid size-[18cqw] max-h-16 min-h-7 max-w-16 min-w-7 place-items-center rounded-xl border-2 border-primary bg-background/95 text-foreground shadow-lg dark:bg-neutral-900/95"
         >
           <RiAddLine className="size-[55%]" />
         </span>
@@ -58,7 +58,7 @@ export function BoxEmptyState({
     <EmptyStateBackdrop
       data-drag-over={isDragOver}
       className={cn(
-        "@container flex items-center justify-center p-[3cqw] text-white transition-all",
+        "@container flex items-center justify-center p-[3cqw] text-foreground transition-all",
         "data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/40"
       )}
       style={{ containerType: "inline-size" }}
