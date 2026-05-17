@@ -45,7 +45,7 @@ try {
 }
 
 const REQUIRED_ENV = [
-  "NEXT_PUBLIC_OVERLAYS_BASE_URL",
+  "NEXT_PUBLIC_R2_PUBLIC_BASE",
   "R2_S3_ENDPOINT",
   "R2_BUCKET",
   "R2_ACCESS_KEY_ID",
@@ -59,17 +59,14 @@ for (const k of REQUIRED_ENV) {
 }
 
 const {
-  NEXT_PUBLIC_OVERLAYS_BASE_URL,
+  NEXT_PUBLIC_R2_PUBLIC_BASE,
   R2_S3_ENDPOINT,
   R2_BUCKET,
   R2_ACCESS_KEY_ID,
   R2_SECRET_ACCESS_KEY,
 } = process.env
 
-// Derive bucket public base from the overlays URL by stripping the trailing path.
-const PUBLIC_BASE =
-  process.env.NEXT_PUBLIC_R2_PUBLIC_BASE?.replace(/\/$/, "") ??
-  NEXT_PUBLIC_OVERLAYS_BASE_URL.replace(/\/[^/]+\/?$/, "").replace(/\/$/, "")
+const PUBLIC_BASE = NEXT_PUBLIC_R2_PUBLIC_BASE.replace(/\/$/, "")
 
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 const THUMB_QUALITY = Number(process.env.THUMB_QUALITY ?? 75)
@@ -85,6 +82,7 @@ const CATEGORIES = [
   { dir: "Raycast", key: "raycast", label: "Raycast" },
   // 16:9 to match the dominant source ratio for Mac wallpapers.
   { dir: "Mac", key: "mac", label: "Mac", aspectRatio: 16 / 9 },
+  { dir: "Cloud", key: "cloud", label: "Cloud" },
 ]
 
 const SUPPORTED = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif"])

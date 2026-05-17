@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import InfiniteScroll from "react-infinite-scroll-component"
 import {
   RiArrowRightLine,
+  RiCloudLine,
   RiContrastLine,
   RiDropLine,
   RiEqualizerLine,
@@ -235,6 +236,8 @@ function backgroundCategoryIcon(key: string) {
       return RiFocus2Line
     case "mac":
       return RiMacLine
+    case "cloud":
+      return RiCloudLine
     default:
       return RiImageLine
   }
