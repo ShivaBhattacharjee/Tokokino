@@ -242,13 +242,24 @@ export function mockupScreenClipStyle(
 
 export function frameFitStyle(
   aspectRatio: string,
-  rotation = 0
+  rotation = 0,
+  options: { scopeToMinSide?: boolean; fitFraction?: number } = {}
 ): React.CSSProperties {
   const ratio = parseAspectRatio(aspectRatio) ?? 16 / 10
   const normalizedRotation = Math.abs(rotation % 180)
+  const { scopeToMinSide = false, fitFraction = 0.85 } = options
 
   if (normalizedRotation === 90) {
     const inverseRatio = 1 / ratio
+    if (scopeToMinSide) {
+      return {
+        aspectRatio,
+        width: "auto",
+        height: `min(100cqw, calc(100cqh * ${fitFraction} * ${inverseRatio}))`,
+        maxWidth: "none",
+        maxHeight: "none",
+      }
+    }
     return {
       aspectRatio,
       width: "auto",
@@ -258,6 +269,13 @@ export function frameFitStyle(
     }
   }
 
+  if (scopeToMinSide) {
+    return {
+      aspectRatio,
+      width: `min(100cqw, calc(100cqh * ${fitFraction} * ${ratio}))`,
+      height: "auto",
+    }
+  }
   return {
     aspectRatio,
     width: `min(100cqw, calc(100cqh * ${ratio}))`,

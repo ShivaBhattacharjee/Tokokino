@@ -11,6 +11,7 @@ import type {
 import { getDeviceMockup, getDeviceMockupAsset } from "@/lib/mockups"
 
 import { BoxEmptyState } from "./box-empty-state"
+import { CanvasEmptyState } from "./canvas-empty-state"
 import { MockupEmptyState } from "./mockup-empty-state"
 import { deviceMockupSpec, framePositionTransform } from "./helpers"
 import { ScreenshotBare } from "./screenshot-bare"
@@ -50,6 +51,12 @@ type ScreenshotFrameContentProps = {
   /** Show a compact icon trigger instead of the full upload card */
   emptyCompact?: boolean
   objectFit?: "contain" | "cover" | "fill"
+  /** Canvas aspect ratio width — used to size the empty box on portrait canvases. */
+  aspectW?: number
+  /** Canvas aspect ratio height — used to size the empty box on portrait canvases. */
+  aspectH?: number
+  /** Cap the mockup empty frame to the smaller canvas dimension (canvas-level only). */
+  mockupScopeToMinSide?: boolean
 }
 
 const CENTER_ANCHOR = { x: 50, y: 50 }
@@ -97,6 +104,9 @@ export function ScreenshotFrameContent({
   applyTransformWhenEmpty = false,
   emptyCompact = false,
   objectFit = "contain",
+  aspectW,
+  aspectH,
+  mockupScopeToMinSide = false,
 }: ScreenshotFrameContentProps) {
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
@@ -251,6 +261,7 @@ export function ScreenshotFrameContent({
     return (
       <MockupEmptyState
         compact={emptyCompact}
+        scopeToMinSide={mockupScopeToMinSide}
         mockupAsset={mockupAsset}
         mockupSpec={mockupSpec}
         isDragOver={isDragOver}
@@ -270,6 +281,8 @@ export function ScreenshotFrameContent({
     )
   }
 
+  const hasAspect = (aspectW ?? 0) > 0 && (aspectH ?? 0) > 0
+
   return (
     <div
       data-editor-shadow-box-target={frame.id === "none" ? "" : undefined}
@@ -280,11 +293,22 @@ export function ScreenshotFrameContent({
       }`}
       style={applyTransformWhenEmpty ? bareStyle : emptyBareStyle(bareStyle)}
     >
-      <BoxEmptyState
-        isDragOver={isDragOver}
-        onBrowse={onBrowse}
-        compact={emptyCompact}
-      />
+      {hasAspect ? (
+        <CanvasEmptyState
+          isDragOver={isDragOver}
+          onBrowse={onBrowse}
+          compact={emptyCompact}
+          aspectW={aspectW}
+          aspectH={aspectH}
+          noOuterPadding
+        />
+      ) : (
+        <BoxEmptyState
+          isDragOver={isDragOver}
+          onBrowse={onBrowse}
+          compact={emptyCompact}
+        />
+      )}
     </div>
   )
 }

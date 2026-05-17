@@ -682,6 +682,7 @@ function CanvasViewInner({
                   screenshotAnchor={screenshotAnchor}
                   isScreenshotDragging={isScreenshotDragging}
                   activeTool={activeTool}
+                  scopeToMinSide={screenshotSlots.length === 0}
                   compact={
                     tilt.rx !== 0 ||
                     tilt.ry !== 0 ||

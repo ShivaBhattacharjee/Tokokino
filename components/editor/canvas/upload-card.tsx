@@ -236,11 +236,12 @@ export function UploadCard({
             onClick={(e) => e.stopPropagation()}
             aria-label="Add screenshot"
             className={cn(
-              "pointer-events-auto grid size-16 place-items-center rounded-2xl border-2 border-primary bg-background/95 text-foreground shadow-[0_0_0_4px_rgba(0,0,0,0.08),0_8px_24px_-8px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-all hover:scale-105 hover:bg-accent active:scale-95 data-[state=open]:scale-105 dark:bg-neutral-900/95 dark:text-white dark:shadow-[0_0_0_4px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)]",
+              "pointer-events-auto grid place-items-center rounded-2xl border-2 border-primary bg-background/95 text-foreground shadow-[0_0_0_4px_rgba(0,0,0,0.08),0_8px_24px_-8px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-all hover:scale-105 hover:bg-accent active:scale-95 data-[state=open]:scale-105 dark:bg-neutral-900/95 dark:text-white dark:shadow-[0_0_0_4px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)]",
+              "size-[clamp(3.5rem,11cqw,7rem)]",
               className
             )}
           >
-            <RiAddLine className="size-8" />
+            <RiAddLine className="size-[55%]" />
           </button>
         </PopoverTrigger>
         <PopoverContent

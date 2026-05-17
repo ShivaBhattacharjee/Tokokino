@@ -770,6 +770,8 @@ function PresentPresetPreview({
                 screenshotOffset={canvas.screenshotOffset}
                 stageRef={stageRef}
                 imageRef={imageRef}
+                aspectW={aw}
+                aspectH={ah}
                 emptyCompact={
                   preset.tilt.rx !== 0 ||
                   preset.tilt.ry !== 0 ||
@@ -945,6 +947,8 @@ function CanvasFrameContent({
   stageRef,
   imageRef,
   emptyCompact = false,
+  aspectW,
+  aspectH,
 }: {
   canvas: CanvasState
   contentTransform: string
@@ -953,6 +957,8 @@ function CanvasFrameContent({
   stageRef: React.RefObject<HTMLDivElement | null>
   imageRef: React.RefObject<HTMLImageElement | null>
   emptyCompact?: boolean
+  aspectW?: number
+  aspectH?: number
 }) {
   const enhanceFilter = enhanceFilterCss(canvas.enhance)
   const bareStyle: React.CSSProperties = {
@@ -995,6 +1001,9 @@ function CanvasFrameContent({
       screenshotOffset={screenshotOffset}
       applyTransformWhenEmpty
       emptyCompact={emptyCompact}
+      aspectW={aspectW}
+      aspectH={aspectH}
+      mockupScopeToMinSide={canvas.screenshotSlots.length === 0}
     />
   )
 }

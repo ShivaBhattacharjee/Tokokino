@@ -83,9 +83,9 @@ export function ScreenshotEditMenu({
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-full bg-black/70 text-white shadow-lg ring-1 ring-white/10 backdrop-blur-md transition-all hover:scale-105 hover:bg-black/85"
+            className="pointer-events-auto flex size-11 items-center justify-center rounded-full bg-foreground/85 text-background shadow-lg ring-1 ring-border/60 backdrop-blur-md transition-all hover:scale-105 hover:bg-foreground"
           >
-            <RiPencilLine className="size-4" />
+            <RiPencilLine className="size-5" />
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -95,7 +95,7 @@ export function ScreenshotEditMenu({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           asChild
-          className="w-[320px] rounded-2xl border border-white/10 bg-neutral-900 p-0 text-white shadow-2xl"
+          className="w-[320px] rounded-2xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: -6 }}
@@ -119,7 +119,7 @@ export function ScreenshotEditMenu({
             />
             <div
               className={cn(
-                "grid gap-2 border-t border-white/8 p-2.5",
+                "grid gap-2 border-t border-border/60 p-2.5",
                 showDelete ? "grid-cols-2" : "grid-cols-1"
               )}
             >
@@ -131,7 +131,7 @@ export function ScreenshotEditMenu({
                   handleOpenChange(false)
                   onCrop()
                 }}
-                className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white/[0.06] text-[13px] font-medium text-white/75 transition-all hover:bg-white/10 hover:text-white"
+                className="flex h-10 items-center justify-center gap-2 rounded-lg bg-foreground/[0.06] text-[13px] font-medium text-foreground/75 transition-all hover:bg-foreground/10 hover:text-foreground"
               >
                 <RiCropLine className="size-4" />
                 Crop
@@ -145,7 +145,7 @@ export function ScreenshotEditMenu({
                     handleOpenChange(false)
                     onDelete()
                   }}
-                  className="flex h-10 items-center justify-center gap-2 rounded-lg bg-red-500/10 text-[13px] font-medium text-red-300 transition-all hover:bg-red-500/18 hover:text-red-200"
+                  className="flex h-10 items-center justify-center gap-2 rounded-lg bg-destructive/10 text-[13px] font-medium text-destructive transition-all hover:bg-destructive/18 hover:text-destructive"
                 >
                   <RiDeleteBinLine className="size-4" />
                   Delete

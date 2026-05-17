@@ -33,6 +33,8 @@ type MockupEmptyStateProps = {
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
   compact?: boolean
+  /** Cap frame size to min(cqw, cqh) so it stays consistent across canvas aspect ratios. */
+  scopeToMinSide?: boolean
 }
 
 export function MockupEmptyState({
@@ -52,6 +54,7 @@ export function MockupEmptyState({
   onPointerMove,
   onPointerUp,
   compact = false,
+  scopeToMinSide = false,
 }: MockupEmptyStateProps) {
   const screenRef = React.useRef<HTMLDivElement | null>(null)
   const [stageWidth, setStageWidth] = React.useState<number | undefined>(
@@ -87,7 +90,7 @@ export function MockupEmptyState({
         data-editor-shadow-filter-target
         data-editor-shadow-filter-base={shadowFilter || ""}
         style={{
-          ...frameFitStyle(mockupSpec.aspectRatio, mockupRotation),
+          ...frameFitStyle(mockupSpec.aspectRatio, mockupRotation, { scopeToMinSide }),
           left: "50%",
           top: "50%",
           transform: framePositionTransform({
@@ -120,7 +123,7 @@ export function MockupEmptyState({
               isDragOver={isDragOver}
               onBrowse={onBrowse}
               contentRotation={mockupRotation ? -mockupRotation : 0}
-              compact={compact}
+              compact={compact || !desktopFrame}
               plainWideCard={desktopFrame}
             />
           </div>

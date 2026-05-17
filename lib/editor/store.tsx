@@ -1027,6 +1027,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     addText: (canvasId) => {
       const id = makeId()
+      const state = get()
+      const aw = state.present.aspect.w || 16
+      const ah = state.present.aspect.h || 10
+      const canvasW = CANVAS_BASE_W
+      const canvasH = (CANVAS_BASE_W * ah) / aw
+      const defaultFontSize = Math.round(
+        Math.min(96, Math.max(18, Math.max(canvasW, canvasH) * 0.028))
+      )
       commitCanvas(
         canvasId,
         (canvas) => ({
@@ -1038,7 +1046,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               xPct: 50,
               yPct: 85,
               rotation: 0,
-              fontSize: 18,
+              fontSize: defaultFontSize,
               fontFamily: FONT_FAMILIES[0].css,
               fontWeight: 500,
               lineHeight: 1.3,
