@@ -163,11 +163,7 @@ export function MainScreenshotRowItem({
       >
         <div className="absolute inset-0" style={contentStyle}>
           <div
-            className={cn(
-              "relative h-full w-full",
-              isSelected &&
-                "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
-            )}
+            className="relative h-full w-full"
             style={{
               opacity: imgStyle.opacity as number | undefined,
               mixBlendMode:
@@ -175,6 +171,17 @@ export function MainScreenshotRowItem({
               borderRadius: selectionRadius,
             }}
           >
+            {isSelected ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+                style={{
+                  transform: transform,
+                  transformStyle: "preserve-3d",
+                  borderRadius: selectionRadius,
+                }}
+              />
+            ) : null}
             <ScreenshotFrameContent
               src={screenshot}
               frame={frame}
@@ -206,7 +213,7 @@ export function MainScreenshotRowItem({
             {screenshot && activeTool === "pointer" ? (
               <div
                 className={cn(
-                  "pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
+                  "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
                   editOpen
                     ? "opacity-100"
                     : "opacity-0 group-hover/main-row:opacity-100",
@@ -214,6 +221,11 @@ export function MainScreenshotRowItem({
                     !editOpen &&
                     "!opacity-0"
                 )}
+                style={{
+                  transform: `translate(-50%, -50%) ${transform}`,
+                  transformOrigin: "center",
+                  transformStyle: "preserve-3d",
+                }}
               >
                 <ScreenshotEditMenu
                   open={editOpen}

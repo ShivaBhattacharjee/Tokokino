@@ -1,7 +1,17 @@
 services:
   mongo:
-    image: mongo:7
+    build:
+      context: .
+      dockerfile: docker/mongo/Dockerfile
+    image: noctivy-mongo:7-rs
     container_name: noctivy-mongo
+    command:
+      - mongod
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      - --keyFile
+      - /etc/mongo-keyfile
     restart: unless-stopped
     ports:
       - "27017:27017"
@@ -11,6 +21,15 @@ services:
       MONGO_INITDB_DATABASE: noctivy
     volumes:
       - mongo-data:/data/db
+    healthcheck:
+      test: >
+        mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD"
+        --authenticationDatabase admin
+        --eval 'try { rs.status().ok } catch (err) { rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]}).ok }'
+        | grep 1
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
 volumes:
   mongo-data:

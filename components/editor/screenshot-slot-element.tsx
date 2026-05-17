@@ -374,13 +374,20 @@ export function ScreenshotSlotView({
         >
         <div className="absolute inset-0" style={contentStyle}>
           <div
-            className={cn(
-              "relative h-full w-full",
-              isSelected &&
-                "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
-            )}
+            className="relative h-full w-full"
             style={transformedStyle}
           >
+            {isSelected ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+                style={{
+                  transform: contentTransform,
+                  transformStyle: "preserve-3d",
+                  borderRadius: selectionRadius,
+                }}
+              />
+            ) : null}
             <ScreenshotFrameContent
               src={slot.src}
               frame={slot.frame}
@@ -408,21 +415,29 @@ export function ScreenshotSlotView({
               onCrop={() => onCropRequest(slot.id)}
               onReplaceFile={(file) => void handleFiles([file])}
               onDelete={() => {
-                if (!canDeleteSlot) return
-                deleteScreenshotSlot(slot.id)
-                setSelectedScreenshotSlotId(null)
+                if (canDeleteSlot) {
+                  deleteScreenshotSlot(slot.id)
+                  setSelectedScreenshotSlotId(null)
+                } else {
+                  setScreenshotSlotImage(slot.id, null)
+                }
               }}
             />
 
             {slot.src ? (
               <div
                 className={cn(
-                  "pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
+                  "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
                   slotEditOpen
                     ? "opacity-100"
                     : "opacity-0 group-hover/slot:opacity-100",
                   bulkCanvasDragging && !slotEditOpen && "!opacity-0"
                 )}
+                style={{
+                  transform: `translate(-50%, -50%) ${contentTransform}`,
+                  transformOrigin: "center",
+                  transformStyle: "preserve-3d",
+                }}
               >
                 <ScreenshotEditMenu
                   open={slotEditOpen}
@@ -436,11 +451,13 @@ export function ScreenshotSlotView({
                   onCrop={() => onCropRequest(slot.id)}
                   onReplaceFile={(file) => void handleFiles([file])}
                   onDelete={() => {
-                    if (!canDeleteSlot) return
-                    deleteScreenshotSlot(slot.id)
-                    setSelectedScreenshotSlotId(null)
+                    if (canDeleteSlot) {
+                      deleteScreenshotSlot(slot.id)
+                      setSelectedScreenshotSlotId(null)
+                    } else {
+                      setScreenshotSlotImage(slot.id, null)
+                    }
                   }}
-                  showDelete={canDeleteSlot}
                 />
               </div>
             ) : null}

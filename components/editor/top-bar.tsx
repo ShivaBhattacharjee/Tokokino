@@ -21,14 +21,6 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { MAX_CANVASES, useEditorStore } from "@/lib/editor/store"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -51,7 +43,6 @@ import {
   exportCanvas,
   getOutputDims,
 } from "@/lib/editor/export"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 import {
   Tooltip,
@@ -254,7 +245,7 @@ export function TopBar() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={handleCopyPng}
+                onClick={() => void handleCopyPng()}
               >
                 <RiFileCopyLine />
                 <span className="relative inline-grid [&>span]:col-start-1 [&>span]:row-start-1">
@@ -309,9 +300,7 @@ function ExportControls() {
     if (isExporting) return
     setIsExporting(true)
     try {
-      const ts = Date.now()
-      await exportCanvas(activeCanvasId, format, resolution)
-      const filename = `screenshot_${resolution}_${ts}${EXPORT_FORMAT_EXTENSION[format]}`
+      const filename = await exportCanvas(activeCanvasId, format, resolution)
       toast.success(`Saved as ${filename}`)
     } catch (err) {
       console.error(err)
@@ -329,7 +318,7 @@ function ExportControls() {
       {/* Export Zone */}
       <button
         className="flex items-center gap-2 px-3.5 transition-colors hover:bg-white/10"
-        onClick={handleExport}
+        onClick={() => void handleExport()}
       >
         <RiArrowUpCircleLine className="size-4 shrink-0" />
         <span className="relative inline-grid text-[12px] font-medium tracking-tight [&>span]:col-start-1 [&>span]:row-start-1">
@@ -480,7 +469,7 @@ function MobileOverflowMenu({
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
-  onCopyPng: () => void
+  onCopyPng: () => Promise<void>
   isCopyingPng: boolean
 }) {
   const undo = useEditorStore((s) => s.undo)
@@ -580,7 +569,10 @@ function MobileOverflowMenu({
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onCopyPng} disabled={isCopyingPng}>
+          <DropdownMenuItem
+            onClick={() => void onCopyPng()}
+            disabled={isCopyingPng}
+          >
             <RiFileCopyLine />
             {isCopyingPng ? "Copying PNG…" : "Copy as PNG"}
           </DropdownMenuItem>
@@ -631,4 +623,3 @@ function IconAction({
     </Tooltip>
   )
 }
-

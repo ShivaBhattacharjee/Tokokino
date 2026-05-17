@@ -718,7 +718,21 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setActiveTool: (t) => commit({ activeTool: t }, null),
     setPresetTab: (tab) => set({ presetTab: tab }),
     setActiveLayoutPresetId: (id) => set({ activeLayoutPresetId: id }),
-    setScreenshot: (screenshot, canvasId) =>
+    setScreenshot: (screenshot, canvasId) => {
+      const state = get()
+      const activeLayoutPreset = LAYOUT_PRESETS.find(
+        (preset) => preset.id === state.activeLayoutPresetId
+      )
+      const aw = state.present.aspect.w || 16
+      const ah = state.present.aspect.h || 10
+      const canvasH = (CANVAS_BASE_W * ah) / aw
+      const presetOffset =
+        activeLayoutPreset && activeLayoutPreset.mainOffset
+          ? {
+              x: (activeLayoutPreset.mainOffset.xPct / 100) * CANVAS_BASE_W,
+              y: (activeLayoutPreset.mainOffset.yPct / 100) * canvasH,
+            }
+          : { x: 0, y: 0 }
       commitCanvas(
         canvasId,
         (canvas) => ({
@@ -726,7 +740,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           originalScreenshot: screenshot,
           lastCropRegion: null,
           screenshotPosition: "center",
-          screenshotOffset: { x: 0, y: 0 },
+          screenshotOffset: presetOffset,
           screenshotLayer: {
             ...canvas.screenshotLayer,
             zIndex:
@@ -737,7 +751,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         }),
         null
-      ),
+      )
+    },
     applyCroppedScreenshot: (s, region, canvasId) =>
       commitCanvas(
         canvasId,
@@ -1443,16 +1458,40 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         },
         `screenshot-slot-${id}`
       ),
-    setScreenshotSlotImage: (id, src, canvasId) =>
+    setScreenshotSlotImage: (id, src, canvasId) => {
+      const activeLayoutPreset = LAYOUT_PRESETS.find(
+        (preset) => preset.id === get().activeLayoutPresetId
+      )
       commitCanvas(
         canvasId,
-        (canvas) => ({
-          screenshotSlots: canvas.screenshotSlots.map((slot) =>
+        (canvas) => {
+          const updatedSlots = canvas.screenshotSlots.map((slot) =>
             slot.id === id ? { ...slot, src } : slot
-          ),
-        }),
+          )
+          if (
+            !activeLayoutPreset ||
+            updatedSlots.length !== activeLayoutPreset.slots.length
+          ) {
+            return { screenshotSlots: updatedSlots }
+          }
+          return {
+            screenshotSlots: updatedSlots.map((slot, index) => {
+              const config = activeLayoutPreset.slots[index]
+              if (!config) return slot
+              return {
+                ...slot,
+                xPct: config.xPct,
+                yPct: config.yPct,
+                rotation: config.rotation,
+                tilt: config.tilt,
+                scale: config.scale,
+              }
+            }),
+          }
+        },
         null
-      ),
+      )
+    },
     deleteScreenshotSlot: (id, canvasId) =>
       commitCanvas(
         canvasId,

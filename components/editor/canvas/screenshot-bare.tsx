@@ -135,7 +135,9 @@ export function ScreenshotBare({
               (screenshotTop ??
                 placementDims.stageH / 2 - placementDims.imgH / 2) +
               placementDims.imgH / 2,
-            transform: "translate(-50%, -50%)",
+            transform: `translate(-50%, -50%) ${transform}`,
+            transformOrigin: "center",
+            transformStyle: "preserve-3d",
           }}
         >
           <ScreenshotEditMenu

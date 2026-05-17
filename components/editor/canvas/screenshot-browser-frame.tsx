@@ -93,9 +93,6 @@ export function ScreenshotBrowserFrame({
   enhanceFilter,
   isScreenshotDragging,
   hoverActionsDisabled,
-  hoverActionsInline,
-  hoverActionsLayoutKey,
-  hoverActionsScale,
   activeTool,
   stageRef,
   imageRef,
@@ -214,9 +211,10 @@ export function ScreenshotBrowserFrame({
             transform: framePositionTransform({
               anchor: screenshotAnchor,
               offset: screenshotOffset,
-              transform: "",
+              transform,
             }),
             transformOrigin: "center",
+            transformStyle: "preserve-3d",
           }}
         >
           <div

@@ -74,28 +74,134 @@ function triggerDownload(url: string, filename: string) {
   document.body.removeChild(link)
 }
 
-export async function exportCanvas(
-  canvasId: string,
-  format: ExportFormat,
-  resolution: ExportResolution
-): Promise<void> {
-  const node = findCanvasElement(canvasId)
-  if (!node) throw new Error("Canvas not found")
+type AssetRewrite = {
+  restore: () => void
+}
 
-  const rect = node.getBoundingClientRect()
-  const renderedWidth = rect.width || node.offsetWidth
-  if (!renderedWidth) throw new Error("Canvas has zero width")
+const URL_FUNCTION_RE = /url\((['"]?)(.*?)\1\)/g
+const EXPORT_IMAGE_PROXY_PATH = "/api/export/image"
 
-  const targetWidth = EXPORT_RESOLUTION_WIDTHS[resolution]
-  const pixelRatio = targetWidth / renderedWidth
-
-  const filterExportHidden = (node: Node) => {
-    if (node instanceof Element) {
-      if (node.getAttribute("data-export-hidden") === "true") return false
-    }
-    return true
+function shouldProxyAssetUrl(value: string) {
+  const trimmed = value.trim()
+  if (
+    !trimmed ||
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("blob:")
+  ) {
+    return false
   }
 
+  try {
+    const url = new URL(trimmed, window.location.href)
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.origin !== window.location.origin
+    )
+  } catch {
+    return false
+  }
+}
+
+function proxiedAssetUrl(value: string) {
+  const absoluteUrl = new URL(value, window.location.href).toString()
+  const params = new URLSearchParams({ url: absoluteUrl })
+  return `${EXPORT_IMAGE_PROXY_PATH}?${params.toString()}`
+}
+
+function rewriteCssUrls(value: string): { value: string; urls: string[] } {
+  const urls: string[] = []
+  const rewritten = value.replace(
+    URL_FUNCTION_RE,
+    (match: string, quote: string, rawUrl: string) => {
+      if (!shouldProxyAssetUrl(rawUrl)) return match
+      const proxied = proxiedAssetUrl(rawUrl)
+      urls.push(proxied)
+      return `url(${quote || "\""}${proxied}${quote || "\""})`
+    }
+  )
+  return { value: rewritten, urls }
+}
+
+function rewriteExportAssets(root: HTMLElement): {
+  rewrites: AssetRewrite[]
+  preloadUrls: string[]
+} {
+  const rewrites: AssetRewrite[] = []
+  const preloadUrls: string[] = []
+
+  for (const img of Array.from(root.querySelectorAll("img"))) {
+    const currentSrc = img.getAttribute("src")
+    if (!currentSrc || !shouldProxyAssetUrl(currentSrc)) continue
+
+    const nextSrc = proxiedAssetUrl(currentSrc)
+    const previousSrc = currentSrc
+    const previousCrossOrigin = img.getAttribute("crossorigin")
+
+    img.setAttribute("src", nextSrc)
+    img.setAttribute("crossorigin", "anonymous")
+    preloadUrls.push(nextSrc)
+
+    rewrites.push({
+      restore: () => {
+        img.setAttribute("src", previousSrc)
+        if (previousCrossOrigin === null) {
+          img.removeAttribute("crossorigin")
+        } else {
+          img.setAttribute("crossorigin", previousCrossOrigin)
+        }
+      },
+    })
+  }
+
+  const styleProps = [
+    "backgroundImage",
+    "borderImageSource",
+    "listStyleImage",
+    "maskImage",
+    "webkitMaskImage",
+  ] as const
+
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+    for (const prop of styleProps) {
+      const currentValue = el.style[prop]
+      if (!currentValue || currentValue === "none") continue
+
+      const { value: nextValue, urls } = rewriteCssUrls(currentValue)
+      if (nextValue === currentValue) continue
+
+      const previousValue = currentValue
+      el.style[prop] = nextValue
+      preloadUrls.push(...urls)
+
+      rewrites.push({
+        restore: () => {
+          el.style[prop] = previousValue
+        },
+      })
+    }
+  }
+
+  return { rewrites, preloadUrls }
+}
+
+async function waitForExportAssets(urls: string[]) {
+  const uniqueUrls = Array.from(new Set(urls))
+  await Promise.all(
+    uniqueUrls.map(
+      (url) =>
+        new Promise<void>((resolve) => {
+          const image = new Image()
+          image.crossOrigin = "anonymous"
+          image.onload = () => resolve()
+          image.onerror = () => resolve()
+          image.src = url
+        })
+    )
+  )
+}
+
+function makeExportStyle() {
   const exportStyle = document.createElement("style")
   exportStyle.id = "__export-override"
   exportStyle.textContent = `
@@ -108,7 +214,34 @@ export async function exportCanvas(
     [data-export-hidden="true"] { display: none !important; }
     [data-selection-border="true"] { border: none !important; }
   `
+  return exportStyle
+}
+
+function filterExportHidden(node: Node) {
+  if (node instanceof Element) {
+    if (node.getAttribute("data-export-hidden") === "true") return false
+  }
+  return true
+}
+
+export async function exportCanvas(
+  canvasId: string,
+  format: ExportFormat,
+  resolution: ExportResolution
+): Promise<string> {
+  const node = findCanvasElement(canvasId)
+  if (!node) throw new Error("Canvas not found")
+
+  const rect = node.getBoundingClientRect()
+  const renderedWidth = rect.width || node.offsetWidth
+  if (!renderedWidth) throw new Error("Canvas has zero width")
+
+  const targetWidth = EXPORT_RESOLUTION_WIDTHS[resolution]
+  const pixelRatio = targetWidth / renderedWidth
+
+  const exportStyle = makeExportStyle()
   document.head.appendChild(exportStyle)
+  const { rewrites, preloadUrls } = rewriteExportAssets(node)
 
   const baseOptions = {
     pixelRatio,
@@ -124,10 +257,12 @@ export async function exportCanvas(
   const filename = `screenshot_${resolution}_${ts}${EXPORT_FORMAT_EXTENSION[format]}`
 
   try {
+    await waitForExportAssets(preloadUrls)
+
     if (format === "png") {
       const url = await toPng(node, baseOptions)
       triggerDownload(url, filename)
-      return
+      return filename
     }
     if (format === "jpeg") {
       const url = await toJpeg(node, {
@@ -136,7 +271,7 @@ export async function exportCanvas(
         quality: 0.95,
       })
       triggerDownload(url, filename)
-      return
+      return filename
     }
     // webp — html-to-image doesn't have a direct toWebp, so render to canvas via toBlob (PNG) and re-encode
     const pngBlob = await toBlob(node, baseOptions)
@@ -158,7 +293,11 @@ export async function exportCanvas(
     } finally {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
     }
+    return filename
   } finally {
+    for (const rewrite of rewrites.reverse()) {
+      rewrite.restore()
+    }
     exportStyle.remove()
   }
 }
@@ -180,28 +319,13 @@ export async function copyCanvasAsPng(
   const targetWidth = COPY_RESOLUTION_WIDTHS[resolution]
   const pixelRatio = targetWidth / renderedWidth
 
-  const filterExportHidden = (node: Node) => {
-    if (node instanceof Element) {
-      if (node.getAttribute("data-export-hidden") === "true") return false
-    }
-    return true
-  }
-
-  const exportStyle = document.createElement("style")
-  exportStyle.id = "__export-override"
-  exportStyle.textContent = `
-    * {
-      outline: none !important;
-      caret-color: transparent !important;
-      --tw-ring-shadow: 0 0 #0000 !important;
-      --tw-ring-offset-shadow: 0 0 #0000 !important;
-    }
-    [data-export-hidden="true"] { display: none !important; }
-    [data-selection-border="true"] { border: none !important; }
-  `
+  const exportStyle = makeExportStyle()
   document.head.appendChild(exportStyle)
+  const { rewrites, preloadUrls } = rewriteExportAssets(node)
 
   try {
+    await waitForExportAssets(preloadUrls)
+
     const blob = await toBlob(node, {
       pixelRatio,
       cacheBust: true,
@@ -215,6 +339,9 @@ export async function copyCanvasAsPng(
       }),
     ])
   } finally {
+    for (const rewrite of rewrites.reverse()) {
+      rewrite.restore()
+    }
     exportStyle.remove()
   }
 }

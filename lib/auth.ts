@@ -11,7 +11,7 @@ if (!mongoUri) {
   throw new Error("Please provide a MONGODB_URI in your environment variables")
 }
 
-const client = new MongoClient(mongoUri, { retryWrites: false })
+const client = new MongoClient(mongoUri)
 const db = client.db()
 
 export const auth = betterAuth({
