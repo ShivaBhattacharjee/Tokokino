@@ -5,6 +5,7 @@ import { create } from "zustand"
 
 import { FONT_FAMILIES } from "./fonts"
 import { DEFAULT_IMAGE_BACKGROUND } from "./presets"
+import { LAYOUT_PRESETS } from "./present-presets"
 import { computeRowLayout } from "./screenshot-layout"
 import type {
   Annotation,
@@ -194,6 +195,7 @@ type CanvasPatch =
 type EditorActions = {
   setActiveTool: (t: EditorTool) => void
   setPresetTab: (tab: "single" | "multi") => void
+  setActiveLayoutPresetId: (id: string | null) => void
   setScreenshot: (s: string | null, canvasId?: string) => void
   applyCroppedScreenshot: (
     s: string,
@@ -227,6 +229,7 @@ type EditorActions = {
   setShadow: (s: Shadow, canvasId?: string) => void
   setOverlay: (o: Overlay, canvasId?: string) => void
   setFrame: (f: DeviceFrame, canvasId?: string) => void
+  setFrameForMatchingScreenshots: (f: DeviceFrame, canvasId?: string) => void
   setFrameAddress: (address: string, canvasId?: string) => void
   setObjectFit: (fit: "contain" | "cover" | "fill", canvasId?: string) => void
   bringScreenshotToFront: (canvasId?: string) => void
@@ -353,6 +356,7 @@ type EditorStore = {
   selectedScreenshotSlotId: string | null
   isScreenshotSelected: boolean
   presetTab: "single" | "multi"
+  activeLayoutPresetId: string | null
 } & EditorActions
 
 const computeNextZ = (items: { zIndex: number }[]) => {
@@ -547,6 +551,26 @@ const CANVAS_GAP = 80
 
 const clampPct = (value: number) => Math.max(-20, Math.min(120, value))
 
+const isSameFrame = (a: DeviceFrame, b: DeviceFrame) =>
+  a.id === b.id && a.color === b.color && a.orientation === b.orientation
+
+const canvasHeightFromAspectRatio = (canvasAspect: number) =>
+  CANVAS_BASE_W / canvasAspect
+
+const scaleScreenshotOffsetForAspectChange = (
+  offset: { x: number; y: number },
+  currentAspect: number,
+  nextAspect: number
+) => {
+  const currentHeight = canvasHeightFromAspectRatio(currentAspect)
+  const nextHeight = canvasHeightFromAspectRatio(nextAspect)
+  if (!currentHeight || !nextHeight) return offset
+  return {
+    x: offset.x,
+    y: offset.y * (nextHeight / currentHeight),
+  }
+}
+
 /**
  * Place a new canvas adjacent to an existing canvas without overlap.
  * - With an explicit `sourceId`: place to the right of that canvas, then if
@@ -669,9 +693,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     selectedScreenshotSlotId: null,
     isScreenshotSelected: false,
     presetTab: "single" as const,
+    activeLayoutPresetId: null,
 
     setActiveTool: (t) => commit({ activeTool: t }, null),
     setPresetTab: (tab) => set({ presetTab: tab }),
+    setActiveLayoutPresetId: (id) => set({ activeLayoutPresetId: id }),
     setScreenshot: (screenshot, canvasId) =>
       commitCanvas(
         canvasId,
@@ -698,21 +724,78 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         { screenshot: s, lastCropRegion: region },
         "applyCroppedScreenshot"
       ),
-    setAspect: (a) =>
-      commit(
-        (state) => ({
+    setAspect: (a) => {
+      const activeLayoutPreset = LAYOUT_PRESETS.find(
+        (preset) => preset.id === get().activeLayoutPresetId
+      )
+      commit((state) => {
+        const currentAspect = stateCanvasAspect(state)
+        const nextAspect = aspectRatioFromState(a)
+        const nextCanvasHeight = canvasHeightFromAspectRatio(nextAspect)
+
+        return {
           aspect: a,
-          canvases: state.canvases.map((canvas) => ({
-            ...canvas,
-            screenshotSlots: layoutSlotsInRow(
+          canvases: state.canvases.map((canvas) => {
+            const shouldReapplyActivePreset =
+              activeLayoutPreset &&
+              canvas.id === state.activeCanvasId &&
+              canvas.screenshotSlots.length === activeLayoutPreset.slots.length
+            let screenshotSlots = layoutSlotsInRow(
               canvas.screenshotSlots,
               canvas.frame,
-              aspectRatioFromState(a)
-            ),
-          })),
-        }),
-        "aspect"
-      ),
+              nextAspect,
+              shouldReapplyActivePreset
+                ? { preservePositions: true }
+                : undefined
+            )
+
+            if (shouldReapplyActivePreset) {
+              screenshotSlots = screenshotSlots.map((slot, index) => {
+                const config = activeLayoutPreset.slots[index]
+                if (!config) return slot
+                return {
+                  ...slot,
+                  xPct: config.xPct,
+                  yPct: config.yPct,
+                  rotation: config.rotation,
+                  tilt: config.tilt,
+                  scale: config.scale,
+                }
+              })
+            }
+
+            const screenshotOffset = shouldReapplyActivePreset
+              ? activeLayoutPreset.mainOffset
+                ? {
+                    x:
+                      (activeLayoutPreset.mainOffset.xPct / 100) *
+                      CANVAS_BASE_W,
+                    y:
+                      (activeLayoutPreset.mainOffset.yPct / 100) *
+                      nextCanvasHeight,
+                  }
+                : { x: 0, y: 0 }
+              : scaleScreenshotOffsetForAspectChange(
+                  canvas.screenshotOffset,
+                  currentAspect,
+                  nextAspect
+                )
+
+            return {
+              ...canvas,
+              tilt: shouldReapplyActivePreset
+                ? activeLayoutPreset.canvasTilt
+                : canvas.tilt,
+              scale: shouldReapplyActivePreset
+                ? activeLayoutPreset.canvasScale
+                : canvas.scale,
+              screenshotOffset,
+              screenshotSlots,
+            }
+          }),
+        }
+      }, "aspect")
+    },
     setBackground: (b, canvasId) =>
       commitCanvas(canvasId, { background: b }, "background"),
     setPadding: (n, canvasId) =>
@@ -782,6 +865,34 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             { preservePositions: true }
           ),
         }),
+        "frame"
+      ),
+    setFrameForMatchingScreenshots: (f, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas, state) => {
+          const shouldUpdateSlots =
+            canvas.screenshotSlots.length > 0 &&
+            canvas.screenshotSlots.every((slot) =>
+              isSameFrame(slot.frame, canvas.frame)
+            )
+          const slots = shouldUpdateSlots
+            ? canvas.screenshotSlots.map((slot) => ({
+                ...slot,
+                frame: { ...f },
+              }))
+            : canvas.screenshotSlots
+
+          return {
+            frame: f,
+            screenshotSlots: layoutSlotsInRow(
+              slots,
+              f,
+              stateCanvasAspect(state),
+              { preservePositions: true }
+            ),
+          }
+        },
         "frame"
       ),
     setFrameAddress: (address, canvasId) =>
@@ -1505,7 +1616,7 @@ export type EditorContext = Omit<EditorState, "canvases"> &
     isPreviewMode: boolean
     isPreviewAutoScroll: boolean
     previewAutoScrollDelay: number
-  previewAnimation: "slide" | "fade" | "zoom" | "flip"
+    previewAnimation: "slide" | "fade" | "zoom" | "flip"
     bulkEditMode: boolean
     bulkCanvasDragging: boolean
     bulkViewportZoom: number
@@ -1533,9 +1644,7 @@ export function useEditor(): EditorContext {
   const canvas = useActiveCanvasField((c) => c)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const isPreviewAutoScroll = useEditorStore((s) => s.isPreviewAutoScroll)
-  const previewAutoScrollDelay = useEditorStore(
-    (s) => s.previewAutoScrollDelay
-  )
+  const previewAutoScrollDelay = useEditorStore((s) => s.previewAutoScrollDelay)
   const previewAnimation = useEditorStore((s) => s.previewAnimation)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
@@ -1613,6 +1722,7 @@ export function useEditor(): EditorContext {
 
     setActiveTool: store.setActiveTool,
     setPresetTab: store.setPresetTab,
+    setActiveLayoutPresetId: store.setActiveLayoutPresetId,
     setScreenshot: (s, canvasId) =>
       store.setScreenshot(s, canvasId ?? targetId),
     applyCroppedScreenshot: (s, region, canvasId) =>
@@ -1648,6 +1758,8 @@ export function useEditor(): EditorContext {
     setShadow: (s, canvasId) => store.setShadow(s, canvasId ?? targetId),
     setOverlay: (o, canvasId) => store.setOverlay(o, canvasId ?? targetId),
     setFrame: (f, canvasId) => store.setFrame(f, canvasId ?? targetId),
+    setFrameForMatchingScreenshots: (f, canvasId) =>
+      store.setFrameForMatchingScreenshots(f, canvasId ?? targetId),
     setObjectFit: (fit, canvasId) =>
       store.setObjectFit(fit, canvasId ?? targetId),
     setFrameAddress: (address, canvasId) =>

@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { RiCheckLine } from "@remixicon/react"
 import { animate } from "motion/react"
 
 import { AnnotationShapeElement } from "@/components/editor/annotation-shape-element"
@@ -9,7 +8,10 @@ import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
 import { CanvasBackdrop } from "@/components/editor/canvas/canvas-backdrop"
 import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
-import { frameSelectionRadius, annotationPath } from "@/components/editor/canvas/helpers"
+import {
+  frameSelectionRadius,
+  annotationPath,
+} from "@/components/editor/canvas/helpers"
 import { ScreenshotFrameContent } from "@/components/editor/canvas/screenshot-frame-content"
 import {
   LAYOUT_PRESETS,
@@ -23,7 +25,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { RiArrowRightSLine, RiLayoutGridLine } from "@remixicon/react"
+import {
+  RiArrowRightSLine,
+  RiCheckLine,
+  RiLayoutGridLine,
+} from "@remixicon/react"
 import {
   computeRowLayout,
   slotBoxAspectRatio,
@@ -50,24 +56,6 @@ import { cn } from "@/lib/utils"
 
 function isSameTilt(a: Tilt, b: Tilt) {
   return a.rx === b.rx && a.ry === b.ry && a.rz === b.rz
-}
-
-function isLayoutPresetActive(preset: LayoutPreset, canvas: CanvasState): boolean {
-  if (canvas.screenshotSlots.length !== preset.slots.length) return false
-  if (!isSameTilt(canvas.tilt, preset.canvasTilt)) return false
-  if (canvas.scale !== preset.canvasScale) return false
-  for (let i = 0; i < preset.slots.length; i++) {
-    const slot = canvas.screenshotSlots[i]
-    const config = preset.slots[i]
-    if (!slot || !config) return false
-    if (
-      slot.xPct !== config.xPct ||
-      slot.yPct !== config.yPct ||
-      slot.rotation !== config.rotation
-    )
-      return false
-  }
-  return true
 }
 
 function transformFromTiltAndScale(tilt: Tilt, scale: number) {
@@ -252,7 +240,10 @@ function TabTriggerRow({
           {(["single", "multi"] as PresetTab[]).map((t) => (
             <button
               key={t}
-              onClick={() => { onTabChange(t); setOpen(false) }}
+              onClick={() => {
+                onTabChange(t)
+                setOpen(false)
+              }}
               className={cn(
                 "flex flex-1 flex-col items-center gap-2 rounded-lg border p-2.5 transition-colors",
                 tab === t
@@ -261,22 +252,99 @@ function TabTriggerRow({
               )}
             >
               {t === "single" ? (
-                <svg width="44" height="30" viewBox="0 0 44 30" fill="none" className="shrink-0">
-                  <rect x="8" y="4" width="28" height="22" rx="3" fill="currentColor" className={tab === t ? "text-primary/40" : "text-foreground/20"} />
-                  <rect x="8" y="4" width="28" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" className={tab === t ? "text-primary/70" : "text-foreground/30"} />
+                <svg
+                  width="44"
+                  height="30"
+                  viewBox="0 0 44 30"
+                  fill="none"
+                  className="shrink-0"
+                >
+                  <rect
+                    x="8"
+                    y="4"
+                    width="28"
+                    height="22"
+                    rx="3"
+                    fill="currentColor"
+                    className={
+                      tab === t ? "text-primary/40" : "text-foreground/20"
+                    }
+                  />
+                  <rect
+                    x="8"
+                    y="4"
+                    width="28"
+                    height="22"
+                    rx="3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className={
+                      tab === t ? "text-primary/70" : "text-foreground/30"
+                    }
+                  />
                 </svg>
               ) : (
-                <svg width="44" height="30" viewBox="0 0 44 30" fill="none" className="shrink-0">
-                  <rect x="2" y="6" width="20" height="18" rx="2.5" fill="currentColor" className={tab === t ? "text-primary/40" : "text-foreground/20"} />
-                  <rect x="2" y="6" width="20" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.5" className={tab === t ? "text-primary/70" : "text-foreground/30"} />
-                  <rect x="24" y="9" width="18" height="15" rx="2" fill="currentColor" className={tab === t ? "text-primary/30" : "text-foreground/15"} />
-                  <rect x="24" y="9" width="18" height="15" rx="2" stroke="currentColor" strokeWidth="1.5" className={tab === t ? "text-primary/60" : "text-foreground/25"} />
+                <svg
+                  width="44"
+                  height="30"
+                  viewBox="0 0 44 30"
+                  fill="none"
+                  className="shrink-0"
+                >
+                  <rect
+                    x="2"
+                    y="6"
+                    width="20"
+                    height="18"
+                    rx="2.5"
+                    fill="currentColor"
+                    className={
+                      tab === t ? "text-primary/40" : "text-foreground/20"
+                    }
+                  />
+                  <rect
+                    x="2"
+                    y="6"
+                    width="20"
+                    height="18"
+                    rx="2.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className={
+                      tab === t ? "text-primary/70" : "text-foreground/30"
+                    }
+                  />
+                  <rect
+                    x="24"
+                    y="9"
+                    width="18"
+                    height="15"
+                    rx="2"
+                    fill="currentColor"
+                    className={
+                      tab === t ? "text-primary/30" : "text-foreground/15"
+                    }
+                  />
+                  <rect
+                    x="24"
+                    y="9"
+                    width="18"
+                    height="15"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className={
+                      tab === t ? "text-primary/60" : "text-foreground/25"
+                    }
+                  />
                 </svg>
               )}
-              <span className={cn(
-                "text-[11px] font-medium",
-                tab === t ? "text-primary" : "text-muted-foreground"
-              )}>
+              <span
+                className={cn(
+                  "text-[11px] font-medium",
+                  tab === t ? "text-primary" : "text-muted-foreground"
+                )}
+              >
                 {t === "single" ? "Single" : "Multi"}
               </span>
             </button>
@@ -302,6 +370,10 @@ export function PresentPresetsSection() {
   const presetMotionCleanupRef = React.useRef<(() => void) | null>(null)
   const tab = useEditorStore((s) => s.presetTab)
   const setTab = useEditorStore((s) => s.setPresetTab)
+  const activeLayoutPresetId = useEditorStore((s) => s.activeLayoutPresetId)
+  const setActiveLayoutPresetId = useEditorStore(
+    (s) => s.setActiveLayoutPresetId
+  )
 
   const applyPreset = React.useCallback(
     (preset: PresentPreset) => {
@@ -374,11 +446,13 @@ export function PresentPresetsSection() {
           y: (preset.mainOffset.yPct / 100) * canvasH,
         })
       }
+      setActiveLayoutPresetId(preset.id)
     },
     [
       addScreenshotSlot,
       aspect,
       canvas.screenshotSlots,
+      setActiveLayoutPresetId,
       setScreenshotOffset,
       setScreenshotPosition,
       setTiltAndScale,
@@ -392,7 +466,7 @@ export function PresentPresetsSection() {
 
   return (
     <div className="space-y-3">
-      <div>
+      <div className="sticky top-0 z-10 bg-sidebar pb-1">
         <p className="mb-2 text-[13px] font-medium text-foreground">Presets</p>
         <TabTriggerRow tab={tab} onTabChange={setTab} />
       </div>
@@ -433,7 +507,6 @@ export function PresentPresetsSection() {
                     aspect={aspect}
                     canvas={canvas}
                     preset={preset}
-                    selectedSlot={selectedSlot}
                   />
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
@@ -446,7 +519,7 @@ export function PresentPresetsSection() {
                     className={cn(
                       "grid size-5 shrink-0 place-items-center rounded-full border text-white transition-opacity",
                       active
-                        ? "border-primary/70 bg-primary/20 text-black dark:text-primary-foreground opacity-100"
+                        ? "border-primary/70 bg-primary/20 text-black opacity-100 dark:text-primary-foreground"
                         : "border-white/25 opacity-0 group-hover:opacity-70"
                     )}
                     aria-hidden
@@ -462,11 +535,8 @@ export function PresentPresetsSection() {
 
       {tab === "multi" && (
         <div className="space-y-2">
-          {canvas.screenshotSlots.length > 0 && (
-            <CapturePresetButton canvas={canvas} aspect={aspect} />
-          )}
           {LAYOUT_PRESETS.map((preset) => {
-            const active = isLayoutPresetActive(preset, canvas)
+            const active = activeLayoutPresetId === preset.id
             return (
               <LayoutPresetCard
                 key={preset.id}
@@ -481,60 +551,6 @@ export function PresentPresetsSection() {
         </div>
       )}
     </div>
-  )
-}
-
-function CapturePresetButton({ canvas, aspect }: { canvas: CanvasState; aspect: AspectState }) {
-  const [copied, setCopied] = React.useState(false)
-
-  const capture = () => {
-    const slots = canvas.screenshotSlots.map((s) => ({
-      xPct: Math.round(s.xPct * 10) / 10,
-      yPct: Math.round(s.yPct * 10) / 10,
-      rotation: Math.round(s.rotation * 10) / 10,
-      tilt: s.tilt,
-      scale: s.scale,
-    }))
-    const offset = canvas.screenshotOffset
-    const aw = aspect.w || 16
-    const ah = aspect.h || 10
-    const canvasH = (BASE_CANVAS_WIDTH * ah) / aw
-    const config = {
-      id: "custom",
-      name: "Custom",
-      canvasTilt: canvas.tilt,
-      canvasScale: canvas.scale,
-      slots,
-      mainOffset: (offset.x !== 0 || offset.y !== 0)
-        ? {
-            xPct: Math.round((offset.x / BASE_CANVAS_WIDTH) * 1000) / 10,
-            yPct: Math.round((offset.y / canvasH) * 1000) / 10,
-          }
-        : undefined,
-    }
-    const code = JSON.stringify(config, null, 2)
-    navigator.clipboard.writeText(code).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
-  return (
-    <button
-      onClick={capture}
-      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-white/20 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-white/40 hover:text-foreground"
-    >
-      {copied ? (
-        <>
-          <RiCheckLine className="size-3 text-green-400" />
-          <span className="text-green-400">Copied!</span>
-        </>
-      ) : (
-        <>
-          <span>Capture current as preset</span>
-        </>
-      )}
-    </button>
   )
 }
 
@@ -593,7 +609,12 @@ function LayoutPresetCard({
   }, [aspect, canvas, preset])
 
   const virtualPreset: PresentPreset = React.useMemo(
-    () => ({ id: preset.id, name: preset.name, tilt: preset.canvasTilt, scale: preset.canvasScale }),
+    () => ({
+      id: preset.id,
+      name: preset.name,
+      tilt: preset.canvasTilt,
+      scale: preset.canvasScale,
+    }),
     [preset]
   )
 
@@ -624,7 +645,6 @@ function LayoutPresetCard({
           aspect={aspect}
           canvas={virtualCanvas}
           preset={virtualPreset}
-          selectedSlot={null}
           useSlotOwnTilt
         />
       </div>
@@ -636,7 +656,7 @@ function LayoutPresetCard({
           className={cn(
             "grid size-5 shrink-0 place-items-center rounded-full border text-white transition-opacity",
             active
-              ? "border-primary/70 bg-primary/20 text-black dark:text-primary-foreground opacity-100"
+              ? "border-primary/70 bg-primary/20 text-black opacity-100 dark:text-primary-foreground"
               : "border-white/25 opacity-0 group-hover:opacity-70"
           )}
           aria-hidden
@@ -652,13 +672,11 @@ function PresentPresetPreview({
   aspect,
   canvas,
   preset,
-  selectedSlot,
   useSlotOwnTilt = false,
 }: {
   aspect: AspectState
   canvas: CanvasState
   preset: PresentPreset
-  selectedSlot: ScreenshotSlot | null
   useSlotOwnTilt?: boolean
 }) {
   const previewRef = React.useRef<HTMLDivElement>(null)
@@ -770,14 +788,28 @@ function PresentPresetPreview({
             canvasAspectRatio={canvasAspectRatio}
             rowLayout={slotRowLayoutById?.get(slot.id) ?? null}
             previewTilt={useSlotOwnTilt ? undefined : preset.tilt}
-            previewScale={useSlotOwnTilt ? undefined : resolvePresentPresetScale(preset, slot.frame)}
+            previewScale={
+              useSlotOwnTilt
+                ? undefined
+                : resolvePresentPresetScale(preset, slot.frame)
+            }
           />
         ))}
         {canvas.assets.map((a) => (
-          <AssetElementView key={a.id} asset={a} canvasRef={nullCanvasRef} previewMode />
+          <AssetElementView
+            key={a.id}
+            asset={a}
+            canvasRef={nullCanvasRef}
+            previewMode
+          />
         ))}
         {canvas.texts.map((t) => (
-          <TextElementView key={t.id} text={t} canvasRef={nullCanvasRef} previewMode />
+          <TextElementView
+            key={t.id}
+            text={t}
+            canvasRef={nullCanvasRef}
+            previewMode
+          />
         ))}
         {[...canvas.annotationShapes]
           .sort((a, b) => a.zIndex - b.zIndex)
@@ -857,8 +889,7 @@ function PresentMainScreenshot({
     screenshotPosition === "center"
       ? `${rowLayout.xPct}%`
       : `${screenshotAnchor.x}%`
-  const top =
-    screenshotPosition === "center" ? "50%" : `${screenshotAnchor.y}%`
+  const top = screenshotPosition === "center" ? "50%" : `${screenshotAnchor.y}%`
   return (
     <div
       className="absolute"

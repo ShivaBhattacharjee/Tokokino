@@ -28,7 +28,9 @@ export function EffectsSidebar({
   const aspect = useEditorStore((s) => s.present.aspect)
   const frame = useActiveCanvasField((c) => c.frame)
   const setAspect = useEditorStore((s) => s.setAspect)
-  const setFrame = useEditorStore((s) => s.setFrame)
+  const setFrameForMatchingScreenshots = useEditorStore(
+    (s) => s.setFrameForMatchingScreenshots
+  )
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
   const selectedSlot = useSelectedScreenshotSlot()
   const activeFrame = selectedSlot?.frame ?? frame
@@ -108,7 +110,7 @@ export function EffectsSidebar({
                   updateScreenshotSlot(selectedSlot.id, { frame: nextFrame })
                   return
                 }
-                setFrame(nextFrame)
+                setFrameForMatchingScreenshots(nextFrame)
                 showCompatibilityWarning(
                   aspect,
                   nextFrame,

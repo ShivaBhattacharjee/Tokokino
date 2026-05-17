@@ -107,9 +107,9 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     canvasTilt: { rx: 0, ry: 0, rz: 0 },
     canvasScale: 100,
     slots: [
-      { xPct: 69, yPct: 64, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
+      { xPct: 70.2, yPct: 61.6, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
     ],
-    mainOffset: { xPct: 6.42, yPct: -7.2 },
+    mainOffset: { xPct: 10.1, yPct: -9 },
   },
   {
     id: "stacked",
