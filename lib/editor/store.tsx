@@ -510,6 +510,29 @@ const aspectRatioFromState = (aspect: AspectState): number => {
 const stateCanvasAspect = (state: EditorState): number =>
   aspectRatioFromState(state.aspect)
 
+function applySharedFrameToCanvas(
+  canvas: CanvasState,
+  state: EditorState,
+  frame: DeviceFrame,
+  options: { preservePositions?: boolean } = { preservePositions: true }
+): Pick<CanvasState, "frame" | "screenshotSlots"> {
+  const sharedFrame = { ...frame }
+  const slots = canvas.screenshotSlots.map((slot) => ({
+    ...slot,
+    frame: { ...sharedFrame },
+  }))
+
+  return {
+    frame: sharedFrame,
+    screenshotSlots: layoutSlotsInRow(
+      slots,
+      sharedFrame,
+      stateCanvasAspect(state),
+      options
+    ),
+  }
+}
+
 const createScreenshotSlot = (
   base: Partial<ScreenshotSlot>,
   zIndex: number
@@ -550,9 +573,6 @@ const CANVAS_BASE_W = 1100
 const CANVAS_GAP = 80
 
 const clampPct = (value: number) => Math.max(-20, Math.min(120, value))
-
-const isSameFrame = (a: DeviceFrame, b: DeviceFrame) =>
-  a.id === b.id && a.color === b.color && a.orientation === b.orientation
 
 const canvasHeightFromAspectRatio = (canvasAspect: number) =>
   CANVAS_BASE_W / canvasAspect
@@ -856,43 +876,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setFrame: (f, canvasId) =>
       commitCanvas(
         canvasId,
-        (canvas, state) => ({
-          frame: f,
-          screenshotSlots: layoutSlotsInRow(
-            canvas.screenshotSlots,
-            f,
-            stateCanvasAspect(state),
-            { preservePositions: true }
-          ),
-        }),
+        (canvas, state) => applySharedFrameToCanvas(canvas, state, f),
         "frame"
       ),
     setFrameForMatchingScreenshots: (f, canvasId) =>
       commitCanvas(
         canvasId,
-        (canvas, state) => {
-          const shouldUpdateSlots =
-            canvas.screenshotSlots.length > 0 &&
-            canvas.screenshotSlots.every((slot) =>
-              isSameFrame(slot.frame, canvas.frame)
-            )
-          const slots = shouldUpdateSlots
-            ? canvas.screenshotSlots.map((slot) => ({
-                ...slot,
-                frame: { ...f },
-              }))
-            : canvas.screenshotSlots
-
-          return {
-            frame: f,
-            screenshotSlots: layoutSlotsInRow(
-              slots,
-              f,
-              stateCanvasAspect(state),
-              { preservePositions: true }
-            ),
-          }
-        },
+        (canvas, state) => applySharedFrameToCanvas(canvas, state, f),
         "frame"
       ),
     setFrameAddress: (address, canvasId) =>
@@ -1399,9 +1389,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
             computeNextLayerZ(canvas)
           )
+          const syncedSlots = canvas.screenshotSlots.map((slot) => ({
+            ...slot,
+            frame: { ...canvas.frame },
+          }))
           return {
             screenshotSlots: layoutSlotsInRow(
-              [...canvas.screenshotSlots, next],
+              [...syncedSlots, next],
               canvas.frame,
               stateCanvasAspect(state)
             ),
@@ -1415,19 +1409,26 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       commitCanvas(
         canvasId,
         (canvas, state) => {
-          const updated = canvas.screenshotSlots.map((slot) =>
-            slot.id === id ? { ...slot, ...patch } : slot
-          )
           if (patch.frame) {
+            const sharedFrame = { ...patch.frame }
+            const updated = canvas.screenshotSlots.map((slot) =>
+              slot.id === id
+                ? { ...slot, ...patch, frame: { ...sharedFrame } }
+                : { ...slot, frame: { ...sharedFrame } }
+            )
             return {
+              frame: sharedFrame,
               screenshotSlots: layoutSlotsInRow(
                 updated,
-                canvas.frame,
+                sharedFrame,
                 stateCanvasAspect(state),
                 { preservePositions: true }
               ),
             }
           }
+          const updated = canvas.screenshotSlots.map((slot) =>
+            slot.id === id ? { ...slot, ...patch } : slot
+          )
           return { screenshotSlots: updated }
         },
         `screenshot-slot-${id}`
@@ -1473,11 +1474,16 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           const copy: ScreenshotSlot = {
             ...src,
             id: copyId,
+            frame: { ...canvas.frame },
             zIndex: computeNextLayerZ(canvas),
           }
+          const syncedSlots = canvas.screenshotSlots.map((slot) => ({
+            ...slot,
+            frame: { ...canvas.frame },
+          }))
           return {
             screenshotSlots: layoutSlotsInRow(
-              [...canvas.screenshotSlots, copy],
+              [...syncedSlots, copy],
               canvas.frame,
               stateCanvasAspect(state)
             ),

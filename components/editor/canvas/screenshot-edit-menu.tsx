@@ -39,6 +39,7 @@ type ScreenshotEditMenuProps = {
   onCrop: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  showDelete?: boolean
   onCaptureWebsite?: (url: string) => void
 }
 
@@ -48,6 +49,7 @@ export function ScreenshotEditMenu({
   onCrop,
   onReplaceFile,
   onDelete,
+  showDelete = true,
   onCaptureWebsite,
 }: ScreenshotEditMenuProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
@@ -115,7 +117,12 @@ export function ScreenshotEditMenu({
                 handleOpenChange(false)
               }}
             />
-            <div className="grid grid-cols-2 gap-2 border-t border-white/8 p-2.5">
+            <div
+              className={cn(
+                "grid gap-2 border-t border-white/8 p-2.5",
+                showDelete ? "grid-cols-2" : "grid-cols-1"
+              )}
+            >
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
@@ -129,19 +136,21 @@ export function ScreenshotEditMenu({
                 <RiCropLine className="size-4" />
                 Crop
               </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleOpenChange(false)
-                  onDelete()
-                }}
-                className="flex h-10 items-center justify-center gap-2 rounded-lg bg-red-500/10 text-[13px] font-medium text-red-300 transition-all hover:bg-red-500/18 hover:text-red-200"
-              >
-                <RiDeleteBinLine className="size-4" />
-                Delete
-              </button>
+              {showDelete ? (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleOpenChange(false)
+                    onDelete()
+                  }}
+                  className="flex h-10 items-center justify-center gap-2 rounded-lg bg-red-500/10 text-[13px] font-medium text-red-300 transition-all hover:bg-red-500/18 hover:text-red-200"
+                >
+                  <RiDeleteBinLine className="size-4" />
+                  Delete
+                </button>
+              ) : null}
             </div>
           </motion.div>
         </PopoverContent>

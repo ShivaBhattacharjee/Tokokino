@@ -19,6 +19,7 @@ type BoxHoverActionsProps = {
   onCrop: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  showDelete?: boolean
 }
 
 export function BoxHoverActions({
@@ -33,6 +34,7 @@ export function BoxHoverActions({
   onCrop,
   onReplaceFile,
   onDelete,
+  showDelete = true,
 }: BoxHoverActionsProps) {
   const anchorRef = React.useRef<HTMLDivElement>(null)
   const controlsRef = React.useRef<HTMLDivElement>(null)
@@ -141,6 +143,7 @@ export function BoxHoverActions({
         onCrop={onCrop}
         onReplaceFile={onReplaceFile}
         onDelete={onDelete}
+        showDelete={showDelete}
       />
     ) : (
       <>
@@ -156,16 +159,18 @@ export function BoxHoverActions({
             className={actionSize === "lg" ? "size-5" : "size-4"}
           />
         </BoxActionButton>
-        <BoxActionButton
-          size={actionSize}
-          label="Delete image"
-          destructive
-          onClick={onDelete}
-        >
-          <RiDeleteBinLine
-            className={actionSize === "lg" ? "size-5" : "size-4"}
-          />
-        </BoxActionButton>
+        {showDelete ? (
+          <BoxActionButton
+            size={actionSize}
+            label="Delete image"
+            destructive
+            onClick={onDelete}
+          >
+            <RiDeleteBinLine
+              className={actionSize === "lg" ? "size-5" : "size-4"}
+            />
+          </BoxActionButton>
+        ) : null}
       </>
     )
 

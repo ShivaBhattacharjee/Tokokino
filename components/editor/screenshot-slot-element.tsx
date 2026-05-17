@@ -34,6 +34,7 @@ import {
   MAX_SCREENSHOT_SLOTS,
   type ScreenshotSlot,
   useEditor,
+  useEditorStore,
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
@@ -95,7 +96,9 @@ export function ScreenshotSlotView({
     bulkCanvasDragging,
     bulkViewportZoom,
   } = useEditor()
+  const presetTab = useEditorStore((s) => s.presetTab)
   const isSelected = selectedScreenshotSlotId === slot.id
+  const canDeleteSlot = presetTab !== "multi"
   const hoverActionsScale = bulkEditMode
     ? Math.max(0.45, Math.min(1, bulkViewportZoom))
     : 1
@@ -155,7 +158,7 @@ export function ScreenshotSlotView({
       ) {
         return
       }
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (canDeleteSlot && (e.key === "Delete" || e.key === "Backspace")) {
         e.preventDefault()
         deleteScreenshotSlot(slot.id)
         setSelectedScreenshotSlotId(null)
@@ -163,7 +166,13 @@ export function ScreenshotSlotView({
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [slot.id, deleteScreenshotSlot, isSelected, setSelectedScreenshotSlotId])
+  }, [
+    slot.id,
+    canDeleteSlot,
+    deleteScreenshotSlot,
+    isSelected,
+    setSelectedScreenshotSlotId,
+  ])
 
   const handleFiles = React.useCallback(
     async (files: FileList | File[] | null) => {
@@ -400,6 +409,7 @@ export function ScreenshotSlotView({
               onCrop={() => onCropRequest(slot.id)}
               onReplaceFile={(file) => void handleFiles([file])}
               onDelete={() => {
+                if (!canDeleteSlot) return
                 deleteScreenshotSlot(slot.id)
                 setSelectedScreenshotSlotId(null)
               }}
@@ -424,9 +434,11 @@ export function ScreenshotSlotView({
                 onCrop={() => onCropRequest(slot.id)}
                 onReplaceFile={(file) => void handleFiles([file])}
                 onDelete={() => {
+                  if (!canDeleteSlot) return
                   deleteScreenshotSlot(slot.id)
                   setSelectedScreenshotSlotId(null)
                 }}
+                showDelete={canDeleteSlot}
               />
             ) : null}
           </div>
@@ -537,13 +549,15 @@ export function ScreenshotSlotView({
                           </ToolbarPopover>
                         </>
                       )}
-                      <ToolbarDeleteButton
-                        ariaLabel="Delete screenshot box"
-                        onDelete={() => {
-                          deleteScreenshotSlot(slot.id)
-                          setSelectedScreenshotSlotId(null)
-                        }}
-                      />
+                      {canDeleteSlot ? (
+                        <ToolbarDeleteButton
+                          ariaLabel="Delete screenshot box"
+                          onDelete={() => {
+                            deleteScreenshotSlot(slot.id)
+                            setSelectedScreenshotSlotId(null)
+                          }}
+                        />
+                      ) : null}
                       <ToolbarLayerOrderMenu
                         onBringToFront={() =>
                           bringScreenshotSlotToFront(slot.id)
