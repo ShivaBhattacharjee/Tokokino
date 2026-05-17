@@ -22,6 +22,7 @@ const ADDRESS_WIDTH_PCT = (820 / CHROME_WIDTH) * 100
 const ADDRESS_HEIGHT_PCT = (32 / CHROME_HEIGHT) * 100
 
 type ChromeColorMode = "light" | "dark"
+type ImageFit = "contain" | "cover" | "fill"
 
 export interface ChromeProps extends HTMLAttributes<HTMLDivElement> {
   url?: string
@@ -32,6 +33,7 @@ export interface ChromeProps extends HTMLAttributes<HTMLDivElement> {
   screenRef?: Ref<HTMLDivElement>
   imageRef?: Ref<HTMLImageElement>
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
+  imageFit?: ImageFit
   frameBorderRadius?: string | number
   screenBorderRadius?: string | number
   addressValue?: string
@@ -48,6 +50,7 @@ export function Chrome({
   screenRef,
   imageRef,
   onImageLoad,
+  imageFit = "cover",
   frameBorderRadius = "8px",
   screenBorderRadius = "0 0 8px 8px",
   addressValue,
@@ -116,7 +119,7 @@ export function Chrome({
       src={imageSrc}
       alt=""
       onLoad={onImageLoad}
-      className="block size-full object-cover object-top"
+      className={`block size-full object-top ${imageFitClassName(imageFit)}`}
     />
   ) : (
     children
@@ -232,6 +235,12 @@ export function Chrome({
       ) : null}
     </div>
   )
+}
+
+function imageFitClassName(imageFit: ImageFit) {
+  if (imageFit === "contain") return "object-contain"
+  if (imageFit === "fill") return "object-fill"
+  return "object-cover"
 }
 
 function ChromeArrow({ direction }: { direction: "left" | "right" }) {

@@ -12,10 +12,13 @@ import {
   RiRefreshLine,
   RiArrowUpCircleLine,
   RiEqualizerLine,
+  RiSaveLine,
+  RiShareForwardLine,
 } from "@remixicon/react"
 import { toast } from "sonner"
 import { useShallow } from "zustand/react/shallow"
 
+import { LoginForm } from "@/app/login/login-form"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
@@ -33,6 +36,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   copyCanvasAsPng,
   EXPORT_FORMAT_EXTENSION,
@@ -60,10 +69,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "motion/react"
 
+type ProtectedTopBarAction = "save" | "share"
+
 export function TopBar() {
+  const { data: session, isPending: isAuthPending } = useSession()
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
   const canUndo = useEditorStore((s) => s.past.length > 0)
@@ -75,6 +88,10 @@ export function TopBar() {
   const setBulkEditMode = useEditorStore((s) => s.setBulkEditMode)
   const canvasCount = useEditorStore((s) => s.present.canvases.length)
   const [showDisableDialog, setShowDisableDialog] = React.useState(false)
+  const [authDialog, setAuthDialog] = React.useState<{
+    open: boolean
+    action: ProtectedTopBarAction
+  }>({ open: false, action: "save" })
   const canvasIds = useEditorStore(
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
   )
@@ -90,6 +107,20 @@ export function TopBar() {
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [canUndo])
+
+  const handleProtectedAction = React.useCallback(
+    (action: ProtectedTopBarAction) => {
+      if (isAuthPending) return
+
+      if (!session) {
+        setAuthDialog({ open: true, action })
+        return
+      }
+
+      toast("Feature in development")
+    },
+    [isAuthPending, session]
+  )
 
   const handleCopyPng = React.useCallback(async () => {
     if (isCopyingPng) return
@@ -233,12 +264,42 @@ export function TopBar() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog
+          open={authDialog.open}
+          onOpenChange={(open) =>
+            setAuthDialog((current) => ({ ...current, open }))
+          }
+        >
+          <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
+            <div className="space-y-2 pr-8">
+              <DialogTitle>Sign in to {authDialog.action}</DialogTitle>
+              <DialogDescription>
+                Your account is needed before this action can continue.
+              </DialogDescription>
+            </div>
+            <LoginForm callbackURL="/app" variant="dialog" />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-1.5">
         {/* Right cluster — desktop only */}
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
+
+          <TopBarButton
+            label="Save"
+            icon={RiSaveLine}
+            onClick={() => handleProtectedAction("save")}
+            tooltip="Save screenshot"
+          />
+          <TopBarButton
+            label="Share"
+            icon={RiShareForwardLine}
+            onClick={() => handleProtectedAction("share")}
+            tooltip="Share screenshot"
+          />
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -273,6 +334,7 @@ export function TopBar() {
         <MobileOverflowMenu
           bulkEditMode={bulkEditMode}
           onBulkEditClick={handleBulkEditClick}
+          onProtectedAction={handleProtectedAction}
           onCopyPng={handleCopyPng}
           isCopyingPng={isCopyingPng}
         />
@@ -464,11 +526,13 @@ function TopBarButton({
 function MobileOverflowMenu({
   bulkEditMode,
   onBulkEditClick,
+  onProtectedAction,
   onCopyPng,
   isCopyingPng,
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
+  onProtectedAction: (action: ProtectedTopBarAction) => void
   onCopyPng: () => Promise<void>
   isCopyingPng: boolean
 }) {
@@ -557,6 +621,14 @@ function MobileOverflowMenu({
           <DropdownMenuItem onClick={() => setIsPreviewMode(true)}>
             <RiEyeLine />
             Preview
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onProtectedAction("save")}>
+            <RiSaveLine />
+            Save
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onProtectedAction("share")}>
+            <RiShareForwardLine />
+            Share
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={(e) => {

@@ -18,6 +18,7 @@ const WIDTH_PCT = (SCREEN_WIDTH / ARC_WIDTH) * 100
 const HEIGHT_PCT = (SCREEN_HEIGHT / ARC_HEIGHT) * 100
 
 type ArcColorMode = "light" | "dark"
+type ImageFit = "contain" | "cover" | "fill"
 
 export interface ArcProps extends HTMLAttributes<HTMLDivElement> {
   imageSrc?: string
@@ -27,6 +28,7 @@ export interface ArcProps extends HTMLAttributes<HTMLDivElement> {
   screenRef?: Ref<HTMLDivElement>
   imageRef?: Ref<HTMLImageElement>
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
+  imageFit?: ImageFit
   frameBorderRadius?: string | number
   screenBorderRadius?: string | number
 }
@@ -39,6 +41,7 @@ export function Arc({
   screenRef,
   imageRef,
   onImageLoad,
+  imageFit = "cover",
   frameBorderRadius = "24px",
   screenBorderRadius = "18px",
   className,
@@ -76,7 +79,7 @@ export function Arc({
       src={imageSrc}
       alt=""
       onLoad={onImageLoad}
-      className="block size-full object-cover object-top"
+      className={`block size-full object-top ${imageFitClassName(imageFit)}`}
     />
   ) : (
     children
@@ -108,4 +111,10 @@ export function Arc({
       </div>
     </div>
   )
+}
+
+function imageFitClassName(imageFit: ImageFit) {
+  if (imageFit === "contain") return "object-contain"
+  if (imageFit === "fill") return "object-fill"
+  return "object-cover"
 }

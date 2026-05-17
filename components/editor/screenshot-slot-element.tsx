@@ -528,7 +528,7 @@ export function ScreenshotSlotView({
                           }
                         />
                       </ToolbarPopover>
-                      {slot.frame.id === "none" && slot.src && (
+                      {slot.src && (
                         <>
                           <ToolbarDivider />
                           <ToolbarPopover

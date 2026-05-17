@@ -756,21 +756,18 @@ function DefaultToolbarContents() {
       </ToolbarButton>
 
       {(() => {
-        const fitFrame = selectedSlot?.frame ?? frame
         const fitHasScreenshot = selectedSlot ? Boolean(selectedSlot.src) : Boolean(screenshot)
-        const showImageFit = fitFrame.id === "none" && fitHasScreenshot
+        const showImageFit = fitHasScreenshot
         if (!showImageFit) return null
         const currentFit = selectedSlot?.objectFit ?? objectFit ?? "contain"
         const FIT_OPTIONS: {
           value: "contain" | "cover" | "fill"
           label: string
           icon: React.ReactNode
-          desc: string
         }[] = [
           {
             value: "contain",
             label: "Contain",
-            desc: "Fit inside",
             icon: (
               <svg viewBox="0 0 32 32" className="size-full" fill="none">
                 <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current opacity-30" strokeWidth="1.5" strokeDasharray="3 2" />
@@ -782,7 +779,6 @@ function DefaultToolbarContents() {
           {
             value: "cover",
             label: "Cover",
-            desc: "Fill & crop",
             icon: (
               <svg viewBox="0 0 32 32" className="size-full" fill="none">
                 <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current opacity-30" strokeWidth="1.5" strokeDasharray="3 2" />
@@ -794,7 +790,6 @@ function DefaultToolbarContents() {
           {
             value: "fill",
             label: "Fill",
-            desc: "Stretch",
             icon: (
               <svg viewBox="0 0 32 32" className="size-full" fill="none">
                 <rect x="2" y="2" width="28" height="28" rx="3" className="fill-current opacity-25" />
@@ -819,7 +814,7 @@ function DefaultToolbarContents() {
                 Image Fit
               </span>
               <div className="grid grid-cols-3 gap-1.5">
-                {FIT_OPTIONS.map(({ value, label, desc, icon }) => (
+                {FIT_OPTIONS.map(({ value, label, icon }) => (
                   <button
                     key={value}
                     onClick={() => {

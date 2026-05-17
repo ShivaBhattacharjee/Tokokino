@@ -193,7 +193,7 @@ export function MainScreenshotRowItem({
               bareStyle={imgStyle}
               applyTransformWhenEmpty
               emptyCompact
-              objectFit={frame.id === "none" ? objectFit : undefined}
+              objectFit={objectFit}
               activeTool={activeTool}
               isDragging={isScreenshotDragging}
               stageRef={stageRef}
@@ -313,7 +313,7 @@ export function MainScreenshotRowItem({
                           onFrameChange={onFrameChange}
                         />
                       </ToolbarPopover>
-                      {frame.id === "none" && screenshot && (
+                      {screenshot && (
                         <>
                           <ToolbarDivider />
                           <ToolbarPopover

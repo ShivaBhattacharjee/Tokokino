@@ -23,6 +23,8 @@ type PlacementDims = {
   imgH: number
 }
 
+type ImageFit = "contain" | "cover" | "fill"
+
 type ScreenshotMockupProps = {
   screenshot: string
   mockupAsset: DeviceMockupAsset
@@ -34,6 +36,7 @@ type ScreenshotMockupProps = {
   screenshotOffset: { x: number; y: number }
   screenshotAnchor: { x: number; y: number }
   enhanceFilter: string | undefined
+  objectFit?: ImageFit
   isScreenshotDragging: boolean
   activeTool: EditorTool
   placementDims: PlacementDims | null
@@ -62,6 +65,7 @@ export function ScreenshotMockup({
   screenshotOffset,
   screenshotAnchor,
   enhanceFilter,
+  objectFit = "contain",
   isScreenshotDragging,
   activeTool,
   placementDims,
@@ -154,7 +158,7 @@ export function ScreenshotMockup({
         <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
           <div
             ref={stageRef}
-            className="pointer-events-none w-full overflow-clip bg-black"
+            className="pointer-events-none relative w-full overflow-clip bg-black"
             style={{
               aspectRatio: mockupSpec.screen.aspectRatio,
               ...mockupScreenClipStyle(mockupSpec.screen, stageWidth),
@@ -168,8 +172,11 @@ export function ScreenshotMockup({
               draggable={false}
               onLoad={onImageLoad}
               className={cn(
-                "pointer-events-none max-w-none object-cover object-center select-none",
-                mockupRotation ? "absolute top-1/2 left-1/2" : "h-full w-full"
+                "pointer-events-none h-full w-full max-w-none object-center select-none",
+                objectFit === "contain" && "object-contain",
+                objectFit === "cover" && "object-cover",
+                objectFit === "fill" && "object-fill",
+                mockupRotation && "absolute top-1/2 left-1/2"
               )}
               style={horizontalScreenStyle}
             />

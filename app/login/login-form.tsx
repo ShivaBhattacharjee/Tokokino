@@ -7,7 +7,13 @@ import { toast } from "sonner"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
-export function LoginForm() {
+export function LoginForm({
+  callbackURL = "/app",
+  variant = "page",
+}: {
+  callbackURL?: string
+  variant?: "page" | "dialog"
+}) {
   const [loading, setLoading] = React.useState(false)
 
   const handleGoogle = async () => {
@@ -15,7 +21,7 @@ export function LoginForm() {
     setLoading(true)
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/app",
+      callbackURL,
     })
     if (error) {
       toast.error(error.message ?? "Google sign-in failed")
@@ -24,10 +30,15 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[420px] flex-col gap-10">
+    <div
+      className={cn(
+        "mx-auto flex w-full max-w-[420px] flex-col",
+        variant === "dialog" ? "gap-6" : "gap-10"
+      )}
+    >
       <div
         className={cn(
-          "space-y-5",
+          variant === "dialog" ? "space-y-3" : "space-y-5",
           "[&>*]:animate-in [&>*]:fade-in-0 [&>*]:slide-in-from-bottom-2",
           "[&>*]:duration-700 [&>*]:fill-mode-both"
         )}
@@ -37,17 +48,27 @@ export function LoginForm() {
         </span>
 
         <h1
-          className="text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.02] font-semibold tracking-[-0.035em] text-foreground"
+          className={cn(
+            "leading-[1.02] font-semibold tracking-[-0.035em] text-foreground",
+            variant === "dialog"
+              ? "text-[clamp(1.75rem,8vw,2.35rem)]"
+              : "text-[clamp(2.25rem,4.5vw,3.25rem)]"
+          )}
           style={{ animationDelay: "140ms" }}
         >
-          Welcome <span className="text-primary">back.</span>
+          {variant === "dialog" ? "Sign in" : "Welcome"}{" "}
+          <span className="text-primary">
+            {variant === "dialog" ? "required." : "back."}
+          </span>
         </h1>
 
         <p
           className="max-w-[38ch] text-sm leading-relaxed text-muted-foreground"
           style={{ animationDelay: "220ms" }}
         >
-          One step from turning ordinary captures into something worth framing.
+          {variant === "dialog"
+            ? "Use your account to save and share your screenshot work."
+            : "One step from turning ordinary captures into something worth framing."}
         </p>
       </div>
 

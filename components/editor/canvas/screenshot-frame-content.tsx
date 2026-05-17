@@ -139,6 +139,7 @@ export function ScreenshotFrameContent({
           screenshotOffset={screenshotOffset}
           screenshotAnchor={screenshotAnchor}
           enhanceFilter={imageFilter}
+          objectFit={objectFit}
           isScreenshotDragging={isDragging}
           activeTool={activeTool}
           stageRef={stageRef}
@@ -171,6 +172,7 @@ export function ScreenshotFrameContent({
           screenshotOffset={screenshotOffset}
           screenshotAnchor={screenshotAnchor}
           enhanceFilter={imageFilter}
+          objectFit={objectFit}
           isScreenshotDragging={isDragging}
           activeTool={activeTool}
           placementDims={null}

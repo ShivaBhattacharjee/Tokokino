@@ -530,6 +530,7 @@ function CanvasViewInner({
                     screenshotOffset={effectiveOffset}
                     screenshotAnchor={screenshotAnchor}
                     enhanceFilter={enhanceFilter}
+                    objectFit={objectFit ?? "contain"}
                     isScreenshotDragging={isScreenshotDragging}
                     hoverActionsDisabled={
                       bulkCanvasDragging || isScreenshotDragging
@@ -571,6 +572,7 @@ function CanvasViewInner({
                     screenshotOffset={effectiveOffset}
                     screenshotAnchor={screenshotAnchor}
                     enhanceFilter={enhanceFilter}
+                    objectFit={objectFit ?? "contain"}
                     isScreenshotDragging={isScreenshotDragging}
                     activeTool={activeTool}
                     placementDims={placementDims}
@@ -611,7 +613,7 @@ function CanvasViewInner({
                     stageRef={stageRef}
                     imageRef={imageRef}
                     shadowBoxTarget={frame.id === "none"}
-                    objectFit={frame.id === "none" ? (objectFit ?? "contain") : undefined}
+                    objectFit={objectFit ?? "contain"}
                     onContainerPointerDown={(e) => {
                       if (e.target === e.currentTarget) {
                         setIsScreenshotSelected(false)

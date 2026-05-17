@@ -30,6 +30,8 @@ type SelectEvent = {
   stopPropagation: () => void
 }
 
+type ImageFit = "contain" | "cover" | "fill"
+
 type ScreenshotBrowserFrameProps = {
   screenshot: string
   frameId: string
@@ -40,6 +42,7 @@ type ScreenshotBrowserFrameProps = {
   screenshotOffset: { x: number; y: number }
   screenshotAnchor: { x: number; y: number }
   enhanceFilter: string | undefined
+  objectFit?: ImageFit
   isScreenshotDragging: boolean
   hoverActionsDisabled?: boolean
   hoverActionsInline?: boolean
@@ -91,6 +94,7 @@ export function ScreenshotBrowserFrame({
   screenshotOffset,
   screenshotAnchor,
   enhanceFilter,
+  objectFit = "contain",
   isScreenshotDragging,
   hoverActionsDisabled,
   activeTool,
@@ -174,6 +178,7 @@ export function ScreenshotBrowserFrame({
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            imageFit={objectFit}
             className="h-full w-full"
           />
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
@@ -185,6 +190,7 @@ export function ScreenshotBrowserFrame({
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            imageFit={objectFit}
             className="h-full w-full"
           />
         ) : (
@@ -196,6 +202,7 @@ export function ScreenshotBrowserFrame({
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            imageFit={objectFit}
             className="h-full w-full"
           />
         )}

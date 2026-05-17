@@ -25,6 +25,7 @@ const ADDRESS_HEIGHT_PCT = (30 / SAFARI_HEIGHT) * 100
 
 type SafariMode = "default" | "simple"
 type SafariColorMode = "light" | "dark"
+type ImageFit = "contain" | "cover" | "fill"
 
 export interface SafariProps extends HTMLAttributes<HTMLDivElement> {
   url?: string
@@ -36,6 +37,7 @@ export interface SafariProps extends HTMLAttributes<HTMLDivElement> {
   screenRef?: Ref<HTMLDivElement>
   imageRef?: Ref<HTMLImageElement>
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
+  imageFit?: ImageFit
   screenBorderRadius?: string | number
   addressValue?: string
   addressPlaceholder?: string
@@ -52,6 +54,7 @@ export function Safari({
   screenRef,
   imageRef,
   onImageLoad,
+  imageFit = "cover",
   screenBorderRadius = "0 0 11px 11px",
   addressValue,
   addressPlaceholder = "your-url.com",
@@ -131,7 +134,7 @@ export function Safari({
             src={imageSrc}
             alt=""
             onLoad={onImageLoad}
-            className="block size-full object-cover object-top"
+            className={`block size-full object-top ${imageFitClassName(imageFit)}`}
           />
         </div>
       )}
@@ -326,4 +329,10 @@ export function Safari({
       </svg>
     </div>
   )
+}
+
+function imageFitClassName(imageFit: ImageFit) {
+  if (imageFit === "contain") return "object-contain"
+  if (imageFit === "fill") return "object-fill"
+  return "object-cover"
 }
