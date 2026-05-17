@@ -7,14 +7,9 @@ import {
   RiArrowGoForwardLine,
   RiEyeLine,
   RiFileCopyLine,
-  RiFolderOpenLine,
   RiLayoutGridLine,
   RiMoreLine,
   RiRefreshLine,
-  RiSaveLine,
-  RiShareForwardLine,
-  RiUploadCloud2Line,
-  RiLayoutMasonryLine,
   RiArrowUpCircleLine,
   RiEqualizerLine,
 } from "@remixicon/react"
@@ -166,14 +161,7 @@ export function TopBar() {
           />
         </div>
 
-        <div className="tool-cluster">
-          <OpenProjectDialog compact />
-          <TopBarButton
-            label="Save"
-            icon={RiSaveLine}
-            onClick={() => toast.success("Project saved")}
-          />
-        </div>
+
 
         <div className="tool-cluster">
           <TopBarButton
@@ -260,19 +248,6 @@ export function TopBar() {
         {/* Right cluster — desktop only */}
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => toast.success("Share link copied")}
-              >
-                <RiShareForwardLine />
-                Share
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Copy a shareable link</TooltipContent>
-          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -466,163 +441,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function OpenProjectDialog({ compact = false }: { compact?: boolean }) {
-  const [activeTab, setActiveTab] = React.useState<"templates" | "projects">(
-    "templates"
-  )
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="lg" className="cursor-pointer">
-          <RiFolderOpenLine />
-          <span className={cn(compact && "hidden lg:inline")}>Open</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="flex h-[640px] w-[960px] flex-col overflow-hidden border-border/60 bg-popover/95 p-0 backdrop-blur-md sm:max-w-[960px]">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Open project</DialogTitle>
-          <DialogDescription>
-            Choose a template or import an existing project file.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex h-full">
-          {/* Left Sidebar */}
-          <div className="flex w-64 flex-col gap-2 border-r border-border/60 bg-secondary/10 p-4">
-            <div className="mb-6 px-2">
-              <h2 className="text-lg font-bold tracking-tight text-foreground">
-                Open project
-              </h2>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Choose a template or import your existing work.
-              </p>
-            </div>
-
-            <SidebarNavItem
-              active={activeTab === "templates"}
-              onClick={() => setActiveTab("templates")}
-              icon={RiLayoutMasonryLine}
-              label="Template Gallery"
-              description="Start from a layout"
-            />
-
-            <SidebarNavItem
-              active={activeTab === "projects"}
-              onClick={() => setActiveTab("projects")}
-              icon={RiUploadCloud2Line}
-              label="Import Projects"
-              description="Continue your work"
-            />
-          </div>
-
-          {/* Right Content Area */}
-          <div className="flex min-h-0 flex-1 flex-col bg-background/20">
-            <div className="flex h-14 shrink-0 items-center border-b border-border/40 px-6">
-              <span className="text-[13px] font-semibold tracking-wider text-foreground uppercase">
-                {activeTab === "templates"
-                  ? "Professional Templates"
-                  : "Existing Files"}
-              </span>
-            </div>
-
-            <ScrollArea className="flex-1 p-6">
-              {activeTab === "templates" ? (
-                <div className="grid grid-cols-2 gap-4">
-                  {TEMPLATE_ITEMS.map((item) => (
-                    <button
-                      key={item.id}
-                      className="group flex cursor-pointer flex-col gap-3 rounded-xl border-2 border-border bg-secondary/10 p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
-                    >
-                      <div className="flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary/30">
-                        <div className="size-full bg-gradient-to-br from-secondary/40 to-transparent transition-transform group-hover:scale-105" />
-                      </div>
-                      <div>
-                        <p className="text-[14px] font-bold text-foreground">
-                          {item.title}
-                        </p>
-                        <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-                          {item.description}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {PROJECT_ITEMS.map((item) => (
-                    <button
-                      key={item.id}
-                      className="flex cursor-pointer items-center justify-between rounded-xl border-2 border-border bg-secondary/10 px-5 py-4 text-left transition-all hover:border-primary hover:bg-primary/5"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex size-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                          <RiSaveLine className="size-5" />
-                        </div>
-                        <div>
-                          <p className="text-[14px] font-bold text-foreground">
-                            {item.title}
-                          </p>
-                          <p className="mt-0.5 text-[12px] text-muted-foreground">
-                            {item.updatedAt}
-                          </p>
-                        </div>
-                      </div>
-                      <RiFolderOpenLine className="size-5 text-muted-foreground/60" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function SidebarNavItem({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-  description,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  description: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
-        active
-          ? "border-primary bg-primary text-white shadow-lg shadow-primary/20"
-          : "border-transparent bg-transparent text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-      )}
-    >
-      <Icon
-        className={cn(
-          "size-5",
-          active ? "text-white" : "text-muted-foreground"
-        )}
-      />
-      <div>
-        <p className="text-sm leading-none font-bold">{label}</p>
-        <p
-          className={cn(
-            "mt-1.5 text-[10px] font-medium opacity-80",
-            active ? "text-white" : "text-muted-foreground"
-          )}
-        >
-          {description}
-        </p>
-      </div>
-    </button>
-  )
-}
 
 function TopBarButton({
   label,
@@ -727,18 +545,7 @@ function MobileOverflowMenu({
             Redo
           </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
-            File
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => toast.success("Opening file…")}>
-            <RiFolderOpenLine />
-            Open
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toast.success("Project saved")}>
-            <RiSaveLine />
-            Save
-          </DropdownMenuItem>
+
 
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
@@ -773,10 +580,6 @@ function MobileOverflowMenu({
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => toast.success("Share link copied")}>
-            <RiShareForwardLine />
-            Copy link
-          </DropdownMenuItem>
           <DropdownMenuItem onClick={onCopyPng} disabled={isCopyingPng}>
             <RiFileCopyLine />
             {isCopyingPng ? "Copying PNG…" : "Copy as PNG"}
@@ -829,38 +632,3 @@ function IconAction({
   )
 }
 
-const TEMPLATE_ITEMS = [
-  {
-    id: "clean-gradient",
-    title: "Clean Gradient",
-    description: "Minimal gradient background with soft shadows",
-  },
-  {
-    id: "terminal-window",
-    title: "Terminal Window",
-    description: "Code-style capture with dark shell framing",
-  },
-  {
-    id: "social-card",
-    title: "Social Card",
-    description: "Square layout optimized for social sharing",
-  },
-]
-
-const PROJECT_ITEMS = [
-  {
-    id: "landing-page-revamp",
-    title: "Landing Page Revamp",
-    updatedAt: "Updated 2 hours ago",
-  },
-  {
-    id: "portfolio-hero-shot",
-    title: "Portfolio Hero Shot",
-    updatedAt: "Updated yesterday",
-  },
-  {
-    id: "mobile-app-preview",
-    title: "Mobile App Preview",
-    updatedAt: "Updated 4 days ago",
-  },
-]
