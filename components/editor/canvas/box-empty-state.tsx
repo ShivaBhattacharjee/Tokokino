@@ -46,7 +46,7 @@ export function BoxEmptyState({
         <span
           aria-hidden
           style={rotationStyle}
-          className="grid size-[18cqw] max-h-16 min-h-7 max-w-16 min-w-7 place-items-center rounded-xl border-2 border-primary bg-background/95 text-foreground shadow-lg dark:bg-neutral-900/95"
+          className="grid size-[18cqw] max-h-16 min-h-7 max-w-16 min-w-7 place-items-center rounded-full border-2 border-primary bg-background/95 text-foreground shadow-lg dark:bg-neutral-900/95"
         >
           <RiAddLine className="size-[55%]" />
         </span>

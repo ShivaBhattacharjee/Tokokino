@@ -203,18 +203,28 @@ function CanvasViewInner({
     useImageFileIntake(handleImageFile)
 
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
-  const autoDims = isAuto && naturalDims ? naturalDims : null
+  const autoDims = isAuto && naturalDims && !inRowMode ? naturalDims : null
   const aw = autoDims ? autoDims.w : aspect.w || 16
   const ah = autoDims ? autoDims.h : aspect.h || 10
   const aspectRatio = `${aw} / ${ah}`
   const canvasAspectRatio = aw / ah
-  // Only scope the device frame to 80% on portrait canvases. Landscape and
-  // square should fill normally — they already fit by height without extra
-  // empty space.
-  // Treat square (1:1) the same as portrait — both should scope the frame/mockup
-  // to 80% so it doesn't fill the entire canvas edge-to-edge.
-  const isPortraitCanvas = ah >= aw
-  const shouldScopeFrame = isPortraitCanvas && screenshotSlots.length === 0
+  const isPortraitOrSquareCanvas = ah >= aw
+  const browserFrame = isBrowserFrame(frame.id)
+  const browserFrameColor = resolveBrowserFrameColor(frame.color)
+  const mockupDevice =
+    frame.id === "none" || browserFrame ? null : getDeviceMockup(frame.id)
+  const mockupOrientation = mockupDevice?.orientations.includes("portrait")
+    ? "portrait"
+    : "landscape"
+  const isVerticalPortraitDevice =
+    frame.orientation === "vertical" &&
+    mockupDevice?.orientations.includes("portrait") === true
+  // Only shrink vertical portrait devices on portrait/square canvases. Browsers,
+  // desktops, landscape devices, and landscape canvases should stay full-size.
+  const shouldScopeFrame =
+    isPortraitOrSquareCanvas &&
+    isVerticalPortraitDevice &&
+    screenshotSlots.length === 0
   const screenshotBoxAspect = slotBoxAspectRatio(
     frame,
     canvasAspectRatio,
@@ -302,13 +312,6 @@ function CanvasViewInner({
   const noiseEnabled = backdrop.effects.noise > 0
   const noiseOpacity = noiseEnabled ? backdrop.effects.noise / 100 : 0
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
-  const browserFrame = isBrowserFrame(frame.id)
-  const browserFrameColor = resolveBrowserFrameColor(frame.color)
-  const mockupDevice =
-    frame.id === "none" || browserFrame ? null : getDeviceMockup(frame.id)
-  const mockupOrientation = mockupDevice?.orientations.includes("portrait")
-    ? "portrait"
-    : "landscape"
   const mockupRotation =
     frame.orientation === "horizontal" && mockupOrientation === "portrait"
       ? -90
@@ -407,7 +410,9 @@ function CanvasViewInner({
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const el = e.currentTarget
-    setNaturalDims({ w: el.naturalWidth, h: el.naturalHeight })
+    if (!inRowMode) {
+      setNaturalDims({ w: el.naturalWidth, h: el.naturalHeight })
+    }
     measurePlacement()
   }
 
@@ -525,6 +530,8 @@ function CanvasViewInner({
               }}
               onPointerMove={moveMockup}
               onPointerUp={stopMockupDrag}
+              previewMode={isCanvasPreview}
+              emptyCompact={inRowMode}
             />
           ) : null}
 
@@ -675,7 +682,7 @@ function CanvasViewInner({
                   addressValue={frameAddress}
                   onAddressChange={setFrameAddress}
                   compact={
-                    isPortraitCanvas ||
+                    isPortraitOrSquareCanvas ||
                     tilt.rx !== 0 ||
                     tilt.ry !== 0 ||
                     tilt.rz !== 0 ||

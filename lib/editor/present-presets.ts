@@ -17,14 +17,59 @@ export type SlotLayoutConfig = {
   scale: number
 }
 
-export type LayoutPreset = {
-  id: string
-  name: string
+export type LayoutPresetGeometry = {
   canvasTilt: Tilt
   canvasScale: number
   slots: SlotLayoutConfig[]
   // Percentage of canvas width/height so layout is aspect-ratio independent
   mainOffset?: { xPct: number; yPct: number }
+  // When true, slot xPct/yPct are offsets from the natural row position
+  // (xPct offset from natural center, yPct offset from 50% vertical center).
+  // This keeps visual spacing consistent across all canvas aspect ratios.
+  relativeSlotPositions?: boolean
+}
+
+export type LayoutPreset = {
+  id: string
+  name: string
+  // Default geometry is used for browsers, desktop frames, landscape devices, and no-frame layouts.
+  portraitDevice?: LayoutPresetGeometry
+} & LayoutPresetGeometry
+
+export type LayoutPresetDeviceClass = "portrait-device" | "default"
+
+export function layoutPresetDeviceClassForFrame(
+  frame: DeviceFrame
+): LayoutPresetDeviceClass {
+  if (
+    frame.orientation === "vertical" &&
+    !isBrowserFrame(frame.id) &&
+    (frame.id.startsWith("iphone") ||
+      frame.id.startsWith("ipad") ||
+      frame.id.startsWith("galaxy") ||
+      frame.id.startsWith("pixel") ||
+      frame.id.startsWith("nothing"))
+  ) {
+    return "portrait-device"
+  }
+  return "default"
+}
+
+export function resolveLayoutPresetGeometry(
+  preset: LayoutPreset,
+  frame: DeviceFrame
+): LayoutPresetGeometry {
+  if (layoutPresetDeviceClassForFrame(frame) === "portrait-device") {
+    return preset.portraitDevice ?? preset
+  }
+  if (frame.id === "none" || isBrowserFrame(frame.id) || isDesktopFrame(frame.id)) {
+    return {
+      ...preset,
+      canvasScale: 100,
+      slots: preset.slots.map((slot) => ({ ...slot, scale: 100 })),
+    }
+  }
+  return preset
 }
 
 // Row layout for 2 equal "none" frames at 16:10 puts:
@@ -42,6 +87,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     slots: [
       { xPct: 75, yPct: 50, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
     ],
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: 0 },
+      canvasScale: 100,
+      slots: [
+        { xPct: 0, yPct: 0, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
+      ],
+      mainOffset: { xPct: 0, yPct: 0 },
+      relativeSlotPositions: true,
+    },
   },
   {
     id: "depth-duo",
@@ -51,6 +105,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     slots: [
       { xPct: 76, yPct: 62, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
     ],
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: 0 },
+      canvasScale: 100,
+      slots: [
+        { xPct: 0, yPct: 7.91, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
+      ],
+      mainOffset: { xPct: 0, yPct: -7.85 },
+      relativeSlotPositions: true,
+    },
   },
   {
     id: "cascade",
@@ -60,6 +123,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     slots: [
       { xPct: 74, yPct: 67, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
     ],
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: 0 },
+      canvasScale: 100,
+      slots: [
+        { xPct: -1.32, yPct: 21.39, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
+      ],
+      mainOffset: { xPct: 0, yPct: -14.12 },
+      relativeSlotPositions: true,
+    },
   },
   {
     // Rotations create the fan; base positions match natural row (25%+75%)
@@ -71,6 +143,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     slots: [
       { xPct: 75, yPct: 50, rotation: 14, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 92 },
     ],
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: -13 },
+      canvasScale: 92,
+      slots: [
+        { xPct: 2.82, yPct: 0, rotation: 14, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 92 },
+      ],
+      mainOffset: { xPct: 0, yPct: 0 },
+      relativeSlotPositions: true,
+    },
   },
   {
     id: "scatter",
@@ -80,6 +161,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     slots: [
       { xPct: 74, yPct: 52, rotation: 10, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 90 },
     ],
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: -9 },
+      canvasScale: 90,
+      slots: [
+        { xPct: 0.72, yPct: 0, rotation: 10, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 90 },
+      ],
+      mainOffset: { xPct: 0, yPct: 0 },
+      relativeSlotPositions: true,
+    },
   },
   {
     id: "perspective",
@@ -90,6 +180,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
       { xPct: 69, yPct: 64, rotation: 0, tilt: { rx: 0, ry: 24, rz: 0 }, scale: 100 },
     ],
     mainOffset: { xPct: 6.42, yPct: -7.2 },
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: -25, rz: 0 },
+      canvasScale: 100,
+      slots: [
+        { xPct: -3.07, yPct: 8.04, rotation: 0, tilt: { rx: 0, ry: 24, rz: 0 }, scale: 100 },
+      ],
+      mainOffset: { xPct: 0, yPct: -7.89 },
+      relativeSlotPositions: true,
+    },
   },
   {
     id: "drift",
@@ -100,6 +199,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
       { xPct: 69.2, yPct: 62.9, rotation: 0, tilt: { rx: 0, ry: 0, rz: 18 }, scale: 100 },
     ],
     mainOffset: { xPct: 11, yPct: -6.2 },
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: -16 },
+      canvasScale: 100,
+      slots: [
+        { xPct: 0, yPct: 6.01, rotation: 0, tilt: { rx: 0, ry: 0, rz: 18 }, scale: 100 },
+      ],
+      mainOffset: { xPct: 0, yPct: -6.3 },
+      relativeSlotPositions: true,
+    },
   },
   {
     id: "step",
@@ -110,6 +218,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
       { xPct: 70.2, yPct: 61.6, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
     ],
     mainOffset: { xPct: 10.1, yPct: -9 },
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: 0 },
+      canvasScale: 100,
+      slots: [
+        { xPct: 0, yPct: 11.55, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100 },
+      ],
+      mainOffset: { xPct: 0, yPct: -9.11 },
+      relativeSlotPositions: true,
+    },
   },
   {
     id: "stacked",
@@ -120,6 +237,15 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
       { xPct: 66.4, yPct: 54.1, rotation: 9, tilt: { rx: 0, ry: 0, rz: -29 }, scale: 90 },
     ],
     mainOffset: { xPct: 10.1, yPct: 0 },
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: -16 },
+      canvasScale: 90,
+      slots: [
+        { xPct: -6.38, yPct: 4.1, rotation: 9, tilt: { rx: 0, ry: 0, rz: -29 }, scale: 90 },
+      ],
+      mainOffset: { xPct: 1.08, yPct: 0 },
+      relativeSlotPositions: true,
+    },
   },
 ]
 
@@ -174,13 +300,15 @@ export function resolvePresentPresetScale(
 ) {
   if (preset.id === "default") return 100
   if (preset.id.startsWith("axis-")) return preset.scale
-  if (frame.id === "none" || isBrowserFrame(frame.id)) return 85
-  if (
-    frame.id.startsWith("macbook") ||
-    frame.id.startsWith("imac") ||
-    frame.id.includes("display")
-  ) {
-    return 90
-  }
+  if (frame.id === "none" || isBrowserFrame(frame.id)) return 100
+  if (isDesktopFrame(frame.id)) return 100
   return 100
+}
+
+function isDesktopFrame(frameId: string) {
+  return (
+    frameId.startsWith("macbook") ||
+    frameId.startsWith("imac") ||
+    frameId.includes("display")
+  )
 }

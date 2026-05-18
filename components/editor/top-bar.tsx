@@ -117,15 +117,6 @@ export function TopBar() {
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
 
-  React.useEffect(() => {
-    if (!canUndo) return
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
-    window.addEventListener("beforeunload", handler)
-    return () => window.removeEventListener("beforeunload", handler)
-  }, [canUndo])
-
   const handleCopyShareLink = React.useCallback(async (url: string) => {
     try {
       await navigator.clipboard.writeText(url)

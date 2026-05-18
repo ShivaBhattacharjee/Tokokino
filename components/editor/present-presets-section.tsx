@@ -8,10 +8,13 @@ import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import {
   LAYOUT_PRESETS,
   PRESENT_PRESETS,
+  layoutPresetDeviceClassForFrame,
+  resolveLayoutPresetGeometry,
   resolvePresentPresetScale,
   type LayoutPreset,
   type PresentPreset,
 } from "@/lib/editor/present-presets"
+import { computeRowLayout } from "@/lib/editor/screenshot-layout"
 import {
   Popover,
   PopoverContent,
@@ -20,8 +23,10 @@ import {
 import {
   RiArrowRightSLine,
   RiCheckLine,
+  RiFileCopyLine,
   RiLayoutGridLine,
 } from "@remixicon/react"
+import { toast } from "sonner"
 import {
   useActiveCanvasField,
   useActiveCanvasId,
@@ -37,6 +42,84 @@ import { cn } from "@/lib/utils"
 type PresetMotionKind = "canvas" | "slot"
 
 const PRESET_MOTION_MS = 560
+
+function canvasDimsFromAspect(aspect: AspectState) {
+  const aw = aspect.w || 16
+  const ah = aspect.h || 10
+  return {
+    width: BASE_CANVAS_WIDTH,
+    height: (BASE_CANVAS_WIDTH * ah) / aw,
+  }
+}
+
+function roundLayoutNumber(value: number) {
+  return Number(value.toFixed(2))
+}
+
+function buildLayoutPresetCapture({
+  canvas,
+  aspect,
+  activeLayoutPresetId,
+}: {
+  canvas: CanvasState
+  aspect: AspectState
+  activeLayoutPresetId: string | null
+}) {
+  const dims = canvasDimsFromAspect(aspect)
+  const mainOffset = {
+    xPct: roundLayoutNumber((canvas.screenshotOffset.x / dims.width) * 100),
+    yPct: roundLayoutNumber((canvas.screenshotOffset.y / dims.height) * 100),
+  }
+  const slots = canvas.screenshotSlots.map((slot, index) => ({
+    index,
+    id: slot.id,
+    xPct: roundLayoutNumber(slot.xPct),
+    yPct: roundLayoutNumber(slot.yPct),
+    widthPct: roundLayoutNumber(slot.widthPct),
+    heightPct: roundLayoutNumber(slot.heightPct),
+    rotation: roundLayoutNumber(slot.rotation),
+    tilt: {
+      rx: roundLayoutNumber(slot.tilt.rx),
+      ry: roundLayoutNumber(slot.tilt.ry),
+      rz: roundLayoutNumber(slot.tilt.rz),
+    },
+    scale: roundLayoutNumber(slot.scale),
+  }))
+  const presetPatch = {
+    canvasTilt: {
+      rx: roundLayoutNumber(canvas.tilt.rx),
+      ry: roundLayoutNumber(canvas.tilt.ry),
+      rz: roundLayoutNumber(canvas.tilt.rz),
+    },
+    canvasScale: roundLayoutNumber(canvas.scale),
+    slots: slots.map(({ xPct, yPct, rotation, tilt, scale }) => ({
+      xPct,
+      yPct,
+      rotation,
+      tilt,
+      scale,
+    })),
+    mainOffset,
+  }
+
+  return {
+    type: "layout-preset-capture-v1",
+    activeLayoutPresetId,
+    layoutDeviceClass: layoutPresetDeviceClassForFrame(canvas.frame),
+    frame: {
+      id: canvas.frame.id,
+      orientation: canvas.frame.orientation,
+    },
+    aspect: {
+      id: aspect.id,
+      w: aspect.w || 16,
+      h: aspect.h || 10,
+    },
+    screenshotPosition: canvas.screenshotPosition,
+    presetPatch,
+    slots,
+  }
+}
 
 function motionVarName(
   kind: PresetMotionKind,
@@ -357,6 +440,20 @@ export function PresentPresetsSection() {
   const setActiveSinglePresetId = useEditorStore(
     (s) => s.setActiveSinglePresetId
   )
+  const copyCurrentLayout = React.useCallback(async () => {
+    const capture = buildLayoutPresetCapture({
+      canvas,
+      aspect,
+      activeLayoutPresetId,
+    })
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(capture, null, 2))
+      toast.success("Preset coordinates copied")
+    } catch (error) {
+      console.error(error)
+      toast.error("Could not copy preset coordinates")
+    }
+  }, [activeLayoutPresetId, aspect, canvas])
 
   const applyPreset = React.useCallback(
     (preset: PresentPreset) => {
@@ -401,34 +498,49 @@ export function PresentPresetsSection() {
 
   const applyLayoutPreset = React.useCallback(
     (preset: LayoutPreset) => {
+      const geometry = resolveLayoutPresetGeometry(preset, canvas.frame)
       setScreenshotPosition("center")
       const currentSlotIds = canvas.screenshotSlots.map((s) => s.id)
       const newSlotIds: string[] = []
-      for (let i = currentSlotIds.length; i < preset.slots.length; i++) {
+      for (let i = currentSlotIds.length; i < geometry.slots.length; i++) {
         const id = addScreenshotSlot()
         if (id) newSlotIds.push(id)
       }
       const allSlotIds = [...currentSlotIds, ...newSlotIds]
-      for (let i = 0; i < preset.slots.length; i++) {
+      // Compute natural row positions so relative presets can offset from them
+      const aw = aspect.w || 16
+      const ah = aspect.h || 10
+      const canvasAspect = aw / ah
+      const naturalLayout = computeRowLayout(
+        [
+          { id: "__main__", frame: canvas.frame },
+          ...allSlotIds.map((id) => ({ id, frame: canvas.frame })),
+        ],
+        canvasAspect
+      )
+      for (let i = 0; i < geometry.slots.length; i++) {
         const slotId = allSlotIds[i]
-        const config = preset.slots[i]
+        const config = geometry.slots[i]
         if (!slotId || !config) continue
+        const naturalSlotX = naturalLayout[i + 1]?.xPct ?? 75
+        const xPct = geometry.relativeSlotPositions
+          ? naturalSlotX + config.xPct
+          : config.xPct
+        const yPct = geometry.relativeSlotPositions ? 50 + config.yPct : config.yPct
         updateScreenshotSlot(slotId, {
-          xPct: config.xPct,
-          yPct: config.yPct,
+          xPct,
+          yPct,
           rotation: config.rotation,
           tilt: config.tilt,
           scale: config.scale,
         })
       }
-      setTiltAndScale(preset.canvasTilt, preset.canvasScale)
-      if (preset.mainOffset) {
-        const aw = aspect.w || 16
-        const ah = aspect.h || 10
-        const canvasH = (BASE_CANVAS_WIDTH * ah) / aw
+      setTiltAndScale(geometry.canvasTilt, geometry.canvasScale)
+      if (geometry.mainOffset) {
+        const PRESET_DESIGN_HEIGHT = BASE_CANVAS_WIDTH * (10 / 16)
         setScreenshotOffset({
-          x: (preset.mainOffset.xPct / 100) * BASE_CANVAS_WIDTH,
-          y: (preset.mainOffset.yPct / 100) * canvasH,
+          x: (geometry.mainOffset.xPct / 100) * BASE_CANVAS_WIDTH,
+          y: (geometry.mainOffset.yPct / 100) * PRESET_DESIGN_HEIGHT,
         })
       }
       setActiveLayoutPresetId(preset.id)
@@ -436,6 +548,7 @@ export function PresentPresetsSection() {
     [
       addScreenshotSlot,
       aspect,
+      canvas.frame,
       canvas.screenshotSlots,
       setActiveLayoutPresetId,
       setScreenshotOffset,
@@ -452,7 +565,19 @@ export function PresentPresetsSection() {
   return (
     <div className="space-y-3">
       <div className="sticky top-0 z-10 bg-sidebar pb-1">
-        <p className="mb-2 text-[13px] font-medium text-foreground">Presets</p>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-[13px] font-medium text-foreground">Presets</p>
+          <button
+            type="button"
+            onClick={() => void copyCurrentLayout()}
+            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/12 bg-white/[0.045] px-2 text-[11px] font-medium text-foreground/75 transition-colors hover:border-primary/45 hover:bg-primary/10 hover:text-foreground"
+            title="Copy current layout coordinates"
+            aria-label="Copy current layout coordinates"
+          >
+            <RiFileCopyLine className="size-3.5" />
+            Temp copy
+          </button>
+        </div>
         <TabTriggerRow tab={tab} onTabChange={setTab} />
       </div>
 
@@ -665,11 +790,32 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
 }) {
   // Build a virtual canvas that looks like the preset applied, for the preview
   const virtualCanvas = React.useMemo<CanvasState>(() => {
-    const virtualSlots: ScreenshotSlot[] = preset.slots.map((cfg, i) => ({
+    const geometry = resolveLayoutPresetGeometry(preset, canvas.frame)
+    const aw = aspect.w || 16
+    const ah = aspect.h || 10
+    const canvasAspect = aw / ah
+    // Compute natural row positions so relative presets offset correctly in preview
+    const naturalLayout = computeRowLayout(
+      [
+        { id: "__main__", frame: canvas.frame },
+        ...geometry.slots.map((_, i) => ({
+          id: `_layout_preview_${i}`,
+          frame: canvas.screenshotSlots[i]?.frame ?? canvas.frame,
+        })),
+      ],
+      canvasAspect
+    )
+    const virtualSlots: ScreenshotSlot[] = geometry.slots.map((cfg, i) => {
+      const naturalSlotX = naturalLayout[i + 1]?.xPct ?? 75
+      const xPct = geometry.relativeSlotPositions
+        ? naturalSlotX + cfg.xPct
+        : cfg.xPct
+      const yPct = geometry.relativeSlotPositions ? 50 + cfg.yPct : cfg.yPct
+      return {
       id: `_layout_preview_${i}`,
       src: canvas.screenshotSlots[i]?.src ?? null,
-      xPct: cfg.xPct,
-      yPct: cfg.yPct,
+      xPct,
+      yPct,
       widthPct: 60,
       heightPct: 28,
       rotation: cfg.rotation,
@@ -686,20 +832,18 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
       opacity: 100,
       blendMode: "normal" as const,
       frameAddress: canvas.frameAddress,
-    }))
-    const aw = aspect.w || 16
-    const ah = aspect.h || 10
-    const canvasH = (BASE_CANVAS_WIDTH * ah) / aw
-    const offsetPx = preset.mainOffset
+    }})
+    const PRESET_DESIGN_HEIGHT = BASE_CANVAS_WIDTH * (10 / 16)
+    const offsetPx = geometry.mainOffset
       ? {
-          x: (preset.mainOffset.xPct / 100) * BASE_CANVAS_WIDTH,
-          y: (preset.mainOffset.yPct / 100) * canvasH,
+          x: (geometry.mainOffset.xPct / 100) * BASE_CANVAS_WIDTH,
+          y: (geometry.mainOffset.yPct / 100) * PRESET_DESIGN_HEIGHT,
         }
       : { x: 0, y: 0 }
     return {
       ...canvas,
-      tilt: preset.canvasTilt,
-      scale: preset.canvasScale,
+      tilt: geometry.canvasTilt,
+      scale: geometry.canvasScale,
       screenshotSlots: virtualSlots,
       screenshotPosition: "center" as const,
       screenshotOffset: offsetPx,

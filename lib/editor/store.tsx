@@ -5,7 +5,7 @@ import { create } from "zustand"
 
 import { FONT_FAMILIES } from "./fonts"
 import { DEFAULT_IMAGE_BACKGROUND } from "./presets"
-import { LAYOUT_PRESETS } from "./present-presets"
+import { LAYOUT_PRESETS, resolveLayoutPresetGeometry } from "./present-presets"
 import { computeRowLayout } from "./screenshot-layout"
 import type {
   Annotation,
@@ -362,6 +362,245 @@ type EditorStore = {
   activeSinglePresetId: string | null
 } & EditorActions
 
+const EDITOR_DRAFT_DB_NAME = "beautiful-screenshots-editor"
+const EDITOR_DRAFT_STORE_NAME = "drafts"
+const EDITOR_DRAFT_KEY = "current"
+const EDITOR_DRAFT_SCHEMA_VERSION = 1
+const EDITOR_DRAFT_SAVE_DELAY_MS = 250
+
+type PersistedEditorUi = Pick<
+  EditorStore,
+  | "bulkEditMode"
+  | "bulkViewportZoom"
+  | "bulkScale"
+  | "presetTab"
+  | "activeLayoutPresetId"
+  | "activeSinglePresetId"
+  | "previewAutoScrollDelay"
+  | "previewAnimation"
+>
+
+type PersistedEditorDraft = {
+  id: typeof EDITOR_DRAFT_KEY
+  schemaVersion: number
+  updatedAt: number
+  present: EditorState
+  ui: PersistedEditorUi
+}
+
+const isBrowserIndexedDbAvailable = () =>
+  typeof window !== "undefined" && "indexedDB" in window
+
+const cloneEditorState = (state: EditorState): EditorState =>
+  JSON.parse(JSON.stringify(state)) as EditorState
+
+function normalizeCanvasState(
+  canvas: Partial<CanvasState> | null | undefined,
+  fallback: CanvasState
+): CanvasState {
+  const source = canvas ?? {}
+  const fallbackBackdrop = fallback.backdrop
+  const sourceBackdrop = source.backdrop
+
+  return {
+    ...fallback,
+    ...source,
+    id: source.id ?? fallback.id,
+    position: { ...fallback.position, ...(source.position ?? {}) },
+    background: { ...fallback.background, ...(source.background ?? {}) },
+    border: { ...fallback.border, ...(source.border ?? {}) },
+    backdrop: {
+      ...fallbackBackdrop,
+      ...(sourceBackdrop ?? {}),
+      effects: {
+        ...fallbackBackdrop.effects,
+        ...(sourceBackdrop?.effects ?? {}),
+      },
+      pattern: {
+        ...fallbackBackdrop.pattern,
+        ...(sourceBackdrop?.pattern ?? {}),
+      },
+    },
+    tilt: { ...fallback.tilt, ...(source.tilt ?? {}) },
+    screenshotOffset: {
+      ...fallback.screenshotOffset,
+      ...(source.screenshotOffset ?? {}),
+    },
+    screenshotLayer: {
+      ...fallback.screenshotLayer,
+      ...(source.screenshotLayer ?? {}),
+    },
+    shadow: { ...fallback.shadow, ...(source.shadow ?? {}) },
+    overlay: { ...fallback.overlay, ...(source.overlay ?? {}) },
+    frame: { ...fallback.frame, ...(source.frame ?? {}) },
+    portrait: { ...fallback.portrait, ...(source.portrait ?? {}) },
+    texts: Array.isArray(source.texts) ? source.texts : fallback.texts,
+    assets: Array.isArray(source.assets) ? source.assets : fallback.assets,
+    annotations: Array.isArray(source.annotations)
+      ? source.annotations
+      : fallback.annotations,
+    annotationShapes: Array.isArray(source.annotationShapes)
+      ? source.annotationShapes
+      : fallback.annotationShapes,
+    screenshotSlots: Array.isArray(source.screenshotSlots)
+      ? source.screenshotSlots.map((slot) => ({
+          ...createScreenshotSlot({}, 1),
+          ...slot,
+          frame: { ...fallback.frame, ...(slot.frame ?? {}) },
+          shadow: { ...fallback.shadow, ...(slot.shadow ?? {}) },
+          border: { ...fallback.border, ...(slot.border ?? {}) },
+        }))
+      : fallback.screenshotSlots,
+  }
+}
+
+function normalizeEditorState(state: Partial<EditorState>): EditorState {
+  const fallback = cloneEditorState(DEFAULT_STATE)
+  const rawCanvases = Array.isArray(state.canvases) ? state.canvases : []
+  const canvases =
+    rawCanvases.length > 0
+      ? rawCanvases.map((canvas, index) =>
+          normalizeCanvasState(
+            canvas,
+            createCanvas(canvas?.id ?? makeId(), canvas?.position ?? {
+              x: index * (CANVAS_BASE_W + CANVAS_GAP),
+              y: 0,
+            })
+          )
+        )
+      : fallback.canvases
+  const activeCanvasId = canvases.some((c) => c.id === state.activeCanvasId)
+    ? state.activeCanvasId
+    : canvases[0]?.id
+
+  return {
+    ...fallback,
+    ...state,
+    aspect: { ...fallback.aspect, ...(state.aspect ?? {}) },
+    annotation: { ...fallback.annotation, ...(state.annotation ?? {}) },
+    canvases,
+    activeCanvasId: activeCanvasId ?? FIRST_CANVAS_ID,
+  }
+}
+
+function openEditorDraftDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (!isBrowserIndexedDbAvailable()) {
+      reject(new Error("IndexedDB is not available"))
+      return
+    }
+
+    const request = window.indexedDB.open(
+      EDITOR_DRAFT_DB_NAME,
+      EDITOR_DRAFT_SCHEMA_VERSION
+    )
+
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(EDITOR_DRAFT_STORE_NAME)) {
+        db.createObjectStore(EDITOR_DRAFT_STORE_NAME, { keyPath: "id" })
+      }
+    }
+    request.onerror = () =>
+      reject(request.error ?? new Error("Failed to open editor draft database"))
+    request.onsuccess = () => resolve(request.result)
+  })
+}
+
+function readEditorDraft(): Promise<PersistedEditorDraft | null> {
+  return new Promise((resolve, reject) => {
+    void openEditorDraftDb()
+      .then((db) => {
+        const transaction = db.transaction(EDITOR_DRAFT_STORE_NAME, "readonly")
+        const store = transaction.objectStore(EDITOR_DRAFT_STORE_NAME)
+        const request = store.get(EDITOR_DRAFT_KEY)
+
+        request.onerror = () => {
+          db.close()
+          reject(request.error ?? new Error("Failed to read editor draft"))
+        }
+        request.onsuccess = () => {
+          db.close()
+          resolve((request.result as PersistedEditorDraft | undefined) ?? null)
+        }
+      })
+      .catch(reject)
+  })
+}
+
+function writeEditorDraft(draft: PersistedEditorDraft): Promise<void> {
+  return new Promise((resolve, reject) => {
+    void openEditorDraftDb()
+      .then((db) => {
+        const transaction = db.transaction(EDITOR_DRAFT_STORE_NAME, "readwrite")
+        const store = transaction.objectStore(EDITOR_DRAFT_STORE_NAME)
+        store.put(draft)
+
+        transaction.oncomplete = () => {
+          db.close()
+          resolve()
+        }
+        transaction.onerror = () => {
+          db.close()
+          reject(transaction.error ?? new Error("Failed to save editor draft"))
+        }
+        transaction.onabort = () => {
+          db.close()
+          reject(transaction.error ?? new Error("Editor draft save aborted"))
+        }
+      })
+      .catch(reject)
+  })
+}
+
+function createEditorDraftSnapshot(state: EditorStore): PersistedEditorDraft {
+  return {
+    id: EDITOR_DRAFT_KEY,
+    schemaVersion: EDITOR_DRAFT_SCHEMA_VERSION,
+    updatedAt: Date.now(),
+    present: cloneEditorState(state.present),
+    ui: {
+      bulkEditMode: state.bulkEditMode,
+      bulkViewportZoom: state.bulkViewportZoom,
+      bulkScale: state.bulkScale,
+      presetTab: state.presetTab,
+      activeLayoutPresetId: state.activeLayoutPresetId,
+      activeSinglePresetId: state.activeSinglePresetId,
+      previewAutoScrollDelay: state.previewAutoScrollDelay,
+      previewAnimation: state.previewAnimation,
+    },
+  }
+}
+
+function applyEditorDraft(draft: PersistedEditorDraft): Partial<EditorStore> {
+  const present = normalizeEditorState(draft.present)
+  const ui = draft.ui
+
+  return {
+    past: [],
+    present,
+    future: [],
+    _lastGroup: null,
+    _lastTs: 0,
+    isPreviewMode: false,
+    isPreviewAutoScroll: false,
+    previewAutoScrollDelay: ui?.previewAutoScrollDelay ?? 3000,
+    previewAnimation: ui?.previewAnimation ?? "slide",
+    bulkEditMode: ui?.bulkEditMode ?? present.canvases.length > 1,
+    bulkCanvasDragging: false,
+    bulkViewportZoom: ui?.bulkViewportZoom ?? 1,
+    bulkScale: ui?.bulkScale ?? 65,
+    selectedTextId: null,
+    selectedAssetId: null,
+    selectedAnnotationShapeId: null,
+    selectedScreenshotSlotId: null,
+    isScreenshotSelected: false,
+    presetTab: ui?.presetTab ?? "single",
+    activeLayoutPresetId: ui?.activeLayoutPresetId ?? null,
+    activeSinglePresetId: ui?.activeSinglePresetId ?? null,
+  }
+}
+
 const computeNextZ = (items: { zIndex: number }[]) => {
   const max = items.length ? Math.max(...items.map((t) => t.zIndex)) : 0
   return Math.max(max + 1, 1)
@@ -575,6 +814,9 @@ const createScreenshotSlot = (
 
 const CANVAS_BASE_W = 1100
 const CANVAS_GAP = 80
+// Preset mainOffset Y values were tuned at the default 16:10 canvas height.
+// Using this constant keeps the pixel offset consistent across all aspect ratios.
+const PRESET_DESIGN_HEIGHT = CANVAS_BASE_W * (10 / 16)
 
 const clampPct = (value: number) => Math.max(-20, Math.min(120, value))
 
@@ -729,14 +971,19 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const activeLayoutPreset = LAYOUT_PRESETS.find(
         (preset) => preset.id === state.activeLayoutPresetId
       )
-      const aw = state.present.aspect.w || 16
-      const ah = state.present.aspect.h || 10
-      const canvasH = (CANVAS_BASE_W * ah) / aw
+      const targetCanvasId = canvasId ?? state.present.activeCanvasId
+      const targetCanvas = state.present.canvases.find(
+        (canvas) => canvas.id === targetCanvasId
+      )
+      const activeLayoutGeometry =
+        activeLayoutPreset && targetCanvas
+          ? resolveLayoutPresetGeometry(activeLayoutPreset, targetCanvas.frame)
+          : null
       const presetOffset =
-        activeLayoutPreset && activeLayoutPreset.mainOffset
+        activeLayoutGeometry?.mainOffset
           ? {
-              x: (activeLayoutPreset.mainOffset.xPct / 100) * CANVAS_BASE_W,
-              y: (activeLayoutPreset.mainOffset.yPct / 100) * canvasH,
+              x: (activeLayoutGeometry.mainOffset.xPct / 100) * CANVAS_BASE_W,
+              y: (activeLayoutGeometry.mainOffset.yPct / 100) * PRESET_DESIGN_HEIGHT,
             }
           : { x: 0, y: 0 }
       commitCanvas(
@@ -773,32 +1020,37 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       commit((state) => {
         const currentAspect = stateCanvasAspect(state)
         const nextAspect = aspectRatioFromState(a)
-        const nextCanvasHeight = canvasHeightFromAspectRatio(nextAspect)
 
         return {
           aspect: a,
           canvases: state.canvases.map((canvas) => {
+            const activeLayoutGeometry = activeLayoutPreset
+              ? resolveLayoutPresetGeometry(activeLayoutPreset, canvas.frame)
+              : null
             const shouldReapplyActivePreset =
-              activeLayoutPreset &&
+              activeLayoutGeometry &&
               canvas.id === state.activeCanvasId &&
-              canvas.screenshotSlots.length === activeLayoutPreset.slots.length
+              canvas.screenshotSlots.length === activeLayoutGeometry.slots.length
             let screenshotSlots = layoutSlotsInRow(
               canvas.screenshotSlots,
               canvas.frame,
-              nextAspect,
-              shouldReapplyActivePreset
-                ? { preservePositions: true }
-                : undefined
+              nextAspect
             )
 
             if (shouldReapplyActivePreset) {
-              screenshotSlots = screenshotSlots.map((slot, index) => {
-                const config = activeLayoutPreset.slots[index]
-                if (!config) return slot
+              screenshotSlots = screenshotSlots.map((naturalSlot, index) => {
+                const config = activeLayoutGeometry.slots[index]
+                if (!config) return naturalSlot
+                const xPct = activeLayoutGeometry.relativeSlotPositions
+                  ? naturalSlot.xPct + config.xPct
+                  : config.xPct
+                const yPct = activeLayoutGeometry.relativeSlotPositions
+                  ? 50 + config.yPct
+                  : config.yPct
                 return {
-                  ...slot,
-                  xPct: config.xPct,
-                  yPct: config.yPct,
+                  ...naturalSlot,
+                  xPct,
+                  yPct,
                   rotation: config.rotation,
                   tilt: config.tilt,
                   scale: config.scale,
@@ -807,14 +1059,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             }
 
             const screenshotOffset = shouldReapplyActivePreset
-              ? activeLayoutPreset.mainOffset
+              ? activeLayoutGeometry.mainOffset
                 ? {
                     x:
-                      (activeLayoutPreset.mainOffset.xPct / 100) *
+                      (activeLayoutGeometry.mainOffset.xPct / 100) *
                       CANVAS_BASE_W,
                     y:
-                      (activeLayoutPreset.mainOffset.yPct / 100) *
-                      nextCanvasHeight,
+                      (activeLayoutGeometry.mainOffset.yPct / 100) *
+                      PRESET_DESIGN_HEIGHT,
                   }
                 : { x: 0, y: 0 }
               : scaleScreenshotOffsetForAspectChange(
@@ -826,10 +1078,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             return {
               ...canvas,
               tilt: shouldReapplyActivePreset
-                ? activeLayoutPreset.canvasTilt
+                ? activeLayoutGeometry.canvasTilt
                 : canvas.tilt,
               scale: shouldReapplyActivePreset
-                ? activeLayoutPreset.canvasScale
+                ? activeLayoutGeometry.canvasScale
                 : canvas.scale,
               screenshotOffset,
               screenshotSlots,
@@ -1472,20 +1724,23 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       commitCanvas(
         canvasId,
         (canvas) => {
+          const activeLayoutGeometry = activeLayoutPreset
+            ? resolveLayoutPresetGeometry(activeLayoutPreset, canvas.frame)
+            : null
           const updatedSlots = canvas.screenshotSlots.map((slot) =>
             slot.id === id
               ? { ...slot, src, objectFit: slot.objectFit ?? "cover" }
               : slot
           )
           if (
-            !activeLayoutPreset ||
-            updatedSlots.length !== activeLayoutPreset.slots.length
+            !activeLayoutGeometry ||
+            updatedSlots.length !== activeLayoutGeometry.slots.length
           ) {
             return { screenshotSlots: updatedSlots }
           }
           return {
             screenshotSlots: updatedSlots.map((slot, index) => {
-              const config = activeLayoutPreset.slots[index]
+              const config = activeLayoutGeometry.slots[index]
               if (!config) return slot
               return {
                 ...slot,
@@ -1953,6 +2208,60 @@ export function useEditor(): EditorContext {
 }
 
 export function EditorProvider({ children }: { children: React.ReactNode }) {
+  React.useEffect(() => {
+    if (!isBrowserIndexedDbAvailable()) return
+
+    let saveTimer: number | null = null
+    let unsubscribe: (() => void) | null = null
+    let cancelled = false
+
+    const saveNow = () => {
+      if (saveTimer !== null) {
+        window.clearTimeout(saveTimer)
+        saveTimer = null
+      }
+      void writeEditorDraft(createEditorDraftSnapshot(useEditorStore.getState()))
+        .catch((error) => {
+          console.warn("Unable to save editor draft", error)
+        })
+    }
+
+    const scheduleSave = () => {
+      if (saveTimer !== null) {
+        window.clearTimeout(saveTimer)
+      }
+      saveTimer = window.setTimeout(saveNow, EDITOR_DRAFT_SAVE_DELAY_MS)
+    }
+
+    const startAutosave = () => {
+      if (cancelled) return
+      unsubscribe = useEditorStore.subscribe(scheduleSave)
+      window.addEventListener("pagehide", saveNow)
+    }
+
+    void readEditorDraft()
+      .then((draft) => {
+        if (cancelled) return
+        if (draft) {
+          useEditorStore.setState(applyEditorDraft(draft))
+        }
+        startAutosave()
+      })
+      .catch((error) => {
+        console.warn("Unable to restore editor draft", error)
+        startAutosave()
+      })
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+      window.removeEventListener("pagehide", saveNow)
+      if (saveTimer !== null) {
+        window.clearTimeout(saveTimer)
+      }
+    }
+  }, [])
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null

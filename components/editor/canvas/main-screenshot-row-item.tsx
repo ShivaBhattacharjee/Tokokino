@@ -66,6 +66,7 @@ type MainScreenshotRenderProps = {
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void
   previewMode?: boolean
+  emptyCompact?: boolean
 }
 
 export function MainScreenshotRender({
@@ -101,6 +102,7 @@ export function MainScreenshotRender({
   onPointerUp,
   onImageLoad,
   previewMode = false,
+  emptyCompact = false,
 }: MainScreenshotRenderProps) {
   const baseTransform = style.transform ?? ""
   const mergedStyle: React.CSSProperties = {
@@ -177,6 +179,7 @@ export function MainScreenshotRender({
             contentTransform={transform}
             bareStyle={imgStyle}
             applyTransformWhenEmpty
+            emptyCompact={emptyCompact}
             objectFit={objectFit}
             activeTool={activeTool}
             isDragging={isScreenshotDragging}
@@ -267,6 +270,8 @@ type MainScreenshotRowItemProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  previewMode?: boolean
+  emptyCompact?: boolean
 }
 
 export function MainScreenshotRowItem({
@@ -304,6 +309,8 @@ export function MainScreenshotRowItem({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  previewMode = false,
+  emptyCompact = false,
 }: MainScreenshotRowItemProps) {
   const rowRef = React.useRef<HTMLDivElement | null>(null)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -364,9 +371,12 @@ export function MainScreenshotRowItem({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onImageLoad={onImageLoad}
+        previewMode={previewMode}
+        emptyCompact={emptyCompact}
       />
 
       {isSelected &&
+      !previewMode &&
       !bulkCanvasDragging &&
       !hideFloatingToolbar &&
       toolbarRect &&
