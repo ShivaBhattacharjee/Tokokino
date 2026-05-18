@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { ArrowLeft } from "lucide-react"
 
 import { BrandLogo } from "@/components/editor/brand-logo"
@@ -9,17 +10,22 @@ import { TermsIndex } from "./terms-index"
 export const metadata: Metadata = {
   title: "Terms & Conditions — Noctivy",
   description:
-    "Review the terms and conditions governing access to and use of Noctivy.",
+    "Review the terms governing access to and use of Noctivy.",
 }
 
 const EFFECTIVE_DATE = "May 17, 2026"
 
-const sections = [
+type TermsSection = {
+  title: string
+  body: ReactNode[]
+}
+
+const sections: TermsSection[] = [
   {
     title: "1. Acceptance of Terms",
     body: [
-      "These Terms and Conditions govern your access to and use of Noctivy, including the website, editor, authentication features, sharing tools, export functionality, and any related services made available by Noctivy (collectively, the Service). By accessing or using the Service, creating an account, signing in through a third-party provider, uploading content, or otherwise interacting with the Service, you agree to be bound by these Terms.",
-      "If you use the Service on behalf of a company, organization, or other legal entity, you represent that you have authority to bind that entity to these Terms. If you do not agree to these Terms, you must not access or use the Service.",
+      "These Terms govern your access to and use of Noctivy, including the website, editor, authentication features, sharing tools, export functionality, source code, and related project materials made available by the Noctivy project. By accessing or using Noctivy, signing in, uploading content, or interacting with the project or hosted service, you agree to these Terms.",
+      "Noctivy is presented as an open-source software project and is not described here as a private limited company or similar corporate entity. If you do not agree to these Terms, you must not access or use the Service.",
     ],
   },
   {
@@ -33,15 +39,15 @@ const sections = [
     title: "3. Description of the Service",
     body: [
       "Noctivy provides tools for creating, styling, framing, exporting, saving, and sharing screenshot-based visuals. Features may include device mockups, browser frames, backgrounds, effects, image uploads, export tools, and public or private sharing workflows.",
-      "The Service may evolve over time. Noctivy may add, modify, suspend, or discontinue any feature, integration, or availability of the Service at any time, with or without notice, subject to applicable law.",
+      "The project and any hosted Service may evolve over time. Features, integrations, and availability may be added, changed, suspended, or discontinued at any time, subject to applicable law.",
     ],
   },
   {
     title: "4. User Content and License",
     body: [
       "You retain ownership of screenshots, images, text, metadata, designs, and other materials that you upload, create, submit, store, or share through the Service (User Content). You are solely responsible for your User Content and for obtaining all rights, permissions, licenses, consents, and clearances necessary to use it with the Service.",
-      "By using the Service, you grant Noctivy a limited, worldwide, non-exclusive, royalty-free license to host, store, reproduce, process, display, transmit, and otherwise use your User Content solely as necessary to operate, maintain, secure, improve, and provide the Service to you and to others with whom you choose to share content.",
-      "You represent and warrant that your User Content does not infringe, misappropriate, or violate any intellectual property, privacy, publicity, contractual, confidentiality, or other rights of any third party, and does not violate applicable law.",
+      "By using the Service, you grant Noctivy a limited, worldwide, non-exclusive, royalty-free license to host, store, reproduce, process, display, transmit, and otherwise use your User Content only as necessary to operate, maintain, secure, improve, and provide the Service to you and to others with whom you choose to share content.",
+      "You represent and warrant that your User Content does not infringe, misappropriate, or violate any copyright, trademark, design right, patent, privacy, publicity, contractual, confidentiality, or other rights of any third party, and does not violate applicable law.",
     ],
   },
   {
@@ -54,29 +60,46 @@ const sections = [
   {
     title: "6. Intellectual Property",
     body: [
-      "Except for your User Content, the Service and all associated software, interfaces, designs, graphics, trademarks, logos, text, workflows, documentation, and other materials are owned by Noctivy or its licensors and are protected by intellectual property and other laws.",
-      "These Terms do not transfer any ownership rights to you. Subject to your compliance with these Terms, Noctivy grants you a limited, revocable, non-exclusive, non-transferable license to access and use the Service for its intended purpose.",
+      <>
+        Except for your User Content and third-party materials, the Noctivy
+        source code and project materials are made available under the{" "}
+        <ExternalLink href="https://www.apache.org/licenses/LICENSE-2.0">
+          Apache License 2.0
+        </ExternalLink>
+        . You should review the repository license and notices before copying,
+        distributing, modifying, or self-hosting the project.
+      </>,
+      "Copyright in user uploads, third-party assets, brand assets, and third-party trademarks remains with the respective owners. These Terms do not give you any right to use material you do not own or control, except to the extent permitted by a valid license, permission, or applicable law.",
+      <>
+        If you believe content available through Noctivy infringes your
+        copyright or improperly uses your asset, trademark, or other protected
+        material, you should open an issue or contact the project through{" "}
+        <ExternalLink href="https://github.com/shivabhattacharjee/noctivity">
+          github.com/shivabhattacharjee/noctivity
+        </ExternalLink>{" "}
+        with enough detail for the project maintainers to review and respond.
+      </>,
     ],
   },
   {
     title: "7. Third-Party Services",
     body: [
       "The Service may rely on or link to third-party services, including authentication providers, hosting providers, storage services, analytics tools, image sources, and payment or export integrations. Your use of third-party services may be governed by separate terms and privacy policies of those third parties.",
-      "Noctivy is not responsible for third-party services, third-party content, or the acts or omissions of third-party providers. Access to third-party services may change or become unavailable without notice.",
+      "Noctivy is not responsible for third-party services, third-party content, or the acts or omissions of third-party providers. Access to those services may change or become unavailable without notice.",
     ],
   },
   {
     title: "8. Privacy and Data Protection",
     body: [
-      "Noctivy processes personal information in connection with authentication, account management, Service operation, security, support, and product improvement. Your use of the Service is also subject to any privacy policy or privacy notice made available by Noctivy.",
-      "You are responsible for ensuring that any personal information included in User Content has been collected and shared lawfully and with all required notices and consents.",
+      "Noctivy processes personal information in connection with authentication, account management, Service operation, security, support, and product improvement. Because this is an open-source project with optional hosted components, data practices may differ between the public codebase, self-hosted deployments, and any official hosted instance.",
+      "You are responsible for ensuring that any personal information included in User Content has been collected and shared lawfully and with all required notices, permissions, and consents.",
     ],
   },
   {
     title: "9. Paid Features and Changes",
     body: [
       "Certain features may be offered for free, as a beta, or as paid functionality. If paid features are introduced, applicable prices, billing terms, renewal terms, taxes, cancellation rights, and refund rules will be disclosed at or before purchase.",
-      "Noctivy may change feature availability, usage limits, storage limits, export limits, or pricing for future use of the Service, subject to applicable law and any terms presented at the time of purchase.",
+      "The project may change feature availability, usage limits, storage limits, export limits, or pricing for future use of any hosted Service, subject to applicable law and any terms presented at the time of purchase.",
     ],
   },
   {
@@ -89,14 +112,14 @@ const sections = [
   {
     title: "11. Limitation of Liability",
     body: [
-      "To the maximum extent permitted by applicable law, Noctivy and its owners, developers, affiliates, licensors, service providers, and agents will not be liable for any indirect, incidental, special, consequential, exemplary, or punitive damages, or for any loss of profits, revenue, goodwill, data, content, business opportunity, or business interruption, arising out of or relating to the Service or these Terms.",
-      "To the maximum extent permitted by applicable law, Noctivy's aggregate liability for all claims arising out of or relating to the Service or these Terms will not exceed the greater of the amount you paid to Noctivy for the Service in the three months preceding the event giving rise to the claim or one hundred United States dollars (US $100).",
+      "To the maximum extent permitted by applicable law, Noctivy and its maintainers, contributors, licensors, service providers, and agents will not be liable for any indirect, incidental, special, consequential, exemplary, or punitive damages, or for any loss of profits, revenue, goodwill, data, content, business opportunity, or business interruption, arising out of or relating to the Service or these Terms.",
+      "To the maximum extent permitted by applicable law, Noctivy's aggregate liability for all claims arising out of or relating to the Service or these Terms will not exceed the greater of the amount you paid for the hosted Service in the three months preceding the event giving rise to the claim or one hundred United States dollars (US $100).",
     ],
   },
   {
     title: "12. Indemnification",
     body: [
-      "You agree to defend, indemnify, and hold harmless Noctivy and its owners, developers, affiliates, licensors, service providers, and agents from and against any claims, liabilities, damages, losses, costs, and expenses, including reasonable attorneys' fees, arising out of or relating to your User Content, your use or misuse of the Service, your violation of these Terms, your violation of law, or your violation of any third-party rights.",
+      "You agree to defend, indemnify, and hold harmless Noctivy and its maintainers, contributors, licensors, service providers, and agents from and against any claims, liabilities, damages, losses, costs, and expenses, including reasonable attorneys' fees, arising out of or relating to your User Content, your use or misuse of the Service, your violation of these Terms, your violation of law, or your violation of any third-party rights.",
     ],
   },
   {
@@ -115,15 +138,37 @@ const sections = [
   {
     title: "15. Governing Law and Disputes",
     body: [
-      "Unless a separate written agreement states otherwise, these Terms are governed by the laws applicable in the jurisdiction where the operator of Noctivy is principally located, without regard to conflict-of-law rules. You and Noctivy agree to seek to resolve disputes informally before initiating formal proceedings.",
-      "Nothing in these Terms limits rights that cannot be waived under applicable consumer protection, data protection, or other mandatory laws.",
+      "Unless a separate written agreement states otherwise, these Terms are governed by the laws of India, without regard to conflict-of-law rules. For operational and interpretive purposes, the operator of Noctivy is principally located in Guwahati, Assam, India.",
+      "If a dispute, claim, or controversy arises out of or relates to Noctivy or these Terms, you and Noctivy agree to first try to resolve the matter informally and in good faith by contacting the other side with reasonable detail about the issue, the affected account or content if relevant, and the relief requested.",
+      "If a dispute cannot be resolved informally within a reasonable time, the parties may pursue remedies available under applicable law before the courts or other competent forums having jurisdiction in Guwahati, Assam, India, unless a different forum is required by mandatory law or a separate written agreement.",
+      "Nothing in these Terms limits rights or remedies that cannot be waived under applicable consumer protection, data protection, or other mandatory laws.",
     ],
   },
   {
     title: "16. Contact",
     body: [
-      "Questions, notices, issue reports, support requests, account concerns, or requests concerning these Terms should be directed to the Noctivy operator through the contact methods made available on the Service, in the account or support materials, or in the project materials associated with Noctivy.",
-      "You may also contact Noctivy for issues or support through GitHub at https://github.com/shivabhattacharjee, by email where an official email address is published in the project materials, or on X at https://x.com/sh17va.",
+      "Questions, notices, issue reports, support requests, account concerns, copyright complaints, asset infringement reports, or requests concerning these Terms should be directed through the contact methods made available in the Service or the public project materials.",
+      <>
+        You may contact Noctivy through{" "}
+        <ExternalLink href="https://github.com/shivabhattacharjee/noctivity">
+          github.com/shivabhattacharjee/noctivity
+        </ExternalLink>
+        , through the project repository when an issues or discussions channel is
+        available, by email at{" "}
+        <ExternalLink href="mailto:hello@theshiva.xyz">
+          hello@theshiva.xyz
+        </ExternalLink>
+        , or on X at{" "}
+        <ExternalLink href="https://x.com/sh17va">
+          x.com/sh17va
+        </ExternalLink>{" "}
+        if you want to contact the owner or developer directly. Where relevant,
+        please include clear details about copyright, asset ownership, or
+        infringement concerns.
+      </>,
+      "For general bugs, feature requests, and non-private support matters, the project repository is usually the best first contact point. For account-specific concerns, private legal notices, or matters that should not be posted publicly, email is the preferred contact method.",
+      "If you are reporting copyright or asset infringement, please include enough information for review, such as your name, contact details, a description of the protected work or asset, the specific URL, page, or content at issue, the basis of your claim, and any supporting links or evidence that may help verify ownership or authorization.",
+      "Noctivy may respond through any of the contact methods you use, may request additional information where needed, and may remove, restrict, or preserve access to reported content while a review is pending.",
     ],
   },
 ]
@@ -155,7 +200,8 @@ export default function TermsPage() {
             </h1>
             <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
               These terms define the rules for accessing, using, saving,
-              exporting, and sharing work through Noctivy.
+              exporting, and sharing work through Noctivy as an open-source
+              project and hosted screenshot tool.
             </p>
             <p className="text-sm leading-7 text-muted-foreground">
               Effective date:{" "}
@@ -192,8 +238,8 @@ export default function TermsPage() {
                 {section.title}
               </h2>
               <div className="mt-4 space-y-4 text-sm leading-7 text-muted-foreground">
-                {section.body.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
+                {section.body.map((paragraph, index) => (
+                  <p key={`${section.title}-${index}`}>{paragraph}</p>
                 ))}
               </div>
             </section>
@@ -210,4 +256,23 @@ function slugify(value: string) {
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
+}
+
+function ExternalLink({
+  href,
+  children,
+}: {
+  href: string
+  children: ReactNode
+}) {
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/60"
+    >
+      {children}
+    </Link>
+  )
 }

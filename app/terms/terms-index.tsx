@@ -21,7 +21,19 @@ export function TermsIndex({ items }: { items: TermsIndexItem[] }) {
       .filter((element): element is HTMLElement => Boolean(element))
 
     const syncActiveSection = () => {
-      const anchorLine = window.innerHeight * 0.32
+      const nearPageBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 24
+
+      if (nearPageBottom) {
+        const lastSection = sectionElements.at(-1)
+        if (lastSection) {
+          setActiveId(lastSection.id)
+        }
+        return
+      }
+
+      const anchorLine = window.innerHeight * 0.55
       const current =
         sectionElements.findLast(
           (section) => section.getBoundingClientRect().top <= anchorLine
@@ -31,7 +43,7 @@ export function TermsIndex({ items }: { items: TermsIndexItem[] }) {
     }
 
     const observer = new IntersectionObserver(syncActiveSection, {
-      rootMargin: "-20% 0px -65% 0px",
+      rootMargin: "-20% 0px -45% 0px",
       threshold: [0, 0.1, 0.35, 0.6],
     })
 
