@@ -1131,7 +1131,9 @@ function PreviewSingleScreenshot({
           emptyCompact={emptyCompact}
           aspectW={aspectW}
           aspectH={aspectH}
-          mockupScopeToMinSide={canvas.screenshotSlots.length === 0}
+          mockupScopeToMinSide={
+            canvas.screenshotSlots.length === 0 && aspectH > aspectW
+          }
         />
       </div>
     </div>

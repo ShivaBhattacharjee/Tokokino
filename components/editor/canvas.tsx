@@ -195,6 +195,11 @@ function CanvasViewInner({
   const ah = autoDims ? autoDims.h : aspect.h || 10
   const aspectRatio = `${aw} / ${ah}`
   const canvasAspectRatio = aw / ah
+  // Only scope the device frame to 80% on portrait canvases. Landscape and
+  // square should fill normally — they already fit by height without extra
+  // empty space.
+  const isPortraitCanvas = ah > aw
+  const shouldScopeFrame = isPortraitCanvas && screenshotSlots.length === 0
   const screenshotBoxAspect = slotBoxAspectRatio(
     frame,
     canvasAspectRatio,
@@ -575,7 +580,7 @@ function CanvasViewInner({
                     placementDims={placementDims}
                     stageRef={stageRef}
                     imageRef={imageRef}
-                    scopeToMinSide={screenshotSlots.length === 0}
+                    scopeToMinSide={shouldScopeFrame}
                     onSelect={handleScreenshotClickSelect}
                     onPointerDown={(e) => {
                       if (document.activeElement instanceof HTMLElement) {
@@ -682,7 +687,7 @@ function CanvasViewInner({
                   screenshotAnchor={screenshotAnchor}
                   isScreenshotDragging={isScreenshotDragging}
                   activeTool={activeTool}
-                  scopeToMinSide={screenshotSlots.length === 0}
+                  scopeToMinSide={shouldScopeFrame}
                   compact={
                     tilt.rx !== 0 ||
                     tilt.ry !== 0 ||
