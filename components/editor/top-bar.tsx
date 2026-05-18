@@ -202,6 +202,18 @@ export function TopBar() {
             icon={RiEyeLine}
             onClick={() => setIsPreviewMode(true)}
           />
+          <TopBarButton
+            label="Save"
+            icon={RiSaveLine}
+            onClick={() => handleProtectedAction("save")}
+            tooltip="Save screenshot"
+          />
+          <TopBarButton
+            label="Share"
+            icon={RiShareForwardLine}
+            onClick={() => handleProtectedAction("share")}
+            tooltip="Share screenshot"
+          />
         </div>
 
         <div className="tool-cluster hidden lg:flex">
@@ -287,19 +299,6 @@ export function TopBar() {
         {/* Right cluster — desktop only */}
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
-
-          <TopBarButton
-            label="Save"
-            icon={RiSaveLine}
-            onClick={() => handleProtectedAction("save")}
-            tooltip="Save screenshot"
-          />
-          <TopBarButton
-            label="Share"
-            icon={RiShareForwardLine}
-            onClick={() => handleProtectedAction("share")}
-            tooltip="Share screenshot"
-          />
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -491,7 +490,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
-
 
 function TopBarButton({
   label,
