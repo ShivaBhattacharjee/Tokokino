@@ -32,6 +32,8 @@ export const COPY_RESOLUTION_WIDTHS: Record<CopyResolution, number> = {
   "1080p": 1080,
 }
 
+export const SHARE_RESOLUTION_WIDTH = 1920
+
 function findCanvasElement(canvasId: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(
     `[data-canvas-id="${canvasId}"]`
@@ -306,17 +308,33 @@ export async function copyCanvasAsPng(
   canvasId: string,
   resolution: CopyResolution = "1080p"
 ): Promise<void> {
-  const node = findCanvasElement(canvasId)
-  if (!node) throw new Error("Canvas not found")
   if (!navigator?.clipboard?.write) {
     throw new Error("Clipboard write is not supported")
   }
+
+  const blob = await captureCanvasAsPngBlob(
+    canvasId,
+    COPY_RESOLUTION_WIDTHS[resolution]
+  )
+
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      "image/png": blob,
+    }),
+  ])
+}
+
+export async function captureCanvasAsPngBlob(
+  canvasId: string,
+  targetWidth = SHARE_RESOLUTION_WIDTH
+): Promise<Blob> {
+  const node = findCanvasElement(canvasId)
+  if (!node) throw new Error("Canvas not found")
 
   const rect = node.getBoundingClientRect()
   const renderedWidth = rect.width || node.offsetWidth
   if (!renderedWidth) throw new Error("Canvas has zero width")
 
-  const targetWidth = COPY_RESOLUTION_WIDTHS[resolution]
   const pixelRatio = targetWidth / renderedWidth
 
   const exportStyle = makeExportStyle()
@@ -332,12 +350,7 @@ export async function copyCanvasAsPng(
       filter: filterExportHidden,
     })
     if (!blob) throw new Error("Could not capture canvas")
-
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        "image/png": blob,
-      }),
-    ])
+    return blob
   } finally {
     for (const rewrite of rewrites.reverse()) {
       rewrite.restore()

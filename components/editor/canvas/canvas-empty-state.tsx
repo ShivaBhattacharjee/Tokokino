@@ -41,7 +41,9 @@ export function CanvasEmptyState({
   const isPortrait = effectiveAh >= effectiveAw
   const rootRef = React.useRef<HTMLDivElement>(null)
 
+  const useCompact = compact || isPortrait
   const handleAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!useCompact) return
     const target = e.target as HTMLElement
     if (target.closest("[data-upload-compact-trigger]")) return
     const trigger = rootRef.current?.querySelector<HTMLButtonElement>(
@@ -81,7 +83,7 @@ export function CanvasEmptyState({
           isDragOver={isDragOver}
           onBrowse={onBrowse}
           onCapture={onCapture}
-          compact={compact || isPortrait}
+          compact={useCompact}
         />
       </div>
     </div>

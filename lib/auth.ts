@@ -1,18 +1,12 @@
 import { betterAuth } from "better-auth"
 import { mongodbAdapter } from "better-auth/adapters/mongodb"
 import { nextCookies } from "better-auth/next-js"
-import { MongoClient } from "mongodb"
 
 import { env } from "@/lib/env"
+import { getAppDb, getMongoClient } from "@/lib/mongo"
 
-const mongoUri = env.MONGODB_URI
-
-if (!mongoUri) {
-  throw new Error("Please provide a MONGODB_URI in your environment variables")
-}
-
-const client = new MongoClient(mongoUri)
-const db = client.db()
+const client = getMongoClient()
+const db = getAppDb()
 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,

@@ -185,12 +185,19 @@ function CanvasViewInner({
     imageRef,
     layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}`,
   })
+  const selectedScreenshotSlotId = useEditorStore(
+    (s) => s.selectedScreenshotSlotId
+  )
   const handleImageFile = React.useCallback(
     (src: string) => {
+      if (selectedScreenshotSlotId) {
+        setScreenshotSlotImage(selectedScreenshotSlotId, src)
+        return
+      }
       setScreenshot(src)
       setNaturalDims(null)
     },
-    [setScreenshot]
+    [selectedScreenshotSlotId, setScreenshot, setScreenshotSlotImage]
   )
   const { fileInputRef, fileInputProps, isDragOver, readFile, dropHandlers } =
     useImageFileIntake(handleImageFile)

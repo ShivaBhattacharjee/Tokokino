@@ -177,7 +177,6 @@ export function MainScreenshotRender({
             contentTransform={transform}
             bareStyle={imgStyle}
             applyTransformWhenEmpty
-            emptyCompact
             objectFit={objectFit}
             activeTool={activeTool}
             isDragging={isScreenshotDragging}

@@ -51,3 +51,24 @@ export const env = {
   ...serverEnv,
   ...clientEnv,
 } as const
+
+const r2ConfigSchema = z.object({
+  bucket: z.string().min(1),
+  endpoint: z.url(),
+  accessKeyId: z.string().min(1),
+  secretAccessKey: z.string().min(1),
+})
+
+export function requireR2Config() {
+  const parsed = r2ConfigSchema.safeParse({
+    bucket: env.R2_BUCKET,
+    endpoint: env.R2_S3_ENDPOINT,
+    accessKeyId: env.R2_ACCESS_KEY_ID,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+  })
+  if (!parsed.success) {
+    const missing = parsed.error.issues.map((i) => i.path.join("."))
+    throw new Error(`Missing R2 config: ${missing.join(", ")}`)
+  }
+  return parsed.data
+}

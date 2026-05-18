@@ -231,7 +231,6 @@ export function ScreenshotSlotRender({
               contentTransform={contentTransform}
               bareStyle={bareImgStyle}
               applyTransformWhenEmpty
-              emptyCompact
               objectFit={slot.objectFit ?? "cover"}
               activeTool={activeTool}
               isDragging={false}

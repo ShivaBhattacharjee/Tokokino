@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1037.0
+        version: 3.1037.0
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -99,9 +102,6 @@ importers:
         specifier: ^5.0.13
         version: 5.0.13(@types/react@19.2.14)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
     devDependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.1037.0
-        version: 3.1037.0
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.5

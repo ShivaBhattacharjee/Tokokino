@@ -11,9 +11,13 @@ import {
   RiMoreLine,
   RiRefreshLine,
   RiArrowUpCircleLine,
+  RiCheckLine,
+  RiExternalLinkLine,
   RiEqualizerLine,
   RiSaveLine,
   RiShareForwardLine,
+  RiLoader4Line,
+  RiLink,
 } from "@remixicon/react"
 import { toast } from "sonner"
 import { useShallow } from "zustand/react/shallow"
@@ -44,6 +48,7 @@ import {
 } from "@/components/ui/dialog"
 import {
   copyCanvasAsPng,
+  captureCanvasAsPngBlob,
   EXPORT_FORMAT_EXTENSION,
   EXPORT_FORMAT_LABELS,
   EXPORT_RESOLUTION_LABELS,
@@ -74,6 +79,12 @@ import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "motion/react"
 
 type ProtectedTopBarAction = "save" | "share"
+type ShareDialogState = {
+  open: boolean
+  status: "idle" | "preparing" | "ready" | "error"
+  url: string | null
+  error: string | null
+}
 
 export function TopBar() {
   const { data: session, isPending: isAuthPending } = useSession()
@@ -92,6 +103,13 @@ export function TopBar() {
     open: boolean
     action: ProtectedTopBarAction
   }>({ open: false, action: "save" })
+  const [shareDialog, setShareDialog] = React.useState<ShareDialogState>({
+    open: false,
+    status: "idle",
+    url: null,
+    error: null,
+  })
+  const [isShareLinkCopied, setIsShareLinkCopied] = React.useState(false)
   const canvasIds = useEditorStore(
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
   )
@@ -108,6 +126,67 @@ export function TopBar() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [canUndo])
 
+  const handleCopyShareLink = React.useCallback(async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setIsShareLinkCopied(true)
+      toast.success("Share link copied")
+      setTimeout(() => setIsShareLinkCopied(false), 1600)
+    } catch (err) {
+      console.error(err)
+      toast.error("Could not copy link")
+    }
+  }, [])
+
+  const handleShare = React.useCallback(async () => {
+    if (shareDialog.status === "preparing") return
+
+    setIsShareLinkCopied(false)
+    setShareDialog({
+      open: true,
+      status: "preparing",
+      url: null,
+      error: null,
+    })
+
+    try {
+      const blob = await captureCanvasAsPngBlob(activeCanvasId)
+      const response = await fetch("/api/share", {
+        method: "POST",
+        headers: {
+          "Content-Type": "image/png",
+        },
+        body: blob,
+      })
+      const result = (await response.json().catch(() => null)) as {
+        url?: string
+        error?: string
+      } | null
+
+      if (!response.ok || !result?.url) {
+        throw new Error(result?.error ?? "Could not prepare share link")
+      }
+
+      setShareDialog({
+        open: true,
+        status: "ready",
+        url: result.url,
+        error: null,
+      })
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not prepare share link"
+      console.error(err)
+      setShareDialog({
+        open: true,
+        status: "error",
+        url: null,
+        error: message,
+      })
+      toast.error(message)
+    }
+  }, [activeCanvasId, shareDialog.status])
+
   const handleProtectedAction = React.useCallback(
     (action: ProtectedTopBarAction) => {
       if (isAuthPending) return
@@ -117,9 +196,14 @@ export function TopBar() {
         return
       }
 
+      if (action === "share") {
+        void handleShare()
+        return
+      }
+
       toast("Feature in development")
     },
-    [isAuthPending, session]
+    [handleShare, isAuthPending, session]
   )
 
   const handleCopyPng = React.useCallback(async () => {
@@ -183,8 +267,6 @@ export function TopBar() {
           />
         </div>
 
-
-
         <div className="tool-cluster">
           <TopBarButton
             label="Bulk edit"
@@ -212,6 +294,7 @@ export function TopBar() {
             label="Share"
             icon={RiShareForwardLine}
             onClick={() => handleProtectedAction("share")}
+            disabled={shareDialog.status === "preparing"}
             tooltip="Share screenshot"
           />
         </div>
@@ -309,17 +392,29 @@ export function TopBar() {
               >
                 <RiFileCopyLine />
                 <span className="relative inline-grid [&>span]:col-start-1 [&>span]:row-start-1">
-                  <span className="invisible whitespace-nowrap" aria-hidden>Copying…</span>
+                  <span className="invisible whitespace-nowrap" aria-hidden>
+                    Copying…
+                  </span>
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.span
-                      key={isCopyingPng ? "copying" : isCopiedPng ? "copied" : "copy"}
+                      key={
+                        isCopyingPng
+                          ? "copying"
+                          : isCopiedPng
+                            ? "copied"
+                            : "copy"
+                      }
                       className="whitespace-nowrap"
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -5 }}
                       transition={{ duration: 0.1 }}
                     >
-                      {isCopyingPng ? "Copying…" : isCopiedPng ? "Copied!" : "Copy"}
+                      {isCopyingPng
+                        ? "Copying…"
+                        : isCopiedPng
+                          ? "Copied!"
+                          : "Copy"}
                     </motion.span>
                   </AnimatePresence>
                 </span>
@@ -336,11 +431,86 @@ export function TopBar() {
           onProtectedAction={handleProtectedAction}
           onCopyPng={handleCopyPng}
           isCopyingPng={isCopyingPng}
+          isPreparingShare={shareDialog.status === "preparing"}
         />
 
         {/* Export (always visible) */}
         <ExportControls />
       </div>
+
+      <Dialog
+        open={shareDialog.open}
+        onOpenChange={(open) =>
+          setShareDialog((current) => ({ ...current, open }))
+        }
+      >
+        <DialogContent className="w-[min(calc(100vw-2rem),460px)] max-w-[calc(100vw-2rem)] gap-5 overflow-hidden p-5">
+          <div className="space-y-2 pr-8">
+            <DialogTitle>Share screenshot</DialogTitle>
+            <DialogDescription>
+              {shareDialog.status === "preparing"
+                ? "Preparing your image and creating a public link."
+                : shareDialog.status === "ready"
+                  ? "Anyone with this link can view the image."
+                  : shareDialog.status === "error"
+                    ? "The share link could not be created."
+                    : "Create a public link for this canvas."}
+            </DialogDescription>
+          </div>
+
+          {shareDialog.status === "preparing" ? (
+            <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-secondary/40 p-3">
+              <RiLoader4Line className="size-5 animate-spin text-primary" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Preparing...</p>
+                <p className="text-xs text-muted-foreground">
+                  Capturing the canvas and uploading it securely.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {shareDialog.status === "ready" && shareDialog.url ? (
+            <div className="w-full min-w-0 space-y-3">
+              <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border/70 bg-secondary/40 p-2">
+                <RiLink className="size-4 shrink-0 text-muted-foreground" />
+                <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
+                  {shareDialog.url}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="min-w-0"
+                  onClick={() => void handleCopyShareLink(shareDialog.url!)}
+                >
+                  {isShareLinkCopied ? <RiCheckLine /> : <RiFileCopyLine />}
+                  <span>{isShareLinkCopied ? "Copied" : "Copy link"}</span>
+                </Button>
+                <Button asChild size="lg" className="min-w-0">
+                  <a href={shareDialog.url} target="_blank" rel="noreferrer">
+                    <RiExternalLinkLine />
+                    <span>Open</span>
+                  </a>
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {shareDialog.status === "error" ? (
+            <div className="space-y-3">
+              <p className="rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-xs/relaxed text-destructive">
+                {shareDialog.error ?? "Something went wrong."}
+              </p>
+              <Button size="lg" onClick={() => void handleShare()}>
+                <RiShareForwardLine />
+                <span>Try again</span>
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </header>
   )
 }
@@ -497,15 +667,17 @@ function TopBarButton({
   onClick,
   variant = "outline",
   tooltip,
+  disabled,
 }: {
   label: string
   icon: React.ComponentType<{ className?: string }>
   onClick?: () => void
   variant?: React.ComponentProps<typeof Button>["variant"]
   tooltip?: string
+  disabled?: boolean
 }) {
   const button = (
-    <Button variant={variant} size="lg" onClick={onClick}>
+    <Button variant={variant} size="lg" onClick={onClick} disabled={disabled}>
       <Icon />
       <span className="hidden lg:inline">{label}</span>
     </Button>
@@ -527,12 +699,14 @@ function MobileOverflowMenu({
   onProtectedAction,
   onCopyPng,
   isCopyingPng,
+  isPreparingShare,
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
   onProtectedAction: (action: ProtectedTopBarAction) => void
   onCopyPng: () => Promise<void>
   isCopyingPng: boolean
+  isPreparingShare: boolean
 }) {
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
@@ -596,8 +770,6 @@ function MobileOverflowMenu({
             Redo
           </DropdownMenuItem>
 
-
-
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
             Workspace
@@ -624,9 +796,12 @@ function MobileOverflowMenu({
             <RiSaveLine />
             Save
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onProtectedAction("share")}>
+          <DropdownMenuItem
+            onClick={() => onProtectedAction("share")}
+            disabled={isPreparingShare}
+          >
             <RiShareForwardLine />
-            Share
+            {isPreparingShare ? "Preparing share..." : "Share"}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={(e) => {

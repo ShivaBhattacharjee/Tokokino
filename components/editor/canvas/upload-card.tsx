@@ -275,7 +275,7 @@ export function UploadCard({
     return (
       <div
         className={cn(
-          "flex w-full flex-col gap-[2cqw] overflow-hidden rounded-[4cqw] border border-border/40 bg-card p-[2cqw] dark:border-white/10 dark:bg-neutral-900",
+          "flex w-full flex-col gap-[2cqw] overflow-hidden p-[2cqw]",
           className
         )}
       >
