@@ -83,9 +83,17 @@ export function ScreenshotEditMenu({
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className="pointer-events-auto flex size-11 items-center justify-center rounded-full bg-foreground/85 text-background shadow-lg ring-1 ring-border/60 backdrop-blur-md transition-all hover:scale-105 hover:bg-foreground"
+            // Counter-scale by the canvas's autoFit so the pencil keeps a
+            // consistent on-screen size whether the canvas is landscape
+            // (autoFit ≈ 1) or tall portrait (autoFit ≈ 0.3).
+            style={{
+              transform:
+                "scale(clamp(1, calc(1 / var(--canvas-fit-scale, 1)), 3))",
+              transformOrigin: "center",
+            }}
+            className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-background text-foreground shadow-xl ring-2 ring-foreground/15 transition-[ring-color] hover:ring-foreground/30"
           >
-            <RiPencilLine className="size-5" />
+            <RiPencilLine className="size-7" />
           </button>
         </PopoverTrigger>
         <PopoverContent

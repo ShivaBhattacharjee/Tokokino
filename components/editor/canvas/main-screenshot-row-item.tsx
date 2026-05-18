@@ -23,6 +23,216 @@ import { frameSelectionRadius } from "./helpers"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
 import { ScreenshotFrameContent } from "./screenshot-frame-content"
 
+/**
+ * Pure presentational core. Both the interactive row item and the preset
+ * preview render through this so the visual output stays in lockstep.
+ *
+ * In `previewMode`:
+ *  - pointer events are off
+ *  - the floating pencil edit menu is not mounted
+ *  - selection outline is suppressed (the caller is expected to pass
+ *    `isSelected={false}` anyway)
+ */
+type MainScreenshotRenderProps = {
+  containerRef?: React.Ref<HTMLDivElement>
+  style: React.CSSProperties
+  offset: { x: number; y: number }
+  padding: number
+  transform: string
+  screenshot: string | null
+  frame: DeviceFrame
+  addressValue: string
+  onAddressChange: (value: string) => void
+  imgStyle: React.CSSProperties
+  shadowFilter: string | undefined
+  filterChain: string | undefined
+  objectFit: "contain" | "cover" | "fill"
+  stageRef: React.RefObject<HTMLDivElement | null>
+  imageRef: React.RefObject<HTMLImageElement | null>
+  isDragOver: boolean
+  isSelected: boolean
+  isScreenshotDragging: boolean
+  bulkCanvasDragging: boolean
+  activeTool: EditorTool
+  editOpen: boolean
+  onEditOpenChange: (open: boolean) => void
+  onSelect: (e: { stopPropagation: () => void }) => void
+  onBrowse: () => void
+  onCropClick: () => void
+  onReplaceFile: (file: File) => void
+  onDelete: () => void
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void
+  previewMode?: boolean
+}
+
+export function MainScreenshotRender({
+  containerRef,
+  style,
+  offset,
+  padding,
+  transform,
+  screenshot,
+  frame,
+  addressValue,
+  onAddressChange,
+  imgStyle,
+  shadowFilter,
+  filterChain,
+  objectFit,
+  stageRef,
+  imageRef,
+  isDragOver,
+  isSelected,
+  isScreenshotDragging,
+  bulkCanvasDragging,
+  activeTool,
+  editOpen,
+  onEditOpenChange,
+  onSelect,
+  onBrowse,
+  onCropClick,
+  onReplaceFile,
+  onDelete,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onImageLoad,
+  previewMode = false,
+}: MainScreenshotRenderProps) {
+  const baseTransform = style.transform ?? ""
+  const mergedStyle: React.CSSProperties = {
+    ...style,
+    transform:
+      `${baseTransform} translate(${offset.x}px, ${offset.y}px)`.trim(),
+    transition:
+      previewMode || isScreenshotDragging
+        ? undefined
+        : "left 300ms ease-out, top 300ms ease-out",
+  }
+  const selectionRadius = frameSelectionRadius(
+    frame.id,
+    imgStyle.borderRadius as number
+  )
+  const contentStyle: React.CSSProperties = {
+    padding: `${Math.max(0, Math.min(240, padding)) / 12}%`,
+  }
+  const showEditMenu =
+    !previewMode && screenshot && activeTool === "pointer"
+  return (
+    <div
+      ref={containerRef}
+      data-box-hover-target={previewMode ? undefined : ""}
+      data-editor-shadow-preview-scope="canvas"
+      className={cn(
+        "group/main-row",
+        previewMode ? "pointer-events-none" : "pointer-events-auto",
+        !previewMode && activeTool === "pointer" && "cursor-grab",
+        !previewMode && isScreenshotDragging && "cursor-grabbing"
+      )}
+      style={mergedStyle}
+      onClick={previewMode ? undefined : onSelect}
+      onPointerDown={
+        previewMode
+          ? undefined
+          : (e) => {
+              if (activeTool !== "pointer") return
+              e.stopPropagation()
+              onPointerDown(e)
+            }
+      }
+      onPointerMove={previewMode ? undefined : onPointerMove}
+      onPointerUp={previewMode ? undefined : onPointerUp}
+      onPointerCancel={previewMode ? undefined : onPointerUp}
+    >
+      <div className="absolute inset-0" style={contentStyle}>
+        <div
+          className="relative h-full w-full"
+          style={{
+            opacity: imgStyle.opacity as number | undefined,
+            mixBlendMode: imgStyle.mixBlendMode,
+            borderRadius: selectionRadius,
+          }}
+        >
+          {isSelected && !previewMode ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+              style={{
+                transform,
+                transformStyle: "preserve-3d",
+                borderRadius: selectionRadius,
+              }}
+            />
+          ) : null}
+          <ScreenshotFrameContent
+            src={screenshot}
+            frame={frame}
+            isDragOver={isDragOver}
+            onBrowse={onBrowse}
+            imageFilter={filterChain}
+            shadowFilter={shadowFilter}
+            contentTransform={transform}
+            bareStyle={imgStyle}
+            applyTransformWhenEmpty
+            emptyCompact
+            objectFit={objectFit}
+            activeTool={activeTool}
+            isDragging={isScreenshotDragging}
+            stageRef={stageRef}
+            imageRef={imageRef}
+            addressValue={addressValue}
+            onAddressChange={onAddressChange}
+            onSelect={onSelect}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onImageLoad={onImageLoad}
+            onCrop={onCropClick}
+            onReplaceFile={onReplaceFile}
+            onDelete={onDelete}
+          />
+
+          {showEditMenu ? (
+            <div
+              className={cn(
+                "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
+                editOpen
+                  ? "opacity-100"
+                  : "opacity-0 group-hover/main-row:opacity-100",
+                (bulkCanvasDragging || isScreenshotDragging) &&
+                  !editOpen &&
+                  "!opacity-0"
+              )}
+              style={{
+                transform: `translate(-50%, -50%) ${transform}`,
+                transformOrigin: "center",
+                transformStyle: "preserve-3d",
+              }}
+            >
+              <ScreenshotEditMenu
+                open={editOpen}
+                onOpenChange={(open) => {
+                  if (bulkCanvasDragging || isScreenshotDragging) {
+                    onEditOpenChange(false)
+                    return
+                  }
+                  onEditOpenChange(open)
+                }}
+                onCrop={onCropClick}
+                onReplaceFile={onReplaceFile}
+                onDelete={onDelete}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 type MainScreenshotRowItemProps = {
   style: React.CSSProperties
   offset: { x: number; y: number }
@@ -38,9 +248,6 @@ type MainScreenshotRowItemProps = {
   filterChain: string | undefined
   isSelected: boolean
   bulkCanvasDragging: boolean
-  hoverActionsInline: boolean
-  hoverActionsLayoutKey: string
-  hoverActionsScale: number
   toolbarScale: number
   activeTool: EditorTool
   isScreenshotDragging: boolean
@@ -102,13 +309,14 @@ export function MainScreenshotRowItem({
   const rowRef = React.useRef<HTMLDivElement | null>(null)
   const [editOpen, setEditOpen] = React.useState(false)
 
-  const { toolbarRect, hideFloatingToolbar, measureRect } = useFloatingToolbarRect({
-    elRef: rowRef,
-    isSelected,
-    bulkCanvasDragging,
-    kind: "screenshot",
-    elementId: null,
-  })
+  const { toolbarRect, hideFloatingToolbar, measureRect } =
+    useFloatingToolbarRect({
+      elRef: rowRef,
+      isSelected,
+      bulkCanvasDragging,
+      kind: "screenshot",
+      elementId: null,
+    })
 
   React.useEffect(() => {
     if (bulkCanvasDragging || !isSelected) return
@@ -123,128 +331,41 @@ export function MainScreenshotRowItem({
     style.top,
   ])
 
-  const baseTransform = (style.transform) ?? ""
-  const mergedStyle: React.CSSProperties = {
-    ...style,
-    transform:
-      `${baseTransform} translate(${offset.x}px, ${offset.y}px)`.trim(),
-    transition: isScreenshotDragging
-      ? undefined
-      : "left 300ms ease-out, top 300ms ease-out",
-  }
-  const selectionRadius = frameSelectionRadius(
-    frame.id,
-    imgStyle.borderRadius as number
-  )
-  const contentStyle: React.CSSProperties = {
-    padding: `${Math.max(0, Math.min(240, padding)) / 12}%`,
-  }
   return (
     <>
-      <div
-        ref={rowRef}
-        data-box-hover-target
-        data-editor-shadow-preview-scope="canvas"
-        className={cn(
-          "group/main-row pointer-events-auto",
-          activeTool === "pointer" && "cursor-grab",
-          isScreenshotDragging && "cursor-grabbing"
-        )}
-        style={mergedStyle}
-        onClick={onSelect}
-        onPointerDown={(e) => {
-          if (activeTool !== "pointer") return
-          e.stopPropagation()
-          onPointerDown(e)
-        }}
+      <MainScreenshotRender
+        containerRef={rowRef}
+        style={style}
+        offset={offset}
+        padding={padding}
+        transform={transform}
+        screenshot={screenshot}
+        frame={frame}
+        addressValue={addressValue}
+        onAddressChange={onAddressChange}
+        imgStyle={imgStyle}
+        shadowFilter={shadowFilter}
+        filterChain={filterChain}
+        objectFit={objectFit}
+        stageRef={stageRef}
+        imageRef={imageRef}
+        isDragOver={isDragOver}
+        isSelected={isSelected}
+        isScreenshotDragging={isScreenshotDragging}
+        bulkCanvasDragging={bulkCanvasDragging}
+        activeTool={activeTool}
+        editOpen={editOpen}
+        onEditOpenChange={setEditOpen}
+        onSelect={onSelect}
+        onBrowse={onBrowse}
+        onCropClick={onCropClick}
+        onReplaceFile={onReplaceFile}
+        onDelete={onDelete}
+        onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <div className="absolute inset-0" style={contentStyle}>
-          <div
-            className="relative h-full w-full"
-            style={{
-              opacity: imgStyle.opacity as number | undefined,
-              mixBlendMode:
-                imgStyle.mixBlendMode,
-              borderRadius: selectionRadius,
-            }}
-          >
-            {isSelected ? (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
-                style={{
-                  transform: transform,
-                  transformStyle: "preserve-3d",
-                  borderRadius: selectionRadius,
-                }}
-              />
-            ) : null}
-            <ScreenshotFrameContent
-              src={screenshot}
-              frame={frame}
-              isDragOver={isDragOver}
-              onBrowse={onBrowse}
-              imageFilter={filterChain}
-              shadowFilter={shadowFilter}
-              contentTransform={transform}
-              bareStyle={imgStyle}
-              applyTransformWhenEmpty
-              emptyCompact
-              objectFit={objectFit}
-              activeTool={activeTool}
-              isDragging={isScreenshotDragging}
-              stageRef={stageRef}
-              imageRef={imageRef}
-              addressValue={addressValue}
-              onAddressChange={onAddressChange}
-              onSelect={onSelect}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onImageLoad={onImageLoad}
-              onCrop={onCropClick}
-              onReplaceFile={onReplaceFile}
-              onDelete={onDelete}
-            />
-
-            {screenshot && activeTool === "pointer" ? (
-              <div
-                className={cn(
-                  "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
-                  editOpen
-                    ? "opacity-100"
-                    : "opacity-0 group-hover/main-row:opacity-100",
-                  (bulkCanvasDragging || isScreenshotDragging) &&
-                    !editOpen &&
-                    "!opacity-0"
-                )}
-                style={{
-                  transform: `translate(-50%, -50%) ${transform}`,
-                  transformOrigin: "center",
-                  transformStyle: "preserve-3d",
-                }}
-              >
-                <ScreenshotEditMenu
-                  open={editOpen}
-                  onOpenChange={(open) => {
-                    if (bulkCanvasDragging || isScreenshotDragging) {
-                      setEditOpen(false)
-                      return
-                    }
-                    setEditOpen(open)
-                  }}
-                  onCrop={onCropClick}
-                  onReplaceFile={onReplaceFile}
-                  onDelete={onDelete}
-                />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+        onImageLoad={onImageLoad}
+      />
 
       {isSelected &&
       !bulkCanvasDragging &&
@@ -320,7 +441,10 @@ export function MainScreenshotRowItem({
                             tooltip="Image fit"
                             contentClassName="w-56 p-2"
                             trigger={({ open }) => (
-                              <ToolbarButton aria-label="Image fit" active={open}>
+                              <ToolbarButton
+                                aria-label="Image fit"
+                                active={open}
+                              >
                                 <RiFullscreenLine className="size-4" />
                               </ToolbarButton>
                             )}
@@ -330,41 +454,123 @@ export function MainScreenshotRowItem({
                                 Image Fit
                               </span>
                               <div className="grid grid-cols-3 gap-1.5">
-                                {([
-                                  {
-                                    value: "contain" as const,
-                                    label: "Contain",
-                                    icon: (
-                                      <svg viewBox="0 0 32 32" className="size-full" fill="none">
-                                        <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current opacity-30" strokeWidth="1.5" strokeDasharray="3 2" />
-                                        <rect x="7" y="5" width="18" height="22" rx="2" className="fill-current opacity-25" />
-                                        <rect x="7" y="5" width="18" height="22" rx="2" className="stroke-current" strokeWidth="1.5" />
-                                      </svg>
-                                    ),
-                                  },
-                                  {
-                                    value: "cover" as const,
-                                    label: "Cover",
-                                    icon: (
-                                      <svg viewBox="0 0 32 32" className="size-full" fill="none">
-                                        <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current opacity-30" strokeWidth="1.5" strokeDasharray="3 2" />
-                                        <rect x="2" y="2" width="28" height="28" rx="3" className="fill-current opacity-25" />
-                                        <rect x="-2" y="4" width="36" height="24" rx="2" className="stroke-current" strokeWidth="1.5" />
-                                      </svg>
-                                    ),
-                                  },
-                                  {
-                                    value: "fill" as const,
-                                    label: "Fill",
-                                    icon: (
-                                      <svg viewBox="0 0 32 32" className="size-full" fill="none">
-                                        <rect x="2" y="2" width="28" height="28" rx="3" className="fill-current opacity-25" />
-                                        <rect x="2" y="2" width="28" height="28" rx="3" className="stroke-current" strokeWidth="1.5" />
-                                        <path d="M8 8L5 5M24 8l3-3M8 24l-3 3M24 24l3 3" className="stroke-current opacity-50" strokeWidth="1.5" strokeLinecap="round" />
-                                      </svg>
-                                    ),
-                                  },
-                                ]).map(({ value, label, icon }) => (
+                                {(
+                                  [
+                                    {
+                                      value: "contain" as const,
+                                      label: "Contain",
+                                      icon: (
+                                        <svg
+                                          viewBox="0 0 32 32"
+                                          className="size-full"
+                                          fill="none"
+                                        >
+                                          <rect
+                                            x="2"
+                                            y="2"
+                                            width="28"
+                                            height="28"
+                                            rx="3"
+                                            className="stroke-current opacity-30"
+                                            strokeWidth="1.5"
+                                            strokeDasharray="3 2"
+                                          />
+                                          <rect
+                                            x="7"
+                                            y="5"
+                                            width="18"
+                                            height="22"
+                                            rx="2"
+                                            className="fill-current opacity-25"
+                                          />
+                                          <rect
+                                            x="7"
+                                            y="5"
+                                            width="18"
+                                            height="22"
+                                            rx="2"
+                                            className="stroke-current"
+                                            strokeWidth="1.5"
+                                          />
+                                        </svg>
+                                      ),
+                                    },
+                                    {
+                                      value: "cover" as const,
+                                      label: "Cover",
+                                      icon: (
+                                        <svg
+                                          viewBox="0 0 32 32"
+                                          className="size-full"
+                                          fill="none"
+                                        >
+                                          <rect
+                                            x="2"
+                                            y="2"
+                                            width="28"
+                                            height="28"
+                                            rx="3"
+                                            className="stroke-current opacity-30"
+                                            strokeWidth="1.5"
+                                            strokeDasharray="3 2"
+                                          />
+                                          <rect
+                                            x="2"
+                                            y="2"
+                                            width="28"
+                                            height="28"
+                                            rx="3"
+                                            className="fill-current opacity-25"
+                                          />
+                                          <rect
+                                            x="-2"
+                                            y="4"
+                                            width="36"
+                                            height="24"
+                                            rx="2"
+                                            className="stroke-current"
+                                            strokeWidth="1.5"
+                                          />
+                                        </svg>
+                                      ),
+                                    },
+                                    {
+                                      value: "fill" as const,
+                                      label: "Fill",
+                                      icon: (
+                                        <svg
+                                          viewBox="0 0 32 32"
+                                          className="size-full"
+                                          fill="none"
+                                        >
+                                          <rect
+                                            x="2"
+                                            y="2"
+                                            width="28"
+                                            height="28"
+                                            rx="3"
+                                            className="fill-current opacity-25"
+                                          />
+                                          <rect
+                                            x="2"
+                                            y="2"
+                                            width="28"
+                                            height="28"
+                                            rx="3"
+                                            className="stroke-current"
+                                            strokeWidth="1.5"
+                                          />
+                                          <path
+                                            d="M8 8L5 5M24 8l3-3M8 24l-3 3M24 24l3 3"
+                                            className="stroke-current opacity-50"
+                                            strokeWidth="1.5"
+                                            strokeLinecap="round"
+                                          />
+                                        </svg>
+                                      ),
+                                    },
+                                  ]
+                                ).map(({ value, label, icon }) => (
                                   <button
                                     key={value}
                                     onClick={() => onObjectFitChange(value)}

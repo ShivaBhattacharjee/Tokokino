@@ -119,11 +119,19 @@ export function Chrome({
       src={imageSrc}
       alt=""
       onLoad={onImageLoad}
-      className={`block size-full object-top ${imageFitClassName(imageFit)}`}
+      className={`block size-full ${imageFitClassName(imageFit)}`}
     />
   ) : (
     children
   )
+
+  const screenBg = imageFit === "contain"
+    ? colorMode === "dark"
+      ? "bg-[#292a2d]"
+      : colorMode === "light"
+        ? "bg-[#f1f3f4]"
+        : "bg-[#f1f3f4] dark:bg-[#292a2d]"
+    : "bg-white dark:bg-[#292a2d]"
 
   return (
     <div
@@ -138,7 +146,7 @@ export function Chrome({
     >
       <div
         ref={hasVideo ? undefined : screenRef}
-        className="absolute z-0 overflow-hidden bg-white"
+        className={`absolute z-0 overflow-hidden ${screenBg}`}
         style={{
           left: `${LEFT_PCT}%`,
           top: `${TOP_PCT}%`,
@@ -238,9 +246,9 @@ export function Chrome({
 }
 
 function imageFitClassName(imageFit: ImageFit) {
-  if (imageFit === "contain") return "object-contain"
+  if (imageFit === "contain") return "object-contain object-center"
   if (imageFit === "fill") return "object-fill"
-  return "object-cover"
+  return "object-cover object-top"
 }
 
 function ChromeArrow({ direction }: { direction: "left" | "right" }) {

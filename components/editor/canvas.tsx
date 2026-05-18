@@ -464,9 +464,6 @@ function CanvasViewInner({
               filterChain={enhanceFilter}
               isSelected={isScreenshotSelected}
               bulkCanvasDragging={bulkCanvasDragging}
-              hoverActionsInline={bulkEditMode}
-              hoverActionsLayoutKey={hoverActionsLayoutKey}
-              hoverActionsScale={hoverActionsScale}
               toolbarScale={
                 bulkEditMode ? bulkToolbarScale(bulkViewportZoom) : 1
               }
@@ -578,6 +575,7 @@ function CanvasViewInner({
                     placementDims={placementDims}
                     stageRef={stageRef}
                     imageRef={imageRef}
+                    scopeToMinSide={screenshotSlots.length === 0}
                     onSelect={handleScreenshotClickSelect}
                     onPointerDown={(e) => {
                       if (document.activeElement instanceof HTMLElement) {
@@ -1038,6 +1036,7 @@ export function Canvas() {
                     transform: `scale(${effectiveScale})`,
                     width: widthPx,
                     height: heightPx,
+                    ["--canvas-fit-scale" as string]: effectiveScale,
                   }}
                 >
                   <CanvasView
@@ -1087,6 +1086,7 @@ export function Canvas() {
                     transform: `scale(${effectiveScale})`,
                     width: widthPx,
                     height: heightPx,
+                    ["--canvas-fit-scale" as string]: effectiveScale,
                   }}
                 >
                   <CanvasView
@@ -1109,6 +1109,7 @@ export function Canvas() {
           className="absolute top-1/2 left-1/2 origin-center transition-transform duration-200 ease-out"
           style={{
             transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) scale(${effectiveScale})`,
+            ["--canvas-fit-scale" as string]: effectiveScale,
           }}
         >
           <div className="relative">

@@ -31,6 +31,7 @@ import {
   useSelectedScreenshotSlot,
 } from "@/lib/editor/store"
 import type { AspectState, DeviceFrame } from "@/lib/editor/store"
+import { ArrowRight } from "lucide-react"
 
 export function EffectsSidebar({
   className,
@@ -163,10 +164,11 @@ function AccountTile() {
       <div className="shrink-0 border-t border-dashed border-border/70 px-4 py-2.5">
         <Link
           href="/login"
-          className="relative flex h-10 w-full items-center rounded-md bg-primary px-3 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+          className="group relative flex h-10 w-full items-center rounded-md bg-primary px-3 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
         >
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            Login
+            Login{" "}
+            <ArrowRight className="ml-2 size-4 transition-transform duration-300 group-hover:translate-x-1" />
           </span>
         </Link>
       </div>

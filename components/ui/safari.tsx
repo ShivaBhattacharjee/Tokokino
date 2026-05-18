@@ -120,7 +120,7 @@ export function Safari({
       {!hasVideo && imageSrc && (
         <div
           ref={screenRef}
-          className="pointer-events-none absolute z-0 overflow-hidden"
+          className={`pointer-events-none absolute z-0 overflow-hidden ${imageFit === "contain" ? screenBgClass(colorMode) : ""}`}
           style={{
             left: `${LEFT_PCT}%`,
             top: `${TOP_PCT}%`,
@@ -134,7 +134,7 @@ export function Safari({
             src={imageSrc}
             alt=""
             onLoad={onImageLoad}
-            className={`block size-full object-top ${imageFitClassName(imageFit)}`}
+            className={`block size-full ${imageFitClassName(imageFit)}`}
           />
         </div>
       )}
@@ -332,7 +332,13 @@ export function Safari({
 }
 
 function imageFitClassName(imageFit: ImageFit) {
-  if (imageFit === "contain") return "object-contain"
+  if (imageFit === "contain") return "object-contain object-center"
   if (imageFit === "fill") return "object-fill"
-  return "object-cover"
+  return "object-cover object-top"
+}
+
+function screenBgClass(colorMode: SafariColorMode | undefined) {
+  if (colorMode === "dark") return "bg-[#404040]"
+  if (colorMode === "light") return "bg-[#E5E5E5]"
+  return "bg-[#E5E5E5] dark:bg-[#404040]"
 }

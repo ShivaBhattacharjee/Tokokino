@@ -1,18 +1,17 @@
 "use client"
 
 import * as React from "react"
-import { animate } from "motion/react"
+import { animate, AnimatePresence, motion } from "motion/react"
 
 import { AnnotationShapeElement } from "@/components/editor/annotation-shape-element"
 import { AssetElementView } from "@/components/editor/asset-element"
 import { TextElementView } from "@/components/editor/text-element"
 import { CanvasBackdrop } from "@/components/editor/canvas/canvas-backdrop"
 import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
-import {
-  frameSelectionRadius,
-  annotationPath,
-} from "@/components/editor/canvas/helpers"
+import { annotationPath } from "@/components/editor/canvas/helpers"
+import { MainScreenshotRender } from "@/components/editor/canvas/main-screenshot-row-item"
 import { ScreenshotFrameContent } from "@/components/editor/canvas/screenshot-frame-content"
+import { ScreenshotSlotRender } from "@/components/editor/screenshot-slot-element"
 import {
   LAYOUT_PRESETS,
   PRESENT_PRESETS,
@@ -35,12 +34,14 @@ import {
   slotBoxAspectRatio,
 } from "@/lib/editor/screenshot-layout"
 import {
-  assetFilterCss,
+  shadowBoxShadowCss,
+  shadowCss,
+  shadowDropFilterCss,
+} from "@/lib/editor/css-utils"
+import {
   effectsFilterCss,
   enhanceFilterCss,
   overlayUrl,
-  shadowCss,
-  shadowDropFilterCss,
   screenshotPositionAnchor,
   useActiveCanvasField,
   useActiveCanvasId,
@@ -50,9 +51,10 @@ import {
   type CanvasState,
   type ScreenshotSlot,
   type Tilt,
-  type ScreenshotPosition,
 } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
+
+const noop = () => undefined
 
 function isSameTilt(a: Tilt, b: Tilt) {
   return a.rx === b.rx && a.ry === b.ry && a.rz === b.rz
@@ -231,11 +233,21 @@ function TabTriggerRow({
         </button>
       </PopoverTrigger>
       <PopoverContent
+        forceMount
         side="bottom"
         align="start"
         sideOffset={6}
-        className="w-[180px] p-1.5"
+        className="w-[180px] overflow-visible border-0 bg-transparent p-0 shadow-none ring-0"
       >
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="w-[180px] rounded-lg bg-popover p-1.5 shadow-md ring-1 ring-foreground/10"
+            >
         <div className="flex gap-1.5">
           {(["single", "multi"] as PresetTab[]).map((t) => (
             <button
@@ -350,6 +362,9 @@ function TabTriggerRow({
             </button>
           ))}
         </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </PopoverContent>
     </Popover>
   )
@@ -479,55 +494,14 @@ export function PresentPresetsSection() {
               activeScale === scale && isSameTilt(activeTilt, preset.tilt)
 
             return (
-              <div
+              <SinglePresetCard
                 key={preset.id}
-                role="button"
-                tabIndex={0}
-                aria-pressed={active}
-                aria-label={preset.name}
-                onClick={() => applyPreset(preset)}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return
-                  e.preventDefault()
-                  applyPreset(preset)
-                }}
-                className={cn(
-                  "group w-full cursor-pointer overflow-hidden rounded-[8px] border bg-white/[0.045] p-2 text-left transition-colors",
-                  active
-                    ? "border-primary ring-1 ring-primary/40"
-                    : "border-white/12 hover:border-primary/55"
-                )}
-              >
-                <div
-                  aria-hidden
-                  inert
-                  className="relative isolate h-[176px] overflow-hidden rounded-[6px] [&_*]:pointer-events-none"
-                >
-                  <PresentPresetPreview
-                    aspect={aspect}
-                    canvas={canvas}
-                    preset={preset}
-                  />
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-[12px] leading-tight font-medium">
-                      {preset.name}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "grid size-5 shrink-0 place-items-center rounded-full border text-white transition-opacity",
-                      active
-                        ? "border-primary/70 bg-primary/20 text-black opacity-100 dark:text-primary-foreground"
-                        : "border-white/25 opacity-0 group-hover:opacity-70"
-                    )}
-                    aria-hidden
-                  >
-                    <RiCheckLine className="size-3" />
-                  </span>
-                </div>
-              </div>
+                preset={preset}
+                canvas={canvas}
+                aspect={aspect}
+                active={active}
+                onApply={applyPreset}
+              />
             )
           })}
         </div>
@@ -554,7 +528,143 @@ export function PresentPresetsSection() {
   )
 }
 
-function LayoutPresetCard({
+/**
+ * Defer the heavy preview render until the card scrolls near the viewport.
+ * Combined with `content-visibility: auto`, this keeps fast scrolling smooth
+ * by letting the browser skip layout/paint of off-screen cards entirely.
+ */
+function useDeferredVisibility(
+  ref: React.RefObject<HTMLElement | null>,
+  rootMargin = "300px"
+) {
+  const [visible, setVisible] = React.useState(false)
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setVisible(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [ref, rootMargin])
+  return visible
+}
+
+const PresetCardShell = React.memo(function PresetCardShell({
+  active,
+  ariaLabel,
+  onApply,
+  aspectStyle,
+  intrinsicSize,
+  name,
+  children,
+}: {
+  active: boolean
+  ariaLabel: string
+  onApply: () => void
+  aspectStyle: React.CSSProperties
+  intrinsicSize: string
+  name: string
+  children: React.ReactNode
+}) {
+  const shellRef = React.useRef<HTMLDivElement>(null)
+  const visible = useDeferredVisibility(shellRef)
+
+  return (
+    <div
+      ref={shellRef}
+      role="button"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      aria-pressed={active}
+      onClick={onApply}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return
+        e.preventDefault()
+        onApply()
+      }}
+      style={{
+        contentVisibility: "auto",
+        containIntrinsicSize: intrinsicSize,
+      }}
+      className={cn(
+        "group w-full cursor-pointer overflow-hidden rounded-[8px] border bg-white/[0.045] p-2 text-left transition-colors",
+        active
+          ? "border-primary ring-1 ring-primary/40"
+          : "border-white/12 hover:border-primary/55"
+      )}
+    >
+      <div
+        aria-hidden
+        inert
+        className="relative isolate w-full overflow-hidden rounded-[6px] [&_*]:pointer-events-none"
+        style={aspectStyle}
+      >
+        {visible ? children : null}
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="truncate text-[12px] leading-tight font-medium">
+          {name}
+        </p>
+        <span
+          className={cn(
+            "grid size-5 shrink-0 place-items-center rounded-full border text-white transition-opacity",
+            active
+              ? "border-primary/70 bg-primary/20 text-black opacity-100 dark:text-primary-foreground"
+              : "border-white/25 opacity-0 group-hover:opacity-70"
+          )}
+          aria-hidden
+        >
+          <RiCheckLine className="size-3" />
+        </span>
+      </div>
+    </div>
+  )
+})
+
+const SinglePresetCard = React.memo(function SinglePresetCard({
+  preset,
+  canvas,
+  aspect,
+  active,
+  onApply,
+}: {
+  preset: PresentPreset
+  canvas: CanvasState
+  aspect: AspectState
+  active: boolean
+  onApply: (preset: PresentPreset) => void
+}) {
+  const aw = aspect.w || 16
+  const ah = aspect.h || 10
+  const aspectStyle: React.CSSProperties = {
+    aspectRatio: `${aw} / ${ah}`,
+  }
+  const handleApply = React.useCallback(() => onApply(preset), [onApply, preset])
+  return (
+    <PresetCardShell
+      active={active}
+      ariaLabel={preset.name}
+      onApply={handleApply}
+      aspectStyle={aspectStyle}
+      intrinsicSize="auto 220px"
+      name={preset.name}
+    >
+      <PresentPresetPreview aspect={aspect} canvas={canvas} preset={preset} />
+    </PresetCardShell>
+  )
+})
+
+const LayoutPresetCard = React.memo(function LayoutPresetCard({
   preset,
   canvas,
   aspect,
@@ -618,57 +728,33 @@ function LayoutPresetCard({
     [preset]
   )
 
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={preset.name}
-      onClick={() => onApply(preset)}
-      onKeyDown={(e) => {
-        if (e.key !== "Enter" && e.key !== " ") return
-        e.preventDefault()
-        onApply(preset)
-      }}
-      className={cn(
-        "group w-full cursor-pointer overflow-hidden rounded-[8px] border bg-white/[0.045] p-2 text-left transition-colors",
-        active
-          ? "border-primary ring-1 ring-primary/40"
-          : "border-white/12 hover:border-primary/55"
-      )}
-    >
-      <div
-        aria-hidden
-        inert
-        className="relative isolate h-[176px] overflow-hidden rounded-[6px] [&_*]:pointer-events-none"
-      >
-        <PresentPresetPreview
-          aspect={aspect}
-          canvas={virtualCanvas}
-          preset={virtualPreset}
-          useSlotOwnTilt
-        />
-      </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="truncate text-[12px] leading-tight font-medium">
-          {preset.name}
-        </p>
-        <span
-          className={cn(
-            "grid size-5 shrink-0 place-items-center rounded-full border text-white transition-opacity",
-            active
-              ? "border-primary/70 bg-primary/20 text-black opacity-100 dark:text-primary-foreground"
-              : "border-white/25 opacity-0 group-hover:opacity-70"
-          )}
-          aria-hidden
-        >
-          <RiCheckLine className="size-3" />
-        </span>
-      </div>
-    </div>
-  )
-}
+  const aw = aspect.w || 16
+  const ah = aspect.h || 10
+  const aspectStyle: React.CSSProperties = {
+    aspectRatio: `${aw} / ${ah}`,
+  }
+  const handleApply = React.useCallback(() => onApply(preset), [onApply, preset])
 
-function PresentPresetPreview({
+  return (
+    <PresetCardShell
+      active={active}
+      ariaLabel={preset.name}
+      onApply={handleApply}
+      aspectStyle={aspectStyle}
+      intrinsicSize="auto 220px"
+      name={preset.name}
+    >
+      <PresentPresetPreview
+        aspect={aspect}
+        canvas={virtualCanvas}
+        preset={virtualPreset}
+        useSlotOwnTilt
+      />
+    </PresetCardShell>
+  )
+})
+
+const PresentPresetPreview = React.memo(function PresentPresetPreview({
   aspect,
   canvas,
   preset,
@@ -746,57 +832,55 @@ function PresentPresetPreview({
           overlay={canvas.overlay}
         />
         {mainRowLayout ? (
-          <PresentMainScreenshot
+          <PreviewMainScreenshot
             canvas={canvas}
-            transform={canvasTransform}
-            screenshotOffset={canvas.screenshotOffset}
-            screenshotPosition={canvas.screenshotPosition}
+            canvasTransform={canvasTransform}
             screenshotAnchor={screenshotAnchor}
+            canvasAspectRatio={canvasAspectRatio}
+            mainRowLayout={mainRowLayout}
             stageRef={stageRef}
             imageRef={imageRef}
-            canvasAspectRatio={canvasAspectRatio}
-            rowLayout={mainRowLayout}
           />
         ) : (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ padding: `${(canvas.padding / 1200) * 100}%` }}
-          >
-            <div className="relative flex h-full w-full items-center justify-center">
-              <CanvasFrameContent
-                canvas={canvas}
-                contentTransform={canvasTransform}
-                screenshotAnchor={screenshotAnchor}
-                screenshotOffset={canvas.screenshotOffset}
-                stageRef={stageRef}
-                imageRef={imageRef}
-                aspectW={aw}
-                aspectH={ah}
-                emptyCompact={
-                  preset.tilt.rx !== 0 ||
-                  preset.tilt.ry !== 0 ||
-                  preset.tilt.rz !== 0 ||
-                  resolvePresentPresetScale(preset, canvas.frame) !== 100 ||
-                  canvas.screenshotSlots.length > 0
-                }
-              />
-            </div>
-          </div>
-        )}
-        {canvas.screenshotSlots.map((slot) => (
-          <PresentSlot
-            key={slot.id}
-            slot={slot}
-            canvasAspectRatio={canvasAspectRatio}
-            rowLayout={slotRowLayoutById?.get(slot.id) ?? null}
-            previewTilt={useSlotOwnTilt ? undefined : preset.tilt}
-            previewScale={
-              useSlotOwnTilt
-                ? undefined
-                : resolvePresentPresetScale(preset, slot.frame)
+          <PreviewSingleScreenshot
+            canvas={canvas}
+            canvasTransform={canvasTransform}
+            screenshotAnchor={screenshotAnchor}
+            aspectW={aw}
+            aspectH={ah}
+            stageRef={stageRef}
+            imageRef={imageRef}
+            emptyCompact={
+              preset.tilt.rx !== 0 ||
+              preset.tilt.ry !== 0 ||
+              preset.tilt.rz !== 0 ||
+              resolvePresentPresetScale(preset, canvas.frame) !== 100 ||
+              canvas.screenshotSlots.length > 0
             }
           />
-        ))}
+        )}
+        {canvas.screenshotSlots.map((slot) => {
+          const overrideTilt = useSlotOwnTilt ? undefined : preset.tilt
+          const overrideScale = useSlotOwnTilt
+            ? undefined
+            : resolvePresentPresetScale(preset, slot.frame)
+          const effectiveSlot: ScreenshotSlot =
+            overrideTilt || overrideScale != null
+              ? {
+                  ...slot,
+                  tilt: overrideTilt ?? slot.tilt,
+                  scale: overrideScale ?? slot.scale,
+                }
+              : slot
+          return (
+            <PreviewSlot
+              key={slot.id}
+              slot={effectiveSlot}
+              canvasAspectRatio={canvasAspectRatio}
+              rowLayout={slotRowLayoutById?.get(slot.id) ?? null}
+            />
+          )
+        })}
         {canvas.assets.map((a) => (
           <AssetElementView
             key={a.id}
@@ -813,8 +897,8 @@ function PresentPresetPreview({
             previewMode
           />
         ))}
-        {[...canvas.annotationShapes]
-          .sort((a, b) => a.zIndex - b.zIndex)
+        {canvas.annotationShapes
+          .toSorted((a, b) => a.zIndex - b.zIndex)
           .map((shape) => (
             <AnnotationShapeElement
               key={shape.id}
@@ -864,251 +948,232 @@ function PresentPresetPreview({
       </div>
     </div>
   )
+})
+
+/**
+ * Builds the same bareStyle used by the interactive canvas's MainScreenshot.
+ * Kept in this file so the preview path uses identical visual primitives
+ * (border, shadow, transform) as the live canvas.
+ */
+function buildMainImgStyle(
+  canvas: CanvasState,
+  canvasTransform: string
+): React.CSSProperties {
+  const enhanceFilter = enhanceFilterCss(canvas.enhance)
+  const style: React.CSSProperties = {
+    borderRadius: canvas.borderRadius,
+    transform: canvasTransform,
+    transformStyle: "preserve-3d",
+    boxShadow: shadowBoxShadowCss(shadowCss(canvas.shadow)),
+    filter: enhanceFilter,
+    opacity: canvas.screenshotLayer.hidden
+      ? 0
+      : canvas.screenshotLayer.opacity / 100,
+  }
+  if (
+    canvas.screenshotLayer.blendMode &&
+    canvas.screenshotLayer.blendMode !== "normal"
+  ) {
+    style.mixBlendMode = canvas.screenshotLayer.blendMode
+  }
+  if (canvas.border.color && canvas.border.width > 0) {
+    style.outline = `${canvas.border.width}px ${canvas.border.style || "solid"} ${canvas.border.color}`
+    style.outlineOffset = `${canvas.border.padding || 0}px`
+  }
+  return style
 }
 
-function PresentMainScreenshot({
+function PreviewMainScreenshot({
   canvas,
-  transform,
-  screenshotOffset,
-  screenshotPosition,
+  canvasTransform,
   screenshotAnchor,
+  canvasAspectRatio,
+  mainRowLayout,
   stageRef,
   imageRef,
-  canvasAspectRatio,
-  rowLayout,
 }: {
   canvas: CanvasState
-  transform: string
-  screenshotOffset: { x: number; y: number }
-  screenshotPosition: ScreenshotPosition
+  canvasTransform: string
   screenshotAnchor: { x: number; y: number }
+  canvasAspectRatio: number
+  mainRowLayout: { widthPct: number; xPct: number }
   stageRef: React.RefObject<HTMLDivElement | null>
   imageRef: React.RefObject<HTMLImageElement | null>
-  canvasAspectRatio: number
-  rowLayout: { widthPct: number; xPct: number }
 }) {
   const left =
-    screenshotPosition === "center"
-      ? `${rowLayout.xPct}%`
+    canvas.screenshotPosition === "center"
+      ? `${mainRowLayout.xPct}%`
       : `${screenshotAnchor.x}%`
-  const top = screenshotPosition === "center" ? "50%" : `${screenshotAnchor.y}%`
+  const top =
+    canvas.screenshotPosition === "center"
+      ? "50%"
+      : `${screenshotAnchor.y}%`
+  const style: React.CSSProperties = {
+    position: "absolute",
+    left,
+    top,
+    width: `${mainRowLayout.widthPct}%`,
+    aspectRatio: slotBoxAspectRatio(canvas.frame, canvasAspectRatio),
+    transform: "translate(-50%, -50%)",
+    zIndex: 60 + canvas.screenshotLayer.zIndex,
+  }
+  const imgStyle = buildMainImgStyle(canvas, canvasTransform)
   return (
-    <div
-      className="absolute"
-      style={{
-        left,
-        top,
-        width: `${rowLayout.widthPct}%`,
-        aspectRatio: slotBoxAspectRatio(canvas.frame, canvasAspectRatio),
-        transform: `translate(-50%, -50%) translate(${screenshotOffset.x}px, ${screenshotOffset.y}px)`,
-        zIndex: 60 + canvas.screenshotLayer.zIndex,
-      }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{
-          padding: `${Math.max(0, Math.min(240, canvas.padding)) / 12}%`,
-        }}
-      >
-        <div
-          className="relative h-full w-full"
-          style={{
-            opacity: canvas.screenshotLayer.hidden
-              ? 0
-              : canvas.screenshotLayer.opacity / 100,
-            mixBlendMode:
-              canvas.screenshotLayer.blendMode !== "normal"
-                ? canvas.screenshotLayer.blendMode
-                : undefined,
-            borderRadius: frameSelectionRadius(
-              canvas.frame.id,
-              canvas.borderRadius
-            ),
-          }}
-        >
-          <CanvasFrameContent
-            canvas={canvas}
-            contentTransform={transform}
-            stageRef={stageRef}
-            emptyCompact
-            imageRef={imageRef}
-          />
-        </div>
-      </div>
-    </div>
+    <MainScreenshotRender
+      style={style}
+      offset={canvas.screenshotOffset}
+      padding={canvas.padding}
+      transform={canvasTransform}
+      screenshot={canvas.screenshot}
+      frame={canvas.frame}
+      addressValue={canvas.frameAddress}
+      onAddressChange={noop}
+      imgStyle={imgStyle}
+      shadowFilter={shadowDropFilterCss(canvas.shadow)}
+      filterChain={enhanceFilterCss(canvas.enhance)}
+      objectFit={canvas.objectFit ?? "contain"}
+      stageRef={stageRef}
+      imageRef={imageRef}
+      isDragOver={false}
+      isSelected={false}
+      isScreenshotDragging={false}
+      bulkCanvasDragging={false}
+      activeTool="pointer"
+      editOpen={false}
+      onEditOpenChange={noop}
+      onSelect={(e) => e.stopPropagation()}
+      onBrowse={noop}
+      onCropClick={noop}
+      onReplaceFile={noop}
+      onDelete={noop}
+      onPointerDown={noop}
+      onPointerMove={noop}
+      onPointerUp={noop}
+      onImageLoad={noop}
+      previewMode
+    />
   )
 }
 
-function CanvasFrameContent({
+/**
+ * Single-canvas preview (no slots). Renders directly through
+ * ScreenshotFrameContent — same path as the live canvas's empty/single
+ * screenshot branch.
+ */
+function PreviewSingleScreenshot({
   canvas,
-  contentTransform,
+  canvasTransform,
   screenshotAnchor,
-  screenshotOffset,
-  stageRef,
-  imageRef,
-  emptyCompact = false,
   aspectW,
   aspectH,
+  stageRef,
+  imageRef,
+  emptyCompact,
 }: {
   canvas: CanvasState
-  contentTransform: string
-  screenshotAnchor?: { x: number; y: number }
-  screenshotOffset?: { x: number; y: number }
+  canvasTransform: string
+  screenshotAnchor: { x: number; y: number }
+  aspectW: number
+  aspectH: number
   stageRef: React.RefObject<HTMLDivElement | null>
   imageRef: React.RefObject<HTMLImageElement | null>
-  emptyCompact?: boolean
-  aspectW?: number
-  aspectH?: number
+  emptyCompact: boolean
 }) {
   const enhanceFilter = enhanceFilterCss(canvas.enhance)
   const bareStyle: React.CSSProperties = {
     borderRadius: canvas.borderRadius,
     boxShadow: shadowCss(canvas.shadow),
     filter: enhanceFilter,
-    transform: contentTransform,
+    transform: canvasTransform,
     transformStyle: "preserve-3d",
   }
   if (canvas.border.color && canvas.border.width > 0) {
     bareStyle.outline = `${canvas.border.width}px ${canvas.border.style || "solid"} ${canvas.border.color}`
     bareStyle.outlineOffset = `${canvas.border.padding || 0}px`
   }
-
   return (
-    <ScreenshotFrameContent
-      src={canvas.screenshot}
-      frame={canvas.frame}
-      isDragOver={false}
-      onBrowse={() => undefined}
-      imageFilter={enhanceFilter}
-      shadowFilter={shadowDropFilterCss(canvas.shadow)}
-      contentTransform={contentTransform}
-      bareStyle={bareStyle}
-      activeTool="pointer"
-      isDragging={false}
-      stageRef={stageRef}
-      imageRef={imageRef}
-      addressValue={canvas.frameAddress}
-      onAddressChange={() => undefined}
-      onSelect={(e) => e.stopPropagation()}
-      onPointerDown={() => undefined}
-      onPointerMove={() => undefined}
-      onPointerUp={() => undefined}
-      onImageLoad={() => undefined}
-      onCrop={() => undefined}
-      onReplaceFile={() => undefined}
-      onDelete={() => undefined}
-      screenshotAnchor={screenshotAnchor}
-      screenshotOffset={screenshotOffset}
-      objectFit={canvas.objectFit ?? "contain"}
-      applyTransformWhenEmpty
-      emptyCompact={emptyCompact}
-      aspectW={aspectW}
-      aspectH={aspectH}
-      mockupScopeToMinSide={canvas.screenshotSlots.length === 0}
-    />
+    <div
+      data-editor-shadow-preview-scope="canvas"
+      className="pointer-events-none absolute inset-0 flex h-full w-full items-center justify-center"
+      style={{
+        padding: `${(canvas.padding / 1200) * 100}%`,
+        zIndex: 60 + canvas.screenshotLayer.zIndex,
+      }}
+    >
+      <div className="relative flex h-full w-full items-center justify-center">
+        <ScreenshotFrameContent
+          src={canvas.screenshot}
+          frame={canvas.frame}
+          isDragOver={false}
+          onBrowse={noop}
+          imageFilter={enhanceFilter}
+          shadowFilter={shadowDropFilterCss(canvas.shadow)}
+          contentTransform={canvasTransform}
+          bareStyle={bareStyle}
+          activeTool="pointer"
+          isDragging={false}
+          stageRef={stageRef}
+          imageRef={imageRef}
+          addressValue={canvas.frameAddress}
+          onAddressChange={noop}
+          onSelect={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+          onPointerDown={noop}
+          onPointerMove={noop}
+          onPointerUp={noop}
+          onImageLoad={noop}
+          onCrop={noop}
+          onReplaceFile={noop}
+          onDelete={noop}
+          screenshotAnchor={screenshotAnchor}
+          screenshotOffset={canvas.screenshotOffset}
+          objectFit={canvas.objectFit ?? "contain"}
+          applyTransformWhenEmpty
+          emptyCompact={emptyCompact}
+          aspectW={aspectW}
+          aspectH={aspectH}
+          mockupScopeToMinSide={canvas.screenshotSlots.length === 0}
+        />
+      </div>
+    </div>
   )
 }
 
-function PresentSlot({
+function PreviewSlot({
   slot,
   canvasAspectRatio,
   rowLayout,
-  previewTilt,
-  previewScale,
 }: {
   slot: ScreenshotSlot
   canvasAspectRatio: number
   rowLayout: { widthPct: number; xPct: number } | null
-  previewTilt?: Tilt
-  previewScale?: number
 }) {
   const stageRef = React.useRef<HTMLDivElement>(null)
   const imageRef = React.useRef<HTMLImageElement>(null)
-  const effectiveWidthPct = rowLayout?.widthPct ?? slot.widthPct
-  const filterChain = [
-    enhanceFilterCss(slot.enhance),
-    assetFilterCss(slot.filter),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim()
-  const bareStyle: React.CSSProperties = {
-    borderRadius: slot.borderRadius,
-    boxShadow: shadowCss(slot.shadow),
-    filter: filterChain || undefined,
-  }
-  if (slot.border.color && slot.border.width > 0) {
-    bareStyle.outline = `${slot.border.width}px ${slot.border.style || "solid"} ${slot.border.color}`
-    bareStyle.outlineOffset = `${slot.border.padding || 0}px`
-  }
-
   return (
-    <div
-      className="absolute"
-      style={{
-        left: `${slot.xPct}%`,
-        top: `${slot.yPct}%`,
-        width: `${effectiveWidthPct}%`,
-        aspectRatio: slotBoxAspectRatio(slot.frame, canvasAspectRatio),
-        transform: `translate(-50%, -50%) rotate(${slot.rotation}deg)`,
-        zIndex: 60 + slot.zIndex,
-        display: slot.hidden ? "none" : undefined,
-        mixBlendMode: slot.blendMode !== "normal" ? slot.blendMode : undefined,
-      }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{ padding: `${Math.max(0, Math.min(240, slot.padding)) / 12}%` }}
-      >
-        <div
-          className="relative h-full w-full"
-          style={{
-            opacity: slot.opacity / 100,
-            borderRadius: frameSelectionRadius(
-              slot.frame.id,
-              slot.borderRadius
-            ),
-          }}
-        >
-          <ScreenshotFrameContent
-            src={slot.src}
-            frame={slot.frame}
-            isDragOver={false}
-            onBrowse={() => undefined}
-            imageFilter={filterChain || undefined}
-            shadowFilter={shadowDropFilterCss(slot.shadow)}
-            contentTransform={transformFromTiltAndScale(
-              previewTilt ?? slot.tilt,
-              previewScale ?? slot.scale
-            )}
-            bareStyle={{
-              ...bareStyle,
-              transform: transformFromTiltAndScale(
-                previewTilt ?? slot.tilt,
-                previewScale ?? slot.scale
-              ),
-              transformStyle: "preserve-3d",
-            }}
-            activeTool="pointer"
-            isDragging={false}
-            stageRef={stageRef}
-            imageRef={imageRef}
-            addressValue={slot.frameAddress}
-            onAddressChange={() => undefined}
-            onSelect={(e) => e.stopPropagation()}
-            onPointerDown={() => undefined}
-            onPointerMove={() => undefined}
-            onPointerUp={() => undefined}
-            onImageLoad={() => undefined}
-            onCrop={() => undefined}
-            onReplaceFile={() => undefined}
-            onDelete={() => undefined}
-            objectFit={slot.objectFit ?? "contain"}
-            applyTransformWhenEmpty
-            emptyCompact
-          />
-        </div>
-      </div>
-    </div>
+    <ScreenshotSlotRender
+      slot={slot}
+      canvasAspectRatio={canvasAspectRatio}
+      rowLayout={rowLayout}
+      stageRef={stageRef}
+      imageRef={imageRef}
+      isSelected={false}
+      isDragOver={false}
+      isBeingDragged={false}
+      activeTool="pointer"
+      editOpen={false}
+      onEditOpenChange={noop}
+      bulkCanvasDragging={false}
+      canDeleteSlot={false}
+      onSelect={(e) => e.stopPropagation()}
+      onBrowse={noop}
+      onCropClick={noop}
+      onReplaceFile={noop}
+      onDeleteFromMenu={noop}
+      onAddressChange={noop}
+      onPointerDown={noop}
+      onPointerMove={noop}
+      onPointerUp={noop}
+      previewMode
+    />
   )
 }

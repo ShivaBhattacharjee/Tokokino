@@ -79,7 +79,7 @@ export function Arc({
       src={imageSrc}
       alt=""
       onLoad={onImageLoad}
-      className={`block size-full object-top ${imageFitClassName(imageFit)}`}
+      className={`block size-full ${imageFitClassName(imageFit)}`}
     />
   ) : (
     children
@@ -114,7 +114,7 @@ export function Arc({
 }
 
 function imageFitClassName(imageFit: ImageFit) {
-  if (imageFit === "contain") return "object-contain"
+  if (imageFit === "contain") return "object-contain object-center"
   if (imageFit === "fill") return "object-fill"
-  return "object-cover"
+  return "object-cover object-top"
 }

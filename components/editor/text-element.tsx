@@ -57,6 +57,7 @@ type ResizeState = {
   canvasH: number
   elW: number
   elH: number
+  lastPatch: Partial<TextElement> | null
 }
 
 const DRAG_THRESHOLD = 4
@@ -71,6 +72,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
   const isEditing = isSelected && editingRequested
   const elRef = React.useRef<HTMLDivElement>(null)
   const editorRef = React.useRef<HTMLDivElement>(null)
+  const textViewRef = React.useRef<HTMLDivElement>(null)
   const { toolbarRect, hideFloatingToolbar, shouldAnimatePositionMove, measureRect, setToolbarRect } =
     useFloatingToolbarRect({
       elRef,
@@ -367,6 +369,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
         canvasH: canvasRect.height / scale,
         elW: elRect.width / scale,
         elH: elRect.height / scale,
+        lastPatch: null,
       }
     },
   [canvasRef])
@@ -374,6 +377,8 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
   const moveResize = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
     const rs = resizeRef.current
     if (!rs || rs.pointerId !== e.pointerId) return
+    const el = elRef.current
+    if (!el) return
     const scale = canvasZoomRef.current / 100
     const dx = (e.clientX - rs.startClientX) / scale
     const dy = (e.clientY - rs.startClientY) / scale
@@ -381,7 +386,6 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     const isCorner = rs.handle === "tl" || rs.handle === "tr" || rs.handle === "bl" || rs.handle === "br"
 
     if (isCorner) {
-      // Corner handles: proportional scale (changes fontSize), opposite corner anchored
       let scaleFactor: number
       switch (rs.handle) {
         case "tl": {
@@ -418,91 +422,85 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
 
       let xShiftPx = 0
       let yShiftPx = 0
-
-      // Anchor opposite corner horizontally
       if (rs.handle === "tl" || rs.handle === "bl") {
-        xShiftPx = (newW - rs.elW) / 2  // push center left (right edge anchored)
+        xShiftPx = (newW - rs.elW) / 2
       } else {
-        xShiftPx = -(newW - rs.elW) / 2  // push center right (left edge anchored)
+        xShiftPx = -(newW - rs.elW) / 2
       }
-      // Anchor opposite corner vertically
       if (rs.handle === "tl" || rs.handle === "tr") {
-        yShiftPx = (newH - rs.elH) / 2  // push center up (bottom edge anchored)
+        yShiftPx = (newH - rs.elH) / 2
       } else {
-        yShiftPx = -(newH - rs.elH) / 2  // push center down (top edge anchored)
+        yShiftPx = -(newH - rs.elH) / 2
       }
 
-      const xPct = rs.startXPct - (xShiftPx / rs.canvasW) * 100
-      const yPct = rs.startYPct - (yShiftPx / rs.canvasH) * 100
+      const xPct = clamp(rs.startXPct - (xShiftPx / rs.canvasW) * 100, -20, 120)
+      const yPct = clamp(rs.startYPct - (yShiftPx / rs.canvasH) * 100, -20, 120)
 
-      const t = textRef.current
-      const patch: Partial<import("@/lib/editor/store").TextElement> = {
-        fontSize: newFontSize,
-        xPct: clamp(xPct, -20, 120),
-        yPct: clamp(yPct, -20, 120),
-      }
-      // Scale explicit width/height proportionally from initial values
-      if (rs.storeWidthPx != null) {
-        patch.widthPx = Math.max(20, Math.round(rs.storeWidthPx * actualScale))
-      }
-      if (rs.storeHeightPx != null) {
-        patch.heightPx = Math.max(16, Math.round(rs.storeHeightPx * actualScale))
-      }
-      updateText(t.id, patch)
+      const patch: Partial<TextElement> = { fontSize: newFontSize, xPct, yPct }
+      if (rs.storeWidthPx != null) patch.widthPx = Math.max(20, Math.round(rs.storeWidthPx * actualScale))
+      if (rs.storeHeightPx != null) patch.heightPx = Math.max(16, Math.round(rs.storeHeightPx * actualScale))
+      rs.lastPatch = patch
+
+      // Apply directly to DOM — no store update, no re-render
+      el.style.left = `${xPct}%`
+      el.style.top = `${yPct}%`
+      const textView = textViewRef.current
+      if (textView) textView.style.fontSize = `${newFontSize}px`
+      if (patch.widthPx != null) el.style.width = `${patch.widthPx}px`
+      if (patch.heightPx != null) el.style.height = `${patch.heightPx}px`
+      setToolbarRect(el.getBoundingClientRect())
     } else {
-      // Edge handles: change explicit width/height, text wraps
       let newW = rs.startWidthPx
       let newH = rs.startHeightPx
       let xShiftPx = 0
       let yShiftPx = 0
 
       switch (rs.handle) {
-        case "ml": {
+        case "ml":
           newW = Math.max(20, rs.startWidthPx - dx)
           xShiftPx = -(newW - rs.startWidthPx) / 2
           break
-        }
-        case "mr": {
+        case "mr":
           newW = Math.max(20, rs.startWidthPx + dx)
           xShiftPx = (newW - rs.startWidthPx) / 2
           break
-        }
-        case "mt": {
+        case "mt":
           newH = Math.max(16, rs.startHeightPx - dy)
           yShiftPx = -(newH - rs.startHeightPx) / 2
           break
-        }
-        case "mb": {
+        case "mb":
           newH = Math.max(16, rs.startHeightPx + dy)
           yShiftPx = (newH - rs.startHeightPx) / 2
           break
-        }
         default:
           return
       }
 
-      const xPct = rs.startXPct + (xShiftPx / rs.canvasW) * 100
-      const yPct = rs.startYPct + (yShiftPx / rs.canvasH) * 100
+      const xPct = clamp(rs.startXPct + (xShiftPx / rs.canvasW) * 100, -20, 120)
+      const yPct = clamp(rs.startYPct + (yShiftPx / rs.canvasH) * 100, -20, 120)
 
-      const patch: Partial<import("@/lib/editor/store").TextElement> = {
-        xPct: clamp(xPct, -20, 120),
-        yPct: clamp(yPct, -20, 120),
-      }
-      if (rs.handle === "ml" || rs.handle === "mr") {
-        patch.widthPx = Math.round(newW)
-      }
-      if (rs.handle === "mt" || rs.handle === "mb") {
-        patch.heightPx = Math.round(newH)
-      }
-      updateText(textRef.current.id, patch)
+      const patch: Partial<TextElement> = { xPct, yPct }
+      if (rs.handle === "ml" || rs.handle === "mr") patch.widthPx = Math.round(newW)
+      if (rs.handle === "mt" || rs.handle === "mb") patch.heightPx = Math.round(newH)
+      rs.lastPatch = patch
+
+      // Apply directly to DOM — no store update, no re-render
+      el.style.left = `${xPct}%`
+      el.style.top = `${yPct}%`
+      if (patch.widthPx != null) el.style.width = `${patch.widthPx}px`
+      if (patch.heightPx != null) el.style.height = `${patch.heightPx}px`
+      setToolbarRect(el.getBoundingClientRect())
     }
-  }, [updateText])
+  }, [setToolbarRect])
 
   const endResize = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
     const rs = resizeRef.current
     if (!rs || rs.pointerId !== e.pointerId) return
+    if (rs.lastPatch) {
+      updateText(textRef.current.id, rs.lastPatch)
+    }
     resizeRef.current = null
-  }, [])
+  }, [updateText])
 
   const commitContent = () => {
     const node = editorRef.current
@@ -700,6 +698,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
         />
       ) : (
         <div
+          ref={textViewRef}
           className={cn(
             "whitespace-pre-wrap break-words px-2 py-1",
             showBorder && "rounded-md"

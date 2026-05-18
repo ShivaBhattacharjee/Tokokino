@@ -32,6 +32,7 @@ import { shadowBoxShadowCss, shadowCss, shadowDropFilterCss } from "@/lib/editor
 import {
   assetFilterCss,
   enhanceFilterCss,
+  type EditorTool,
   MAX_SCREENSHOT_SLOTS,
   type ScreenshotSlot,
   useEditor,
@@ -39,6 +40,244 @@ import {
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
+
+/**
+ * Pure presentational core for a screenshot slot. Used by:
+ *  - the interactive {@link ScreenshotSlotView} (with full callbacks)
+ *  - the preset preview (with `previewMode` and no-op callbacks)
+ *
+ * Keeping a single render path means visual changes — selection outline,
+ * frame fitting, hover edit menu — show up consistently in both places.
+ */
+type ScreenshotSlotRenderProps = {
+  slot: ScreenshotSlot
+  canvasAspectRatio: number
+  rowLayout?: { widthPct: number; xPct: number } | null
+  containerRef?: React.Ref<HTMLDivElement>
+  stageRef: React.RefObject<HTMLDivElement | null>
+  imageRef: React.RefObject<HTMLImageElement | null>
+  isSelected: boolean
+  isDragOver: boolean
+  isBeingDragged: boolean
+  activeTool: EditorTool
+  editOpen: boolean
+  onEditOpenChange: (open: boolean) => void
+  bulkCanvasDragging: boolean
+  canDeleteSlot: boolean
+  onSelect: (e: { stopPropagation: () => void }) => void
+  onBrowse: () => void
+  onCropClick: () => void
+  onReplaceFile: (file: File) => void
+  onDeleteFromMenu: () => void
+  onAddressChange: (value: string) => void
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void
+  onDragLeave?: () => void
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void
+  previewMode?: boolean
+}
+
+export function ScreenshotSlotRender({
+  slot,
+  canvasAspectRatio,
+  rowLayout,
+  containerRef,
+  stageRef,
+  imageRef,
+  isSelected,
+  isDragOver,
+  isBeingDragged,
+  activeTool,
+  editOpen,
+  onEditOpenChange,
+  bulkCanvasDragging,
+  onSelect,
+  onBrowse,
+  onCropClick,
+  onReplaceFile,
+  onDeleteFromMenu,
+  onAddressChange,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  previewMode = false,
+}: ScreenshotSlotRenderProps) {
+  const computedShadowFilter = shadowDropFilterCss(slot.shadow)
+  const enhanceFilter = enhanceFilterCss(slot.enhance)
+  const filterChain = [enhanceFilter, assetFilterCss(slot.filter)]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+  const contentTransform = [
+    "perspective(1400px)",
+    `rotateX(var(--slot-ts-rx, ${slot.tilt.rx}deg))`,
+    `rotateY(var(--slot-ts-ry, ${slot.tilt.ry}deg))`,
+    `rotateZ(var(--slot-ts-rz, ${slot.tilt.rz}deg))`,
+    `scale(var(--slot-ts-scale, ${slot.scale / 100}))`,
+  ].join(" ")
+  const boxAspectRatio = slotBoxAspectRatio(slot.frame, canvasAspectRatio)
+  const effectiveWidthPct = rowLayout?.widthPct ?? slot.widthPct
+
+  const containerStyle: React.CSSProperties = {
+    left: `${slot.xPct}%`,
+    top: `${slot.yPct}%`,
+    width: `${effectiveWidthPct}%`,
+    aspectRatio: boxAspectRatio,
+    transform: `translate(-50%, -50%) rotate(${slot.rotation}deg)`,
+    zIndex: 60 + slot.zIndex,
+    display: slot.hidden ? "none" : undefined,
+    transition:
+      previewMode || isBeingDragged
+        ? undefined
+        : "left 300ms ease-out, top 300ms ease-out",
+  }
+  if (slot.blendMode && slot.blendMode !== "normal") {
+    containerStyle.mixBlendMode = slot.blendMode
+  }
+
+  const contentStyle: React.CSSProperties = {
+    padding: `${Math.max(0, Math.min(240, slot.padding)) / 12}%`,
+  }
+
+  const imageBoxOutline = slot.border
+  const bareBorderRadius = slot.borderRadius
+  const selectionRadius = frameSelectionRadius(slot.frame.id, bareBorderRadius)
+  const transformedStyle: React.CSSProperties = {
+    opacity: slot.opacity / 100,
+    borderRadius: selectionRadius,
+  }
+  const bareImgStyle: React.CSSProperties = {
+    borderRadius: bareBorderRadius,
+    boxShadow: shadowBoxShadowCss(shadowCss(slot.shadow)),
+    filter: filterChain || undefined,
+    transform: contentTransform,
+    transformStyle: "preserve-3d" as const,
+  }
+  if (imageBoxOutline?.color && imageBoxOutline.width > 0) {
+    bareImgStyle.outline = `${imageBoxOutline.width}px ${imageBoxOutline.style || "solid"} ${imageBoxOutline.color}`
+    bareImgStyle.outlineOffset = `${imageBoxOutline.padding || 0}px`
+  }
+
+  const showEditMenu = !previewMode && Boolean(slot.src)
+
+  return (
+    <div
+      ref={containerRef}
+      data-box-hover-target={previewMode ? undefined : ""}
+      data-screenshot-slot-id={previewMode ? undefined : slot.id}
+      data-editor-shadow-preview-scope={previewMode ? undefined : slot.id}
+      onPointerDown={previewMode ? undefined : onPointerDown}
+      onPointerMove={previewMode ? undefined : onPointerMove}
+      onPointerUp={previewMode ? undefined : onPointerUp}
+      onPointerCancel={previewMode ? undefined : onPointerCancel ?? onPointerUp}
+      onClick={previewMode ? undefined : onSelect}
+      onDragOver={previewMode ? undefined : onDragOver}
+      onDragLeave={previewMode ? undefined : onDragLeave}
+      onDrop={previewMode ? undefined : onDrop}
+      className={cn(
+        "group/slot nodrag nopan absolute select-none",
+        previewMode
+          ? "pointer-events-none"
+          : isSelected
+            ? "cursor-grabbing"
+            : "cursor-grab"
+      )}
+      style={containerStyle}
+    >
+      <motion.div
+        className="absolute inset-0"
+        initial={previewMode ? false : { opacity: 0, scale: 0.82 }}
+        animate={previewMode ? undefined : { opacity: 1, scale: 1 }}
+        exit={previewMode ? undefined : { opacity: 0, scale: 0.82 }}
+        transition={
+          previewMode
+            ? undefined
+            : { type: "spring", stiffness: 420, damping: 28, mass: 0.75 }
+        }
+      >
+        <div className="absolute inset-0" style={contentStyle}>
+          <div className="relative h-full w-full" style={transformedStyle}>
+            {isSelected && !previewMode ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+                style={{
+                  transform: contentTransform,
+                  transformStyle: "preserve-3d",
+                  borderRadius: selectionRadius,
+                }}
+              />
+            ) : null}
+            <ScreenshotFrameContent
+              src={slot.src}
+              frame={slot.frame}
+              isDragOver={isDragOver}
+              onBrowse={onBrowse}
+              imageFilter={filterChain || undefined}
+              shadowFilter={computedShadowFilter}
+              contentTransform={contentTransform}
+              bareStyle={bareImgStyle}
+              applyTransformWhenEmpty
+              emptyCompact
+              objectFit={slot.objectFit ?? "contain"}
+              activeTool={activeTool}
+              isDragging={false}
+              stageRef={stageRef}
+              imageRef={imageRef}
+              addressValue={slot.frameAddress}
+              onAddressChange={onAddressChange}
+              onSelect={onSelect}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onCrop={onCropClick}
+              onReplaceFile={onReplaceFile}
+              onDelete={onDeleteFromMenu}
+            />
+
+            {showEditMenu ? (
+              <div
+                className={cn(
+                  "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
+                  editOpen
+                    ? "opacity-100"
+                    : "opacity-0 group-hover/slot:opacity-100",
+                  bulkCanvasDragging && !editOpen && "!opacity-0"
+                )}
+                style={{
+                  transform: `translate(-50%, -50%) ${contentTransform}`,
+                  transformOrigin: "center",
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                <ScreenshotEditMenu
+                  open={editOpen}
+                  onOpenChange={(open) => {
+                    if (bulkCanvasDragging) {
+                      onEditOpenChange(false)
+                      return
+                    }
+                    onEditOpenChange(open)
+                  }}
+                  onCrop={onCropClick}
+                  onReplaceFile={onReplaceFile}
+                  onDelete={onDeleteFromMenu}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
 
 type DragState = {
   pointerId: number
@@ -259,61 +498,6 @@ export function ScreenshotSlotView({
     onCenterGuideChange?.({ x: false, y: false })
   }
 
-  const computedShadowFilter = shadowDropFilterCss(slot.shadow)
-  const enhanceFilter = enhanceFilterCss(slot.enhance)
-  const filterChain = [enhanceFilter, assetFilterCss(slot.filter)]
-    .filter(Boolean)
-    .join(" ")
-    .trim()
-  const contentTransform = [
-    "perspective(1400px)",
-    `rotateX(var(--slot-ts-rx, ${slot.tilt.rx}deg))`,
-    `rotateY(var(--slot-ts-ry, ${slot.tilt.ry}deg))`,
-    `rotateZ(var(--slot-ts-rz, ${slot.tilt.rz}deg))`,
-    `scale(var(--slot-ts-scale, ${slot.scale / 100}))`,
-  ].join(" ")
-  const boxAspectRatio = slotBoxAspectRatio(slot.frame, canvasAspectRatio)
-  const effectiveWidthPct = rowLayout?.widthPct ?? slot.widthPct
-
-  const containerStyle: React.CSSProperties = {
-    left: `${slot.xPct}%`,
-    top: `${slot.yPct}%`,
-    width: `${effectiveWidthPct}%`,
-    aspectRatio: boxAspectRatio,
-    transform: `translate(-50%, -50%) rotate(${slot.rotation}deg)`,
-    zIndex: 60 + slot.zIndex,
-    display: slot.hidden ? "none" : undefined,
-    transition: isBeingDragged
-      ? undefined
-      : "left 300ms ease-out, top 300ms ease-out",
-  }
-  if (slot.blendMode && slot.blendMode !== "normal") {
-    containerStyle.mixBlendMode = slot.blendMode
-  }
-
-  const contentStyle: React.CSSProperties = {
-    padding: `${Math.max(0, Math.min(240, slot.padding)) / 12}%`,
-  }
-
-  const imageBoxOutline = slot.border
-  const bareBorderRadius = slot.borderRadius
-  const selectionRadius = frameSelectionRadius(slot.frame.id, bareBorderRadius)
-  const transformedStyle: React.CSSProperties = {
-    opacity: slot.opacity / 100,
-    borderRadius: selectionRadius,
-  }
-  const bareImgStyle: React.CSSProperties = {
-    borderRadius: bareBorderRadius,
-    boxShadow: shadowBoxShadowCss(shadowCss(slot.shadow)),
-    filter: filterChain || undefined,
-    transform: contentTransform,
-    transformStyle: "preserve-3d" as const,
-  }
-  if (imageBoxOutline?.color && imageBoxOutline.width > 0) {
-    bareImgStyle.outline = `${imageBoxOutline.width}px ${imageBoxOutline.style || "solid"} ${imageBoxOutline.color}`
-    bareImgStyle.outlineOffset = `${imageBoxOutline.padding || 0}px`
-  }
-
   const onBrowse = () => {
     setSelectedScreenshotSlotId(slot.id)
     setSelectedAssetId(null)
@@ -321,6 +505,15 @@ export function ScreenshotSlotView({
     setSelectedAnnotationShapeId(null)
     setIsScreenshotSelected(false)
     fileInputRef.current?.click()
+  }
+
+  const handleDeleteFromMenu = () => {
+    if (canDeleteSlot) {
+      deleteScreenshotSlot(slot.id)
+      setSelectedScreenshotSlotId(null)
+    } else {
+      setScreenshotSlotImage(slot.id, null)
+    }
   }
 
   return (
@@ -337,16 +530,33 @@ export function ScreenshotSlotView({
         }}
       />
 
-      <div
-        ref={elRef}
-        data-box-hover-target
-        data-screenshot-slot-id={slot.id}
-        data-editor-shadow-preview-scope={slot.id}
+      <ScreenshotSlotRender
+        slot={slot}
+        canvasAspectRatio={canvasAspectRatio}
+        rowLayout={rowLayout}
+        containerRef={elRef}
+        stageRef={stageRef}
+        imageRef={imageRef}
+        isSelected={isSelected}
+        isDragOver={isDragOver}
+        isBeingDragged={isBeingDragged}
+        activeTool={activeTool}
+        editOpen={slotEditOpen}
+        onEditOpenChange={setSlotEditOpen}
+        bulkCanvasDragging={bulkCanvasDragging}
+        canDeleteSlot={canDeleteSlot}
+        onSelect={select}
+        onBrowse={onBrowse}
+        onCropClick={() => onCropRequest(slot.id)}
+        onReplaceFile={(file) => void handleFiles([file])}
+        onDeleteFromMenu={handleDeleteFromMenu}
+        onAddressChange={(value) =>
+          updateScreenshotSlot(slot.id, { frameAddress: value })
+        }
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onClick={select}
         onDragOver={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -359,112 +569,7 @@ export function ScreenshotSlotView({
           setIsDragOver(false)
           void handleFiles(e.dataTransfer.files)
         }}
-        className={cn(
-          "group/slot nodrag nopan absolute select-none",
-          isSelected ? "cursor-grabbing" : "cursor-grab"
-        )}
-        style={containerStyle}
-      >
-        <motion.div
-          className="absolute inset-0"
-          initial={{ opacity: 0, scale: 0.82 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.82 }}
-          transition={{ type: "spring", stiffness: 420, damping: 28, mass: 0.75 }}
-        >
-        <div className="absolute inset-0" style={contentStyle}>
-          <div
-            className="relative h-full w-full"
-            style={transformedStyle}
-          >
-            {isSelected ? (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
-                style={{
-                  transform: contentTransform,
-                  transformStyle: "preserve-3d",
-                  borderRadius: selectionRadius,
-                }}
-              />
-            ) : null}
-            <ScreenshotFrameContent
-              src={slot.src}
-              frame={slot.frame}
-              isDragOver={isDragOver}
-              onBrowse={onBrowse}
-              imageFilter={filterChain || undefined}
-              shadowFilter={computedShadowFilter}
-              contentTransform={contentTransform}
-              bareStyle={bareImgStyle}
-              applyTransformWhenEmpty
-              emptyCompact
-              objectFit={slot.objectFit ?? "contain"}
-              activeTool={activeTool}
-              isDragging={false}
-              stageRef={stageRef}
-              imageRef={imageRef}
-              addressValue={slot.frameAddress}
-              onAddressChange={(value) =>
-                updateScreenshotSlot(slot.id, { frameAddress: value })
-              }
-              onSelect={select}
-              onPointerDown={startDrag}
-              onPointerMove={moveDrag}
-              onPointerUp={endDrag}
-              onCrop={() => onCropRequest(slot.id)}
-              onReplaceFile={(file) => void handleFiles([file])}
-              onDelete={() => {
-                if (canDeleteSlot) {
-                  deleteScreenshotSlot(slot.id)
-                  setSelectedScreenshotSlotId(null)
-                } else {
-                  setScreenshotSlotImage(slot.id, null)
-                }
-              }}
-            />
-
-            {slot.src ? (
-              <div
-                className={cn(
-                  "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
-                  slotEditOpen
-                    ? "opacity-100"
-                    : "opacity-0 group-hover/slot:opacity-100",
-                  bulkCanvasDragging && !slotEditOpen && "!opacity-0"
-                )}
-                style={{
-                  transform: `translate(-50%, -50%) ${contentTransform}`,
-                  transformOrigin: "center",
-                  transformStyle: "preserve-3d",
-                }}
-              >
-                <ScreenshotEditMenu
-                  open={slotEditOpen}
-                  onOpenChange={(open) => {
-                    if (bulkCanvasDragging) {
-                      setSlotEditOpen(false)
-                      return
-                    }
-                    setSlotEditOpen(open)
-                  }}
-                  onCrop={() => onCropRequest(slot.id)}
-                  onReplaceFile={(file) => void handleFiles([file])}
-                  onDelete={() => {
-                    if (canDeleteSlot) {
-                      deleteScreenshotSlot(slot.id)
-                      setSelectedScreenshotSlotId(null)
-                    } else {
-                      setScreenshotSlotImage(slot.id, null)
-                    }
-                  }}
-                />
-              </div>
-            ) : null}
-          </div>
-        </div>
-        </motion.div>
-      </div>
+      />
 
       {!bulkCanvasDragging &&
       isSelected &&

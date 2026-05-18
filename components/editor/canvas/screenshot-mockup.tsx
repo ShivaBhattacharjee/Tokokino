@@ -52,6 +52,8 @@ type ScreenshotMockupProps = {
   onDelete: () => void
   onCaptureWebsite?: (url: string) => void
   showHoverActions?: boolean
+  /** Cap the frame to min(cqw, cqh) so it doesn't fill tall canvases. */
+  scopeToMinSide?: boolean
 }
 
 export function ScreenshotMockup({
@@ -81,6 +83,7 @@ export function ScreenshotMockup({
   onDelete,
   onCaptureWebsite,
   showHoverActions = true,
+  scopeToMinSide = false,
 }: ScreenshotMockupProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const [measuredStageWidth, setMeasuredStageWidth] = React.useState<
@@ -131,7 +134,7 @@ export function ScreenshotMockup({
         data-editor-shadow-filter-target
         data-editor-shadow-filter-base={shadowFilter || ""}
         style={{
-          ...frameFitStyle(mockupSpec.aspectRatio, mockupRotation),
+          ...frameFitStyle(mockupSpec.aspectRatio, mockupRotation, { scopeToMinSide }),
           left: "50%",
           top: "50%",
           transform: framePositionTransform({

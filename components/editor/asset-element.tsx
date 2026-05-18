@@ -5,6 +5,8 @@ import { createPortal } from "react-dom"
 import {
   RiBlurOffLine,
   RiContrastDropLine,
+  RiFlipHorizontalLine,
+  RiFlipVerticalLine,
   RiMagicLine,
   RiRefreshLine,
 } from "@remixicon/react"
@@ -321,7 +323,7 @@ export function AssetElementView({
           top: `${asset.yPct}%`,
           width: `${asset.widthPct}%`,
           height: heightStyle,
-          transform: `translate(-50%, -50%) rotate(${asset.rotation}deg)`,
+          transform: `translate(-50%, -50%) rotate(${asset.rotation}deg) scaleX(${asset.flipX ? -1 : 1}) scaleY(${asset.flipY ? -1 : 1})`,
           transition:
             !isDragging && !isResizing && shouldAnimatePositionMove
               ? "left 300ms ease-out, top 300ms ease-out"
@@ -555,6 +557,26 @@ function AssetToolbar({
         onClick={() => replaceInputRef.current?.click()}
       >
         <RiRefreshLine className="size-4" />
+      </ToolbarButton>
+
+      <ToolbarDivider />
+
+      <ToolbarButton
+        aria-label="Flip horizontal"
+        tooltip="Flip horizontal"
+        active={asset.flipX}
+        onClick={() => updateAsset(asset.id, { flipX: !asset.flipX })}
+      >
+        <RiFlipHorizontalLine className="size-4" />
+      </ToolbarButton>
+
+      <ToolbarButton
+        aria-label="Flip vertical"
+        tooltip="Flip vertical"
+        active={asset.flipY}
+        onClick={() => updateAsset(asset.id, { flipY: !asset.flipY })}
+      >
+        <RiFlipVerticalLine className="size-4" />
       </ToolbarButton>
 
       <ToolbarDivider />

@@ -136,6 +136,8 @@ export type AssetElement = {
   filter: AssetFilter
   blendMode: AssetBlendMode
   hidden?: boolean
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export type ScreenshotLayer = {

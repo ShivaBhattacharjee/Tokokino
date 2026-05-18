@@ -187,6 +187,7 @@ export function ScreenshotFrameContent({
           onReplaceFile={onReplaceFile}
           onDelete={onDelete}
           showHoverActions={false}
+          scopeToMinSide={mockupScopeToMinSide}
         />
       )
     }
@@ -284,6 +285,15 @@ export function ScreenshotFrameContent({
   }
 
   const hasAspect = (aspectW ?? 0) > 0 && (aspectH ?? 0) > 0
+  // For the CanvasEmptyState path we mirror canvas.tsx: forward bareStyle as
+  // `previewStyle` to CanvasEmptyState so EmptyStateBackdrop is the element
+  // carrying transform + shadow + border (matches how the live canvas
+  // renders its empty state).
+  // For the BoxEmptyState path (multi-slot empty box) the inner component
+  // can't accept a previewStyle, so bareStyle still goes on the wrapper.
+  const emptyPreviewStyle = applyTransformWhenEmpty
+    ? bareStyle
+    : emptyBareStyle(bareStyle)
 
   return (
     <div
@@ -293,13 +303,14 @@ export function ScreenshotFrameContent({
           ? " transition-transform duration-300 ease-out"
           : ""
       }`}
-      style={applyTransformWhenEmpty ? bareStyle : emptyBareStyle(bareStyle)}
+      style={hasAspect ? undefined : emptyPreviewStyle}
     >
       {hasAspect ? (
         <CanvasEmptyState
           isDragOver={isDragOver}
           onBrowse={onBrowse}
           compact={emptyCompact}
+          previewStyle={emptyPreviewStyle}
           aspectW={aspectW}
           aspectH={aspectH}
           noOuterPadding

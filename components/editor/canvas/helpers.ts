@@ -247,7 +247,7 @@ export function frameFitStyle(
 ): React.CSSProperties {
   const ratio = parseAspectRatio(aspectRatio) ?? 16 / 10
   const normalizedRotation = Math.abs(rotation % 180)
-  const { scopeToMinSide = false, fitFraction = 0.85 } = options
+  const { scopeToMinSide = false, fitFraction = 0.8 } = options
 
   if (normalizedRotation === 90) {
     const inverseRatio = 1 / ratio
