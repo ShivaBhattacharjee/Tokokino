@@ -378,6 +378,7 @@ export type CanvasState = {
   screenshotSlots: ScreenshotSlot[]
   frameAddress: string
   objectFit?: "contain" | "cover" | "fill"
+  aspect?: AspectState
 }
 
 export type EditorState = {

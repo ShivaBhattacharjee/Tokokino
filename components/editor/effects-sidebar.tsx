@@ -39,14 +39,20 @@ export function EffectsSidebar({
   className?: string
   stacked?: boolean
 }) {
-  const aspect = useEditorStore((s) => s.present.aspect)
+  const globalAspect = useEditorStore((s) => s.present.aspect)
+  const canvasAspect = useActiveCanvasField((c) => c.aspect)
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const frame = useActiveCanvasField((c) => c.frame)
   const setAspect = useEditorStore((s) => s.setAspect)
+  const setCanvasAspect = useEditorStore((s) => s.setCanvasAspect)
   const setFrameForMatchingScreenshots = useEditorStore(
     (s) => s.setFrameForMatchingScreenshots
   )
   const selectedSlot = useSelectedScreenshotSlot()
   const activeFrame = frame
+
+  const aspect = bulkEditMode ? (canvasAspect ?? globalAspect) : globalAspect
 
   const [customSize, setCustomSize] = React.useState<{
     w: number
@@ -72,6 +78,34 @@ export function EffectsSidebar({
     []
   )
 
+  const handleAspectChange = React.useCallback(
+    (id: string, custom?: { w: number; h: number }) => {
+      if (custom) {
+        const nextAspect = { id, w: custom.w, h: custom.h }
+        if (bulkEditMode) {
+          setCanvasAspect(activeCanvasId, nextAspect)
+        } else {
+          setAspect(nextAspect)
+        }
+        setCustomSize(custom)
+        showCompatibilityWarning(nextAspect, activeFrame, "Custom size")
+        return
+      }
+      const opt = findAspectOption(id)
+      if (opt) {
+        const nextAspect = { id, w: opt.w, h: opt.h }
+        if (bulkEditMode) {
+          setCanvasAspect(activeCanvasId, nextAspect)
+        } else {
+          setAspect(nextAspect)
+        }
+        setCustomSize(null)
+        showCompatibilityWarning(nextAspect, activeFrame, opt.name)
+      }
+    },
+    [bulkEditMode, activeCanvasId, setAspect, setCanvasAspect, activeFrame, showCompatibilityWarning]
+  )
+
   return (
     <aside
       className={cn(
@@ -86,26 +120,7 @@ export function EffectsSidebar({
             <SectionLabel>Aspect Ratio</SectionLabel>
             <AspectPopover
               value={aspect.id}
-              onChange={(id, custom) => {
-                if (custom) {
-                  const nextAspect = { id, w: custom.w, h: custom.h }
-                  setAspect(nextAspect)
-                  setCustomSize(custom)
-                  showCompatibilityWarning(
-                    nextAspect,
-                    activeFrame,
-                    "Custom size"
-                  )
-                  return
-                }
-                const opt = findAspectOption(id)
-                if (opt) {
-                  const nextAspect = { id, w: opt.w, h: opt.h }
-                  setAspect(nextAspect)
-                  setCustomSize(null)
-                  showCompatibilityWarning(nextAspect, activeFrame, opt.name)
-                }
-              }}
+              onChange={handleAspectChange}
             />
             {customSize ? (
               <p className="mt-1.5 px-0.5 font-mono text-[10px] text-muted-foreground">

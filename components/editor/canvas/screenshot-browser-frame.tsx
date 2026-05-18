@@ -489,7 +489,7 @@ function BrowserFrameCompactUpload({
             onClick={stopClick}
             className="group pointer-events-auto grid size-28 cursor-pointer place-items-center border-0 bg-transparent p-0"
           >
-            <span className="grid size-16 place-items-center rounded-2xl border-2 border-primary bg-neutral-900/95 text-white shadow-[0_0_0_4px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)] backdrop-blur-sm transition-all group-hover:scale-105 group-hover:bg-neutral-800 group-active:scale-95 group-data-[state=open]:scale-105">
+            <span className="grid size-16 place-items-center rounded-full border-2 border-primary bg-neutral-900/95 text-white shadow-[0_0_0_4px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)] backdrop-blur-sm transition-all group-hover:scale-105 group-hover:bg-neutral-800 group-active:scale-95 group-data-[state=open]:scale-105">
               <RiAddLine className="size-8" />
             </span>
           </button>

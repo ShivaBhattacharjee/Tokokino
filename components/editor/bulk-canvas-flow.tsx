@@ -42,9 +42,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { MAX_CANVASES, useEditorStore } from "@/lib/editor/store"
+import type { AspectState, CanvasState } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
 import { CanvasView } from "./canvas"
+import { BASE_CANVAS_WIDTH } from "./canvas/constants"
+
+function canvasDims(
+  canvas: CanvasState,
+  globalAspect: AspectState
+): { widthPx: number; heightPx: number } {
+  const aspect = canvas.aspect ?? globalAspect
+  const aw = aspect.w || 16
+  const ah = aspect.h || 10
+  return { widthPx: BASE_CANVAS_WIDTH, heightPx: (BASE_CANVAS_WIDTH * ah) / aw }
+}
 
 type CanvasNodeData = {
   canvasId: string
@@ -159,7 +171,7 @@ function CanvasNodeToolbar({
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => removeCanvas(canvasId)}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
                 >
                   Delete
                 </AlertDialogAction>
@@ -221,26 +233,23 @@ function CanvasNode({ data }: NodeProps<CanvasFlowNode>) {
 const nodeTypes: NodeTypes = { canvas: CanvasNode }
 
 function buildNodes(
-  canvases: { id: string; position: { x: number; y: number } }[],
-  widthPx: number,
-  heightPx: number
+  canvases: CanvasState[],
+  globalAspect: AspectState
 ): CanvasFlowNode[] {
-  return canvases.map((c) => ({
-    id: c.id,
-    type: "canvas",
-    position: { x: c.position.x - widthPx / 2, y: c.position.y - heightPx / 2 },
-    data: { canvasId: c.id, widthPx, heightPx },
-  }))
+  return canvases.map((c) => {
+    const { widthPx, heightPx } = canvasDims(c, globalAspect)
+    return {
+      id: c.id,
+      type: "canvas",
+      position: { x: c.position.x - widthPx / 2, y: c.position.y - heightPx / 2 },
+      data: { canvasId: c.id, widthPx, heightPx },
+    }
+  })
 }
 
-function BulkCanvasFlowInner({
-  widthPx,
-  heightPx,
-}: {
-  widthPx: number
-  heightPx: number
-}) {
+function BulkCanvasFlowInner() {
   const canvases = useEditorStore((s) => s.present.canvases)
+  const globalAspect = useEditorStore((s) => s.present.aspect)
   const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
   const setBulkCanvasDragging = useEditorStore((s) => s.setBulkCanvasDragging)
   const setBulkViewportZoom = useEditorStore((s) => s.setBulkViewportZoom)
@@ -262,7 +271,7 @@ function BulkCanvasFlowInner({
   }, [fitViewSeq, fitView])
 
   const [nodes, setNodes] = React.useState<CanvasFlowNode[]>(() =>
-    buildNodes(canvases, widthPx, heightPx)
+    buildNodes(canvases, globalAspect)
   )
 
   const draggingRef = React.useRef(false)
@@ -273,6 +282,7 @@ function BulkCanvasFlowInner({
     setNodes((prev) => {
       const prevById = new Map(prev.map((n) => [n.id, n]))
       return canvases.map((c) => {
+        const { widthPx, heightPx } = canvasDims(c, globalAspect)
         const target = {
           x: c.position.x - widthPx / 2,
           y: c.position.y - heightPx / 2,
@@ -295,7 +305,7 @@ function BulkCanvasFlowInner({
         }
       })
     })
-  }, [canvases, widthPx, heightPx])
+  }, [canvases, globalAspect])
 
   const onNodesChange: OnNodesChange<CanvasFlowNode> = React.useCallback(
     (changes) => {
@@ -314,11 +324,11 @@ function BulkCanvasFlowInner({
       draggingRef.current = false
       setBulkCanvasDragging(false)
       setCanvasPosition(node.id, {
-        x: node.position.x + widthPx / 2,
-        y: node.position.y + heightPx / 2,
+        x: node.position.x + node.data.widthPx / 2,
+        y: node.position.y + node.data.heightPx / 2,
       })
     },
-    [setBulkCanvasDragging, setCanvasPosition, widthPx, heightPx]
+    [setBulkCanvasDragging, setCanvasPosition]
   )
 
   const onViewportMoveStart = React.useCallback(() => {
@@ -420,10 +430,10 @@ function GlassControls() {
   )
 }
 
-export function BulkCanvasFlow(props: { widthPx: number; heightPx: number }) {
+export function BulkCanvasFlow() {
   return (
     <ReactFlowProvider>
-      <BulkCanvasFlowInner {...props} />
+      <BulkCanvasFlowInner />
     </ReactFlowProvider>
   )
 }

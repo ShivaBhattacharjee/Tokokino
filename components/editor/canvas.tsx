@@ -773,7 +773,7 @@ function CanvasViewInner({
               style={{
                 backgroundImage: `url("${overlayUrl(overlay.id)}")`,
                 opacity: `var(--bd-overlay-opacity, ${overlay.opacity / 100})`,
-                zIndex: 30,
+                zIndex: 200,
               }}
             />
           ) : null}
@@ -1101,7 +1101,7 @@ export function Canvas() {
       <CornerMarkers className="text-border" size={12} />
 
       {isBulkScroll ? (
-        <BulkCanvasFlow widthPx={widthPx} heightPx={heightPx} />
+        <BulkCanvasFlow />
       ) : useCustomAnim ? (
         <div
           className="relative flex h-full w-full items-center justify-center overflow-hidden"

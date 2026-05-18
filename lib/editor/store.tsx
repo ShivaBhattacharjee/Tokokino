@@ -212,6 +212,7 @@ type EditorActions = {
     canvasId?: string
   ) => void
   setAspect: (a: AspectState) => void
+  setCanvasAspect: (canvasId: string, a: AspectState) => void
   setBackground: (b: Background, canvasId?: string) => void
   setPadding: (n: number, canvasId?: string) => void
   setBorderRadius: (n: number, canvasId?: string) => void
@@ -1176,6 +1177,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }
       }, "aspect")
     },
+    setCanvasAspect: (canvasId, a) =>
+      commitCanvas(canvasId, { aspect: a }, "aspect"),
     setBackground: (b, canvasId) =>
       commitCanvas(canvasId, { background: b }, "background"),
     setPadding: (n, canvasId) =>
@@ -2080,7 +2083,11 @@ export function useEditor(): EditorContext {
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const targetId = scopeId ?? activeCanvasId
   const activeTool = useEditorStore((s) => s.present.activeTool)
-  const aspect = useEditorStore((s) => s.present.aspect)
+  const globalAspect = useEditorStore((s) => s.present.aspect)
+  const canvasAspectOverride = useEditorStore((s) =>
+    s.present.canvases.find((c) => c.id === targetId)?.aspect
+  )
+  const aspect = canvasAspectOverride ?? globalAspect
   const canvasZoom = useEditorStore((s) => s.present.canvasZoom)
   const annotation = useEditorStore((s) => s.present.annotation)
   const canvas = useActiveCanvasField((c) => c)
@@ -2171,6 +2178,7 @@ export function useEditor(): EditorContext {
     applyCroppedScreenshot: (s, region, canvasId) =>
       store.applyCroppedScreenshot(s, region, canvasId ?? targetId),
     setAspect: store.setAspect,
+    setCanvasAspect: store.setCanvasAspect,
     setBackground: (b, canvasId) =>
       store.setBackground(b, canvasId ?? targetId),
     setPadding: (n, canvasId) => store.setPadding(n, canvasId ?? targetId),
