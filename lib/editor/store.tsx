@@ -619,6 +619,11 @@ function isEditableKeyboardTarget(target: EventTarget | null) {
   )
 }
 
+function isFormKeyboardTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false
+  return Boolean(target.closest("input, textarea, select"))
+}
+
 const computeNextZ = (items: { zIndex: number }[]) => {
   const max = items.length ? Math.max(...items.map((t) => t.zIndex)) : 0
   return Math.max(max + 1, 1)
@@ -1520,7 +1525,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         (canvas) => moveLayerInStack(canvas, `text:${id}`, "back"),
         null
       ),
-    setSelectedTextId: (id) => set({ selectedTextId: id }),
+    setSelectedTextId: (id) =>
+      set(
+        id
+          ? {
+              selectedTextId: id,
+              selectedAssetId: null,
+              selectedAnnotationShapeId: null,
+              selectedScreenshotSlotId: null,
+              isScreenshotSelected: false,
+            }
+          : { selectedTextId: null }
+      ),
 
     addAsset: (src, canvasId) => {
       const id = makeId()
@@ -1599,12 +1615,54 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         (canvas) => moveLayerInStack(canvas, `asset:${id}`, "back"),
         null
       ),
-    setSelectedAssetId: (id) => set({ selectedAssetId: id }),
+    setSelectedAssetId: (id) =>
+      set(
+        id
+          ? {
+              selectedAssetId: id,
+              selectedTextId: null,
+              selectedAnnotationShapeId: null,
+              selectedScreenshotSlotId: null,
+              isScreenshotSelected: false,
+            }
+          : { selectedAssetId: null }
+      ),
     setSelectedAnnotationShapeId: (id) =>
-      set({ selectedAnnotationShapeId: id }),
-    setSelectedScreenshotSlotId: (id) => set({ selectedScreenshotSlotId: id }),
+      set(
+        id
+          ? {
+              selectedAnnotationShapeId: id,
+              selectedTextId: null,
+              selectedAssetId: null,
+              selectedScreenshotSlotId: null,
+              isScreenshotSelected: false,
+            }
+          : { selectedAnnotationShapeId: null }
+      ),
+    setSelectedScreenshotSlotId: (id) =>
+      set(
+        id
+          ? {
+              selectedScreenshotSlotId: id,
+              selectedTextId: null,
+              selectedAssetId: null,
+              selectedAnnotationShapeId: null,
+              isScreenshotSelected: false,
+            }
+          : { selectedScreenshotSlotId: null }
+      ),
     setIsScreenshotSelected: (selected) =>
-      set({ isScreenshotSelected: selected }),
+      set(
+        selected
+          ? {
+              isScreenshotSelected: true,
+              selectedTextId: null,
+              selectedAssetId: null,
+              selectedAnnotationShapeId: null,
+              selectedScreenshotSlotId: null,
+            }
+          : { isScreenshotSelected: false }
+      ),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
     setIsPreviewAutoScroll: (a) => set({ isPreviewAutoScroll: a }),
     setPreviewAnimation: (a) => set({ previewAnimation: a }),
@@ -2391,7 +2449,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const onDeleteKey = (e: KeyboardEvent) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return
-      if (isEditableKeyboardTarget(e.target)) return
+      if (isFormKeyboardTarget(e.target)) return
 
       const store = useEditorStore.getState()
       const {

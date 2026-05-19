@@ -211,6 +211,19 @@ function relativeLuminance(r: number, g: number, b: number): number {
   )
 }
 
+function parseCssRgb(value: string): { r: number; g: number; b: number; a: number } | null {
+  const m = value.match(/rgba?\(([^)]+)\)/i)
+  if (!m) return null
+  const parts = m[1].split(",").map((p) => p.trim())
+  if (parts.length < 3) return null
+  const r = Number(parts[0])
+  const g = Number(parts[1])
+  const b = Number(parts[2])
+  const a = parts[3] !== undefined ? Number(parts[3]) : 1
+  if (![r, g, b, a].every((n) => Number.isFinite(n))) return null
+  return { r, g, b, a }
+}
+
 function hexLuminance(hex: string): number {
   const { r, g, b } = hexToRgb(hex)
   return relativeLuminance(r, g, b)
@@ -359,6 +372,22 @@ export async function pickContrastColorAtPosition(
       } catch {
         // fall through to background
       }
+    }
+
+    // If we're not above a screenshot image, inspect visible layers at the
+    // point and use the first non-transparent background color.
+    for (const el of elements) {
+      if (!(el instanceof HTMLElement)) continue
+      if (canvasEl.contains(el) === false) continue
+      if (el.hasAttribute("data-export-hidden")) continue
+      if (el.hasAttribute("data-editor-text-id")) continue
+      const bg = window.getComputedStyle(el).backgroundColor
+      if (!bg || bg === "transparent") continue
+      const rgb = parseCssRgb(bg)
+      if (!rgb) continue
+      if (rgb.a <= 0.05) continue
+      const lum = relativeLuminance(rgb.r, rgb.g, rgb.b)
+      return lum > 0.5 ? "#000000" : "#ffffff"
     }
   }
 

@@ -238,12 +238,28 @@ export function ToolbarDeleteButton({
   ariaLabel: string
   onDelete: () => void
 }) {
+  const pointerDeletedRef = React.useRef(false)
+
   return (
     <ToolbarButton
       aria-label={ariaLabel}
       tooltip="Delete"
       destructive
-      onClick={onDelete}
+      onPointerDown={(e) => {
+        pointerDeletedRef.current = true
+        e.preventDefault()
+        e.stopPropagation()
+        onDelete()
+      }}
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (pointerDeletedRef.current) {
+          pointerDeletedRef.current = false
+          return
+        }
+        onDelete()
+      }}
     >
       <RiDeleteBinLine className="size-4" />
     </ToolbarButton>
