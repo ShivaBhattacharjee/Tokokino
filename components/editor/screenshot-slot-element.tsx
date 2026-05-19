@@ -644,7 +644,7 @@ export function ScreenshotSlotView({
               return (
                 <div
                   data-editor-floating-toolbar-target={`slot:${slot.id}`}
-                  className="pointer-events-none fixed z-100"
+                  className="pointer-events-none fixed z-40"
                   style={{
                     top,
                     left,

@@ -671,7 +671,7 @@ export function AnnotationShapeElement({
               return (
                 <div
                   data-editor-floating-toolbar-target={`annotation-shape:${shape.id}`}
-                  className="pointer-events-none fixed z-[100]"
+                  className="pointer-events-none fixed z-40"
                   style={{
                     top,
                     left,

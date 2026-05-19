@@ -197,13 +197,13 @@ function EditorLayout() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         {!isPreviewMode && <EffectsSidebar className="hidden xl:flex" />}
         <div className="relative isolate flex min-h-0 flex-1 overflow-hidden">
           <Canvas />
-          {!isPreviewMode && <FloatingToolbar />}
           {!isPreviewMode && <IpadProSidebar />}
         </div>
+        {!isPreviewMode && <FloatingToolbar />}
         {!isPreviewMode && <Inspector className="hidden md:flex" />}
         {!isPreviewMode && <MobileControls />}
       </div>

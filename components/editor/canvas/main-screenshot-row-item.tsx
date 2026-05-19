@@ -398,7 +398,7 @@ export function MainScreenshotRowItem({
                 <div
                   data-editor-floating-toolbar-target="main-screenshot"
                   data-export-hidden="true"
-                  className="pointer-events-none fixed z-100"
+                  className="pointer-events-none fixed z-40"
                   style={{
                     top,
                     left,

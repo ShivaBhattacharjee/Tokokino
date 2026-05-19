@@ -479,7 +479,7 @@ export function AssetElementView({
               return (
                 <div
                   data-editor-floating-toolbar-target={`asset:${asset.id}`}
-                  className="pointer-events-none fixed z-100"
+                  className="pointer-events-none fixed z-40"
                   style={{
                     top,
                     left,
