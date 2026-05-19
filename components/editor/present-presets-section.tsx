@@ -586,6 +586,7 @@ export function PresentPresetsSection() {
         })
       }
       setActiveSinglePresetId(preset.id)
+      setActiveCustomPresetId(null)
     },
     [
       activeCanvasId,
@@ -596,6 +597,7 @@ export function PresentPresetsSection() {
       canvas.screenshotSlots,
       canvas.scale,
       canvas.tilt,
+      setActiveCustomPresetId,
       setActiveSinglePresetId,
       setScreenshotPosition,
       setTiltAndScale,
@@ -650,12 +652,14 @@ export function PresentPresetsSection() {
         setScreenshotOffset(resolveMainOffsetPx(geometry.mainOffset))
       }
       setActiveLayoutPresetId(preset.id)
+      setActiveCustomPresetId(null)
     },
     [
       addScreenshotSlot,
       aspect,
       canvas.frame,
       canvas.screenshotSlots,
+      setActiveCustomPresetId,
       setActiveLayoutPresetId,
       setScreenshotOffset,
       setScreenshotPosition,

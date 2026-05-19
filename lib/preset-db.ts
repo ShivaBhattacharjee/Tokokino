@@ -81,6 +81,27 @@ export async function createCustomPreset({
   })
 }
 
+export async function updateCustomPreset({
+  id,
+  userId,
+  name,
+  slotCount,
+  geometry,
+}: {
+  id: string
+  userId: string
+  name: string
+  slotCount: number
+  geometry: StoredPresetGeometry
+}) {
+  const collection = await getCollection()
+  await ensureIndexes(collection)
+  return collection.updateOne(
+    { id, userId },
+    { $set: { name, slotCount, geometry, updatedAt: new Date() } }
+  )
+}
+
 export async function deleteCustomPreset({
   id,
   userId,

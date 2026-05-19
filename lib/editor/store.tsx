@@ -295,6 +295,7 @@ type EditorActions = {
   setActiveSinglePresetId: (id: string | null) => void
   setCustomPresets: (presets: CustomPresetSummary[]) => void
   addCustomPreset: (preset: CustomPresetSummary) => void
+  updateCustomPreset: (id: string, patch: Partial<CustomPresetSummary>) => void
   removeCustomPreset: (id: string) => void
   setCurrentDraft: (draft: CurrentDraftInfo | null) => void
   loadDraftState: (
@@ -1250,6 +1251,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set((state) => ({
         customPresets: [preset, ...state.customPresets],
         customPresetsLoaded: true,
+      })),
+    updateCustomPreset: (id, patch) =>
+      set((state) => ({
+        customPresets: state.customPresets.map((p) =>
+          p.id === id ? { ...p, ...patch } : p
+        ),
       })),
     removeCustomPreset: (id) =>
       set((state) => ({
@@ -2641,6 +2648,7 @@ export function useEditor(): EditorContext {
     setActiveSinglePresetId: store.setActiveSinglePresetId,
     setCustomPresets: store.setCustomPresets,
     addCustomPreset: store.addCustomPreset,
+    updateCustomPreset: store.updateCustomPreset,
     removeCustomPreset: store.removeCustomPreset,
     setCurrentDraft: store.setCurrentDraft,
     loadDraftState: store.loadDraftState,

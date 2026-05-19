@@ -176,14 +176,19 @@ export function TopBar() {
     React.useState(false)
   const [isDraftSaving, setIsDraftSaving] = React.useState(false)
   const [isPresetSaving, setIsPresetSaving] = React.useState(false)
+  const [draftChoiceOpen, setDraftChoiceOpen] = React.useState(false)
   const currentDraft = useEditorStore((s) => s.currentDraft)
   const setCurrentDraft = useEditorStore((s) => s.setCurrentDraft)
   const loadDraftState = useEditorStore((s) => s.loadDraftState)
   const addCustomPreset = useEditorStore((s) => s.addCustomPreset)
+  const updateCustomPresetInStore = useEditorStore((s) => s.updateCustomPreset)
   const setPresetTab = useEditorStore((s) => s.setPresetTab)
   const setActiveCustomPresetId = useEditorStore(
     (s) => s.setActiveCustomPresetId
   )
+  const activeCustomPresetId = useEditorStore((s) => s.activeCustomPresetId)
+  const customPresets = useEditorStore(useShallow((s) => s.customPresets))
+  const [presetChoiceOpen, setPresetChoiceOpen] = React.useState(false)
 
   const handleOpenFile = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -412,6 +417,109 @@ export function TopBar() {
       }
     },
     [addCustomPreset, setActiveCustomPresetId, setPresetTab]
+  )
+
+  const handleUpdatePreset = React.useCallback(
+    async (id: string, name: string) => {
+      const state = useEditorStore.getState()
+      const activeCanvas = state.present.canvases.find(
+        (c) => c.id === state.present.activeCanvasId
+      )
+      if (!activeCanvas) {
+        toast.error("No active canvas")
+        return false
+      }
+      const aspect = activeCanvas.aspect ?? state.present.aspect
+      const aw = aspect.w || 16
+      const ah = aspect.h || 10
+      const designWidth = BASE_CANVAS_WIDTH
+      const designHeight = (BASE_CANVAS_WIDTH * ah) / aw
+      const round = (n: number) => Number(n.toFixed(2))
+      const geometry: CustomPresetGeometry = {
+        canvasTilt: {
+          rx: round(activeCanvas.tilt.rx),
+          ry: round(activeCanvas.tilt.ry),
+          rz: round(activeCanvas.tilt.rz),
+        },
+        canvasScale: round(activeCanvas.scale),
+        slots: activeCanvas.screenshotSlots.map((slot) => ({
+          xPct: round(slot.xPct),
+          yPct: round(slot.yPct),
+          widthPct: round(slot.widthPct),
+          heightPct: round(slot.heightPct),
+          rotation: round(slot.rotation),
+          tilt: {
+            rx: round(slot.tilt.rx),
+            ry: round(slot.tilt.ry),
+            rz: round(slot.tilt.rz),
+          },
+          scale: round(slot.scale),
+          zIndex: slot.zIndex,
+          filter: slot.filter,
+          hidden: slot.hidden,
+          objectFit: slot.objectFit,
+          shadow: slot.shadow,
+        })),
+        mainOffset: {
+          xPct: round(
+            designWidth ? (activeCanvas.screenshotOffset.x / designWidth) * 100 : 0
+          ),
+          yPct: round(
+            designHeight
+              ? (activeCanvas.screenshotOffset.y / designHeight) * 100
+              : 0
+          ),
+        },
+        canvasStyle: {
+          background: activeCanvas.background,
+          padding: activeCanvas.padding,
+          borderRadius: activeCanvas.borderRadius,
+          canvasBorderRadius: activeCanvas.canvasBorderRadius,
+          border: activeCanvas.border,
+          backdrop: activeCanvas.backdrop,
+          screenshotPosition: activeCanvas.screenshotPosition,
+          screenshotLayer: activeCanvas.screenshotLayer,
+          shadow: activeCanvas.shadow,
+          overlay: activeCanvas.overlay,
+          frame: activeCanvas.frame,
+          portrait: activeCanvas.portrait,
+          enhance: activeCanvas.enhance,
+          objectFit: activeCanvas.objectFit,
+          frameAddress: activeCanvas.frameAddress,
+          texts: activeCanvas.texts,
+          assets: activeCanvas.assets,
+          annotations: activeCanvas.annotations,
+          annotationShapes: activeCanvas.annotationShapes,
+          aspect: activeCanvas.aspect,
+        },
+      }
+      setIsPresetSaving(true)
+      try {
+        const res = await fetch(`/api/presets/${id}`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, geometry }),
+        })
+        const data = (await res.json().catch(() => null)) as {
+          preset?: CustomPresetSummary
+          error?: string
+        } | null
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Could not update preset")
+        }
+        updateCustomPresetInStore(id, { name })
+        toast.success(`Preset "${name}" updated`)
+        return true
+      } catch (err) {
+        console.error(err)
+        toast.error(err instanceof Error ? err.message : "Could not update preset")
+        return false
+      } finally {
+        setIsPresetSaving(false)
+      }
+    },
+    [updateCustomPresetInStore]
   )
 
   const handleSaveAsDraft = React.useCallback(
@@ -651,12 +759,16 @@ export function TopBar() {
             }}
             onSaveAsPreset={() => {
               setSaveOpen(false)
-              setPresetNameOpen(true)
+              if (activeCustomPresetId) {
+                setPresetChoiceOpen(true)
+              } else {
+                setPresetNameOpen(true)
+              }
             }}
             onSaveAsDraft={() => {
               setSaveOpen(false)
               if (currentDraft) {
-                void handleSaveAsDraft()
+                setDraftChoiceOpen(true)
               } else {
                 setDraftNameOpen(true)
               }
@@ -794,6 +906,38 @@ export function TopBar() {
             <LoginForm callbackURL="/app" variant="dialog" />
           </DialogContent>
         </Dialog>
+
+        <DraftChoiceDialog
+          open={draftChoiceOpen}
+          onOpenChange={setDraftChoiceOpen}
+          draftName={currentDraft?.name ?? ""}
+          isSaving={isDraftSaving}
+          onUpdateExisting={async () => {
+            const ok = await handleSaveAsDraft()
+            if (ok) setDraftChoiceOpen(false)
+          }}
+          onCreateNew={() => {
+            setDraftChoiceOpen(false)
+            setDraftNameOpen(true)
+          }}
+        />
+
+        <PresetChoiceDialog
+          open={presetChoiceOpen}
+          onOpenChange={setPresetChoiceOpen}
+          presetName={customPresets.find((p) => p.id === activeCustomPresetId)?.name ?? ""}
+          isSaving={isPresetSaving}
+          onUpdateExisting={async () => {
+            if (!activeCustomPresetId) return
+            const name = customPresets.find((p) => p.id === activeCustomPresetId)?.name ?? ""
+            const ok = await handleUpdatePreset(activeCustomPresetId, name)
+            if (ok) setPresetChoiceOpen(false)
+          }}
+          onCreateNew={() => {
+            setPresetChoiceOpen(false)
+            setPresetNameOpen(true)
+          }}
+        />
 
         <NameDialog
           open={presetNameOpen}
@@ -1819,6 +1963,114 @@ function OpenControls({
   )
 }
 
+function DraftChoiceDialog({
+  open,
+  onOpenChange,
+  draftName,
+  isSaving,
+  onUpdateExisting,
+  onCreateNew,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  draftName: string
+  isSaving: boolean
+  onUpdateExisting: () => Promise<void>
+  onCreateNew: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle>Save draft</DialogTitle>
+          <DialogDescription>
+            You&apos;re editing &ldquo;{draftName}&rdquo;. Update it or save as a new draft.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <SaveActionRow
+            icon={RiSaveLine}
+            title="Update existing draft"
+            description={`Overwrite "${draftName}" with your current changes.`}
+            loading={isSaving}
+            onClick={() => void onUpdateExisting()}
+          />
+          <SaveActionRow
+            icon={RiFileAddLine}
+            title="Save as new draft"
+            description="Keep the original and create a separate copy."
+            onClick={onCreateNew}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function PresetChoiceDialog({
+  open,
+  onOpenChange,
+  presetName,
+  isSaving,
+  onUpdateExisting,
+  onCreateNew,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  presetName: string
+  isSaving: boolean
+  onUpdateExisting: () => Promise<void>
+  onCreateNew: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle>Save preset</DialogTitle>
+          <DialogDescription>
+            You&apos;re editing &ldquo;{presetName}&rdquo;. Update it or save as a new preset.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <SaveActionRow
+            icon={RiBookmarkLine}
+            title="Update existing preset"
+            description={`Overwrite "${presetName}" with the current layout.`}
+            loading={isSaving}
+            onClick={() => void onUpdateExisting()}
+          />
+          <SaveActionRow
+            icon={RiFileAddLine}
+            title="Save as new preset"
+            description="Keep the original and create a separate preset."
+            onClick={onCreateNew}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function NameDialog({
   open,
   onOpenChange,
@@ -1942,6 +2194,7 @@ function OpenProjectDialog({
   const [error, setError] = React.useState<string | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (!open) return
@@ -2003,7 +2256,37 @@ function OpenProjectDialog({
     }
   }
 
+  const draftToDelete = drafts?.find((d) => d.id === confirmDeleteId) ?? null
+
   return (
+    <>
+    <AlertDialog
+      open={confirmDeleteId !== null}
+      onOpenChange={(open) => { if (!open) setConfirmDeleteId(null) }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete &ldquo;{draftToDelete?.name}&rdquo;?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this draft. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            className="cursor-pointer"
+            onClick={() => {
+              if (confirmDeleteId) void handleDelete(confirmDeleteId)
+              setConfirmDeleteId(null)
+            }}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 p-0 sm:max-w-[640px]">
         <div className="border-b border-border/60 px-5 py-4">
@@ -2052,7 +2335,7 @@ function OpenProjectDialog({
                   isOpening={busyId === draft.id}
                   isDeleting={deletingId === draft.id}
                   onOpen={() => void handleOpen(draft.id)}
-                  onDelete={() => void handleDelete(draft.id)}
+                  onDelete={() => setConfirmDeleteId(draft.id)}
                 />
               ))}
             </div>
@@ -2070,6 +2353,7 @@ function OpenProjectDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
 
@@ -2089,6 +2373,9 @@ function DraftCard({
   onDelete: () => void
 }) {
   const updated = formatRelativeDate(draft.updatedAt)
+  const [thumbError, setThumbError] = React.useState(false)
+  const showThumbnail = draft.thumbnailUrl && !thumbError
+
   return (
     <div className="group relative">
       <button
@@ -2103,19 +2390,19 @@ function DraftCard({
           (isOpening || isDeleting) && "cursor-not-allowed opacity-60"
         )}
       >
-        <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-secondary to-secondary/40">
-          {draft.thumbnailUrl ? (
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary/40">
+          {showThumbnail ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={draft.thumbnailUrl}
+              src={draft.thumbnailUrl!}
               alt=""
               className="size-full object-cover"
+              onError={() => setThumbError(true)}
             />
           ) : (
-            <div className="flex size-full items-center justify-center">
-              <span className="inline-flex size-10 items-center justify-center rounded-full bg-background/40 text-muted-foreground backdrop-blur-sm">
-                <RiDraftLine className="size-5" />
-              </span>
+            <div className="flex size-full flex-col items-center justify-center gap-1.5 text-muted-foreground/40">
+              <RiDraftLine className="size-7" />
+              <span className="text-[10px]">No preview</span>
             </div>
           )}
           {isCurrent ? (
