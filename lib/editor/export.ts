@@ -38,17 +38,30 @@ function findCanvasElement(canvasId: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-canvas-id="${canvasId}"]`)
 }
 
+/**
+ * Return the CSS layout dimensions of the canvas element, ignoring any
+ * ancestor transforms (viewport zoom/scale). We use offsetWidth/offsetHeight
+ * which give the border-box size in CSS pixels before transforms are applied.
+ * This is important because container-query units (cqw / cqh) used by device
+ * mockup frames resolve against CSS dimensions, not transformed/visual ones.
+ */
+function getCanvasLayoutDims(node: HTMLElement): {
+  width: number
+  height: number
+} | null {
+  const width = node.offsetWidth
+  const height = node.offsetHeight
+  if (!width || !height) return null
+  return { width, height }
+}
+
 export function getCanvasRenderedDims(canvasId: string): {
   width: number
   height: number
 } | null {
   const node = findCanvasElement(canvasId)
   if (!node) return null
-  const rect = node.getBoundingClientRect()
-  const width = rect.width || node.offsetWidth
-  const height = rect.height || node.offsetHeight
-  if (!width || !height) return null
-  return { width, height }
+  return getCanvasLayoutDims(node)
 }
 
 export function getOutputDims(
@@ -271,10 +284,9 @@ export async function exportCanvas(
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 
-  const rect = node.getBoundingClientRect()
-  const renderedWidth = rect.width || node.offsetWidth
-  const renderedHeight = rect.height || node.offsetHeight
-  if (!renderedWidth) throw new Error("Canvas has zero width")
+  const layoutDims = getCanvasLayoutDims(node)
+  if (!layoutDims) throw new Error("Canvas has zero width")
+  const { width: renderedWidth, height: renderedHeight } = layoutDims
 
   const targetWidth = EXPORT_RESOLUTION_WIDTHS[resolution]
   const pixelRatio = targetWidth / renderedWidth
@@ -368,10 +380,9 @@ export async function captureCanvasAsPngBlob(
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 
-  const rect = node.getBoundingClientRect()
-  const renderedWidth = rect.width || node.offsetWidth
-  const renderedHeight = rect.height || node.offsetHeight
-  if (!renderedWidth) throw new Error("Canvas has zero width")
+  const layoutDims = getCanvasLayoutDims(node)
+  if (!layoutDims) throw new Error("Canvas has zero width")
+  const { width: renderedWidth, height: renderedHeight } = layoutDims
 
   const pixelRatio = targetWidth / renderedWidth
 
