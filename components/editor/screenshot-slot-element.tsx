@@ -176,7 +176,7 @@ export function ScreenshotSlotRender({
     top: `${slot.yPct}%`,
     width: `${effectiveWidthPct}%`,
     aspectRatio: boxAspectRatio,
-    transform: `translate(-50%, -50%) rotate(${slot.rotation}deg)`,
+    transform: `translate(-50%, -50%) rotate(var(--slot-ts-rot, ${slot.rotation}deg))`,
     zIndex: 60 + slot.zIndex,
     display: slot.hidden ? "none" : undefined,
     transition:
@@ -392,7 +392,7 @@ export function ScreenshotSlotView({
   } = useEditor()
   const presetTab = useEditorStore((s) => s.presetTab)
   const isSelected = selectedScreenshotSlotId === slot.id
-  const canDeleteSlot = presetTab !== "multi"
+  const canDeleteSlot = presetTab !== "multi" && presetTab !== "triple"
   const [slotEditOpen, setSlotEditOpen] = React.useState(false)
 
   const elRef = React.useRef<HTMLDivElement>(null)
@@ -659,18 +659,22 @@ export function ScreenshotSlotView({
                         onPointerMove={moveDrag}
                         onPointerUp={endDrag}
                       />
-                      <ToolbarDivider />
-                      <ToolbarDuplicateButton
-                        ariaLabel="Duplicate screenshot box"
-                        onDuplicate={() => {
-                          const id = duplicateScreenshotSlot(slot.id)
-                          if (id) setSelectedScreenshotSlotId(id)
-                          else
-                            toast(
-                              `Screenshot box limit reached (${MAX_SCREENSHOT_SLOTS})`
-                            )
-                        }}
-                      />
+                      {canDeleteSlot && (
+                        <>
+                          <ToolbarDivider />
+                          <ToolbarDuplicateButton
+                            ariaLabel="Duplicate screenshot box"
+                            onDuplicate={() => {
+                              const id = duplicateScreenshotSlot(slot.id)
+                              if (id) setSelectedScreenshotSlotId(id)
+                              else
+                                toast(
+                                  `Screenshot box limit reached (${MAX_SCREENSHOT_SLOTS})`
+                                )
+                            }}
+                          />
+                        </>
+                      )}
                       <ToolbarPopover
                         tooltip="Frame"
                         contentClassName="w-64 p-2"

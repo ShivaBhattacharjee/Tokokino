@@ -258,6 +258,7 @@ type MainScreenshotRowItemProps = {
   onReplaceFile: (file: File) => void
   onDelete: () => void
   onDuplicate: () => void
+  canDuplicate?: boolean
   onBringToFront: () => void
   onSendToBack: () => void
   onFrameChange: (frame: DeviceFrame) => void
@@ -298,6 +299,7 @@ export function MainScreenshotRowItem({
   onReplaceFile,
   onDelete,
   onDuplicate,
+  canDuplicate = true,
   onBringToFront,
   onSendToBack,
   onFrameChange,
@@ -426,11 +428,15 @@ export function MainScreenshotRowItem({
                           )
                         }
                       />
-                      <ToolbarDivider />
-                      <ToolbarDuplicateButton
-                        ariaLabel="Duplicate screenshot"
-                        onDuplicate={onDuplicate}
-                      />
+                      {canDuplicate && (
+                        <>
+                          <ToolbarDivider />
+                          <ToolbarDuplicateButton
+                            ariaLabel="Duplicate screenshot"
+                            onDuplicate={onDuplicate}
+                          />
+                        </>
+                      )}
                       <ToolbarPopover
                         tooltip="Frame"
                         contentClassName="w-64 p-2"

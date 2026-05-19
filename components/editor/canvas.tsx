@@ -150,6 +150,7 @@ function CanvasViewInner({
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
   const bulkViewportZoom = useEditorStore((s) => s.bulkViewportZoom)
+  const presetTab = useEditorStore((s) => s.presetTab)
   const canvasRef = React.useRef<HTMLDivElement>(null)
   const generatedAnnotationMaskId = React.useId()
   const annotationMaskId = `annotation-mask-${generatedAnnotationMaskId.replace(/:/g, "")}`
@@ -522,6 +523,7 @@ function CanvasViewInner({
                 setScreenshot(null)
               }}
               innerLightingStyle={innerLightingStyle}
+              canDuplicate={presetTab !== "multi" && presetTab !== "triple"}
               onDuplicate={() => {
                 const newId = addScreenshotSlot()
                 if (!newId) {

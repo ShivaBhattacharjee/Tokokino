@@ -18,7 +18,7 @@ type LivePreviewKind = "canvas" | "slot"
 function setPreviewVar(
   el: HTMLElement | null,
   kind: LivePreviewKind,
-  axis: "rx" | "ry" | "rz" | "scale",
+  axis: "rx" | "ry" | "rz" | "scale" | "rot",
   value: string | null
 ) {
   if (!el) return
@@ -32,6 +32,7 @@ function clearPreviewVars(el: HTMLElement | null, kind: LivePreviewKind) {
   setPreviewVar(el, kind, "ry", null)
   setPreviewVar(el, kind, "rz", null)
   setPreviewVar(el, kind, "scale", null)
+  setPreviewVar(el, kind, "rot", null)
 }
 
 function DegreeRow({
@@ -135,7 +136,7 @@ export function TiltSection() {
   // Defer clearing the CSS var to the next frame so React paints the new
   // transform fallback first — otherwise the transform's CSS transition can
   // animate from the pre-drag value during the gap.
-  const clearAfterPaint = (axes: Array<"rx" | "ry" | "rz" | "scale">) => {
+  const clearAfterPaint = (axes: Array<"rx" | "ry" | "rz" | "scale" | "rot">) => {
     if (typeof requestAnimationFrame === "undefined") return
     requestAnimationFrame(() => {
       const el = getTargetEl()
@@ -170,6 +171,21 @@ export function TiltSection() {
   const [scaleDraft, setScaleDraft] = React.useState<number | null>(null)
   const displayedScale = scaleDraft ?? scale
 
+  const rotZ = selectedSlot ? (selectedSlot.rotation) : tilt.rz
+  const previewRotZ = (v: number) => {
+    if (selectedSlot) setPreviewVar(getTargetEl(), kind, "rot", `${v}deg`)
+    else previewTilt({ ...tilt, rz: v })
+  }
+  const commitRotZ = (v: number) => {
+    if (selectedSlot) {
+      const safe = editorValueSchemas.degree.catch(0).parse(v)
+      updateScreenshotSlot(selectedSlot.id, { rotation: safe })
+      clearAfterPaint(["rot"])
+    } else {
+      commitTilt({ ...tilt, rz: v })
+    }
+  }
+
   return (
     <>
       <DegreeRow
@@ -186,9 +202,9 @@ export function TiltSection() {
       />
       <DegreeRow
         label="Rotate Z"
-        value={tilt.rz}
-        onPreview={(v) => previewTilt({ ...tilt, rz: v })}
-        onCommit={(v) => commitTilt({ ...tilt, rz: v })}
+        value={rotZ}
+        onPreview={previewRotZ}
+        onCommit={commitRotZ}
       />
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-[11px] text-muted-foreground">Scale</span>

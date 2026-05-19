@@ -930,14 +930,15 @@ function DefaultToolbarContents() {
       <ToolbarButton
         aria-label="Add screenshot box"
         tooltip={
-          presetTab === "multi"
-            ? "Disabled in Multi preset mode"
+          presetTab === "multi" || presetTab === "triple"
+            ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
             : screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
               ? `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
               : "Add screenshot box"
         }
         disabled={
           presetTab === "multi" ||
+          presetTab === "triple" ||
           screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
         }
         onClick={() => {

@@ -15,6 +15,7 @@ export type SlotLayoutConfig = {
   rotation: number
   tilt: Tilt
   scale: number
+  zIndex?: number
 }
 
 export type LayoutPresetGeometry = {
@@ -62,13 +63,6 @@ export function resolveLayoutPresetGeometry(
   if (layoutPresetDeviceClassForFrame(frame) === "portrait-device") {
     return preset.portraitDevice ?? preset
   }
-  if (frame.id === "none" || isBrowserFrame(frame.id) || isDesktopFrame(frame.id)) {
-    return {
-      ...preset,
-      canvasScale: 100,
-      slots: preset.slots.map((slot) => ({ ...slot, scale: 100 })),
-    }
-  }
   return preset
 }
 
@@ -79,6 +73,66 @@ export function resolveLayoutPresetGeometry(
 // Keeping slot near x=75 centers the composition (avg of 25+75=50%).
 // Moving slot left creates overlap but shifts the center leftward.
 export const LAYOUT_PRESETS: LayoutPreset[] = [
+  {
+    id: "triple",
+    name: "Flat",
+    canvasTilt: { rx: 0, ry: 0, rz: 0 },
+    canvasScale: 110,
+    slots: [
+      { xPct: 50, yPct: 50, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 110, zIndex: 3 },
+      { xPct: 83.11, yPct: 50, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 110, zIndex: 2 },
+    ],
+    mainOffset: { xPct: 0, yPct: 0 },
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: 0 },
+      canvasScale: 110,
+      slots: [
+        { xPct: 50, yPct: 50, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 110, zIndex: 3 },
+        { xPct: 79.83, yPct: 50, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 110, zIndex: 2 },
+      ],
+      mainOffset: { xPct: 0, yPct: 0 },
+    },
+  },
+  {
+    id: "triple-scatter",
+    name: "Scatter",
+    canvasTilt: { rx: 0, ry: 0, rz: -16 },
+    canvasScale: 140,
+    slots: [
+      { xPct: 50, yPct: 47.1, rotation: -8, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 140, zIndex: 3 },
+      { xPct: 78.55, yPct: 42.42, rotation: -4, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 140, zIndex: 2 },
+    ],
+    mainOffset: { xPct: 7.91, yPct: 5.9 },
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: -12 },
+      canvasScale: 100,
+      slots: [
+        { xPct: 50, yPct: 50, rotation: -6, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100, zIndex: 3 },
+        { xPct: 69.77, yPct: 50, rotation: -3, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100, zIndex: 2 },
+      ],
+      mainOffset: { xPct: 11.33, yPct: 2.81 },
+    },
+  },
+  {
+    id: "triple-cascade",
+    name: "Cascade",
+    canvasTilt: { rx: 0, ry: 0, rz: -16 },
+    canvasScale: 130,
+    slots: [
+      { xPct: 50, yPct: 43.83, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 130, zIndex: 3 },
+      { xPct: 78.13, yPct: 50, rotation: 16, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 130, zIndex: 2 },
+    ],
+    mainOffset: { xPct: 5.3, yPct: 0 },
+    portraitDevice: {
+      canvasTilt: { rx: 0, ry: 0, rz: -16 },
+      canvasScale: 100,
+      slots: [
+        { xPct: 50, yPct: 46.63, rotation: 0, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100, zIndex: 3 },
+        { xPct: 76.01, yPct: 52.55, rotation: 16, tilt: { rx: 0, ry: 0, rz: 0 }, scale: 100, zIndex: 2 },
+      ],
+      mainOffset: { xPct: 5.69, yPct: 1.35 },
+    },
+  },
   {
     id: "side-by-side",
     name: "Side by Side",

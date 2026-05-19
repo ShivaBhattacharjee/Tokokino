@@ -245,8 +245,8 @@ export function UploadCard({
               transformOrigin: "center",
             }}
             className={cn(
-              "pointer-events-auto grid place-items-center rounded-full border-2 border-primary bg-background/95 text-foreground shadow-[0_0_0_4px_rgba(0,0,0,0.08),0_8px_24px_-8px_rgba(0,0,0,0.15)] backdrop-blur-sm transition-[background-color,border-color] hover:bg-accent dark:bg-neutral-900/95 dark:text-white dark:shadow-[0_0_0_4px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)]",
-              "size-[clamp(3.15rem,9.9cqw,3.5rem)]",
+              "pointer-events-auto grid place-items-center rounded-full border-2 border-primary bg-white text-foreground shadow-[0_0_0_3px_rgba(0,0,0,0.06),0_6px_20px_-6px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-[background-color,border-color] hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:shadow-[0_0_0_4px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)]",
+              "size-[clamp(1.5rem,9.9cqw,3.5rem)]",
               className
             )}
           >
@@ -258,7 +258,7 @@ export function UploadCard({
           align="center"
           sideOffset={8}
           onPointerDown={(e) => e.stopPropagation()}
-          className="w-[320px] rounded-2xl border border-border/60 bg-popover p-0 shadow-2xl dark:border-white/10 dark:bg-neutral-900"
+          className="w-[320px] rounded-2xl border border-border/50 bg-white p-0 shadow-xl shadow-black/10 dark:bg-neutral-950 dark:shadow-black/40"
         >
           <UploadCard
             isDragOver={isDragOver}
@@ -334,9 +334,9 @@ export function UploadCard({
           Capture Screenshot
         </button>
         {showHint && (
-          <div className="-mx-[2cqw] mt-[0.5cqw] -mb-[2cqw] flex items-center justify-center border-t border-border/30 px-[3cqw] py-[2cqw] dark:border-white/8">
+          <div className="-mx-[2cqw] mt-[0.5cqw] -mb-[2cqw] flex items-center justify-center border-t border-border/30 px-[3cqw] py-[2cqw]">
             <span className="inline-flex items-center gap-[1.5cqw] text-[clamp(0.45rem,1.4cqw,0.7rem)] text-muted-foreground/50">
-              <kbd className="rounded border border-border/50 bg-foreground/[0.06] px-[1.2cqw] py-[0.3cqw] font-mono text-[clamp(0.4rem,1.2cqw,0.62rem)] text-muted-foreground dark:border-white/14 dark:text-white/60">
+              <kbd className="rounded border border-border/50 bg-foreground/[0.06] px-[1.2cqw] py-[0.3cqw] font-mono text-[clamp(0.4rem,1.2cqw,0.62rem)] text-muted-foreground">
                 ⌘V
               </kbd>
               paste · drop · or click upload
@@ -369,7 +369,7 @@ export function UploadCard({
       <div className="flex items-center gap-1.5">
         <label
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex min-h-10 flex-1 items-center gap-2 rounded-md bg-foreground/[0.06] px-3 text-left transition-colors focus-within:bg-foreground/[0.1]"
+          className="flex min-h-10 flex-1 items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 text-left transition-colors focus-within:border-border focus-within:bg-muted/60 dark:border-border/30 dark:bg-foreground/[0.06] dark:focus-within:bg-foreground/[0.1]"
         >
           <RiLink className="size-4 shrink-0 text-muted-foreground/60" />
           <input
@@ -396,7 +396,7 @@ export function UploadCard({
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => handleCapture(e)}
         className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-md bg-foreground/[0.06] py-2.5 text-[13px] font-medium text-muted-foreground transition-all hover:bg-foreground/10 hover:text-foreground",
+          "flex w-full items-center justify-center gap-2 rounded-md border border-border/60 bg-muted/40 py-2.5 text-[13px] font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground dark:border-transparent dark:bg-foreground/[0.06] dark:hover:bg-foreground/10",
           url === PREFIX && "cursor-default opacity-50"
         )}
       >
@@ -404,9 +404,9 @@ export function UploadCard({
         Capture Screenshot
       </button>
       {showHint && (
-        <div className="-mx-2.5 mt-0.5 -mb-2.5 flex items-center justify-center border-t border-border/30 px-4 py-2.5 dark:border-white/8">
+        <div className="-mx-2.5 mt-0.5 -mb-2.5 flex items-center justify-center border-t border-border/30 px-4 py-2.5">
           <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
-            <kbd className="rounded border border-border/50 bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground dark:border-white/14 dark:text-white/60">
+            <kbd className="rounded border border-border/50 bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               ⌘V
             </kbd>
             paste · drop · or click upload

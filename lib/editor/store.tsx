@@ -202,7 +202,7 @@ type CanvasPatch =
 
 type EditorActions = {
   setActiveTool: (t: EditorTool) => void
-  setPresetTab: (tab: "single" | "multi") => void
+  setPresetTab: (tab: "single" | "multi" | "triple") => void
   setActiveLayoutPresetId: (id: string | null) => void
   setActiveSinglePresetId: (id: string | null) => void
   setScreenshot: (s: string | null, canvasId?: string) => void
@@ -366,7 +366,7 @@ type EditorStore = {
   selectedAnnotationShapeId: string | null
   selectedScreenshotSlotId: string | null
   isScreenshotSelected: boolean
-  presetTab: "single" | "multi"
+  presetTab: "single" | "multi" | "triple"
   activeLayoutPresetId: string | null
   activeSinglePresetId: string | null
 } & EditorActions
@@ -802,6 +802,7 @@ function applyLayoutPresetGeometryToCanvas(
       scale: config.scale,
       widthPct: entry.widthPct,
       heightPct: SLOT_DEFAULT_HEIGHT_PCT,
+      ...(config.zIndex !== undefined && { zIndex: config.zIndex }),
     }
   })
 
@@ -1040,7 +1041,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     selectedAnnotationShapeId: null,
     selectedScreenshotSlotId: null,
     isScreenshotSelected: false,
-    presetTab: "single" as const,
+    presetTab: "single",
     activeLayoutPresetId: null,
     activeSinglePresetId: null,
 
@@ -1051,7 +1052,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setScreenshot: (screenshot, canvasId) => {
       const state = get()
       const activeLayoutPreset =
-        state.presetTab === "multi"
+        (state.presetTab === "multi" || state.presetTab === "triple")
           ? LAYOUT_PRESETS.find(
               (preset) => preset.id === state.activeLayoutPresetId
             )
@@ -1141,6 +1142,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   rotation: config.rotation,
                   tilt: config.tilt,
                   scale: config.scale,
+                  ...(config.zIndex !== undefined && { zIndex: config.zIndex }),
                 }
               })
             }
@@ -1806,7 +1808,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setScreenshotSlotImage: (id, src, canvasId) => {
       const state = get()
       const activeLayoutPreset =
-        state.presetTab === "multi"
+        (state.presetTab === "multi" || state.presetTab === "triple")
           ? LAYOUT_PRESETS.find(
               (preset) => preset.id === state.activeLayoutPresetId
             )
@@ -1861,6 +1863,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 rotation: config.rotation,
                 tilt: config.tilt,
                 scale: config.scale,
+                ...(config.zIndex !== undefined && { zIndex: config.zIndex }),
               }
             }),
           }

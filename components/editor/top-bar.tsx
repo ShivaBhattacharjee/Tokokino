@@ -17,6 +17,8 @@ import {
   RiSaveLine,
   RiShareForwardLine,
   RiLink,
+  RiFileAddLine,
+  RiFolderOpenLine,
 } from "@remixicon/react"
 import { toast } from "sonner"
 import { useShallow } from "zustand/react/shallow"
@@ -140,6 +142,40 @@ export function TopBar() {
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
+
+  const setScreenshot = useEditorStore((s) => s.setScreenshot)
+  const selectedScreenshotSlotId = useEditorStore((s) => s.selectedScreenshotSlotId)
+  const setScreenshotSlotImage = useEditorStore((s) => s.setScreenshotSlotImage)
+
+  const [showNewAlert, setShowNewAlert] = React.useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleOpenFile = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file")
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          if (selectedScreenshotSlotId) {
+            setScreenshotSlotImage(selectedScreenshotSlotId, reader.result)
+          } else {
+            setScreenshot(reader.result)
+          }
+          toast.success("Image opened successfully")
+        }
+      }
+      reader.readAsDataURL(file)
+      e.target.value = ""
+    },
+    [selectedScreenshotSlotId, setScreenshot, setScreenshotSlotImage]
+  )
 
   const handleCopyShareLink = React.useCallback(async (url: string) => {
     try {
@@ -272,6 +308,21 @@ export function TopBar() {
       {/* Center controls — compact on tablets, full labels on desktop */}
       <div className="hidden min-w-0 flex-1 items-center justify-center gap-1.5 md:flex">
         <div className="tool-cluster">
+          <TopBarButton
+            label="New"
+            icon={RiFileAddLine}
+            tooltip="New project"
+            onClick={() => setShowNewAlert(true)}
+          />
+          <TopBarButton
+            label="Open"
+            icon={RiFolderOpenLine}
+            tooltip="Open screenshot"
+            onClick={() => fileInputRef.current?.click()}
+          />
+        </div>
+
+        <div className="tool-cluster">
           <IconAction
             label="Undo"
             icon={RiArrowGoBackLine}
@@ -393,6 +444,41 @@ export function TopBar() {
           </AlertDialogContent>
         </AlertDialog>
 
+        <AlertDialog open={showNewAlert} onOpenChange={setShowNewAlert}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Start new project?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will discard all your changes and restore the editor to
+                a fresh canvas. This action can be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="cursor-pointer">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                className="cursor-pointer"
+                onClick={() => {
+                  reset()
+                  setShowNewAlert(false)
+                }}
+              >
+                New Project
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          accept="image/*"
+          onChange={handleOpenFile}
+        />
+
         <Dialog
           open={authDialog.open}
           onOpenChange={(open) =>
@@ -465,6 +551,8 @@ export function TopBar() {
           onCopyPng={handleCopyPng}
           isCopyingPng={isCopyingPng}
           isPreparingShare={shareDialog.status === "preparing"}
+          onNewClick={() => setShowNewAlert(true)}
+          onOpenClick={() => fileInputRef.current?.click()}
         />
 
         {/* Export (always visible) */}
@@ -1057,6 +1145,8 @@ function MobileOverflowMenu({
   onCopyPng,
   isCopyingPng,
   isPreparingShare,
+  onNewClick,
+  onOpenClick,
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
@@ -1064,6 +1154,8 @@ function MobileOverflowMenu({
   onCopyPng: () => Promise<void>
   isCopyingPng: boolean
   isPreparingShare: boolean
+  onNewClick: () => void
+  onOpenClick: () => void
 }) {
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
@@ -1115,6 +1207,19 @@ function MobileOverflowMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
+            File
+          </DropdownMenuLabel>
+          <DropdownMenuItem onClick={onNewClick}>
+            <RiFileAddLine />
+            New project
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenClick}>
+            <RiFolderOpenLine />
+            Open screenshot
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
           <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
             History
           </DropdownMenuLabel>
