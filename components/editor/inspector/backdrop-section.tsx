@@ -37,6 +37,7 @@ import {
   type BackdropLighting,
   type PortraitMode,
 } from "@/lib/editor/store"
+import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import { cn } from "@/lib/utils"
 
 import { EffectSlider } from "./effect-slider"
@@ -482,10 +483,14 @@ export function BackdropSection() {
   const overlay = useActiveCanvasField((c) => c.overlay)
   const portrait = useActiveCanvasField((c) => c.portrait)
   const canvasBorderRadius = useActiveCanvasField((c) => c.canvasBorderRadius)
+  const { applyStyle, selectedSlot } = useScreenshotStyleTarget()
   const activeCanvasId = useActiveCanvasId()
   const setBackdropEffects = useEditorStore((s) => s.setBackdropEffects)
   const setBackdropPattern = useEditorStore((s) => s.setBackdropPattern)
   const setBackdropLighting = useEditorStore((s) => s.setBackdropLighting)
+  const setMainScreenshotBackdropLighting = useEditorStore(
+    (s) => s.setMainScreenshotBackdropLighting
+  )
   const setBackdropFilter = useEditorStore((s) => s.setBackdropFilter)
   const setOverlay = useEditorStore((s) => s.setOverlay)
   const setPortrait = useEditorStore((s) => s.setPortrait)
@@ -496,6 +501,7 @@ export function BackdropSection() {
     lighting,
     filter: backdropFilter = "none",
   } = backdrop
+  const activeLighting = selectedSlot?.lighting ?? lighting
 
   // Live-preview CSS vars on the active canvas: dragging sliders writes to
   // these vars directly so the canvas updates without re-rendering the store
@@ -558,8 +564,15 @@ export function BackdropSection() {
   }
   const setPattern = (patch: Partial<typeof pattern>) =>
     setBackdropPattern({ ...pattern, ...patch })
+  const applyLighting = (nextLighting: typeof lighting) => {
+    applyStyle(
+      { lighting: nextLighting },
+      () => setMainScreenshotBackdropLighting(nextLighting),
+      () => setBackdropLighting(nextLighting)
+    )
+  }
   const setLighting = (patch: Partial<typeof lighting>) =>
-    setBackdropLighting(lightingPatch(lighting, patch))
+    applyLighting(lightingPatch(activeLighting, patch))
   const setOverlayPatch = (patch: Partial<typeof overlay>) =>
     setOverlay({ ...overlay, ...patch })
 
@@ -589,7 +602,7 @@ export function BackdropSection() {
   const overlayActive = overlay.id !== null
   const patternActive = pattern.ids.length > 0
   const portraitActive = portrait.mode !== "off"
-  const lightingActive = lighting.intensity > 0
+  const lightingActive = activeLighting.intensity > 0
 
   return (
     <div className="flex flex-col gap-4">
@@ -679,7 +692,7 @@ export function BackdropSection() {
           title="Lighting"
           description="Cast directional light on the backdrop or the screenshot."
           onReset={() =>
-            setBackdropLighting({
+            applyLighting({
               target: "inner",
               intensity: 0,
               direction: "0-0",
@@ -697,7 +710,7 @@ export function BackdropSection() {
                 </span>
                 <ToggleGroup
                   type="single"
-                  value={lighting.target}
+                  value={activeLighting.target}
                   onValueChange={(v) =>
                     v && setLighting({ target: v as "outer" | "inner" })
                   }
@@ -720,7 +733,7 @@ export function BackdropSection() {
 
               <EffectSlider
                 label="Intensity"
-                value={lighting.intensity}
+                value={activeLighting.intensity}
                 onChange={(v) => setLighting({ intensity: v })}
               />
 
@@ -731,7 +744,7 @@ export function BackdropSection() {
                 <div className="flex flex-wrap items-center gap-2">
                   {LIGHTING_COLOR_PRESETS.map((c) => {
                     const isActive =
-                      lighting.color.trim().toLowerCase() ===
+                      activeLighting.color.trim().toLowerCase() ===
                       c.trim().toLowerCase()
                     return (
                       <button
@@ -747,7 +760,7 @@ export function BackdropSection() {
                     )
                   })}
                   <ColorPickerPopover
-                    value={lighting.color}
+                    value={activeLighting.color}
                     onChange={(hex) => setLighting({ color: hex })}
                   >
                     <button
@@ -757,7 +770,7 @@ export function BackdropSection() {
                         !LIGHTING_COLOR_PRESETS.some(
                           (c) =>
                             c.trim().toLowerCase() ===
-                            lighting.color.trim().toLowerCase()
+                            activeLighting.color.trim().toLowerCase()
                         ) &&
                           "ring-2 ring-primary ring-offset-1 ring-offset-popover"
                       )}
@@ -765,10 +778,10 @@ export function BackdropSection() {
                         background: LIGHTING_COLOR_PRESETS.some(
                           (c) =>
                             c.trim().toLowerCase() ===
-                            lighting.color.trim().toLowerCase()
+                            activeLighting.color.trim().toLowerCase()
                         )
                           ? "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)"
-                          : lighting.color,
+                          : activeLighting.color,
                       }}
                     >
                       <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white">
@@ -784,7 +797,7 @@ export function BackdropSection() {
           <div className="grid grid-cols-3 gap-1.5 px-1 py-1">
             {LIGHTING_DIRECTIONS.map((direction) => {
               const active =
-                lightingActive && lighting.direction === direction.id
+                lightingActive && activeLighting.direction === direction.id
               return (
                 <button
                   key={direction.id}
@@ -801,7 +814,7 @@ export function BackdropSection() {
                     className="relative aspect-square w-full overflow-hidden rounded-sm bg-neutral-950"
                     style={lightingDirectionPreview(
                       direction.id,
-                      lighting.color
+                      activeLighting.color
                     )}
                   >
                     <span

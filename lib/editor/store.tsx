@@ -6,6 +6,11 @@ import { create } from "zustand"
 import { FONT_FAMILIES } from "./fonts"
 import { DEFAULT_IMAGE_BACKGROUND } from "./presets"
 import { LAYOUT_PRESETS, resolveLayoutPresetGeometry } from "./present-presets"
+import {
+  resolveActivePresetGeometry,
+  resolveMainOffsetPx,
+  resolveSlotPositionPct,
+} from "./preset-geometry"
 import { computeRowLayout } from "./screenshot-layout"
 import type {
   Annotation,
@@ -16,6 +21,7 @@ import type {
   AssetElement,
   AssetFilter,
   Background,
+  Backdrop,
   BackdropEffects,
   BackdropLighting,
   BackdropPattern,
@@ -200,11 +206,106 @@ type CanvasPatch =
   | Partial<CanvasState>
   | ((canvas: CanvasState, state: EditorState) => Partial<CanvasState>)
 
+export type PresetTab = "single" | "multi" | "triple" | "custom"
+
+export type CustomPresetSlotConfig = {
+  xPct: number
+  yPct: number
+  widthPct?: number
+  heightPct?: number
+  rotation: number
+  tilt: Tilt
+  scale: number
+  zIndex?: number
+  filter?: AssetFilter
+  hidden?: boolean
+  objectFit?: "contain" | "cover" | "fill"
+  shadow?: Shadow
+}
+
+/**
+ * Full visual snapshot of a canvas that gets re-applied when a custom preset
+ * is selected. We capture every styling field — background, backdrop, border,
+ * shadow, overlay, frame, portrait, enhance, padding/radius, layers, etc. —
+ * but never the actual screenshot pixels. Slots carry geometry + filters but
+ * never their image source either.
+ */
+export type CustomPresetCanvasStyle = {
+  background: Background
+  padding: number
+  borderRadius: number
+  canvasBorderRadius: number
+  border: Border
+  backdrop: Backdrop
+  screenshotPosition: ScreenshotPosition
+  screenshotLayer: ScreenshotLayer
+  shadow: Shadow
+  overlay: Overlay
+  frame: DeviceFrame
+  portrait: Portrait
+  enhance: EnhancePreset
+  objectFit?: "contain" | "cover" | "fill"
+  frameAddress: string
+  texts: TextElement[]
+  assets: AssetElement[]
+  annotations: AnnotationStroke[]
+  annotationShapes: AnnotationShape[]
+  aspect?: AspectState
+}
+
+export type CustomPresetGeometry = {
+  canvasTilt: Tilt
+  canvasScale: number
+  slots: CustomPresetSlotConfig[]
+  mainOffset?: { xPct: number; yPct: number }
+  relativeSlotPositions?: boolean
+  canvasStyle?: CustomPresetCanvasStyle
+}
+
+export type CustomPresetSummary = {
+  id: string
+  name: string
+  slotCount: number
+  geometry: CustomPresetGeometry
+}
+
+export type CurrentDraftInfo = {
+  id: string
+  name: string
+  updatedAt: string | null
+}
+
+export type DraftLoadUi = {
+  presetTab?: PresetTab
+  activeLayoutPresetId?: string | null
+  activeCustomPresetId?: string | null
+  activeSinglePresetId?: string | null
+  bulkEditMode?: boolean
+  bulkViewportZoom?: number
+  bulkScale?: number
+  previewAutoScrollDelay?: number
+  previewAnimation?: "slide" | "fade" | "zoom" | "flip"
+}
+
 type EditorActions = {
   setActiveTool: (t: EditorTool) => void
-  setPresetTab: (tab: "single" | "multi" | "triple") => void
+  setPresetTab: (tab: PresetTab) => void
   setActiveLayoutPresetId: (id: string | null) => void
+  setActiveCustomPresetId: (id: string | null) => void
   setActiveSinglePresetId: (id: string | null) => void
+  setCustomPresets: (presets: CustomPresetSummary[]) => void
+  addCustomPreset: (preset: CustomPresetSummary) => void
+  removeCustomPreset: (id: string) => void
+  setCurrentDraft: (draft: CurrentDraftInfo | null) => void
+  loadDraftState: (
+    state: Partial<EditorState>,
+    draft: CurrentDraftInfo,
+    ui?: DraftLoadUi
+  ) => void
+  applyPresetSnapshot: (
+    snapshot: CustomPresetGeometry,
+    canvasId?: string
+  ) => void
   setScreenshot: (s: string | null, canvasId?: string) => void
   applyCroppedScreenshot: (
     s: string,
@@ -218,9 +319,16 @@ type EditorActions = {
   setBorderRadius: (n: number, canvasId?: string) => void
   setCanvasBorderRadius: (n: number, canvasId?: string) => void
   setBorder: (b: Border, canvasId?: string) => void
+  setMainScreenshotPadding: (n: number, canvasId?: string) => void
+  setMainScreenshotBorderRadius: (n: number, canvasId?: string) => void
+  setMainScreenshotBorder: (b: Border, canvasId?: string) => void
   setBackdropEffects: (e: BackdropEffects, canvasId?: string) => void
   setBackdropPattern: (p: BackdropPattern, canvasId?: string) => void
   setBackdropLighting: (l: BackdropLighting, canvasId?: string) => void
+  setMainScreenshotBackdropLighting: (
+    l: BackdropLighting,
+    canvasId?: string
+  ) => void
   setBackdropFilter: (f: AssetFilter, canvasId?: string) => void
   setTilt: (t: Tilt, canvasId?: string) => void
   setScale: (n: number, canvasId?: string) => void
@@ -238,6 +346,7 @@ type EditorActions = {
     canvasId?: string
   ) => void
   setShadow: (s: Shadow, canvasId?: string) => void
+  setMainScreenshotShadow: (s: Shadow, canvasId?: string) => void
   setOverlay: (o: Overlay, canvasId?: string) => void
   setFrame: (f: DeviceFrame, canvasId?: string) => void
   setFrameForMatchingScreenshots: (f: DeviceFrame, canvasId?: string) => void
@@ -366,9 +475,13 @@ type EditorStore = {
   selectedAnnotationShapeId: string | null
   selectedScreenshotSlotId: string | null
   isScreenshotSelected: boolean
-  presetTab: "single" | "multi" | "triple"
+  presetTab: PresetTab
   activeLayoutPresetId: string | null
+  activeCustomPresetId: string | null
   activeSinglePresetId: string | null
+  customPresets: CustomPresetSummary[]
+  customPresetsLoaded: boolean
+  currentDraft: CurrentDraftInfo | null
 } & EditorActions
 
 const EDITOR_DRAFT_DB_NAME = "beautiful-screenshots-editor"
@@ -384,9 +497,11 @@ type PersistedEditorUi = Pick<
   | "bulkScale"
   | "presetTab"
   | "activeLayoutPresetId"
+  | "activeCustomPresetId"
   | "activeSinglePresetId"
   | "previewAutoScrollDelay"
   | "previewAnimation"
+  | "currentDraft"
 >
 
 type PersistedEditorDraft = {
@@ -410,8 +525,7 @@ function normalizeCanvasState(
   const source = canvas ?? {}
   const fallbackBackdrop = fallback.backdrop
   const sourceBackdrop = source.backdrop
-
-  return {
+  const normalized: CanvasState = {
     ...fallback,
     ...source,
     id: source.id ?? fallback.id,
@@ -458,6 +572,13 @@ function normalizeCanvasState(
     screenshotSlots: Array.isArray(source.screenshotSlots)
       ? source.screenshotSlots.map((slot) => migrateLegacySlot(slot))
       : fallback.screenshotSlots,
+  }
+
+  return {
+    ...normalized,
+    screenshotSlots: normalized.screenshotSlots.map((slot) =>
+      applySlotStyleDefaults(slot, normalized)
+    ),
   }
 }
 
@@ -575,9 +696,11 @@ function createEditorDraftSnapshot(state: EditorStore): PersistedEditorDraft {
       bulkScale: state.bulkScale,
       presetTab: state.presetTab,
       activeLayoutPresetId: state.activeLayoutPresetId,
+      activeCustomPresetId: state.activeCustomPresetId,
       activeSinglePresetId: state.activeSinglePresetId,
       previewAutoScrollDelay: state.previewAutoScrollDelay,
       previewAnimation: state.previewAnimation,
+      currentDraft: state.currentDraft,
     },
   }
 }
@@ -607,7 +730,9 @@ function applyEditorDraft(draft: PersistedEditorDraft): Partial<EditorStore> {
     isScreenshotSelected: false,
     presetTab: ui?.presetTab ?? "single",
     activeLayoutPresetId: ui?.activeLayoutPresetId ?? null,
+    activeCustomPresetId: ui?.activeCustomPresetId ?? null,
     activeSinglePresetId: ui?.activeSinglePresetId ?? null,
+    currentDraft: ui?.currentDraft ?? null,
   }
 }
 
@@ -621,7 +746,10 @@ function isEditableKeyboardTarget(target: EventTarget | null) {
 
 function isFormKeyboardTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
-  return Boolean(target.closest("input, textarea, select"))
+  if (target.isContentEditable) return true
+  return Boolean(
+    target.closest("input, textarea, select, [contenteditable='true']")
+  )
 }
 
 const computeNextZ = (items: { zIndex: number }[]) => {
@@ -881,6 +1009,25 @@ const createScreenshotSlot = (
   ...base,
 })
 
+const cloneBorder = (border: Border): Border => ({ ...border })
+
+const cloneShadow = (shadow: Shadow): Shadow => ({ ...shadow })
+
+const cloneLighting = (lighting: BackdropLighting): BackdropLighting => ({
+  ...lighting,
+})
+
+function applySlotStyleDefaults(slot: ScreenshotSlot, canvas: CanvasState) {
+  return {
+    ...slot,
+    border: slot.border ?? cloneBorder(canvas.border),
+    borderRadius: slot.borderRadius ?? canvas.borderRadius,
+    padding: slot.padding ?? canvas.padding,
+    shadow: slot.shadow ?? cloneShadow(canvas.shadow),
+    lighting: slot.lighting ?? cloneLighting(canvas.backdrop.lighting),
+  }
+}
+
 function migrateLegacySlot(raw: unknown): ScreenshotSlot {
   const slot = (raw ?? {}) as Partial<ScreenshotSlot> & {
     tilt?: Partial<{ rx: number; ry: number; rz: number }>
@@ -905,6 +1052,13 @@ function migrateLegacySlot(raw: unknown): ScreenshotSlot {
   if (typeof slot.filter === "string") base.filter = slot.filter
   if (typeof slot.hidden === "boolean") base.hidden = slot.hidden
   if (slot.objectFit) base.objectFit = slot.objectFit
+  if (slot.border) base.border = cloneBorder(slot.border)
+  if (typeof slot.borderRadius === "number") {
+    base.borderRadius = slot.borderRadius
+  }
+  if (typeof slot.padding === "number") base.padding = slot.padding
+  if (slot.shadow) base.shadow = cloneShadow(slot.shadow)
+  if (slot.lighting) base.lighting = cloneLighting(slot.lighting)
   return createScreenshotSlot(base, slot.zIndex ?? 1)
 }
 
@@ -931,6 +1085,29 @@ const scaleScreenshotOffsetForAspectChange = (
     x: offset.x,
     y: offset.y * (nextHeight / currentHeight),
   }
+}
+
+const scaleAnnotationStrokesForAspectChange = (
+  annotations: AnnotationStroke[],
+  currentAspect: number,
+  nextAspect: number
+): AnnotationStroke[] => {
+  const currentHeight = canvasHeightFromAspectRatio(currentAspect)
+  const nextHeight = canvasHeightFromAspectRatio(nextAspect)
+  if (!currentHeight || !nextHeight) return annotations
+
+  const scaleY = nextHeight / currentHeight
+  if (!Number.isFinite(scaleY) || Math.abs(scaleY - 1) < 0.0001) {
+    return annotations
+  }
+
+  return annotations.map((stroke) => ({
+    ...stroke,
+    points: stroke.points.map((point) => ({
+      x: point.x,
+      y: point.y * scaleY,
+    })),
+  }))
 }
 
 /**
@@ -1056,12 +1233,148 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     isScreenshotSelected: false,
     presetTab: "single",
     activeLayoutPresetId: null,
+    activeCustomPresetId: null,
     activeSinglePresetId: null,
+    customPresets: [],
+    customPresetsLoaded: false,
+    currentDraft: null,
 
     setActiveTool: (t) => commit({ activeTool: t }, null),
     setPresetTab: (tab) => set({ presetTab: tab }),
     setActiveLayoutPresetId: (id) => set({ activeLayoutPresetId: id }),
+    setActiveCustomPresetId: (id) => set({ activeCustomPresetId: id }),
     setActiveSinglePresetId: (id) => set({ activeSinglePresetId: id }),
+    setCustomPresets: (presets) =>
+      set({ customPresets: presets, customPresetsLoaded: true }),
+    addCustomPreset: (preset) =>
+      set((state) => ({
+        customPresets: [preset, ...state.customPresets],
+        customPresetsLoaded: true,
+      })),
+    removeCustomPreset: (id) =>
+      set((state) => ({
+        customPresets: state.customPresets.filter((p) => p.id !== id),
+        activeCustomPresetId:
+          state.activeCustomPresetId === id ? null : state.activeCustomPresetId,
+      })),
+    setCurrentDraft: (draft) => set({ currentDraft: draft }),
+    loadDraftState: (state, draft, ui) => {
+      const present = normalizeEditorState(state)
+      const defaultBulk = present.canvases.length > 1
+      set({
+        past: [],
+        present,
+        future: [],
+        _lastGroup: null,
+        _lastTs: 0,
+        currentDraft: draft,
+        // UI state — fall back to defaults when the saved draft predates the
+        // wrapped payload shape.
+        presetTab: ui?.presetTab ?? "single",
+        activeLayoutPresetId: ui?.activeLayoutPresetId ?? null,
+        activeCustomPresetId: ui?.activeCustomPresetId ?? null,
+        activeSinglePresetId: ui?.activeSinglePresetId ?? null,
+        bulkEditMode: ui?.bulkEditMode ?? defaultBulk,
+        bulkViewportZoom: ui?.bulkViewportZoom ?? 1,
+        bulkScale: ui?.bulkScale ?? 65,
+        previewAutoScrollDelay: ui?.previewAutoScrollDelay ?? 3000,
+        previewAnimation: ui?.previewAnimation ?? "slide",
+        selectedTextId: null,
+        selectedAssetId: null,
+        selectedAnnotationShapeId: null,
+        selectedScreenshotSlotId: null,
+        isScreenshotSelected: false,
+      })
+    },
+    applyPresetSnapshot: (snapshot, canvasId) => {
+      commit((state) => {
+        const targetId = canvasId ?? state.activeCanvasId
+        const canvases = state.canvases.map((canvas) => {
+          if (canvas.id !== targetId) return canvas
+
+          const existingSlots = canvas.screenshotSlots
+          const slots: ScreenshotSlot[] = snapshot.slots.map(
+            (config, index) => {
+              const previous = existingSlots[index]
+              return {
+                id: previous?.id ?? makeId(),
+                src: previous?.src ?? null,
+                xPct: config.xPct,
+                yPct: config.yPct,
+                widthPct:
+                  config.widthPct ?? previous?.widthPct ?? 60,
+                heightPct:
+                  config.heightPct ?? previous?.heightPct ?? 28,
+                rotation: config.rotation,
+                tilt: config.tilt,
+                scale: config.scale,
+                zIndex:
+                  config.zIndex ??
+                  previous?.zIndex ??
+                  computeNextLayerZ(canvas) + index,
+                filter: config.filter ?? previous?.filter ?? "none",
+                hidden: config.hidden ?? previous?.hidden,
+                objectFit: config.objectFit ?? previous?.objectFit,
+                shadow: config.shadow ?? previous?.shadow,
+              }
+            }
+          )
+
+          const offset = resolveMainOffsetPx(snapshot.mainOffset)
+
+          const style = snapshot.canvasStyle
+          const next: CanvasState = {
+            ...canvas,
+            // styling — only override fields the snapshot actually carries
+            ...(style?.background ? { background: style.background } : {}),
+            ...(style && typeof style.padding === "number"
+              ? { padding: style.padding }
+              : {}),
+            ...(style && typeof style.borderRadius === "number"
+              ? { borderRadius: style.borderRadius }
+              : {}),
+            ...(style && typeof style.canvasBorderRadius === "number"
+              ? { canvasBorderRadius: style.canvasBorderRadius }
+              : {}),
+            ...(style?.border ? { border: style.border } : {}),
+            ...(style?.backdrop ? { backdrop: style.backdrop } : {}),
+            ...(style?.screenshotLayer
+              ? { screenshotLayer: style.screenshotLayer }
+              : {}),
+            ...(style?.shadow ? { shadow: style.shadow } : {}),
+            ...(style?.overlay ? { overlay: style.overlay } : {}),
+            ...(style?.frame ? { frame: style.frame } : {}),
+            ...(style?.portrait ? { portrait: style.portrait } : {}),
+            ...(style?.enhance ? { enhance: style.enhance } : {}),
+            ...(style?.objectFit ? { objectFit: style.objectFit } : {}),
+            ...(typeof style?.frameAddress === "string"
+              ? { frameAddress: style.frameAddress }
+              : {}),
+            ...(Array.isArray(style?.texts) ? { texts: style.texts } : {}),
+            ...(Array.isArray(style?.assets) ? { assets: style.assets } : {}),
+            ...(Array.isArray(style?.annotations)
+              ? { annotations: style.annotations }
+              : {}),
+            ...(Array.isArray(style?.annotationShapes)
+              ? { annotationShapes: style.annotationShapes }
+              : {}),
+            ...(style?.aspect ? { aspect: style.aspect } : {}),
+            // geometry
+            tilt: snapshot.canvasTilt,
+            scale: snapshot.canvasScale,
+            screenshotPosition: style?.screenshotPosition ?? "center",
+            screenshotOffset: offset,
+            screenshotSlots: slots,
+            // always preserved from the live canvas
+            screenshot: canvas.screenshot,
+            originalScreenshot: canvas.originalScreenshot,
+            lastCropRegion: canvas.lastCropRegion,
+          }
+          return next
+        })
+        return { canvases }
+      }, "preset:apply")
+    },
     setScreenshot: (screenshot, canvasId) => {
       const state = get()
       const activeLayoutPreset =
@@ -1078,14 +1391,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         activeLayoutPreset && targetCanvas
           ? resolveLayoutPresetGeometry(activeLayoutPreset, targetCanvas.frame)
           : null
-      const presetOffset = activeLayoutGeometry?.mainOffset
-        ? {
-            x: (activeLayoutGeometry.mainOffset.xPct / 100) * CANVAS_BASE_W,
-            y:
-              (activeLayoutGeometry.mainOffset.yPct / 100) *
-              PRESET_DESIGN_HEIGHT,
-          }
-        : { x: 0, y: 0 }
+      const presetOffset = resolveMainOffsetPx(activeLayoutGeometry?.mainOffset)
       commitCanvas(
         canvasId,
         (canvas) => ({
@@ -1114,9 +1420,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "applyCroppedScreenshot"
       ),
     setAspect: (a) => {
-      const activeLayoutPreset = LAYOUT_PRESETS.find(
-        (preset) => preset.id === get().activeLayoutPresetId
-      )
+      const snapshot = get()
       commit((state) => {
         const currentAspect = stateCanvasAspect(state)
         const nextAspect = aspectRatioFromState(a)
@@ -1124,30 +1428,35 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         return {
           aspect: a,
           canvases: state.canvases.map((canvas) => {
-            const activeLayoutGeometry = activeLayoutPreset
-              ? resolveLayoutPresetGeometry(activeLayoutPreset, canvas.frame)
-              : null
-            const shouldReapplyActivePreset =
-              activeLayoutGeometry &&
+            // Resolve the active preset (built-in *or* user-saved custom)
+            // for *this* canvas's frame, so portrait-device variants kick
+            // in correctly for layout presets.
+            const activeGeometry = resolveActivePresetGeometry({
+              activeLayoutPresetId: snapshot.activeLayoutPresetId,
+              activeCustomPresetId: snapshot.activeCustomPresetId,
+              layoutPresets: LAYOUT_PRESETS,
+              customPresets: snapshot.customPresets,
+              frame: canvas.frame,
+            })
+            const shouldReapply =
+              activeGeometry !== null &&
               canvas.id === state.activeCanvasId &&
-              canvas.screenshotSlots.length ===
-                activeLayoutGeometry.slots.length
+              canvas.screenshotSlots.length === activeGeometry.slots.length
+
             let screenshotSlots = layoutSlotsInRow(
               canvas.screenshotSlots,
               canvas.frame,
               nextAspect
             )
-
-            if (shouldReapplyActivePreset) {
+            if (shouldReapply && activeGeometry) {
               screenshotSlots = screenshotSlots.map((naturalSlot, index) => {
-                const config = activeLayoutGeometry.slots[index]
+                const config = activeGeometry.slots[index]
                 if (!config) return naturalSlot
-                const xPct = activeLayoutGeometry.relativeSlotPositions
-                  ? naturalSlot.xPct + config.xPct
-                  : config.xPct
-                const yPct = activeLayoutGeometry.relativeSlotPositions
-                  ? 50 + config.yPct
-                  : config.yPct
+                const { xPct, yPct } = resolveSlotPositionPct({
+                  config,
+                  naturalSlotXPct: naturalSlot.xPct,
+                  relativeSlotPositions: activeGeometry.relativeSlotPositions,
+                })
                 return {
                   ...naturalSlot,
                   xPct,
@@ -1160,49 +1469,102 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               })
             }
 
-            const screenshotOffset = shouldReapplyActivePreset
-              ? activeLayoutGeometry.mainOffset
-                ? {
-                    x:
-                      (activeLayoutGeometry.mainOffset.xPct / 100) *
-                      CANVAS_BASE_W,
-                    y:
-                      (activeLayoutGeometry.mainOffset.yPct / 100) *
-                      PRESET_DESIGN_HEIGHT,
-                  }
-                : { x: 0, y: 0 }
-              : scaleScreenshotOffsetForAspectChange(
-                  canvas.screenshotOffset,
-                  currentAspect,
-                  nextAspect
-                )
+            const screenshotOffset =
+              shouldReapply && activeGeometry
+                ? resolveMainOffsetPx(activeGeometry.mainOffset)
+                : scaleScreenshotOffsetForAspectChange(
+                    canvas.screenshotOffset,
+                    currentAspect,
+                    nextAspect
+                  )
 
             return {
               ...canvas,
-              tilt: shouldReapplyActivePreset
-                ? activeLayoutGeometry.canvasTilt
-                : canvas.tilt,
-              scale: shouldReapplyActivePreset
-                ? activeLayoutGeometry.canvasScale
-                : canvas.scale,
+              tilt:
+                shouldReapply && activeGeometry
+                  ? activeGeometry.canvasTilt
+                  : canvas.tilt,
+              scale:
+                shouldReapply && activeGeometry
+                  ? activeGeometry.canvasScale
+                  : canvas.scale,
               screenshotOffset,
               screenshotSlots,
+              annotations: scaleAnnotationStrokesForAspectChange(
+                canvas.annotations,
+                currentAspect,
+                nextAspect
+              ),
             }
           }),
         }
       }, "aspect")
     },
     setCanvasAspect: (canvasId, a) =>
-      commitCanvas(canvasId, { aspect: a }, "aspect"),
+      commitCanvas(
+        canvasId,
+        (canvas, state) => {
+          const currentAspect = aspectRatioFromState(
+            canvas.aspect ?? state.aspect
+          )
+          const nextAspect = aspectRatioFromState(a)
+          return {
+            aspect: a,
+            annotations: scaleAnnotationStrokesForAspectChange(
+              canvas.annotations,
+              currentAspect,
+              nextAspect
+            ),
+          }
+        },
+        "aspect"
+      ),
     setBackground: (b, canvasId) =>
       commitCanvas(canvasId, { background: b }, "background"),
     setPadding: (n, canvasId) =>
-      commitCanvas(canvasId, { padding: n }, "padding"),
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          padding: n,
+          screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+            ...slot,
+            padding: n,
+          })),
+        }),
+        "padding"
+      ),
     setBorderRadius: (n, canvasId) =>
-      commitCanvas(canvasId, { borderRadius: n }, "borderRadius"),
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          borderRadius: n,
+          screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+            ...slot,
+            borderRadius: n,
+          })),
+        }),
+        "borderRadius"
+      ),
     setCanvasBorderRadius: (n, canvasId) =>
       commitCanvas(canvasId, { canvasBorderRadius: n }, "canvasBorderRadius"),
-    setBorder: (b, canvasId) => commitCanvas(canvasId, { border: b }, "border"),
+    setBorder: (b, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          border: b,
+          screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+            ...slot,
+            border: cloneBorder(b),
+          })),
+        }),
+        "border"
+      ),
+    setMainScreenshotPadding: (n, canvasId) =>
+      commitCanvas(canvasId, { padding: n }, "padding"),
+    setMainScreenshotBorderRadius: (n, canvasId) =>
+      commitCanvas(canvasId, { borderRadius: n }, "borderRadius"),
+    setMainScreenshotBorder: (b, canvasId) =>
+      commitCanvas(canvasId, { border: b }, "border"),
     setBackdropEffects: (e, canvasId) =>
       commitCanvas(
         canvasId,
@@ -1216,6 +1578,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "backdrop-pattern"
       ),
     setBackdropLighting: (l, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          backdrop: { ...canvas.backdrop, lighting: l },
+          screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+            ...slot,
+            lighting: cloneLighting(l),
+          })),
+        }),
+        "backdrop-lighting"
+      ),
+    setMainScreenshotBackdropLighting: (l, canvasId) =>
       commitCanvas(
         canvasId,
         (canvas) => ({ backdrop: { ...canvas.backdrop, lighting: l } }),
@@ -1259,12 +1633,15 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         (canvas) => ({
           shadow: s,
-          screenshotSlots: canvas.screenshotSlots.map((slot) =>
-            slot.shadow !== undefined ? { ...slot, shadow: s } : slot
-          ),
+          screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+            ...slot,
+            shadow: cloneShadow(s),
+          })),
         }),
         "shadow"
       ),
+    setMainScreenshotShadow: (s, canvasId) =>
+      commitCanvas(canvasId, { shadow: s }, "shadow"),
     setOverlay: (o, canvasId) =>
       commitCanvas(canvasId, { overlay: o }, "overlay"),
     setFrame: (f, canvasId) =>
@@ -1723,6 +2100,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         _lastTs: 0,
         bulkCanvasDragging: false,
         bulkViewportZoom: 1,
+        currentDraft: null,
+        activeLayoutPresetId: null,
+        activeCustomPresetId: null,
+        activeSinglePresetId: null,
       })
     },
     addCanvas: () => {
@@ -1846,6 +2227,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               id,
               tilt: { ...canvas.tilt },
               scale: canvas.scale,
+              border: cloneBorder(canvas.border),
+              borderRadius: canvas.borderRadius,
+              padding: canvas.padding,
+              shadow: cloneShadow(canvas.shadow),
+              lighting: cloneLighting(canvas.backdrop.lighting),
             },
             computeNextLayerZ(canvas)
           )
@@ -1915,13 +2301,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             screenshotSlots: updatedSlots.map((slot, index) => {
               const config = activeLayoutGeometry.slots[index]
               if (!config) return slot
-              const naturalSlotX = naturalLayout[index + 1]?.xPct ?? slot.xPct
-              const xPct = activeLayoutGeometry.relativeSlotPositions
-                ? naturalSlotX + config.xPct
-                : config.xPct
-              const yPct = activeLayoutGeometry.relativeSlotPositions
-                ? 50 + config.yPct
-                : config.yPct
+              const { xPct, yPct } = resolveSlotPositionPct({
+                config,
+                naturalSlotXPct:
+                  naturalLayout[index + 1]?.xPct ?? slot.xPct,
+                relativeSlotPositions:
+                  activeLayoutGeometry.relativeSlotPositions,
+              })
               return {
                 ...slot,
                 xPct,
@@ -2251,7 +2637,15 @@ export function useEditor(): EditorContext {
     setActiveTool: store.setActiveTool,
     setPresetTab: store.setPresetTab,
     setActiveLayoutPresetId: store.setActiveLayoutPresetId,
+    setActiveCustomPresetId: store.setActiveCustomPresetId,
     setActiveSinglePresetId: store.setActiveSinglePresetId,
+    setCustomPresets: store.setCustomPresets,
+    addCustomPreset: store.addCustomPreset,
+    removeCustomPreset: store.removeCustomPreset,
+    setCurrentDraft: store.setCurrentDraft,
+    loadDraftState: store.loadDraftState,
+    applyPresetSnapshot: (snapshot, canvasId) =>
+      store.applyPresetSnapshot(snapshot, canvasId ?? targetId),
     setScreenshot: (s, canvasId) =>
       store.setScreenshot(s, canvasId ?? targetId),
     applyCroppedScreenshot: (s, region, canvasId) =>
@@ -2266,12 +2660,20 @@ export function useEditor(): EditorContext {
     setCanvasBorderRadius: (n, canvasId) =>
       store.setCanvasBorderRadius(n, canvasId ?? targetId),
     setBorder: (b, canvasId) => store.setBorder(b, canvasId ?? targetId),
+    setMainScreenshotPadding: (n, canvasId) =>
+      store.setMainScreenshotPadding(n, canvasId ?? targetId),
+    setMainScreenshotBorderRadius: (n, canvasId) =>
+      store.setMainScreenshotBorderRadius(n, canvasId ?? targetId),
+    setMainScreenshotBorder: (b, canvasId) =>
+      store.setMainScreenshotBorder(b, canvasId ?? targetId),
     setBackdropEffects: (e, canvasId) =>
       store.setBackdropEffects(e, canvasId ?? targetId),
     setBackdropPattern: (p, canvasId) =>
       store.setBackdropPattern(p, canvasId ?? targetId),
     setBackdropLighting: (l, canvasId) =>
       store.setBackdropLighting(l, canvasId ?? targetId),
+    setMainScreenshotBackdropLighting: (l, canvasId) =>
+      store.setMainScreenshotBackdropLighting(l, canvasId ?? targetId),
     setBackdropFilter: (f, canvasId) =>
       store.setBackdropFilter(f, canvasId ?? targetId),
     setTilt: (t, canvasId) => store.setTilt(t, canvasId ?? targetId),
@@ -2288,6 +2690,8 @@ export function useEditor(): EditorContext {
     updateScreenshotLayer: (patch, canvasId) =>
       store.updateScreenshotLayer(patch, canvasId ?? targetId),
     setShadow: (s, canvasId) => store.setShadow(s, canvasId ?? targetId),
+    setMainScreenshotShadow: (s, canvasId) =>
+      store.setMainScreenshotShadow(s, canvasId ?? targetId),
     setOverlay: (o, canvasId) => store.setOverlay(o, canvasId ?? targetId),
     setFrame: (f, canvasId) => store.setFrame(f, canvasId ?? targetId),
     setFrameForMatchingScreenshots: (f, canvasId) =>
@@ -2510,7 +2914,8 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       if (
         selectedScreenshotSlotId &&
         store.presetTab !== "multi" &&
-        store.presetTab !== "triple"
+        store.presetTab !== "triple" &&
+        !(store.presetTab === "custom" && store.activeCustomPresetId)
       ) {
         e.preventDefault()
         e.stopImmediatePropagation()

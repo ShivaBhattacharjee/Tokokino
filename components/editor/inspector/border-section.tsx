@@ -10,6 +10,7 @@ import {
   useActiveCanvasField,
   useEditorStore,
 } from "@/lib/editor/store"
+import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import { cn } from "@/lib/utils"
 
 import { ColorPresetGrid, SubHeader } from "./primitives"
@@ -26,14 +27,36 @@ const BORDER_PRESETS = [
 const DEFAULT_BORDER_COLOR = BORDER_PRESETS[0]
 
 export function BorderSection() {
-  const border = useActiveCanvasField((c) => c.border)
-  const borderRadius = useActiveCanvasField((c) => c.borderRadius)
+  const canvasBorder = useActiveCanvasField((c) => c.border)
+  const canvasBorderRadius = useActiveCanvasField((c) => c.borderRadius)
+  const { applyStyle, selectedSlot } = useScreenshotStyleTarget()
+  const border = selectedSlot?.border ?? canvasBorder
+  const borderRadius = selectedSlot?.borderRadius ?? canvasBorderRadius
   const background = useActiveCanvasField((c) => c.background)
-  const screenshot = useActiveCanvasField((c) => c.screenshot)
+  const canvasScreenshot = useActiveCanvasField((c) => c.screenshot)
+  const screenshot = selectedSlot?.src ?? canvasScreenshot
   const setBorder = useEditorStore((s) => s.setBorder)
   const setBorderRadius = useEditorStore((s) => s.setBorderRadius)
-  const applyBorder = (nextBorder: typeof border) => setBorder(nextBorder)
-  const applyBorderRadius = (nextRadius: number) => setBorderRadius(nextRadius)
+  const setMainScreenshotBorder = useEditorStore(
+    (s) => s.setMainScreenshotBorder
+  )
+  const setMainScreenshotBorderRadius = useEditorStore(
+    (s) => s.setMainScreenshotBorderRadius
+  )
+  const applyBorder = (nextBorder: typeof border) => {
+    applyStyle(
+      { border: nextBorder },
+      () => setMainScreenshotBorder(nextBorder),
+      () => setBorder(nextBorder)
+    )
+  }
+  const applyBorderRadius = (nextRadius: number) => {
+    applyStyle(
+      { borderRadius: nextRadius },
+      () => setMainScreenshotBorderRadius(nextRadius),
+      () => setBorderRadius(nextRadius)
+    )
+  }
   const enabled = border.color !== null
   const currentColor = border.color || DEFAULT_BORDER_COLOR
 

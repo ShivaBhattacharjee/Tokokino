@@ -62,6 +62,14 @@ type ResizeState = {
 
 const DRAG_THRESHOLD = 4
 
+function isTextEditingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  return Boolean(
+    target.closest("input, textarea, select, [contenteditable='true']")
+  )
+}
+
 export function TextElementView({ text, canvasRef, onCenterGuideChange, previewMode }: Props) {
   const { canvasZoom, selectedTextId, setSelectedTextId, setSelectedAnnotationShapeId, updateText, deleteText, screenshot, background, bulkEditMode, bulkCanvasDragging, bulkViewportZoom } =
     useEditor()
@@ -139,9 +147,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     if (!isSelected || isEditing) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") {
-        // Don't delete if user is typing in a popover input
-        const tag = (e.target as HTMLElement)?.tagName
-        if (tag === "INPUT" || tag === "TEXTAREA") return
+        if (isTextEditingTarget(e.target)) return
         e.preventDefault()
         deleteText(text.id)
         setSelectedTextId(null)
@@ -658,6 +664,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
           spellCheck
           onBlur={commitContent}
           onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
             e.stopPropagation()
             if (e.key === "Escape") {

@@ -19,6 +19,12 @@ import {
   RiLink,
   RiFileAddLine,
   RiFolderOpenLine,
+  RiBookmarkLine,
+  RiDraftLine,
+  RiImageAddLine,
+  RiDiceLine,
+  RiDeleteBinLine,
+  RiArrowRightSLine,
 } from "@remixicon/react"
 import { toast } from "sonner"
 import { useShallow } from "zustand/react/shallow"
@@ -27,10 +33,23 @@ import { LoginForm } from "@/app/login/login-form"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { MAX_CANVASES, useEditorStore } from "@/lib/editor/store"
-import type { CanvasState } from "@/lib/editor/store"
+import type {
+  CanvasState,
+  CurrentDraftInfo,
+  CustomPresetGeometry,
+  CustomPresetSummary,
+} from "@/lib/editor/store"
 import { CanvasView } from "@/components/editor/canvas"
 import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
+import { randomDisplayName } from "@/lib/random-name"
+import {
+  DRAFT_SCHEMA_VERSION,
+  type DraftPayload,
+  type DraftUiState,
+  unwrapDraftState,
+} from "@/lib/schemas/draft"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +75,7 @@ import {
 import {
   copyCanvasAsPng,
   captureCanvasForShare,
+  captureCanvasThumbnail,
   EXPORT_FORMAT_EXTENSION,
   EXPORT_FORMAT_LABELS,
   EXPORT_RESOLUTION_LABELS,
@@ -85,7 +105,7 @@ import { useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence, LayoutGroup } from "motion/react"
 
-type ProtectedTopBarAction = "save" | "share"
+type ProtectedTopBarAction = "save" | "share" | "open"
 type ShareDialogState = {
   open: boolean
   status: "idle" | "preparing" | "ready" | "error"
@@ -149,6 +169,21 @@ export function TopBar() {
 
   const [showNewAlert, setShowNewAlert] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [saveOpen, setSaveOpen] = React.useState(false)
+  const [presetNameOpen, setPresetNameOpen] = React.useState(false)
+  const [draftNameOpen, setDraftNameOpen] = React.useState(false)
+  const [openProjectDialogOpen, setOpenProjectDialogOpen] =
+    React.useState(false)
+  const [isDraftSaving, setIsDraftSaving] = React.useState(false)
+  const [isPresetSaving, setIsPresetSaving] = React.useState(false)
+  const currentDraft = useEditorStore((s) => s.currentDraft)
+  const setCurrentDraft = useEditorStore((s) => s.setCurrentDraft)
+  const loadDraftState = useEditorStore((s) => s.loadDraftState)
+  const addCustomPreset = useEditorStore((s) => s.addCustomPreset)
+  const setPresetTab = useEditorStore((s) => s.setPresetTab)
+  const setActiveCustomPresetId = useEditorStore(
+    (s) => s.setActiveCustomPresetId
+  )
 
   const handleOpenFile = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -258,9 +293,256 @@ export function TopBar() {
         return
       }
 
-      toast("Feature in development")
+      if (action === "save") {
+        setSaveOpen(true)
+        return
+      }
+
+      if (action === "open") {
+        setOpenProjectDialogOpen(true)
+        return
+      }
     },
     [handleShare, isAuthPending, session]
+  )
+
+  const handleSaveAsPreset = React.useCallback(
+    async (name: string) => {
+      const state = useEditorStore.getState()
+      const activeCanvas = state.present.canvases.find(
+        (c) => c.id === state.present.activeCanvasId
+      )
+      if (!activeCanvas) {
+        toast.error("No active canvas")
+        return false
+      }
+      const aspect = activeCanvas.aspect ?? state.present.aspect
+      const aw = aspect.w || 16
+      const ah = aspect.h || 10
+      const designWidth = BASE_CANVAS_WIDTH
+      const designHeight = (BASE_CANVAS_WIDTH * ah) / aw
+      const round = (n: number) => Number(n.toFixed(2))
+      const geometry: CustomPresetGeometry = {
+        canvasTilt: {
+          rx: round(activeCanvas.tilt.rx),
+          ry: round(activeCanvas.tilt.ry),
+          rz: round(activeCanvas.tilt.rz),
+        },
+        canvasScale: round(activeCanvas.scale),
+        slots: activeCanvas.screenshotSlots.map((slot) => ({
+          xPct: round(slot.xPct),
+          yPct: round(slot.yPct),
+          widthPct: round(slot.widthPct),
+          heightPct: round(slot.heightPct),
+          rotation: round(slot.rotation),
+          tilt: {
+            rx: round(slot.tilt.rx),
+            ry: round(slot.tilt.ry),
+            rz: round(slot.tilt.rz),
+          },
+          scale: round(slot.scale),
+          zIndex: slot.zIndex,
+          filter: slot.filter,
+          hidden: slot.hidden,
+          objectFit: slot.objectFit,
+          shadow: slot.shadow,
+        })),
+        mainOffset: {
+          xPct: round(
+            designWidth ? (activeCanvas.screenshotOffset.x / designWidth) * 100 : 0
+          ),
+          yPct: round(
+            designHeight
+              ? (activeCanvas.screenshotOffset.y / designHeight) * 100
+              : 0
+          ),
+        },
+        canvasStyle: {
+          background: activeCanvas.background,
+          padding: activeCanvas.padding,
+          borderRadius: activeCanvas.borderRadius,
+          canvasBorderRadius: activeCanvas.canvasBorderRadius,
+          border: activeCanvas.border,
+          backdrop: activeCanvas.backdrop,
+          screenshotPosition: activeCanvas.screenshotPosition,
+          screenshotLayer: activeCanvas.screenshotLayer,
+          shadow: activeCanvas.shadow,
+          overlay: activeCanvas.overlay,
+          frame: activeCanvas.frame,
+          portrait: activeCanvas.portrait,
+          enhance: activeCanvas.enhance,
+          objectFit: activeCanvas.objectFit,
+          frameAddress: activeCanvas.frameAddress,
+          texts: activeCanvas.texts,
+          assets: activeCanvas.assets,
+          annotations: activeCanvas.annotations,
+          annotationShapes: activeCanvas.annotationShapes,
+          aspect: activeCanvas.aspect,
+        },
+      }
+
+      setIsPresetSaving(true)
+      try {
+        const res = await fetch("/api/presets", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, geometry }),
+        })
+        const data = (await res.json().catch(() => null)) as {
+          preset?: CustomPresetSummary
+          error?: string
+        } | null
+        if (!res.ok || !data?.preset) {
+          throw new Error(data?.error ?? "Could not save preset")
+        }
+        addCustomPreset(data.preset)
+        setPresetTab("custom")
+        setActiveCustomPresetId(data.preset.id)
+        toast.success(`Preset “${data.preset.name}” saved`)
+        return true
+      } catch (err) {
+        console.error(err)
+        const message =
+          err instanceof Error ? err.message : "Could not save preset"
+        toast.error(message)
+        return false
+      } finally {
+        setIsPresetSaving(false)
+      }
+    },
+    [addCustomPreset, setActiveCustomPresetId, setPresetTab]
+  )
+
+  const handleSaveAsDraft = React.useCallback(
+    async (nameOverride?: string) => {
+      const state = useEditorStore.getState()
+      const existing = state.currentDraft
+      const name = nameOverride ?? existing?.name ?? randomDisplayName()
+      setIsDraftSaving(true)
+      try {
+        // A draft must round-trip the entire working state so the user can
+        // resume editing exactly where they left off: canvases (with their
+        // screenshot base64 pixels) live in `present`, and non-history UI
+        // settings (preset tab, bulk-edit, preview cadence) live in `ui`.
+        const draftState: DraftPayload = {
+          schemaVersion: DRAFT_SCHEMA_VERSION,
+          present: state.present,
+          ui: {
+            presetTab: state.presetTab,
+            activeLayoutPresetId: state.activeLayoutPresetId,
+            activeCustomPresetId: state.activeCustomPresetId,
+            activeSinglePresetId: state.activeSinglePresetId,
+            bulkEditMode: state.bulkEditMode,
+            bulkViewportZoom: state.bulkViewportZoom,
+            bulkScale: state.bulkScale,
+            previewAutoScrollDelay: state.previewAutoScrollDelay,
+            previewAnimation: state.previewAnimation,
+          },
+        }
+        const payload = {
+          name,
+          state: draftState,
+        }
+        const url = existing ? `/api/drafts/${existing.id}` : "/api/drafts"
+        const method = existing ? "PUT" : "POST"
+        const res = await fetch(url, {
+          method,
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = (await res.json().catch(() => null)) as {
+          draft?: { id: string; name: string; updatedAt?: string }
+          error?: string
+        } | null
+        if (!res.ok || !data?.draft) {
+          throw new Error(data?.error ?? "Could not save draft")
+        }
+        const next: CurrentDraftInfo = {
+          id: data.draft.id,
+          name: data.draft.name,
+          updatedAt: data.draft.updatedAt ?? new Date().toISOString(),
+        }
+        setCurrentDraft(next)
+        toast.success(existing ? "Draft updated" : `Draft “${next.name}” saved`)
+
+        // Capture + upload a small JPEG preview so the Open Project grid has
+        // something nicer than a placeholder icon. Best-effort: if capture
+        // fails the save still succeeds, the grid just falls back to the
+        // gradient placeholder.
+        void (async () => {
+          try {
+            const thumb = await captureCanvasThumbnail(
+              state.present.activeCanvasId
+            )
+            if (!thumb) return
+            await fetch(`/api/drafts/${next.id}/thumb`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": thumb.type || "image/jpeg" },
+              body: thumb,
+            })
+          } catch (err) {
+            console.warn("Could not upload draft thumbnail", err)
+          }
+        })()
+
+        return true
+      } catch (err) {
+        console.error(err)
+        const message =
+          err instanceof Error ? err.message : "Could not save draft"
+        toast.error(message)
+        return false
+      } finally {
+        setIsDraftSaving(false)
+      }
+    },
+    [setCurrentDraft]
+  )
+
+  const handleOpenDraft = React.useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/drafts/${id}`, {
+          credentials: "include",
+        })
+        const data = (await res.json().catch(() => null)) as {
+          draft?: {
+            id: string
+            name: string
+            updatedAt: string
+            state: unknown
+          }
+          error?: string
+        } | null
+        if (!res.ok || !data?.draft?.state) {
+          throw new Error(data?.error ?? "Could not load draft")
+        }
+        // Drafts may be in the new wrapped shape ({ present, ui }) or the
+        // legacy raw EditorState shape — `unwrapDraftState` handles both.
+        const { present, ui } = unwrapDraftState(data.draft.state)
+        loadDraftState(
+          present,
+          {
+            id: data.draft.id,
+            name: data.draft.name,
+            updatedAt: data.draft.updatedAt,
+          },
+          ui
+        )
+        toast.success(`Opened “${data.draft.name}”`)
+        return true
+      } catch (err) {
+        console.error(err)
+        const message =
+          err instanceof Error ? err.message : "Could not load draft"
+        toast.error(message)
+        return false
+      }
+    },
+    [loadDraftState]
   )
 
   const handleCopyPng = React.useCallback(async () => {
@@ -314,11 +596,10 @@ export function TopBar() {
             tooltip="New project"
             onClick={() => setShowNewAlert(true)}
           />
-          <TopBarButton
-            label="Open"
-            icon={RiFolderOpenLine}
-            tooltip="Open screenshot"
-            onClick={() => fileInputRef.current?.click()}
+          <OpenControls
+            currentDraftName={currentDraft?.name ?? null}
+            onOpenImage={() => fileInputRef.current?.click()}
+            onOpenProject={() => handleProtectedAction("open")}
           />
         </div>
 
@@ -357,11 +638,29 @@ export function TopBar() {
             tooltip="Preview screenshot"
             onClick={() => setIsPreviewMode(true)}
           />
-          <TopBarButton
-            label="Save"
-            icon={RiSaveLine}
-            onClick={() => handleProtectedAction("save")}
-            tooltip="Save screenshot"
+          <SaveControls
+            open={saveOpen}
+            currentDraft={currentDraft}
+            isDraftSaving={isDraftSaving}
+            onOpenChange={(open) => {
+              if (open) {
+                handleProtectedAction("save")
+              } else {
+                setSaveOpen(false)
+              }
+            }}
+            onSaveAsPreset={() => {
+              setSaveOpen(false)
+              setPresetNameOpen(true)
+            }}
+            onSaveAsDraft={() => {
+              setSaveOpen(false)
+              if (currentDraft) {
+                void handleSaveAsDraft()
+              } else {
+                setDraftNameOpen(true)
+              }
+            }}
           />
           <ShareControls
             open={shareDialog.open}
@@ -495,6 +794,42 @@ export function TopBar() {
             <LoginForm callbackURL="/app" variant="dialog" />
           </DialogContent>
         </Dialog>
+
+        <NameDialog
+          open={presetNameOpen}
+          onOpenChange={setPresetNameOpen}
+          title="Save as preset"
+          description="Capture the current layout so you can reuse it later."
+          confirmLabel="Save preset"
+          loading={isPresetSaving}
+          onConfirm={async (name) => {
+            const ok = await handleSaveAsPreset(name)
+            if (ok) setPresetNameOpen(false)
+          }}
+        />
+
+        <NameDialog
+          open={draftNameOpen}
+          onOpenChange={setDraftNameOpen}
+          title="Save as draft"
+          description="Save the entire project so you can resume editing later."
+          confirmLabel="Save draft"
+          loading={isDraftSaving}
+          onConfirm={async (name) => {
+            const ok = await handleSaveAsDraft(name)
+            if (ok) setDraftNameOpen(false)
+          }}
+        />
+
+        <OpenProjectDialog
+          open={openProjectDialogOpen}
+          onOpenChange={setOpenProjectDialogOpen}
+          currentDraftId={currentDraft?.id ?? null}
+          onOpenDraft={async (id) => {
+            const ok = await handleOpenDraft(id)
+            if (ok) setOpenProjectDialogOpen(false)
+          }}
+        />
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-1.5">
@@ -553,6 +888,7 @@ export function TopBar() {
           isPreparingShare={shareDialog.status === "preparing"}
           onNewClick={() => setShowNewAlert(true)}
           onOpenClick={() => fileInputRef.current?.click()}
+          onOpenProjectClick={() => handleProtectedAction("open")}
         />
 
         {/* Export (always visible) */}
@@ -1156,6 +1492,7 @@ function MobileOverflowMenu({
   isPreparingShare,
   onNewClick,
   onOpenClick,
+  onOpenProjectClick,
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
@@ -1165,6 +1502,7 @@ function MobileOverflowMenu({
   isPreparingShare: boolean
   onNewClick: () => void
   onOpenClick: () => void
+  onOpenProjectClick: () => void
 }) {
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
@@ -1224,8 +1562,12 @@ function MobileOverflowMenu({
             New project
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onOpenClick}>
+            <RiImageAddLine />
+            Open image
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenProjectClick}>
             <RiFolderOpenLine />
-            Open screenshot
+            Open project…
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -1338,4 +1680,497 @@ function IconAction({
       </TooltipContent>
     </Tooltip>
   )
+}
+
+function SaveControls({
+  open,
+  currentDraft,
+  isDraftSaving,
+  onOpenChange,
+  onSaveAsPreset,
+  onSaveAsDraft,
+}: {
+  open: boolean
+  currentDraft: CurrentDraftInfo | null
+  isDraftSaving: boolean
+  onOpenChange: (open: boolean) => void
+  onSaveAsPreset: () => void
+  onSaveAsDraft: () => void
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <Tooltip open={open ? false : undefined}>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="lg">
+              <RiSaveLine />
+              <span className="hidden lg:inline">Save</span>
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Save project</TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        align="center"
+        sideOffset={12}
+        className="w-[min(calc(100vw-2rem),320px)] gap-2 rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
+      >
+        <div className="px-1 pt-1 pb-2">
+          <p className="text-sm font-medium">Save</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {currentDraft
+              ? `Currently editing “${currentDraft.name}”.`
+              : "Save the current layout or the entire project."}
+          </p>
+        </div>
+        <SaveActionRow
+          icon={RiBookmarkLine}
+          title="Save as preset"
+          description="Reuse this layout for new projects."
+          onClick={onSaveAsPreset}
+        />
+        <SaveActionRow
+          icon={RiDraftLine}
+          title={currentDraft ? "Save draft" : "Save as draft"}
+          description={
+            currentDraft
+              ? "Update this project so you can resume later."
+              : "Save the project so you can resume editing later."
+          }
+          loading={isDraftSaving}
+          onClick={onSaveAsDraft}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function SaveActionRow({
+  icon: Icon,
+  title,
+  description,
+  loading,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  description: string
+  loading?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-secondary/40 px-3 py-2.5 text-left transition-colors hover:border-border/60 hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-background text-foreground/80 ring-1 ring-border/50">
+        <Icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-medium text-foreground">
+          {loading ? "Saving…" : title}
+        </span>
+        <span className="block truncate text-[11px] text-muted-foreground">
+          {description}
+        </span>
+      </span>
+      <RiArrowRightSLine className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+    </button>
+  )
+}
+
+function OpenControls({
+  currentDraftName,
+  onOpenImage,
+  onOpenProject,
+}: {
+  currentDraftName: string | null
+  onOpenImage: () => void
+  onOpenProject: () => void
+}) {
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="lg">
+              <RiFolderOpenLine />
+              <span className="hidden lg:inline">Open</span>
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {currentDraftName ? `Editing ${currentDraftName}` : "Open"}
+        </TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="start" className="w-52">
+        <DropdownMenuItem onClick={onOpenImage}>
+          <RiImageAddLine />
+          Open image
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenProject}>
+          <RiFolderOpenLine />
+          Open project…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function NameDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel,
+  loading,
+  onConfirm,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description: string
+  confirmLabel: string
+  loading: boolean
+  onConfirm: (name: string) => void | Promise<void>
+}) {
+  const [name, setName] = React.useState("")
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    if (open) {
+      setName(randomDisplayName())
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+    }
+  }, [open])
+
+  const rollName = React.useCallback(() => {
+    setName(randomDisplayName())
+    inputRef.current?.focus()
+  }, [])
+
+  const trimmed = name.trim()
+  const canSubmit = trimmed.length > 0 && !loading
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <div className="flex items-stretch gap-2">
+            <Input
+              ref={inputRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Project name"
+              maxLength={80}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canSubmit) {
+                  e.preventDefault()
+                  void onConfirm(trimmed)
+                }
+              }}
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-lg"
+                  onClick={rollName}
+                  aria-label="Pick a random name"
+                >
+                  <RiDiceLine />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Random name</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="lg"
+            onClick={() => void onConfirm(trimmed)}
+            disabled={!canSubmit}
+          >
+            {loading ? "Saving…" : confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+type DraftListItem = {
+  id: string
+  name: string
+  canvasCount: number
+  byteSize: number
+  updatedAt: string
+  createdAt: string
+  thumbnailUrl: string | null
+}
+
+function OpenProjectDialog({
+  open,
+  onOpenChange,
+  currentDraftId,
+  onOpenDraft,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentDraftId: string | null
+  onOpenDraft: (id: string) => void | Promise<void>
+}) {
+  const [drafts, setDrafts] = React.useState<DraftListItem[] | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  const [busyId, setBusyId] = React.useState<string | null>(null)
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setDrafts(null)
+    setError(null)
+    fetch("/api/drafts", { credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as {
+            error?: string
+          } | null
+          throw new Error(data?.error ?? "Could not load drafts")
+        }
+        return res.json() as Promise<{ drafts: DraftListItem[] }>
+      })
+      .then((data) => {
+        if (cancelled) return
+        setDrafts(data.drafts)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : "Could not load drafts")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  const handleOpen = async (id: string) => {
+    setBusyId(id)
+    try {
+      await onOpenDraft(id)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/drafts/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: string
+        } | null
+        throw new Error(data?.error ?? "Could not delete draft")
+      }
+      setDrafts((prev) => prev?.filter((d) => d.id !== id) ?? prev)
+      toast.success("Draft removed")
+    } catch (err) {
+      console.error(err)
+      toast.error(err instanceof Error ? err.message : "Could not delete draft")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-0 p-0 sm:max-w-[640px]">
+        <div className="border-b border-border/60 px-5 py-4">
+          <DialogTitle className="text-[15px]">Open project</DialogTitle>
+          <DialogDescription className="mt-0.5 text-[12px]">
+            Pick a saved draft to resume editing.
+          </DialogDescription>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto p-4">
+          {drafts === null && !error ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="aspect-[16/10] w-full rounded-lg" />
+              ))}
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-[12px] text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          {drafts && drafts.length === 0 && !error ? (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 bg-secondary/20 px-4 py-8 text-center">
+              <span className="inline-flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+                <RiDraftLine className="size-5" />
+              </span>
+              <p className="text-[13px] font-medium text-foreground">
+                No saved projects yet
+              </p>
+              <p className="text-[12px] text-muted-foreground">
+                Use Save → Save as draft to keep your work in the cloud.
+              </p>
+            </div>
+          ) : null}
+
+          {drafts && drafts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {drafts.map((draft) => (
+                <DraftCard
+                  key={draft.id}
+                  draft={draft}
+                  isCurrent={currentDraftId === draft.id}
+                  isOpening={busyId === draft.id}
+                  isDeleting={deletingId === draft.id}
+                  onOpen={() => void handleOpen(draft.id)}
+                  onDelete={() => void handleDelete(draft.id)}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <DialogFooter className="border-t border-border/60 px-5 py-3">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DraftCard({
+  draft,
+  isCurrent,
+  isOpening,
+  isDeleting,
+  onOpen,
+  onDelete,
+}: {
+  draft: DraftListItem
+  isCurrent: boolean
+  isOpening: boolean
+  isDeleting: boolean
+  onOpen: () => void
+  onDelete: () => void
+}) {
+  const updated = formatRelativeDate(draft.updatedAt)
+  return (
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={isOpening || isDeleting}
+        className={cn(
+          "flex w-full flex-col overflow-hidden rounded-xl border bg-secondary/30 text-left transition-colors",
+          isCurrent
+            ? "border-primary"
+            : "border-border/50 hover:border-primary/55",
+          (isOpening || isDeleting) && "cursor-not-allowed opacity-60"
+        )}
+      >
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-secondary to-secondary/40">
+          {draft.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={draft.thumbnailUrl}
+              alt=""
+              className="size-full object-cover"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center">
+              <span className="inline-flex size-10 items-center justify-center rounded-full bg-background/40 text-muted-foreground backdrop-blur-sm">
+                <RiDraftLine className="size-5" />
+              </span>
+            </div>
+          )}
+          {isCurrent ? (
+            <span className="absolute top-2 left-2 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
+              Open
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-medium text-foreground">
+              {draft.name}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {draft.canvasCount} canvas
+              {draft.canvasCount === 1 ? "" : "es"} · {updated}
+            </p>
+          </div>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete()
+        }}
+        disabled={isDeleting}
+        aria-label={`Delete ${draft.name}`}
+        className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-white/10 bg-background/80 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus:opacity-100"
+      >
+        <RiDeleteBinLine className="size-3.5" />
+      </button>
+    </div>
+  )
+}
+
+function formatRelativeDate(iso: string) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ""
+  const diffMs = Date.now() - date.getTime()
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+  if (diffMs < minute) return "just now"
+  if (diffMs < hour) {
+    const n = Math.floor(diffMs / minute)
+    return `${n}m ago`
+  }
+  if (diffMs < day) {
+    const n = Math.floor(diffMs / hour)
+    return `${n}h ago`
+  }
+  if (diffMs < 7 * day) {
+    const n = Math.floor(diffMs / day)
+    return `${n}d ago`
+  }
+  return date.toLocaleDateString()
 }

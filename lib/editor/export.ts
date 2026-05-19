@@ -422,3 +422,32 @@ export async function captureCanvasForShare(
   const jpegBlob = await compressBlobAsJpeg(pngBlob, CLIENT_MAX_SHARE_BYTES)
   return { blob: jpegBlob, contentType: "image/jpeg" }
 }
+
+/**
+ * Small JPEG thumbnail used by the saved-drafts grid. Renders at 480px wide
+ * (enough for sharp retina rendering at typical card sizes) and re-encodes
+ * as JPEG quality 0.8 to keep the payload well under the per-request body
+ * limit. Returns null if capture fails so the caller can still finish the
+ * save without a preview.
+ */
+export async function captureCanvasThumbnail(
+  canvasId: string,
+  targetWidth = 480
+): Promise<Blob | null> {
+  try {
+    const pngBlob = await captureCanvasAsPngBlob(canvasId, targetWidth)
+    const bitmap = await createImageBitmap(pngBlob)
+    const offscreen = document.createElement("canvas")
+    offscreen.width = bitmap.width
+    offscreen.height = bitmap.height
+    const ctx = offscreen.getContext("2d")
+    if (!ctx) return null
+    ctx.drawImage(bitmap, 0, 0)
+    return await new Promise<Blob | null>((resolve) =>
+      offscreen.toBlob(resolve, "image/jpeg", 0.8)
+    )
+  } catch (err) {
+    console.warn("Could not capture draft thumbnail", err)
+    return null
+  }
+}

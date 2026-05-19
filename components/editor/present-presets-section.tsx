@@ -7,6 +7,10 @@ import { CanvasView } from "@/components/editor/canvas"
 import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import { env } from "@/lib/env"
 import {
+  resolveMainOffsetPx,
+  resolveSlotPositionPct,
+} from "@/lib/editor/preset-geometry"
+import {
   LAYOUT_PRESETS,
   PRESENT_PRESETS,
   layoutPresetDeviceClassForFrame,
@@ -17,6 +21,16 @@ import {
 } from "@/lib/editor/present-presets"
 import { computeRowLayout } from "@/lib/editor/screenshot-layout"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -24,6 +38,7 @@ import {
 import {
   RiArrowRightSLine,
   RiCheckLine,
+  RiDeleteBinLine,
   RiFileCopyLine,
   RiLayoutGridLine,
 } from "@remixicon/react"
@@ -34,9 +49,12 @@ import {
   useEditorStore,
   type AspectState,
   type CanvasState,
+  type CustomPresetGeometry,
+  type CustomPresetSummary,
   type ScreenshotSlot,
   type Tilt,
 } from "@/lib/editor/store"
+import { useSession } from "@/lib/auth-client"
 import {
   Tooltip,
   TooltipContent,
@@ -255,12 +273,13 @@ function useContainScale(
   return scale
 }
 
-type PresetTab = "single" | "multi" | "triple"
+type PresetTab = "single" | "multi" | "triple" | "custom"
 
 const TAB_LABELS: Record<PresetTab, string> = {
   single: "Single",
   multi: "Multi",
   triple: "Triple",
+  custom: "Custom",
 }
 
 function TabIcon({ t, active }: { t: PresetTab; active: boolean }) {
@@ -287,15 +306,33 @@ function TabIcon({ t, active }: { t: PresetTab; active: boolean }) {
       </svg>
     )
   }
-  // triple
+  if (t === "triple") {
+    return (
+      <svg width="44" height="30" viewBox="0 0 44 30" fill="none" className="shrink-0">
+        <rect x="1" y="8" width="13" height="14" rx="2" fill="currentColor" className={fill} />
+        <rect x="1" y="8" width="13" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" className={stroke} />
+        <rect x="16" y="6" width="12" height="18" rx="2" fill="currentColor" className={fill} />
+        <rect x="16" y="6" width="12" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" className={stroke} />
+        <rect x="30" y="8" width="13" height="14" rx="2" fill="currentColor" className={fillSm} />
+        <rect x="30" y="8" width="13" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" className={strokeSm} />
+      </svg>
+    )
+  }
+  // custom
   return (
     <svg width="44" height="30" viewBox="0 0 44 30" fill="none" className="shrink-0">
-      <rect x="1" y="8" width="13" height="14" rx="2" fill="currentColor" className={fill} />
-      <rect x="1" y="8" width="13" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" className={stroke} />
-      <rect x="16" y="6" width="12" height="18" rx="2" fill="currentColor" className={fill} />
-      <rect x="16" y="6" width="12" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" className={stroke} />
-      <rect x="30" y="8" width="13" height="14" rx="2" fill="currentColor" className={fillSm} />
-      <rect x="30" y="8" width="13" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" className={strokeSm} />
+      <path
+        d="M22 4 L26.6 13.5 L37 14.6 L29.5 21.6 L31.5 32 L22 26.8 L12.5 32 L14.5 21.6 L7 14.6 L17.4 13.5 Z"
+        fill="currentColor"
+        className={fill}
+      />
+      <path
+        d="M22 4 L26.6 13.5 L37 14.6 L29.5 21.6 L31.5 32 L22 26.8 L12.5 32 L14.5 21.6 L7 14.6 L17.4 13.5 Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        className={stroke}
+      />
     </svg>
   )
 }
@@ -305,6 +342,8 @@ function isTabDisabled(t: PresetTab, slotCount: number): boolean {
   if (t === "triple") return slotCount > 2
   return false
 }
+
+const PRESET_TABS: PresetTab[] = ["single", "multi", "triple", "custom"]
 
 function TabTriggerRow({
   tab,
@@ -356,8 +395,8 @@ function TabTriggerRow({
               className="w-[220px] rounded-lg bg-popover p-1.5 shadow-md ring-1 ring-foreground/10"
             >
               <TooltipProvider>
-                <div className="flex gap-1.5">
-                  {(["single", "multi", "triple"] as PresetTab[]).map((t) => {
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PRESET_TABS.map((t) => {
                     const disabled = isTabDisabled(t, slotCount)
                     const disabledReason =
                       t === "multi"
@@ -430,6 +469,61 @@ export function PresentPresetsSection() {
   const activeSinglePresetId = useEditorStore((s) => s.activeSinglePresetId)
   const setActiveSinglePresetId = useEditorStore(
     (s) => s.setActiveSinglePresetId
+  )
+  const customPresets = useEditorStore((s) => s.customPresets)
+  const customPresetsLoaded = useEditorStore((s) => s.customPresetsLoaded)
+  const setCustomPresets = useEditorStore((s) => s.setCustomPresets)
+  const removeCustomPreset = useEditorStore((s) => s.removeCustomPreset)
+  const activeCustomPresetId = useEditorStore((s) => s.activeCustomPresetId)
+  const setActiveCustomPresetId = useEditorStore(
+    (s) => s.setActiveCustomPresetId
+  )
+  const { data: session } = useSession()
+  const userId = session?.user?.id ?? null
+
+  React.useEffect(() => {
+    if (!userId) {
+      setCustomPresets([])
+      return
+    }
+    let cancelled = false
+    fetch("/api/presets", { credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) return null
+        return res.json() as Promise<{ presets: CustomPresetSummary[] }>
+      })
+      .then((data) => {
+        if (cancelled || !data) return
+        setCustomPresets(data.presets)
+      })
+      .catch((err) => {
+        console.warn("Could not load custom presets", err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userId, setCustomPresets])
+
+  const handleDeleteCustomPreset = React.useCallback(
+    async (id: string) => {
+      const previous = customPresets
+      removeCustomPreset(id)
+      try {
+        const res = await fetch(`/api/presets/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        })
+        if (!res.ok) {
+          throw new Error("Delete failed")
+        }
+        toast.success("Preset removed")
+      } catch (err) {
+        console.error(err)
+        setCustomPresets(previous)
+        toast.error("Could not remove preset")
+      }
+    },
+    [customPresets, removeCustomPreset, setCustomPresets]
   )
   const copyCurrentLayout = React.useCallback(async () => {
     const capture = buildLayoutPresetCapture({
@@ -537,11 +631,11 @@ export function PresentPresetsSection() {
         const slotId = allSlotIds[i]
         const config = geometry.slots[i]
         if (!slotId || !config) continue
-        const naturalSlotX = naturalLayout[i + 1]?.xPct ?? 75
-        const xPct = geometry.relativeSlotPositions
-          ? naturalSlotX + config.xPct
-          : config.xPct
-        const yPct = geometry.relativeSlotPositions ? 50 + config.yPct : config.yPct
+        const { xPct, yPct } = resolveSlotPositionPct({
+          config,
+          naturalSlotXPct: naturalLayout[i + 1]?.xPct ?? 75,
+          relativeSlotPositions: geometry.relativeSlotPositions,
+        })
         updateScreenshotSlot(slotId, {
           xPct,
           yPct,
@@ -553,11 +647,7 @@ export function PresentPresetsSection() {
       }
       setTiltAndScale(geometry.canvasTilt, geometry.canvasScale)
       if (geometry.mainOffset) {
-        const PRESET_DESIGN_HEIGHT = BASE_CANVAS_WIDTH * (10 / 16)
-        setScreenshotOffset({
-          x: (geometry.mainOffset.xPct / 100) * BASE_CANVAS_WIDTH,
-          y: (geometry.mainOffset.yPct / 100) * PRESET_DESIGN_HEIGHT,
-        })
+        setScreenshotOffset(resolveMainOffsetPx(geometry.mainOffset))
       }
       setActiveLayoutPresetId(preset.id)
     },
@@ -571,6 +661,29 @@ export function PresentPresetsSection() {
       setScreenshotPosition,
       setTiltAndScale,
       updateScreenshotSlot,
+    ]
+  )
+
+  const applyPresetSnapshot = useEditorStore((s) => s.applyPresetSnapshot)
+
+  const applyCustomPreset = React.useCallback(
+    (preset: CustomPresetSummary) => {
+      const geometry = preset.geometry
+      // Geometry includes a snapshot of every styling field on the canvas
+      // (background, backdrop, border, shadow, overlay, portrait, padding,
+      // radius, frame, text/asset/annotation layers, etc.) — not just the
+      // tilt and scale. `applyPresetSnapshot` commits all of those in a
+      // single history entry while preserving the live screenshot pixels.
+      applyPresetSnapshot(geometry)
+      setActiveCustomPresetId(preset.id)
+      setActiveLayoutPresetId(null)
+      setActiveSinglePresetId(null)
+    },
+    [
+      applyPresetSnapshot,
+      setActiveCustomPresetId,
+      setActiveLayoutPresetId,
+      setActiveSinglePresetId,
     ]
   )
 
@@ -637,9 +750,215 @@ export function PresentPresetsSection() {
           })}
         </div>
       )}
+
+      {tab === "custom" && (
+        <CustomPresetList
+          presets={customPresets}
+          loaded={customPresetsLoaded}
+          loggedIn={Boolean(userId)}
+          activeCustomPresetId={activeCustomPresetId}
+          canvas={canvas}
+          aspect={aspect}
+          onApply={applyCustomPreset}
+          onDelete={handleDeleteCustomPreset}
+        />
+      )}
     </div>
   )
 }
+
+function CustomPresetList({
+  presets,
+  loaded,
+  loggedIn,
+  activeCustomPresetId,
+  canvas,
+  aspect,
+  onApply,
+  onDelete,
+}: {
+  presets: CustomPresetSummary[]
+  loaded: boolean
+  loggedIn: boolean
+  activeCustomPresetId: string | null
+  canvas: CanvasState
+  aspect: AspectState
+  onApply: (preset: CustomPresetSummary) => void
+  onDelete: (id: string) => void | Promise<void>
+}) {
+  if (!loggedIn) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
+        Sign in to save and reuse your own layout presets.
+      </div>
+    )
+  }
+
+  if (!loaded) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
+        Loading presets…
+      </div>
+    )
+  }
+
+  if (presets.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
+        No custom presets yet. Use <span className="font-medium text-foreground">Save → Save as preset</span> to capture
+        the current layout.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {presets.map((preset) => (
+        <CustomPresetCard
+          key={preset.id}
+          preset={preset}
+          canvas={canvas}
+          aspect={aspect}
+          active={activeCustomPresetId === preset.id}
+          onApply={onApply}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  )
+}
+
+const CustomPresetCard = React.memo(function CustomPresetCard({
+  preset,
+  canvas,
+  aspect,
+  active,
+  onApply,
+  onDelete,
+}: {
+  preset: CustomPresetSummary
+  canvas: CanvasState
+  aspect: AspectState
+  active: boolean
+  onApply: (preset: CustomPresetSummary) => void
+  onDelete: (id: string) => void | Promise<void>
+}) {
+  const aw = aspect.w || 16
+  const ah = aspect.h || 10
+  const aspectStyle: React.CSSProperties = { aspectRatio: `${aw} / ${ah}` }
+  const handleApply = React.useCallback(() => onApply(preset), [onApply, preset])
+
+  const virtualCanvas = React.useMemo<CanvasState>(() => {
+    const geometry: CustomPresetGeometry = preset.geometry
+    const style = geometry.canvasStyle
+    const virtualSlots: ScreenshotSlot[] = geometry.slots.map((cfg, i) => ({
+      id: `_custom_preview_${preset.id}_${i}`,
+      src: canvas.screenshotSlots[i]?.src ?? null,
+      xPct: cfg.xPct,
+      yPct: cfg.yPct,
+      widthPct: cfg.widthPct ?? 60,
+      heightPct: cfg.heightPct ?? 28,
+      rotation: cfg.rotation,
+      tilt: cfg.tilt,
+      scale: cfg.scale,
+      zIndex: cfg.zIndex ?? i + 1,
+      filter: cfg.filter ?? "none",
+      hidden: cfg.hidden,
+      objectFit: cfg.objectFit,
+      shadow: cfg.shadow,
+    }))
+    const offsetPx = resolveMainOffsetPx(geometry.mainOffset)
+    return {
+      ...canvas,
+      // Layer the saved style on top of the live canvas so the preview shows
+      // the saved background/backdrop/border/shadow/etc. The screenshot
+      // pixels still come from the live canvas, since the preset doesn't
+      // carry images.
+      ...(style?.background ? { background: style.background } : {}),
+      ...(style && typeof style.padding === "number"
+        ? { padding: style.padding }
+        : {}),
+      ...(style && typeof style.borderRadius === "number"
+        ? { borderRadius: style.borderRadius }
+        : {}),
+      ...(style && typeof style.canvasBorderRadius === "number"
+        ? { canvasBorderRadius: style.canvasBorderRadius }
+        : {}),
+      ...(style?.border ? { border: style.border } : {}),
+      ...(style?.backdrop ? { backdrop: style.backdrop } : {}),
+      ...(style?.screenshotLayer
+        ? { screenshotLayer: style.screenshotLayer }
+        : {}),
+      ...(style?.shadow ? { shadow: style.shadow } : {}),
+      ...(style?.overlay ? { overlay: style.overlay } : {}),
+      ...(style?.frame ? { frame: style.frame } : {}),
+      ...(style?.portrait ? { portrait: style.portrait } : {}),
+      ...(style?.enhance ? { enhance: style.enhance } : {}),
+      ...(style?.objectFit ? { objectFit: style.objectFit } : {}),
+      ...(Array.isArray(style?.texts) ? { texts: style.texts } : {}),
+      ...(Array.isArray(style?.assets) ? { assets: style.assets } : {}),
+      ...(Array.isArray(style?.annotations)
+        ? { annotations: style.annotations }
+        : {}),
+      ...(Array.isArray(style?.annotationShapes)
+        ? { annotationShapes: style.annotationShapes }
+        : {}),
+      tilt: geometry.canvasTilt,
+      scale: geometry.canvasScale,
+      screenshotSlots: virtualSlots,
+      screenshotPosition: style?.screenshotPosition ?? "center",
+      screenshotOffset: offsetPx,
+    }
+  }, [canvas, preset])
+
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+
+  return (
+    <div className="group/preset relative">
+      <PresetCardShell
+        active={active}
+        ariaLabel={preset.name}
+        onApply={handleApply}
+        aspectStyle={aspectStyle}
+        intrinsicSize="auto 220px"
+        name={preset.name}
+      >
+        <CanvasPresetPreview
+          aspect={aspect}
+          virtualCanvas={virtualCanvas}
+          previewId={`_preset_preview_custom_${preset.id}`}
+        />
+      </PresetCardShell>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setDeleteOpen(true) }}
+          aria-label={`Delete ${preset.name}`}
+          className="absolute top-3 right-3 z-10 inline-flex size-6 items-center justify-center rounded-full border border-white/12 bg-background/80 text-muted-foreground opacity-0 transition-opacity group-hover/preset:opacity-100 hover:border-destructive/45 hover:bg-destructive/15 hover:text-destructive focus:opacity-100"
+        >
+          <RiDeleteBinLine className="size-3.5" />
+        </button>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete preset?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{preset.name}&rdquo; will be permanently deleted. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void onDelete(preset.id)}
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+})
 
 /**
  * Defer the heavy preview render until the card scrolls near the viewport.
@@ -843,11 +1162,11 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
       canvasAspect
     )
     const virtualSlots: ScreenshotSlot[] = geometry.slots.map((cfg, i) => {
-      const naturalSlotX = naturalLayout[i + 1]?.xPct ?? 75
-      const xPct = geometry.relativeSlotPositions
-        ? naturalSlotX + cfg.xPct
-        : cfg.xPct
-      const yPct = geometry.relativeSlotPositions ? 50 + cfg.yPct : cfg.yPct
+      const { xPct, yPct } = resolveSlotPositionPct({
+        config: cfg,
+        naturalSlotXPct: naturalLayout[i + 1]?.xPct ?? 75,
+        relativeSlotPositions: geometry.relativeSlotPositions,
+      })
       return {
         id: `_layout_preview_${i}`,
         src: canvas.screenshotSlots[i]?.src ?? null,
@@ -862,13 +1181,7 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
         filter: "none" as const,
       }
     })
-    const PRESET_DESIGN_HEIGHT = BASE_CANVAS_WIDTH * (10 / 16)
-    const offsetPx = geometry.mainOffset
-      ? {
-          x: (geometry.mainOffset.xPct / 100) * BASE_CANVAS_WIDTH,
-          y: (geometry.mainOffset.yPct / 100) * PRESET_DESIGN_HEIGHT,
-        }
-      : { x: 0, y: 0 }
+    const offsetPx = resolveMainOffsetPx(geometry.mainOffset)
     return {
       ...canvas,
       tilt: geometry.canvasTilt,

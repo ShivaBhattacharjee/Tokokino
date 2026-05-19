@@ -56,6 +56,114 @@ import type {
 import { editorValueSchemas } from "@/lib/editor/value-schemas"
 import { cn } from "@/lib/utils"
 
+const FIT_OPTIONS: {
+  value: "contain" | "cover" | "fill"
+  label: string
+  icon: React.ReactNode
+}[] = [
+  {
+    value: "contain",
+    label: "Contain",
+    icon: (
+      <svg viewBox="0 0 32 32" className="size-full" fill="none">
+        <rect
+          x="2"
+          y="2"
+          width="28"
+          height="28"
+          rx="3"
+          className="stroke-current opacity-30"
+          strokeWidth="1.5"
+          strokeDasharray="3 2"
+        />
+        <rect
+          x="7"
+          y="5"
+          width="18"
+          height="22"
+          rx="2"
+          className="fill-current opacity-25"
+        />
+        <rect
+          x="7"
+          y="5"
+          width="18"
+          height="22"
+          rx="2"
+          className="stroke-current"
+          strokeWidth="1.5"
+        />
+      </svg>
+    ),
+  },
+  {
+    value: "cover",
+    label: "Cover",
+    icon: (
+      <svg viewBox="0 0 32 32" className="size-full" fill="none">
+        <rect
+          x="2"
+          y="2"
+          width="28"
+          height="28"
+          rx="3"
+          className="stroke-current opacity-30"
+          strokeWidth="1.5"
+          strokeDasharray="3 2"
+        />
+        <rect
+          x="2"
+          y="2"
+          width="28"
+          height="28"
+          rx="3"
+          className="fill-current opacity-25"
+        />
+        <rect
+          x="-2"
+          y="4"
+          width="36"
+          height="24"
+          rx="2"
+          className="stroke-current"
+          strokeWidth="1.5"
+        />
+      </svg>
+    ),
+  },
+  {
+    value: "fill",
+    label: "Fill",
+    icon: (
+      <svg viewBox="0 0 32 32" className="size-full" fill="none">
+        <rect
+          x="2"
+          y="2"
+          width="28"
+          height="28"
+          rx="3"
+          className="fill-current opacity-25"
+        />
+        <rect
+          x="2"
+          y="2"
+          width="28"
+          height="28"
+          rx="3"
+          className="stroke-current"
+          strokeWidth="1.5"
+        />
+        <path
+          d="M8 8L5 5M24 8l3-3M8 24l-3 3M24 24l3 3"
+          className="stroke-current opacity-50"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+]
+
 const ENHANCE_PRESETS: {
   id: EnhancePreset
   label: string
@@ -509,29 +617,45 @@ export function FloatingToolbar() {
         ) : null}
       </AnimatePresence>
 
-      <div
-        data-mode={isAnnotateMode ? "annotate" : "default"}
-        className={cn(
-          "pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md",
-          "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        )}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={isAnnotateMode ? "annotate" : "default"}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
-            className="flex items-center gap-0.5"
-          >
-            {isAnnotateMode ? (
-              <AnnotationToolbar onExit={() => setActiveTool("pointer")} />
-            ) : (
-              <DefaultToolbarContents />
-            )}
-          </motion.div>
+      <div className="flex items-center gap-2">
+        <AnimatePresence initial={false}>
+          {!isAnnotateMode && (
+            <motion.div
+              key="media-pill"
+              initial={{ opacity: 0, x: -8, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -8, scale: 0.95 }}
+              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            >
+              <ScreenshotMediaPill />
+            </motion.div>
+          )}
         </AnimatePresence>
+
+        <div
+          data-mode={isAnnotateMode ? "annotate" : "default"}
+          className={cn(
+            "pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md",
+            "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          )}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={isAnnotateMode ? "annotate" : "default"}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              className="flex items-center gap-0.5"
+            >
+              {isAnnotateMode ? (
+                <AnnotationToolbar onExit={() => setActiveTool("pointer")} />
+              ) : (
+                <DefaultToolbarContents />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   )
@@ -567,15 +691,11 @@ function DefaultToolbarContents() {
     updateText,
     updateAsset,
     updateAnnotationShape,
-    addScreenshotSlot,
     screenshotSlots,
     updateScreenshotSlot,
     setSelectedScreenshotSlotId,
     setScreenshotSlotGroupPosition,
-    objectFit,
-    setObjectFit,
   } = useEditor()
-  const presetTab = useEditorStore((s) => s.presetTab)
   const assetInputRef = React.useRef<HTMLInputElement>(null)
 
   const selectedText = selectedTextId
@@ -927,196 +1047,6 @@ function DefaultToolbarContents() {
       >
         <RiImageAddLine className="size-4" />
       </ToolbarButton>
-      <ToolbarButton
-        aria-label="Add screenshot box"
-        tooltip={
-          presetTab === "multi" || presetTab === "triple"
-            ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
-            : screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
-              ? `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
-              : "Add screenshot box"
-        }
-        disabled={
-          presetTab === "multi" ||
-          presetTab === "triple" ||
-          screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
-        }
-        onClick={() => {
-          const id = addScreenshotSlot()
-          if (id) {
-            setSelectedScreenshotSlotId(id)
-            setSelectedTextId(null)
-            setSelectedAssetId(null)
-            setSelectedAnnotationShapeId(null)
-            setIsScreenshotSelected(false)
-          } else {
-            toast.error(
-              `Screenshot box limit reached (${MAX_SCREENSHOT_SLOTS})`
-            )
-          }
-        }}
-      >
-        <RiGalleryLine className="size-4" />
-      </ToolbarButton>
-
-      {(() => {
-        const fitHasScreenshot = selectedSlot
-          ? Boolean(selectedSlot.src)
-          : Boolean(screenshot)
-        const showImageFit = fitHasScreenshot
-        if (!showImageFit) return null
-        const currentFit = selectedSlot?.objectFit ?? objectFit ?? "cover"
-        const FIT_OPTIONS: {
-          value: "contain" | "cover" | "fill"
-          label: string
-          icon: React.ReactNode
-        }[] = [
-          {
-            value: "contain",
-            label: "Contain",
-            icon: (
-              <svg viewBox="0 0 32 32" className="size-full" fill="none">
-                <rect
-                  x="2"
-                  y="2"
-                  width="28"
-                  height="28"
-                  rx="3"
-                  className="stroke-current opacity-30"
-                  strokeWidth="1.5"
-                  strokeDasharray="3 2"
-                />
-                <rect
-                  x="7"
-                  y="5"
-                  width="18"
-                  height="22"
-                  rx="2"
-                  className="fill-current opacity-25"
-                />
-                <rect
-                  x="7"
-                  y="5"
-                  width="18"
-                  height="22"
-                  rx="2"
-                  className="stroke-current"
-                  strokeWidth="1.5"
-                />
-              </svg>
-            ),
-          },
-          {
-            value: "cover",
-            label: "Cover",
-            icon: (
-              <svg viewBox="0 0 32 32" className="size-full" fill="none">
-                <rect
-                  x="2"
-                  y="2"
-                  width="28"
-                  height="28"
-                  rx="3"
-                  className="stroke-current opacity-30"
-                  strokeWidth="1.5"
-                  strokeDasharray="3 2"
-                />
-                <rect
-                  x="2"
-                  y="2"
-                  width="28"
-                  height="28"
-                  rx="3"
-                  className="fill-current opacity-25"
-                />
-                <rect
-                  x="-2"
-                  y="4"
-                  width="36"
-                  height="24"
-                  rx="2"
-                  className="stroke-current"
-                  strokeWidth="1.5"
-                />
-              </svg>
-            ),
-          },
-          {
-            value: "fill",
-            label: "Fill",
-            icon: (
-              <svg viewBox="0 0 32 32" className="size-full" fill="none">
-                <rect
-                  x="2"
-                  y="2"
-                  width="28"
-                  height="28"
-                  rx="3"
-                  className="fill-current opacity-25"
-                />
-                <rect
-                  x="2"
-                  y="2"
-                  width="28"
-                  height="28"
-                  rx="3"
-                  className="stroke-current"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M8 8L5 5M24 8l3-3M8 24l-3 3M24 24l3 3"
-                  className="stroke-current opacity-50"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            ),
-          },
-        ]
-        return (
-          <ToolbarPopover
-            tooltip="Image fit"
-            contentClassName="w-56 p-2"
-            trigger={({ open }) => (
-              <ToolbarButton aria-label="Image fit" active={open}>
-                <RiFullscreenLine className="size-4" />
-              </ToolbarButton>
-            )}
-          >
-            <div className="flex flex-col gap-2">
-              <span className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                Image Fit
-              </span>
-              <div className="grid grid-cols-3 gap-1.5">
-                {FIT_OPTIONS.map(({ value, label, icon }) => (
-                  <button
-                    key={value}
-                    onClick={() => {
-                      if (selectedSlot) {
-                        updateScreenshotSlot(selectedSlot.id, {
-                          objectFit: value,
-                        })
-                      } else {
-                        setObjectFit(value)
-                      }
-                    }}
-                    className={cn(
-                      "flex cursor-pointer flex-col items-center gap-1.5 rounded-md border px-2 py-2.5 text-[11px] transition-all",
-                      currentFit === value
-                        ? "border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/20"
-                        : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-foreground/30"
-                    )}
-                  >
-                    <span className="size-7">{icon}</span>
-                    <span className="font-medium">{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </ToolbarPopover>
-        )
-      })()}
-
       <span className="mx-1 h-5 w-px bg-border" />
       {items.map((it) => {
         const isActive = activeTool === it.id
@@ -1381,6 +1311,149 @@ function DefaultToolbarContents() {
         <span className="text-base leading-none">+</span>
       </ToolbarButton>
     </>
+  )
+}
+
+function ScreenshotMediaPill() {
+  const {
+    addScreenshotSlot,
+    screenshotSlots,
+    updateScreenshotSlot,
+    setSelectedScreenshotSlotId,
+    setSelectedTextId,
+    setSelectedAssetId,
+    setSelectedAnnotationShapeId,
+    setIsScreenshotSelected,
+    setActiveTool,
+    screenshot,
+    objectFit,
+    setObjectFit,
+  } = useEditor()
+  const presetTab = useEditorStore((s) => s.presetTab)
+  const selectedScreenshotSlotId = useEditorStore(
+    (s) => s.selectedScreenshotSlotId
+  )
+  const selectedSlot = selectedScreenshotSlotId
+    ? screenshotSlots.find((slot) => slot.id === selectedScreenshotSlotId)
+    : null
+
+  const fitHasScreenshot = selectedSlot
+    ? Boolean(selectedSlot.src)
+    : Boolean(screenshot)
+  const currentFit = selectedSlot?.objectFit ?? objectFit ?? "cover"
+
+  const isDisabled =
+    presetTab === "multi" ||
+    presetTab === "triple" ||
+    screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
+
+  const slotTooltip = isDisabled
+    ? presetTab === "multi" || presetTab === "triple"
+      ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
+      : `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
+    : undefined
+
+  return (
+    <div className="pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Add screenshot box"
+            disabled={isDisabled}
+            onClick={() => {
+              const id = addScreenshotSlot()
+              if (id) {
+                setSelectedScreenshotSlotId(id)
+                setSelectedTextId(null)
+                setSelectedAssetId(null)
+                setSelectedAnnotationShapeId(null)
+                setIsScreenshotSelected(false)
+                setActiveTool("pointer")
+              } else {
+                toast.error(
+                  `Screenshot box limit reached (${MAX_SCREENSHOT_SLOTS})`
+                )
+              }
+            }}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <RiGalleryLine className="size-4 shrink-0" />
+            Add Slot
+          </button>
+        </TooltipTrigger>
+        {slotTooltip && (
+          <TooltipContent side="top">{slotTooltip}</TooltipContent>
+        )}
+      </Tooltip>
+
+      {fitHasScreenshot ? (
+        <ToolbarPopover
+          tooltip="Image fit"
+          contentClassName="w-56 p-2"
+          trigger={({ open }) => (
+            <button
+              type="button"
+              aria-label="Image fit"
+              aria-pressed={open}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent",
+                open && "bg-accent text-foreground"
+              )}
+            >
+              <RiFullscreenLine className="size-4 shrink-0" />
+              Fit
+            </button>
+          )}
+        >
+          <div className="flex flex-col gap-2">
+            <span className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+              Image Fit
+            </span>
+            <div className="grid grid-cols-3 gap-1.5">
+              {FIT_OPTIONS.map(({ value, label, icon }) => (
+                <button
+                  key={value}
+                  onClick={() => {
+                    if (selectedSlot) {
+                      updateScreenshotSlot(selectedSlot.id, {
+                        objectFit: value,
+                      })
+                    } else {
+                      setObjectFit(value)
+                    }
+                  }}
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center gap-1.5 rounded-md border px-2 py-2.5 text-[11px] transition-all",
+                    currentFit === value
+                      ? "border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/20"
+                      : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-foreground/30"
+                  )}
+                >
+                  <span className="size-7">{icon}</span>
+                  <span className="font-medium">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </ToolbarPopover>
+      ) : (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              disabled
+              aria-label="Image fit"
+              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 opacity-40"
+            >
+              <RiFullscreenLine className="size-4 shrink-0" />
+              Fit
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">Add a screenshot first</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
   )
 }
 

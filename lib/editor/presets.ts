@@ -168,7 +168,7 @@ export const SOLID_PRESETS = [
 ]
 
 export const BACKGROUND_LIBRARY: BackgroundCategory[] =
-  BACKGROUND_DATA as BackgroundCategory[]
+  BACKGROUND_DATA
 
 export const DEFAULT_IMAGE_BACKGROUND =
   BACKGROUND_LIBRARY[0]?.items[0]?.full ?? ""

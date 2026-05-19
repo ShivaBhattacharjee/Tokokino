@@ -345,7 +345,11 @@ export type ScreenshotSlot = {
   filter: AssetFilter
   hidden?: boolean
   objectFit?: "contain" | "cover" | "fill"
+  border?: Border
+  borderRadius?: number
+  padding?: number
   shadow?: Shadow
+  lighting?: BackdropLighting
 }
 
 export type CanvasPosition = { x: number; y: number }

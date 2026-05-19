@@ -55,19 +55,13 @@ export function AnnotationShapeToolbar({
         rounded="md"
         cursor="move"
         onPointerDown={
-          onDragPointerDown as unknown as (
-            e: React.PointerEvent<HTMLButtonElement>
-          ) => void
+          onDragPointerDown
         }
         onPointerMove={
-          onDragPointerMove as unknown as (
-            e: React.PointerEvent<HTMLButtonElement>
-          ) => void
+          onDragPointerMove
         }
         onPointerUp={
-          onDragPointerUp as unknown as (
-            e: React.PointerEvent<HTMLButtonElement>
-          ) => void
+          onDragPointerUp
         }
       />
 

@@ -151,11 +151,15 @@ export function ScreenshotSlotRender({
 }: ScreenshotSlotRenderProps) {
   const shared = useCanvasSharedStyle()
   const effectiveShadow = slot.shadow ?? shared.shadow
+  const effectiveBorder = slot.border ?? shared.border
+  const effectiveBorderRadius = slot.borderRadius ?? shared.borderRadius
+  const effectivePadding = slot.padding ?? shared.padding
+  const effectiveLighting = slot.lighting ?? shared.lighting
   const computedShadowFilter = shadowDropFilterCss(effectiveShadow)
   const enhanceFilter = enhanceFilterCss(shared.enhance)
   const innerLightingStyle =
-    shared.lighting.target === "inner"
-      ? lightingOverlayCss(shared.lighting, { inner: true })
+    effectiveLighting.target === "inner"
+      ? lightingOverlayCss(effectiveLighting, { inner: true })
       : null
   const filterChain = [enhanceFilter, assetFilterCss(slot.filter)]
     .filter(Boolean)
@@ -189,11 +193,11 @@ export function ScreenshotSlotRender({
   }
 
   const contentStyle: React.CSSProperties = {
-    padding: `${Math.max(0, Math.min(240, shared.padding)) / 12}%`,
+    padding: `${Math.max(0, Math.min(240, effectivePadding)) / 12}%`,
   }
 
-  const imageBoxOutline = shared.border
-  const bareBorderRadius = shared.borderRadius
+  const imageBoxOutline = effectiveBorder
+  const bareBorderRadius = effectiveBorderRadius
   const selectionRadius = frameSelectionRadius(shared.frame.id, bareBorderRadius)
   const transformedStyle: React.CSSProperties = {
     opacity: shared.opacity / 100,
