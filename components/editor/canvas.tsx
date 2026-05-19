@@ -514,7 +514,7 @@ function CanvasViewInner({
               imgStyle={imgStyle}
               shadowFilter={computedShadowFilter}
               filterChain={enhanceFilter}
-              isSelected={isScreenshotSelected}
+              isSelected={isScreenshotSelected && isActive}
               bulkCanvasDragging={bulkCanvasDragging}
               toolbarScale={
                 bulkEditMode ? bulkToolbarScale(bulkViewportZoom) : 1
@@ -661,7 +661,7 @@ function CanvasViewInner({
                     screenshotTop={screenshotTop}
                     placementDims={placementDims}
                     screenshotLayer={screenshotLayer}
-                    isScreenshotSelected={isScreenshotSelected}
+                    isScreenshotSelected={isScreenshotSelected && isActive}
                     isScreenshotDragging={isScreenshotDragging}
                     suppressTransition={suppressTransition}
                     activeTool={activeTool}

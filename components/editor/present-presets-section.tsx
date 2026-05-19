@@ -452,7 +452,10 @@ function TabTriggerRow({
 export function PresentPresetsSection() {
   const canvas = useActiveCanvasField((c) => c)
   const activeCanvasId = useActiveCanvasId()
-  const aspect = useEditorStore((s) => s.present.aspect)
+  const globalAspect = useEditorStore((s) => s.present.aspect)
+  const canvasAspect = useActiveCanvasField((c) => c.aspect)
+  const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const aspect = bulkEditMode ? (canvasAspect ?? globalAspect) : globalAspect
   const setTiltAndScale = useEditorStore((s) => s.setTiltAndScale)
   const setScreenshotPosition = useEditorStore((s) => s.setScreenshotPosition)
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
@@ -982,7 +985,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
           type="button"
           onClick={(e) => { e.stopPropagation(); setDeleteOpen(true) }}
           aria-label={`Delete ${preset.name}`}
-          className="absolute top-3 right-3 z-10 inline-flex size-6 items-center justify-center rounded-full border border-white/12 bg-background/80 text-muted-foreground opacity-0 transition-opacity group-hover/preset:opacity-100 hover:border-destructive/45 hover:bg-destructive/15 hover:text-destructive focus:opacity-100"
+          className="absolute top-3 right-3 z-[1] inline-flex size-6 items-center justify-center rounded-full border border-white/12 bg-background/80 text-muted-foreground opacity-0 transition-opacity group-hover/preset:opacity-100 hover:border-destructive/45 hover:text-destructive focus:opacity-100"
         >
           <RiDeleteBinLine className="size-3.5" />
         </button>
