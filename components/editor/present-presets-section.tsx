@@ -338,9 +338,13 @@ function TabIcon({ t, active }: { t: PresetTab; active: boolean }) {
 }
 
 function isTabDisabled(t: PresetTab, slotCount: number): boolean {
-  if (t === "multi") return slotCount > 1
+  if (t === "multi") return slotCount > 2
   if (t === "triple") return slotCount > 2
   return false
+}
+
+function tabNeedsDowngradeConfirm(t: PresetTab, slotCount: number): boolean {
+  return t === "multi" && slotCount === 2
 }
 
 const PRESET_TABS: PresetTab[] = ["single", "multi", "triple", "custom"]
@@ -349,10 +353,12 @@ function TabTriggerRow({
   tab,
   slotCount,
   onTabChange,
+  onTabChangeWithConfirm,
 }: {
   tab: PresetTab
   slotCount: number
   onTabChange: (t: PresetTab) => void
+  onTabChangeWithConfirm: (t: PresetTab) => void
 }) {
   const [open, setOpen] = React.useState(false)
   return (
@@ -398,10 +404,11 @@ function TabTriggerRow({
                 <div className="grid grid-cols-2 gap-1.5">
                   {PRESET_TABS.map((t) => {
                     const disabled = isTabDisabled(t, slotCount)
+                    const needsConfirm = tabNeedsDowngradeConfirm(t, slotCount)
                     const disabledReason =
                       t === "multi"
-                        ? "Multi supports 2 screenshot boxes. Delete a slot to switch."
-                        : "Triple supports 3 screenshot boxes. Delete a slot to switch."
+                        ? "Multi supports up to 2 screenshot boxes. Delete slots to switch."
+                        : "Triple supports up to 3 screenshot boxes. Delete a slot to switch."
                     return (
                       <Tooltip key={t} open={disabled ? undefined : false}>
                         <TooltipTrigger asChild>
@@ -409,8 +416,12 @@ function TabTriggerRow({
                             disabled={disabled}
                             onClick={() => {
                               if (disabled) return
-                              onTabChange(t)
                               setOpen(false)
+                              if (needsConfirm) {
+                                onTabChangeWithConfirm(t)
+                              } else {
+                                onTabChange(t)
+                              }
                             }}
                             className={cn(
                               "flex flex-1 flex-col items-center gap-2 rounded-lg border p-2.5 transition-colors",
@@ -478,6 +489,9 @@ export function PresentPresetsSection() {
   const setActiveCustomPresetId = useEditorStore(
     (s) => s.setActiveCustomPresetId
   )
+  const deleteScreenshotSlot = useEditorStore((s) => s.deleteScreenshotSlot)
+  const [downgradeDialogOpen, setDowngradeDialogOpen] = React.useState(false)
+  const [pendingTab, setPendingTab] = React.useState<PresetTab | null>(null)
   const { data: session } = useSession()
   const userId = session?.user?.id ?? null
 
@@ -691,12 +705,45 @@ export function PresentPresetsSection() {
     ]
   )
 
+  const handleTabChangeWithConfirm = React.useCallback((t: PresetTab) => {
+    setPendingTab(t)
+    setDowngradeDialogOpen(true)
+  }, [])
+
+  const handleDowngradeConfirm = React.useCallback(() => {
+    if (!pendingTab) return
+    const lastSlot = canvas.screenshotSlots[canvas.screenshotSlots.length - 1]
+    if (lastSlot) deleteScreenshotSlot(lastSlot.id)
+    setTab(pendingTab)
+    setPendingTab(null)
+    setDowngradeDialogOpen(false)
+  }, [canvas.screenshotSlots, deleteScreenshotSlot, pendingTab, setTab])
+
   React.useEffect(() => {
     return () => presetMotionCleanupRef.current?.()
   }, [])
 
   return (
     <div className="space-y-3">
+      <AlertDialog open={downgradeDialogOpen} onOpenChange={setDowngradeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Switch to Multi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Multi only supports 2 screenshot boxes. Switching will delete the last screenshot slot. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingTab(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDowngradeConfirm}
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+            >
+              Delete &amp; Switch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="sticky top-0 z-10 bg-sidebar pb-1">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-[13px] font-medium text-foreground">Presets</p>
@@ -713,7 +760,7 @@ export function PresentPresetsSection() {
             </button>
           )}
         </div>
-        <TabTriggerRow tab={tab} slotCount={canvas.screenshotSlots.length} onTabChange={setTab} />
+        <TabTriggerRow tab={tab} slotCount={canvas.screenshotSlots.length} onTabChange={setTab} onTabChangeWithConfirm={handleTabChangeWithConfirm} />
       </div>
 
       {tab === "single" && (
