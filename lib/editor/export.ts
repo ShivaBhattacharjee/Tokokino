@@ -221,13 +221,22 @@ function makeExportStyle(scopeId: string) {
 }
 
 function prepareExportNode(source: HTMLElement, width: number, height: number) {
+  const wrapper = document.createElement("div")
   const node = source.cloneNode(true) as HTMLElement
   const scopeId = `export-${Date.now()}-${Math.random().toString(36).slice(2)}`
   const exportStyle = makeExportStyle(scopeId)
 
+  wrapper.style.position = "fixed"
+  wrapper.style.left = "-100000px"
+  wrapper.style.top = "0"
+  wrapper.style.width = `${width}px`
+  wrapper.style.height = `${height}px`
+  wrapper.style.overflow = "hidden"
+  wrapper.style.pointerEvents = "none"
+
   node.setAttribute("data-export-scope", scopeId)
-  node.style.position = "fixed"
-  node.style.left = "-100000px"
+  node.style.position = "relative"
+  node.style.left = "0"
   node.style.top = "0"
   node.style.width = `${width}px`
   node.style.height = `${height}px`
@@ -235,12 +244,13 @@ function prepareExportNode(source: HTMLElement, width: number, height: number) {
   node.style.transform = "none"
 
   document.head.appendChild(exportStyle)
-  document.body.appendChild(node)
+  wrapper.appendChild(node)
+  document.body.appendChild(wrapper)
 
   return {
     node,
     cleanup: () => {
-      node.remove()
+      wrapper.remove()
       exportStyle.remove()
     },
   }
@@ -445,6 +455,8 @@ export async function captureCanvasThumbnail(
     offscreen.height = bitmap.height
     const ctx = offscreen.getContext("2d")
     if (!ctx) return null
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height)
     ctx.drawImage(bitmap, 0, 0)
     return await new Promise<Blob | null>((resolve) =>
       offscreen.toBlob(resolve, "image/jpeg", 0.8)
