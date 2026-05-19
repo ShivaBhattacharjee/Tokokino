@@ -19,7 +19,6 @@
     "typecheck": "tsc --noEmit",
     "prepare": "husky",
     "build:thumbs": "node scripts/build-overlay-thumbs.mjs",
-    "build:device-mockup-thumbs": "node scripts/build-device-mockup-thumbs.mjs",
     "build:backgrounds": "node scripts/build-background-thumbs.mjs"
   },
   "lint-staged": {
