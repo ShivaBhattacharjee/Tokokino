@@ -37,6 +37,14 @@ export async function POST(request: Request) {
   const auth = await requireSession(request)
   if (!auth.ok) return auth.response
 
+  const contentLength = Number(request.headers.get("content-length") ?? "0")
+  if (contentLength > MAX_DRAFT_BYTES) {
+    return NextResponse.json(
+      { error: "Project is too large to save" },
+      { status: 413 }
+    )
+  }
+
   const body: unknown = await request.json().catch(() => null)
   const parsed = createDraftBodySchema.safeParse(body)
   if (!parsed.success) {

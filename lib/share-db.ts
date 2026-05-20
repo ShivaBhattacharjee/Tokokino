@@ -122,29 +122,20 @@ export async function recordShareView(id: string, requestHeaders: Headers) {
   const ipHash = hashIpAddress(getClientIp(requestHeaders))
   const userAgent = requestHeaders.get("user-agent")
 
+  let uniqueViewCount = 0
   try {
-    await shareViews.insertOne({
-      shareId: id,
-      ipHash,
-      userAgent,
-      firstViewedAt: now,
-      lastViewedAt: now,
-      visitCount: 1,
-    })
-
-    const updated = await shares.findOneAndUpdate(
-      { id },
+    const viewResult = await shareViews.updateOne(
+      { shareId: id, ipHash },
       {
-        $inc: { viewCount: 1, uniqueViewCount: 1 },
-        $set: { lastViewedAt: now, updatedAt: now },
+        $inc: { visitCount: 1 },
+        $set: { lastViewedAt: now, userAgent },
+        $setOnInsert: { shareId: id, ipHash, firstViewedAt: now },
       },
-      { returnDocument: "after" }
+      { upsert: true }
     )
-
-    return updated ?? share
+    uniqueViewCount = viewResult.upsertedCount > 0 ? 1 : 0
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error
-
     await shareViews.updateOne(
       { shareId: id, ipHash },
       {
@@ -152,18 +143,18 @@ export async function recordShareView(id: string, requestHeaders: Headers) {
         $set: { lastViewedAt: now, userAgent },
       }
     )
-
-    const updated = await shares.findOneAndUpdate(
-      { id },
-      {
-        $inc: { viewCount: 1 },
-        $set: { lastViewedAt: now, updatedAt: now },
-      },
-      { returnDocument: "after" }
-    )
-
-    return updated ?? share
   }
+
+  const updated = await shares.findOneAndUpdate(
+    { id },
+    {
+      $inc: { viewCount: 1, uniqueViewCount },
+      $set: { lastViewedAt: now, updatedAt: now },
+    },
+    { returnDocument: "after" }
+  )
+
+  return updated ?? share
 }
 
 function getClientIp(requestHeaders: Headers) {
@@ -178,7 +169,7 @@ function getClientIp(requestHeaders: Headers) {
 }
 
 function hashIpAddress(ip: string) {
-  const secret = env.BETTER_AUTH_SECRET 
+  const secret = env.BETTER_AUTH_SECRET
   return createHash("sha256").update(`${secret}:${ip}`).digest("hex")
 }
 

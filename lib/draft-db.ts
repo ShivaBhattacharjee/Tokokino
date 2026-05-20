@@ -67,12 +67,6 @@ export async function getDraft({
   return collection.findOne({ id, userId })
 }
 
-export async function getDraftById(id: string) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection.findOne({ id })
-}
-
 export async function createDraft({
   id,
   userId,

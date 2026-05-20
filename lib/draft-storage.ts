@@ -4,10 +4,10 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
-  S3Client,
 } from "@aws-sdk/client-s3"
 
 import { requireR2Config } from "@/lib/env"
+import { getR2Client } from "@/lib/r2-client"
 
 /**
  * R2-backed storage for the *thumbnails* that appear in the Open Project
@@ -16,22 +16,6 @@ import { requireR2Config } from "@/lib/env"
  */
 
 const MAX_DRAFT_THUMBNAIL_BYTES = 1 * 1024 * 1024
-
-let client: S3Client | null = null
-
-function getDraftClient() {
-  if (client) return client
-  const config = requireR2Config()
-  client = new S3Client({
-    region: "auto",
-    endpoint: config.endpoint,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
-  })
-  return client
-}
 
 export function getDraftThumbnailKey({
   userId,
@@ -59,7 +43,7 @@ export async function uploadDraftThumbnail({
   }
   const { bucket } = requireR2Config()
   const key = getDraftThumbnailKey({ userId, id })
-  await getDraftClient().send(
+  await getR2Client().send(
     new PutObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -80,7 +64,7 @@ export async function getDraftThumbnail({
   id: string
 }) {
   const { bucket } = requireR2Config()
-  return getDraftClient().send(
+  return getR2Client().send(
     new GetObjectCommand({
       Bucket: bucket,
       Key: getDraftThumbnailKey({ userId, id }),
@@ -99,7 +83,7 @@ export async function deleteDraftThumbnail({
 }) {
   if (!thumbnailKey) return
   const { bucket } = requireR2Config()
-  await getDraftClient()
+  await getR2Client()
     .send(new DeleteObjectCommand({ Bucket: bucket, Key: thumbnailKey }))
     .catch((err: unknown) => {
       console.warn("Failed to remove draft thumbnail", { userId, id, err })

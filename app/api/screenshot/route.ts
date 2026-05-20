@@ -20,6 +20,8 @@ const DESKTOP_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 const SCREENSHOT_CACHE_TTL_SECONDS = 300
 const MAX_SCREENSHOT_CACHE_ENTRIES = 30
+const SCREENSHOT_REQUEST_TIMEOUT_MS = 35000
+const SCREENSHOT_NAVIGATION_TIMEOUT_MS = 30000
 
 type ScreenshotCacheEntry = {
   buffer: ArrayBuffer
@@ -27,6 +29,7 @@ type ScreenshotCacheEntry = {
 }
 
 const screenshotCache = new Map<string, ScreenshotCacheEntry>()
+let cloudflareClient: Cloudflare | null = null
 
 function heightFromAspect(
   width: number,
@@ -74,7 +77,7 @@ export async function POST(request: Request) {
     return screenshotResponse(cached, "HIT")
   }
 
-  const client = new Cloudflare({ apiToken })
+  const client = getCloudflareClient(apiToken)
 
   const baseParams = {
     account_id: accountId,
@@ -91,30 +94,23 @@ export async function POST(request: Request) {
     screenshotOptions: { type: "png", captureBeyondViewport: false },
   } satisfies Cloudflare.BrowserRendering.ScreenshotCreateParams
 
-  // Some sites have long-polling / analytics that never let the network go
-  // idle. Try the stricter wait first; on timeout, retry with `load`.
-  const attempts: Array<{
-    waitUntil: "networkidle2" | "load"
-    timeout: number
-  }> = [
-    { waitUntil: "networkidle2", timeout: 60000 },
-    { waitUntil: "load", timeout: 60000 },
-  ]
-
   let lastError: APIError | null = null
-  for (const gotoOptions of attempts) {
-    try {
-      const cfResponse = await client.browserRendering.screenshot
-        .create({ ...baseParams, gotoOptions })
-        .asResponse()
-      const buffer = await cfResponse.arrayBuffer()
-      setCachedScreenshot(cacheKey, buffer)
-      return screenshotResponse(buffer, "MISS")
-    } catch (err) {
-      if (!(err instanceof APIError)) throw err
-      lastError = err
-      if (!isTimeoutError(err)) break
-    }
+  try {
+    const cfResponse = await client.browserRendering.screenshot
+      .create({
+        ...baseParams,
+        gotoOptions: {
+          waitUntil: "load",
+          timeout: SCREENSHOT_NAVIGATION_TIMEOUT_MS,
+        },
+      })
+      .asResponse()
+    const buffer = await cfResponse.arrayBuffer()
+    setCachedScreenshot(cacheKey, buffer)
+    return screenshotResponse(buffer, "MISS")
+  } catch (err) {
+    if (!(err instanceof APIError)) throw err
+    lastError = err
   }
 
   const friendly = isTimeoutError(lastError)
@@ -124,6 +120,17 @@ export async function POST(request: Request) {
     { error: friendly },
     { status: lastError?.status ?? 500 }
   )
+}
+
+function getCloudflareClient(apiToken: string) {
+  if (!cloudflareClient) {
+    cloudflareClient = new Cloudflare({
+      apiToken,
+      maxRetries: 1,
+      timeout: SCREENSHOT_REQUEST_TIMEOUT_MS,
+    })
+  }
+  return cloudflareClient
 }
 
 function screenshotCacheKey(payload: z.infer<typeof requestSchema>) {

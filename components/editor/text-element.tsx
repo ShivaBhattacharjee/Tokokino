@@ -79,6 +79,9 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     useEditor()
   const isSelected = selectedTextId === text.id
   const [editingRequested, setEditingRequested] = React.useState(false)
+  const [editingAutoWidthPx, setEditingAutoWidthPx] = React.useState<
+    number | null
+  >(null)
   const [isDragging, setIsDragging] = React.useState(false)
   const [isRotateSnapped, setIsRotateSnapped] = React.useState(false)
   const isEditing = isSelected && editingRequested
@@ -113,6 +116,10 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     if (!isEditing) return
     const node = editorRef.current
     if (!node) return
+    if (text.widthPx == null) {
+      const rect = textViewRef.current?.getBoundingClientRect()
+      setEditingAutoWidthPx(rect?.width ? Math.ceil(rect.width) : null)
+    }
     node.innerText = text.content
     node.focus()
     const range = document.createRange()
@@ -120,7 +127,12 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     const sel = window.getSelection()
     sel?.removeAllRanges()
     sel?.addRange(range)
-  }, [isEditing, text.content])
+  }, [isEditing, text.content, text.widthPx])
+
+  React.useEffect(() => {
+    if (isEditing) return
+    setEditingAutoWidthPx(null)
+  }, [isEditing])
 
 
   React.useEffect(() => {
@@ -551,7 +563,12 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
   const counterRotate = `rotate(${-text.rotation}deg)`
 
   // Compute outer dimensions
-  const outerWidth = text.widthPx != null ? `${text.widthPx}px` : "max-content"
+  const outerWidth =
+    text.widthPx != null
+      ? `${text.widthPx}px`
+      : isEditing && editingAutoWidthPx != null
+        ? `${editingAutoWidthPx}px`
+        : "max-content"
   const outerHeight = text.heightPx != null ? `${text.heightPx}px` : undefined
   // Center-anchored box can't extend past the nearer canvas edge while typing.
   const isXInside = text.xPct >= 0 && text.xPct <= 100
@@ -685,7 +702,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
         // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
           ref={editorRef}
-          contentEditable
+          contentEditable="plaintext-only"
           suppressContentEditableWarning
           spellCheck
           onBlur={commitContent}
@@ -697,14 +714,10 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
               e.preventDefault()
               commitContent()
             } else if (e.key === "Enter") {
-              // Cmd+Shift+Enter (Mac) / Ctrl+Shift+Enter (Win) = new line
-              if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
-                // Allow default behavior (inserts newline in contentEditable)
-                return
+              if (e.metaKey || e.ctrlKey) {
+                e.preventDefault()
+                commitContent()
               }
-              // Plain Enter = exit editing
-              e.preventDefault()
-              commitContent()
             }
           }}
           className={cn(

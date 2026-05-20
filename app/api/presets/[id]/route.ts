@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
-import { assertOwner, requireSession } from "@/lib/api-auth"
-import { deleteCustomPreset, getCustomPresetById, updateCustomPreset } from "@/lib/preset-db"
+import { requireSession } from "@/lib/api-auth"
+import { deleteCustomPreset, getCustomPreset, updateCustomPreset } from "@/lib/preset-db"
 
 export const runtime = "nodejs"
 
@@ -17,13 +17,9 @@ export async function PUT(
     return NextResponse.json({ error: "Missing preset id" }, { status: 400 })
   }
 
-  const existing = await getCustomPresetById(id)
-  const ownership = assertOwner({
-    session: auth.session,
-    ownerId: existing?.userId,
-  })
-  if (ownership || !existing) {
-    return ownership ?? NextResponse.json({ error: "Preset not found" }, { status: 404 })
+  const existing = await getCustomPreset({ id, userId: auth.session.user.id })
+  if (!existing) {
+    return NextResponse.json({ error: "Preset not found" }, { status: 404 })
   }
 
   let body: { name?: string; geometry?: unknown }
@@ -66,15 +62,6 @@ export async function DELETE(
   const { id } = await params
   if (!id) {
     return NextResponse.json({ error: "Missing preset id" }, { status: 400 })
-  }
-
-  const existing = await getCustomPresetById(id)
-  const ownership = assertOwner({
-    session: auth.session,
-    ownerId: existing?.userId,
-  })
-  if (ownership || !existing) {
-    return ownership ?? NextResponse.json({ error: "Preset not found" }, { status: 404 })
   }
 
   try {

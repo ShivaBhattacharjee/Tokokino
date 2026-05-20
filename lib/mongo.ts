@@ -8,12 +8,15 @@ const globalForMongo = globalThis as unknown as {
 }
 
 const mongoClientOptions: MongoClientOptions = {
-  connectTimeoutMS: 8000,
-  maxPoolSize: 5,
+  connectTimeoutMS: 10000,
+  maxConnecting: 2,
+  maxIdleTimeMS: 60000,
+  maxPoolSize: 20,
+  minPoolSize: 0,
   serverMonitoringMode: "poll",
-  serverSelectionTimeoutMS: 8000,
-  socketTimeoutMS: 10000,
-  waitQueueTimeoutMS: 8000,
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 30000,
+  waitQueueTimeoutMS: 15000,
 }
 
 function getMongoUri() {
@@ -32,7 +35,11 @@ export function getMongoClient() {
 
 export async function getConnectedMongoClient() {
   if (!globalForMongo.mongoClientPromise) {
-    globalForMongo.mongoClientPromise = getMongoClient().connect()
+    globalForMongo.mongoClientPromise = getMongoClient().connect().catch((error) => {
+      globalForMongo.mongoClient = undefined
+      globalForMongo.mongoClientPromise = undefined
+      throw error
+    })
   }
   return globalForMongo.mongoClientPromise
 }

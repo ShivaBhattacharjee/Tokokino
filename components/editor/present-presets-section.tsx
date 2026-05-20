@@ -1478,9 +1478,10 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
   )
 })
 
-// Render previews at a fraction of BASE_CANVAS_WIDTH — the sidebar cards
-// are ~260px wide, so 440px gives 2× quality without painting 1100px of pixels.
-const PRESET_PREVIEW_WIDTH = 440
+// Render the same intrinsic canvas as the editor, then scale it into the
+// thumbnail. Container-query UI, text size, and annotations then match the
+// live canvas instead of adapting to a smaller fake canvas.
+const PRESET_PREVIEW_WIDTH = BASE_CANVAS_WIDTH
 
 const CanvasPresetPreview = React.memo(function CanvasPresetPreview({
   aspect,

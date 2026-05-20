@@ -114,8 +114,14 @@ export async function deleteCustomPreset({
   return collection.deleteOne({ id, userId })
 }
 
-export async function getCustomPresetById(id: string) {
+export async function getCustomPreset({
+  id,
+  userId,
+}: {
+  id: string
+  userId: string
+}) {
   const collection = await getCollection()
   await ensureIndexes(collection)
-  return collection.findOne({ id })
+  return collection.findOne({ id, userId })
 }

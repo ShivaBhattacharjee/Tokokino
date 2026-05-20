@@ -17,14 +17,11 @@ export async function GET(
 
   try {
     const object = await getShareImage(id)
-    const image = await object.Body?.transformToByteArray()
+    const body = object.Body?.transformToWebStream()
 
-    if (!image) {
+    if (!body) {
       return NextResponse.json({ error: "Share image not found" }, { status: 404 })
     }
-
-    const body = new ArrayBuffer(image.byteLength)
-    new Uint8Array(body).set(image)
 
     return new NextResponse(body, {
       headers: {

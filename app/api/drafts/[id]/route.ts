@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 
-import { assertOwner, requireSession } from "@/lib/api-auth"
+import { requireSession } from "@/lib/api-auth"
 import {
   deleteDraft,
-  getDraftById,
+  getDraft,
   updateDraft,
 } from "@/lib/draft-db"
 import { deleteDraftThumbnail } from "@/lib/draft-storage"
@@ -23,13 +23,9 @@ export async function GET(
   if (!auth.ok) return auth.response
   const { id } = await params
 
-  const draft = await getDraftById(id)
-  const ownership = assertOwner({
-    session: auth.session,
-    ownerId: draft?.userId,
-  })
-  if (ownership || !draft) {
-    return ownership ?? NextResponse.json({ error: "Draft not found" }, { status: 404 })
+  const draft = await getDraft({ id, userId: auth.session.user.id })
+  if (!draft) {
+    return NextResponse.json({ error: "Draft not found" }, { status: 404 })
   }
 
   return NextResponse.json({
@@ -53,13 +49,17 @@ export async function PUT(
   if (!auth.ok) return auth.response
   const { id } = await params
 
-  const existing = await getDraftById(id)
-  const ownership = assertOwner({
-    session: auth.session,
-    ownerId: existing?.userId,
-  })
-  if (ownership || !existing) {
-    return ownership ?? NextResponse.json({ error: "Draft not found" }, { status: 404 })
+  const existing = await getDraft({ id, userId: auth.session.user.id })
+  if (!existing) {
+    return NextResponse.json({ error: "Draft not found" }, { status: 404 })
+  }
+
+  const contentLength = Number(request.headers.get("content-length") ?? "0")
+  if (contentLength > MAX_DRAFT_BYTES) {
+    return NextResponse.json(
+      { error: "Project is too large to save" },
+      { status: 413 }
+    )
   }
 
   const body: unknown = await request.json().catch(() => null)
@@ -120,17 +120,11 @@ export async function DELETE(
   if (!auth.ok) return auth.response
   const { id } = await params
 
-  const existing = await getDraftById(id)
-  const ownership = assertOwner({
-    session: auth.session,
-    ownerId: existing?.userId,
-  })
-  if (ownership || !existing) {
-    return ownership ?? NextResponse.json({ error: "Draft not found" }, { status: 404 })
-  }
-
   try {
-    await deleteDraft({ id, userId: auth.session.user.id })
+    const existing = await deleteDraft({ id, userId: auth.session.user.id })
+    if (!existing) {
+      return NextResponse.json({ error: "Draft not found" }, { status: 404 })
+    }
     await deleteDraftThumbnail({
       userId: auth.session.user.id,
       id,
