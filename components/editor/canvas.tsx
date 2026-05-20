@@ -190,7 +190,8 @@ function CanvasViewInner({
   const suppressTransitionSlots = useSuppressTransitionOnChange(
     screenshotSlots.length
   )
-  const suppressTransition = suppressTransitionPadding || suppressTransitionSlots
+  const suppressTransition =
+    suppressTransitionPadding || suppressTransitionSlots
   const inRowMode = screenshotSlots.length > 0
   const { placementDims, measurePlacement } = usePlacementMeasurement({
     enabled: Boolean(screenshot),
@@ -242,7 +243,6 @@ function CanvasViewInner({
             device: settings.device,
             width: settings.width,
             aspectRatio: settings.aspectRatio,
-            theme: settings.theme,
           }),
         })
         if (!res.ok) {
@@ -953,24 +953,24 @@ function CanvasViewInner({
       )}
 
       {!isCanvasPreview && (
-      <CropModal
-        open={croppingSlotId !== null}
-        onOpenChange={(open) => {
-          if (!open) setCroppingSlotId(null)
-        }}
-        screenshotUrl={
-          croppingSlotId
-            ? (screenshotSlots.find((s) => s.id === croppingSlotId)?.src ??
-              null)
-            : null
-        }
-        onCrop={(cropped) => {
-          if (croppingSlotId) {
-            setScreenshotSlotImage(croppingSlotId, cropped)
-            setCroppingSlotId(null)
+        <CropModal
+          open={croppingSlotId !== null}
+          onOpenChange={(open) => {
+            if (!open) setCroppingSlotId(null)
+          }}
+          screenshotUrl={
+            croppingSlotId
+              ? (screenshotSlots.find((s) => s.id === croppingSlotId)?.src ??
+                null)
+              : null
           }
-        }}
-      />
+          onCrop={(cropped) => {
+            if (croppingSlotId) {
+              setScreenshotSlotImage(croppingSlotId, cropped)
+              setCroppingSlotId(null)
+            }
+          }}
+        />
       )}
     </>
   )

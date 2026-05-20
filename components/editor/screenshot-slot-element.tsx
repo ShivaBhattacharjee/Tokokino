@@ -208,7 +208,10 @@ export function ScreenshotSlotRender({
 
   const imageBoxOutline = effectiveBorder
   const bareBorderRadius = effectiveBorderRadius
-  const selectionRadius = frameSelectionRadius(shared.frame.id, bareBorderRadius)
+  const selectionRadius = frameSelectionRadius(
+    shared.frame.id,
+    bareBorderRadius
+  )
   const transformedStyle: React.CSSProperties = {
     opacity: shared.opacity / 100,
     borderRadius: selectionRadius,
@@ -335,6 +338,8 @@ export function ScreenshotSlotRender({
                   onCrop={onCropClick}
                   onReplaceFile={onReplaceFile}
                   onDelete={onDeleteFromMenu}
+                  onCaptureWebsite={onCapture}
+                  captureDefaultDevice={captureDefaultDevice}
                 />
               </div>
             ) : null}
@@ -520,7 +525,6 @@ export function ScreenshotSlotView({
             device: settings.device,
             width: settings.width,
             aspectRatio: settings.aspectRatio,
-            theme: settings.theme,
           }),
         })
         if (!res.ok) {

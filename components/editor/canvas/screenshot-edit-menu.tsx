@@ -62,6 +62,7 @@ export function ScreenshotEditMenu({
   captureDefaultDevice,
 }: ScreenshotEditMenuProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
+  const captureStateKey = React.useId()
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen)
@@ -130,6 +131,7 @@ export function ScreenshotEditMenu({
             <UploadCard
               onBrowse={() => replaceInputRef.current?.click()}
               defaultDevice={captureDefaultDevice}
+              captureStateKey={captureStateKey}
               onCapture={async (url, settings) => {
                 await onCaptureWebsite?.(url, settings)
                 handleOpenChange(false)

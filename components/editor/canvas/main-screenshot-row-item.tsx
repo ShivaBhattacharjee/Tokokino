@@ -125,8 +125,7 @@ export function MainScreenshotRender({
   const contentStyle: React.CSSProperties = {
     padding: `${Math.max(0, Math.min(240, padding)) / 12}%`,
   }
-  const showEditMenu =
-    !previewMode && screenshot && activeTool === "pointer"
+  const showEditMenu = !previewMode && screenshot && activeTool === "pointer"
   return (
     <div
       ref={containerRef}
@@ -234,6 +233,8 @@ export function MainScreenshotRender({
                 onCrop={onCropClick}
                 onReplaceFile={onReplaceFile}
                 onDelete={onDelete}
+                onCaptureWebsite={onCapture}
+                captureDefaultDevice={captureDefaultDevice}
               />
             </div>
           ) : null}

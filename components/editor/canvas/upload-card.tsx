@@ -18,9 +18,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { captureUrlSchema } from "@/lib/editor/capture-url"
 
 export type CaptureDevice = "desktop" | "mobile"
-export type CaptureTheme = "light" | "dark"
 export type CaptureDelay = "none" | "2s" | "5s"
 export type AspectRatio = "4:3" | "16:9" | "1:1" | "9:16" | "9:19.5"
 
@@ -28,7 +28,6 @@ export type CaptureSettings = {
   device: CaptureDevice
   aspectRatio: AspectRatio
   width: number
-  theme: CaptureTheme
   delay: CaptureDelay
 }
 
@@ -36,7 +35,6 @@ export const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
   device: "desktop",
   aspectRatio: "16:9",
   width: 1280,
-  theme: "light",
   delay: "none",
 }
 
@@ -44,7 +42,6 @@ const MOBILE_CAPTURE_DEFAULTS: CaptureSettings = {
   device: "mobile",
   aspectRatio: "9:19.5",
   width: 390,
-  theme: "light",
   delay: "none",
 }
 
@@ -60,6 +57,43 @@ const DESKTOP_ASPECT_RATIOS: AspectRatio[] = ["4:3", "16:9", "1:1"]
 const MOBILE_ASPECT_RATIOS: AspectRatio[] = ["9:19.5", "9:16", "1:1"]
 const DESKTOP_WIDTHS = [1280, 1440, 1920]
 const MOBILE_WIDTHS = [390, 414, 430]
+
+type CaptureSession = {
+  url: string
+  settings: CaptureSettings
+  countdown: number | null
+}
+
+const captureSessions = new Map<string, CaptureSession>()
+const captureSessionListeners = new Map<
+  string,
+  Set<(session: CaptureSession | null) => void>
+>()
+
+function publishCaptureSession(
+  key: string | undefined,
+  session: CaptureSession | null
+) {
+  if (!key) return
+  if (session) captureSessions.set(key, session)
+  else captureSessions.delete(key)
+  captureSessionListeners.get(key)?.forEach((listener) => listener(session))
+}
+
+function subscribeCaptureSession(
+  key: string | undefined,
+  listener: (session: CaptureSession | null) => void
+) {
+  if (!key) return () => undefined
+  const listeners = captureSessionListeners.get(key) ?? new Set()
+  listeners.add(listener)
+  captureSessionListeners.set(key, listeners)
+  listener(captureSessions.get(key) ?? null)
+  return () => {
+    listeners.delete(listener)
+    if (listeners.size === 0) captureSessionListeners.delete(key)
+  }
+}
 
 type ToggleChipProps = {
   active: boolean
@@ -161,7 +195,10 @@ function CaptureSettingsPopover({
             </span>
             <LayoutGroup id="capture-aspect">
               <div className="flex items-center gap-0.5 rounded-xl bg-neutral-100 p-0.5 dark:bg-white/8">
-                {(settings.device === "mobile" ? MOBILE_ASPECT_RATIOS : DESKTOP_ASPECT_RATIOS).map((r) => (
+                {(settings.device === "mobile"
+                  ? MOBILE_ASPECT_RATIOS
+                  : DESKTOP_ASPECT_RATIOS
+                ).map((r) => (
                   <ToggleChip
                     key={r}
                     active={settings.aspectRatio === r}
@@ -180,7 +217,10 @@ function CaptureSettingsPopover({
             </span>
             <LayoutGroup id="capture-width">
               <div className="flex items-center gap-0.5 rounded-xl bg-neutral-100 p-0.5 dark:bg-white/8">
-                {(settings.device === "mobile" ? MOBILE_WIDTHS : DESKTOP_WIDTHS).map((w) => (
+                {(settings.device === "mobile"
+                  ? MOBILE_WIDTHS
+                  : DESKTOP_WIDTHS
+                ).map((w) => (
                   <ToggleChip
                     key={w}
                     active={settings.width === w}
@@ -188,25 +228,6 @@ function CaptureSettingsPopover({
                     onClick={() => onChange("width", w)}
                   >
                     {w}
-                  </ToggleChip>
-                ))}
-              </div>
-            </LayoutGroup>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-[13px] text-neutral-500 dark:text-white/55">
-              Theme
-            </span>
-            <LayoutGroup id="capture-theme">
-              <div className="flex items-center gap-0.5 rounded-xl bg-neutral-100 p-0.5 dark:bg-white/8">
-                {(["light", "dark"] as CaptureTheme[]).map((t) => (
-                  <ToggleChip
-                    key={t}
-                    active={settings.theme === t}
-                    layoutId="capture-theme-pill"
-                    onClick={() => onChange("theme", t)}
-                  >
-                    {t === "light" ? "Light" : "Dark"}
                   </ToggleChip>
                 ))}
               </div>
@@ -250,6 +271,8 @@ type UploadCardProps = {
   compact?: boolean
   /** Seed capture settings for the active frame (e.g. "mobile" when the canvas has a phone frame). */
   defaultDevice?: CaptureDevice
+  /** Keeps URL/loading state alive while a popover closes during capture. */
+  captureStateKey?: string
 }
 
 export function UploadCard({
@@ -261,17 +284,58 @@ export function UploadCard({
   fluid = false,
   compact = false,
   defaultDevice,
+  captureStateKey,
 }: UploadCardProps) {
   const PREFIX = "https://"
-  const [url, setUrl] = React.useState(PREFIX)
-  const [settings, setSettings] = React.useState<CaptureSettings>(() =>
-    initialCaptureSettings(defaultDevice)
+  const [url, setUrl] = React.useState(
+    () => captureSessions.get(captureStateKey ?? "")?.url ?? PREFIX
+  )
+  const [settings, setSettings] = React.useState<CaptureSettings>(
+    () =>
+      captureSessions.get(captureStateKey ?? "")?.settings ??
+      initialCaptureSettings(defaultDevice)
+  )
+  const persistedCaptureRef = React.useRef(
+    captureSessions.has(captureStateKey ?? "")
+  )
+  const [isCapturing, setIsCapturing] = React.useState(() =>
+    captureSessions.has(captureStateKey ?? "")
+  )
+  const [countdown, setCountdown] = React.useState<number | null>(
+    () => captureSessions.get(captureStateKey ?? "")?.countdown ?? null
   )
   const userTouchedDeviceRef = React.useRef(false)
   React.useEffect(() => {
+    if (persistedCaptureRef.current) return
     if (userTouchedDeviceRef.current) return
     setSettings(initialCaptureSettings(defaultDevice))
   }, [defaultDevice])
+
+  const resetCaptureForm = React.useCallback(() => {
+    userTouchedDeviceRef.current = false
+    setUrl(PREFIX)
+    setSettings(initialCaptureSettings(defaultDevice))
+    setIsCapturing(false)
+    setCountdown(null)
+  }, [defaultDevice])
+
+  React.useEffect(
+    () =>
+      subscribeCaptureSession(captureStateKey, (session) => {
+        if (session) {
+          persistedCaptureRef.current = true
+          setUrl(session.url)
+          setSettings(session.settings)
+          setIsCapturing(true)
+          setCountdown(session.countdown)
+          return
+        }
+        if (!persistedCaptureRef.current) return
+        persistedCaptureRef.current = false
+        resetCaptureForm()
+      }),
+    [captureStateKey, resetCaptureForm]
+  )
 
   function handleSettingChange<K extends keyof CaptureSettings>(
     key: K,
@@ -292,29 +356,48 @@ export function UploadCard({
     setUrl(PREFIX + stripped)
   }
 
-  const [isCapturing, setIsCapturing] = React.useState(false)
-  const [countdown, setCountdown] = React.useState<number | null>(null)
+  const parsedUrl = React.useMemo(() => captureUrlSchema.safeParse(url), [url])
+  const hasUrlInput = url !== PREFIX
 
   async function handleCapture(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation()
-    if (url === PREFIX || isCapturing || !onCapture) return
+    if (!parsedUrl.success || isCapturing || !onCapture) return
     const delaySec =
       settings.delay === "2s" ? 2 : settings.delay === "5s" ? 5 : 0
+    const captureUrl = parsedUrl.data
+    setUrl(captureUrl)
+    persistedCaptureRef.current = Boolean(captureStateKey)
     setIsCapturing(true)
+    publishCaptureSession(captureStateKey, {
+      url: captureUrl,
+      settings,
+      countdown: null,
+    })
     try {
       for (let s = delaySec; s > 0; s--) {
         setCountdown(s)
+        publishCaptureSession(captureStateKey, {
+          url: captureUrl,
+          settings,
+          countdown: s,
+        })
         await new Promise((r) => setTimeout(r, 1000))
       }
       setCountdown(null)
-      await onCapture(url, settings)
+      publishCaptureSession(captureStateKey, {
+        url: captureUrl,
+        settings,
+        countdown: null,
+      })
+      await onCapture(captureUrl, settings)
     } finally {
+      publishCaptureSession(captureStateKey, null)
       setIsCapturing(false)
       setCountdown(null)
     }
   }
 
-  const captureDisabled = url === PREFIX || isCapturing
+  const captureDisabled = !parsedUrl.success || isCapturing
   const captureLabel =
     countdown !== null
       ? `Capturing in ${countdown}s…`
@@ -362,6 +445,7 @@ export function UploadCard({
             onCapture={onCapture}
             showHint={showHint}
             defaultDevice={defaultDevice}
+            captureStateKey={captureStateKey}
           />
         </PopoverContent>
       </Popover>
@@ -392,7 +476,12 @@ export function UploadCard({
       <div className={sizing.urlRow}>
         <label
           onPointerDown={(e) => e.stopPropagation()}
-          className={sizing.urlLabel}
+          className={cn(
+            sizing.urlLabel,
+            hasUrlInput &&
+              !parsedUrl.success &&
+              "border-destructive/60 ring-1 ring-destructive/30"
+          )}
         >
           <RiLink className={cn(sizing.icon, "shrink-0", sizing.urlIconTint)} />
           <input
@@ -400,6 +489,7 @@ export function UploadCard({
             inputMode="url"
             placeholder="example.com"
             aria-label="Website URL"
+            aria-invalid={hasUrlInput && !parsedUrl.success}
             value={url}
             onChange={(e) => handleUrlChange(e.target.value)}
             onKeyDown={(e) => {

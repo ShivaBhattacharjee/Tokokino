@@ -97,7 +97,7 @@ export function CanvasEmptyState({
           className={cn(
             "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
             "cursor-pointer overflow-hidden rounded-3xl border border-border/30 transition-all duration-300 ease-out dark:border-white/8",
-            "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35",
+            "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35"
           )}
           style={{
             ...fitStyle,
@@ -161,6 +161,7 @@ export function CanvasEmptyState({
           onBrowse={onBrowse}
           onCapture={onCapture}
           compact={useCompact}
+          defaultCaptureDevice={defaultCaptureDevice}
         />
       </div>
     </div>

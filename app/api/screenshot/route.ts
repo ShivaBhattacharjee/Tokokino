@@ -2,16 +2,17 @@ import Cloudflare, { APIError } from "cloudflare"
 import { NextResponse } from "next/server"
 import { z } from "zod/v4"
 
+import { captureUrlSchema } from "@/lib/editor/capture-url"
+
 export const runtime = "edge"
 
 const ASPECT_RATIOS = ["4:3", "16:9", "1:1", "9:16", "9:19.5"] as const
 
 const requestSchema = z.object({
-  url: z.url(),
+  url: captureUrlSchema,
   device: z.enum(["desktop", "mobile"]).default("desktop"),
   width: z.number().int().min(320).max(3840),
   aspectRatio: z.enum(ASPECT_RATIOS),
-  theme: z.enum(["light", "dark"]).default("light"),
 })
 
 const MOBILE_UA =
@@ -42,7 +43,14 @@ export async function POST(request: Request) {
 
   let payload: z.infer<typeof requestSchema>
   try {
-    payload = requestSchema.parse(await request.json())
+    const result = requestSchema.safeParse(await request.json())
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error.issues[0]?.message ?? "Invalid request" },
+        { status: 400 }
+      )
+    }
+    payload = result.data
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Invalid request" },
@@ -50,7 +58,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const { url, device, width, aspectRatio, theme } = payload
+  const { url, device, width, aspectRatio } = payload
   const isMobile = device === "mobile"
   const client = new Cloudflare({ apiToken })
 
@@ -65,16 +73,15 @@ export async function POST(request: Request) {
       hasTouch: isMobile,
     },
     userAgent: isMobile ? MOBILE_UA : DESKTOP_UA,
-    setExtraHTTPHeaders: { "Sec-CH-Prefers-Color-Scheme": theme },
-    addStyleTag: [
-      { content: `:root, html { color-scheme: ${theme} !important; }` },
-    ],
     screenshotOptions: { type: "png", captureBeyondViewport: false },
   } satisfies Cloudflare.BrowserRendering.ScreenshotCreateParams
 
   // Some sites have long-polling / analytics that never let the network go
   // idle. Try the stricter wait first; on timeout, retry with `load`.
-  const attempts: Array<{ waitUntil: "networkidle2" | "load"; timeout: number }> = [
+  const attempts: Array<{
+    waitUntil: "networkidle2" | "load"
+    timeout: number
+  }> = [
     { waitUntil: "networkidle2", timeout: 60000 },
     { waitUntil: "load", timeout: 60000 },
   ]
@@ -82,7 +89,6 @@ export async function POST(request: Request) {
   let lastError: APIError | null = null
   for (const gotoOptions of attempts) {
     try {
-
       const cfResponse = await client.browserRendering.screenshot
         .create({ ...baseParams, gotoOptions })
         .asResponse()
@@ -111,7 +117,7 @@ export async function POST(request: Request) {
 
 function isTimeoutError(err: APIError | null) {
   if (!err) return false
-  const body = err.error
-  if (body?.errors?.some((e) => e.code === 6002)) return true
+  const body = err.error as unknown
+  if (body?.errors?.some((e: unknown) => e.code === 6002)) return true
   return /timeout/i.test(err.message ?? "")
 }
