@@ -30,7 +30,7 @@ const booleanEnvFlag = z
  * Schema for client-side environment variables (NEXT_PUBLIC_*).
  */
 const clientSchema = z.object({
-  NEXT_PUBLIC_R2_PUBLIC_BASE: z.string(),
+  NEXT_PUBLIC_R2_PUBLIC_BASE: z.string().optional(),
   NEXT_PUBLIC_ENABLE_DEBUG_PRESETS: booleanEnvFlag,
 })
 

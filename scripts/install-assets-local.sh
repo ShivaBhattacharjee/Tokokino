@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASSETS_DIR="${ROOT_DIR}/public/assets"
-R2_BASE="${NEXT_PUBLIC_R2_PUBLIC_BASE:-https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev}"
+R2_BASE="${NEXT_PUBLIC_R2_PUBLIC_BASE:-https://assets.tokokino.com}"
 
 OVERLAY_DIR="${ASSETS_DIR}/overlays/thumbs"
 DEVICE_DIR="${ASSETS_DIR}/device-mockups"
