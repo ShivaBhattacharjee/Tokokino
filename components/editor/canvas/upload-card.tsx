@@ -397,7 +397,7 @@ export function UploadCard({
     }
   }
 
-  const captureDisabled = !parsedUrl.success || isCapturing
+  const captureDisabled = !onCapture || !parsedUrl.success || isCapturing
   const captureLabel =
     countdown !== null
       ? `Capturing in ${countdown}s…`

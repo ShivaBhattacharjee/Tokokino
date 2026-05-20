@@ -58,6 +58,7 @@ type ScreenshotMockupProps = {
     settings: CaptureSettings
   ) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
   showHoverActions?: boolean
   /** Cap the frame to min(cqw, cqh) so it doesn't fill tall canvases. */
   scopeToMinSide?: boolean
@@ -91,6 +92,7 @@ export function ScreenshotMockup({
   onDelete,
   onCaptureWebsite,
   captureDefaultDevice,
+  captureStateKey,
   showHoverActions = true,
   scopeToMinSide = false,
   innerLightingStyle,
@@ -229,6 +231,7 @@ export function ScreenshotMockup({
                   onDelete={onDelete}
                   onCaptureWebsite={onCaptureWebsite}
                   captureDefaultDevice={captureDefaultDevice}
+                  captureStateKey={captureStateKey}
                 />
               </div>
             </div>
@@ -253,6 +256,7 @@ export function ScreenshotMockup({
               onDelete={onDelete}
               onCaptureWebsite={onCaptureWebsite}
               captureDefaultDevice={captureDefaultDevice}
+              captureStateKey={captureStateKey}
             />
           </div>
         ) : null}

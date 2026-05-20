@@ -72,6 +72,7 @@ type MainScreenshotRenderProps = {
   innerLightingStyle?: React.CSSProperties | null
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
 }
 
 export function MainScreenshotRender({
@@ -111,6 +112,7 @@ export function MainScreenshotRender({
   innerLightingStyle,
   onCapture,
   captureDefaultDevice,
+  captureStateKey,
 }: MainScreenshotRenderProps) {
   const baseTransform = style.transform ?? ""
   const mergedStyle: React.CSSProperties = {
@@ -202,6 +204,7 @@ export function MainScreenshotRender({
             innerLightingStyle={innerLightingStyle}
             onCapture={onCapture}
             captureDefaultDevice={captureDefaultDevice}
+            captureStateKey={captureStateKey}
           />
 
           {showEditMenu ? (
@@ -235,6 +238,7 @@ export function MainScreenshotRender({
                 onDelete={onDelete}
                 onCaptureWebsite={onCapture}
                 captureDefaultDevice={captureDefaultDevice}
+                captureStateKey={captureStateKey}
               />
             </div>
           ) : null}
@@ -285,6 +289,7 @@ type MainScreenshotRowItemProps = {
   innerLightingStyle?: React.CSSProperties | null
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
 }
 
 export function MainScreenshotRowItem({
@@ -328,6 +333,7 @@ export function MainScreenshotRowItem({
   innerLightingStyle,
   onCapture,
   captureDefaultDevice,
+  captureStateKey,
 }: MainScreenshotRowItemProps) {
   const rowRef = React.useRef<HTMLDivElement | null>(null)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -393,6 +399,7 @@ export function MainScreenshotRowItem({
         innerLightingStyle={innerLightingStyle}
         onCapture={onCapture}
         captureDefaultDevice={captureDefaultDevice}
+        captureStateKey={captureStateKey}
       />
 
       {isSelected &&

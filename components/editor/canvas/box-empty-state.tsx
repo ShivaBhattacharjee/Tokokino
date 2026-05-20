@@ -14,7 +14,7 @@ import {
 type BoxEmptyStateProps = {
   isDragOver?: boolean
   onBrowse: () => void
-  onCapture?: (url: string, settings: CaptureSettings) => void
+  onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   url?: string
   onUrlChange?: (value: string) => void
   /** Force compact `+` trigger. Otherwise auto-detected by container width. */
@@ -27,6 +27,7 @@ type BoxEmptyStateProps = {
   plainWideCard?: boolean
   /** Default capture device for the inner UploadCard (e.g. "mobile" when the canvas frame is a phone). */
   defaultCaptureDevice?: CaptureDevice
+  captureStateKey?: string
 }
 
 export function BoxEmptyState({
@@ -38,6 +39,7 @@ export function BoxEmptyState({
   presentational = false,
   plainWideCard = false,
   defaultCaptureDevice,
+  captureStateKey,
 }: BoxEmptyStateProps) {
   const handleCapture = onCapture
     ? (url: string, settings: CaptureSettings) => onCapture(url, settings)
@@ -81,6 +83,7 @@ export function BoxEmptyState({
             onCapture={handleCapture}
             showHint
             defaultDevice={defaultCaptureDevice}
+            captureStateKey={captureStateKey}
           />
         </div>
       ) : (
@@ -97,6 +100,7 @@ export function BoxEmptyState({
               onCapture={handleCapture}
               showHint
               defaultDevice={defaultCaptureDevice}
+              captureStateKey={captureStateKey}
               className="w-full"
             />
           </div>
@@ -109,6 +113,7 @@ export function BoxEmptyState({
               onCapture={handleCapture}
               showHint
               defaultDevice={defaultCaptureDevice}
+              captureStateKey={captureStateKey}
             />
           </div>
         </>

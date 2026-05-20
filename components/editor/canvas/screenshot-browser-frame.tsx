@@ -4,7 +4,11 @@ import * as React from "react"
 
 import { EmptyStateBackdrop } from "@/components/editor/canvas/empty-state-backdrop"
 import { ScreenshotEditMenu } from "@/components/editor/canvas/screenshot-edit-menu"
-import { UploadCard } from "@/components/editor/canvas/upload-card"
+import {
+  UploadCard,
+  type CaptureDevice,
+  type CaptureSettings,
+} from "@/components/editor/canvas/upload-card"
 import { Arc } from "@/components/ui/arc"
 import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
@@ -60,6 +64,12 @@ type ScreenshotBrowserFrameProps = {
   onCropClick: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  onCaptureWebsite?: (
+    url: string,
+    settings: CaptureSettings
+  ) => void | Promise<void>
+  captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
   showHoverActions?: boolean
   innerLightingStyle?: React.CSSProperties | null
 }
@@ -82,6 +92,9 @@ type BrowserFrameEmptyStateProps = {
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
   compact?: boolean
+  onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  defaultCaptureDevice?: CaptureDevice
+  captureStateKey?: string
   innerLightingStyle?: React.CSSProperties | null
 }
 
@@ -111,6 +124,9 @@ export function ScreenshotBrowserFrame({
   onCropClick,
   onReplaceFile,
   onDelete,
+  onCaptureWebsite,
+  captureDefaultDevice,
+  captureStateKey,
   showHoverActions = true,
   innerLightingStyle,
 }: ScreenshotBrowserFrameProps) {
@@ -243,6 +259,9 @@ export function ScreenshotBrowserFrame({
               onCrop={onCropClick}
               onReplaceFile={onReplaceFile}
               onDelete={onDelete}
+              onCaptureWebsite={onCaptureWebsite}
+              captureDefaultDevice={captureDefaultDevice}
+              captureStateKey={captureStateKey}
             />
           </div>
         </div>
@@ -269,6 +288,9 @@ export function BrowserFrameEmptyState({
   onPointerMove,
   onPointerUp,
   compact = false,
+  onCapture,
+  defaultCaptureDevice,
+  captureStateKey,
   innerLightingStyle,
 }: BrowserFrameEmptyStateProps) {
   const [url, setUrl] = React.useState("")
@@ -316,6 +338,9 @@ export function BrowserFrameEmptyState({
               url={url}
               onUrlChange={setUrl}
               onBrowse={onBrowse}
+              onCapture={onCapture}
+              defaultCaptureDevice={defaultCaptureDevice}
+              captureStateKey={captureStateKey}
               compact={compact}
             />
           </Arc>
@@ -331,6 +356,9 @@ export function BrowserFrameEmptyState({
               url={url}
               onUrlChange={setUrl}
               onBrowse={onBrowse}
+              onCapture={onCapture}
+              defaultCaptureDevice={defaultCaptureDevice}
+              captureStateKey={captureStateKey}
               compact={compact}
             />
           </Chrome>
@@ -346,6 +374,9 @@ export function BrowserFrameEmptyState({
               url={url}
               onUrlChange={setUrl}
               onBrowse={onBrowse}
+              onCapture={onCapture}
+              defaultCaptureDevice={defaultCaptureDevice}
+              captureStateKey={captureStateKey}
               compact={compact}
             />
           </Safari>
@@ -374,6 +405,9 @@ export function BrowserFrameEmptyState({
           <BrowserFrameCompactUpload
             isDragOver={isDragOver}
             onBrowse={onBrowse}
+            onCapture={onCapture}
+            defaultCaptureDevice={defaultCaptureDevice}
+            captureStateKey={captureStateKey}
           />
         </div>
       ) : null}
@@ -388,12 +422,18 @@ export function browserFrameColorFromValue(color: string) {
 function BrowserFrameEmptyContent({
   isDragOver,
   onBrowse,
+  onCapture,
+  defaultCaptureDevice,
+  captureStateKey,
   compact = false,
 }: {
   isDragOver: boolean
   url: string
   onUrlChange: (url: string) => void
   onBrowse: () => void
+  onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  defaultCaptureDevice?: CaptureDevice
+  captureStateKey?: string
   compact?: boolean
 }) {
   return (
@@ -410,6 +450,9 @@ function BrowserFrameEmptyContent({
           <UploadCard
             isDragOver={isDragOver}
             onBrowse={onBrowse}
+            onCapture={onCapture}
+            defaultDevice={defaultCaptureDevice}
+            captureStateKey={captureStateKey}
             showHint
             className="w-full max-w-[400px]"
           />
@@ -422,9 +465,15 @@ function BrowserFrameEmptyContent({
 function BrowserFrameCompactUpload({
   isDragOver,
   onBrowse,
+  onCapture,
+  defaultCaptureDevice,
+  captureStateKey,
 }: {
   isDragOver: boolean
   onBrowse: () => void
+  onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  defaultCaptureDevice?: CaptureDevice
+  captureStateKey?: string
 }) {
   const stopPointer = (e: React.PointerEvent) => e.stopPropagation()
 
@@ -439,6 +488,9 @@ function BrowserFrameCompactUpload({
         compact
         isDragOver={isDragOver}
         onBrowse={onBrowse}
+        onCapture={onCapture}
+        defaultDevice={defaultCaptureDevice}
+        captureStateKey={captureStateKey}
         showHint
       />
     </div>

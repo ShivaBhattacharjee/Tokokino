@@ -40,6 +40,7 @@ type MockupEmptyStateProps = {
   innerLightingStyle?: React.CSSProperties | null
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
+  captureStateKey?: string
 }
 
 export function MockupEmptyState({
@@ -63,6 +64,7 @@ export function MockupEmptyState({
   innerLightingStyle,
   onCapture,
   defaultCaptureDevice,
+  captureStateKey,
 }: MockupEmptyStateProps) {
   const screenRef = React.useRef<HTMLDivElement | null>(null)
   const [stageWidth, setStageWidth] = React.useState<number | undefined>(
@@ -127,6 +129,7 @@ export function MockupEmptyState({
               onBrowse={onBrowse}
               onCapture={onCapture}
               defaultCaptureDevice={defaultCaptureDevice}
+              captureStateKey={captureStateKey}
               contentRotation={mockupRotation ? -mockupRotation : 0}
               compact={compact || !desktopFrame}
               plainWideCard={desktopFrame}
@@ -141,9 +144,7 @@ export function MockupEmptyState({
           data-editor-enhance-filter=""
           className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain select-none"
         />
-
       </div>
     </div>
   )
 }
-

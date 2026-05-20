@@ -49,6 +49,7 @@ type ScreenshotEditMenuProps = {
     settings: CaptureSettings
   ) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
 }
 
 export function ScreenshotEditMenu({
@@ -60,9 +61,11 @@ export function ScreenshotEditMenu({
   showDelete = true,
   onCaptureWebsite,
   captureDefaultDevice,
+  captureStateKey,
 }: ScreenshotEditMenuProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
-  const captureStateKey = React.useId()
+  const fallbackCaptureStateKey = React.useId()
+  const resolvedCaptureStateKey = captureStateKey ?? fallbackCaptureStateKey
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen)
@@ -131,11 +134,8 @@ export function ScreenshotEditMenu({
             <UploadCard
               onBrowse={() => replaceInputRef.current?.click()}
               defaultDevice={captureDefaultDevice}
-              captureStateKey={captureStateKey}
-              onCapture={async (url, settings) => {
-                await onCaptureWebsite?.(url, settings)
-                handleOpenChange(false)
-              }}
+              captureStateKey={resolvedCaptureStateKey}
+              onCapture={onCaptureWebsite}
             />
             <div
               className={cn(

@@ -64,6 +64,7 @@ type ScreenshotFrameContentProps = {
   innerLightingStyle?: React.CSSProperties | null
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
 }
 
 const CENTER_ANCHOR = { x: 50, y: 50 }
@@ -118,6 +119,7 @@ export function ScreenshotFrameContent({
   innerLightingStyle,
   onCapture,
   captureDefaultDevice,
+  captureStateKey,
 }: ScreenshotFrameContentProps) {
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
@@ -165,6 +167,9 @@ export function ScreenshotFrameContent({
           onCropClick={onCrop}
           onReplaceFile={onReplaceFile}
           onDelete={onDelete}
+          onCaptureWebsite={onCapture}
+          captureDefaultDevice={captureDefaultDevice}
+          captureStateKey={captureStateKey}
           showHoverActions={false}
           innerLightingStyle={innerLightingStyle}
         />
@@ -198,6 +203,9 @@ export function ScreenshotFrameContent({
           onCropClick={onCrop}
           onReplaceFile={onReplaceFile}
           onDelete={onDelete}
+          onCaptureWebsite={onCapture}
+          captureDefaultDevice={captureDefaultDevice}
+          captureStateKey={captureStateKey}
           showHoverActions={false}
           scopeToMinSide={mockupScopeToMinSide}
           innerLightingStyle={innerLightingStyle}
@@ -244,6 +252,9 @@ export function ScreenshotFrameContent({
           onCropClick={onCrop}
           onReplaceFile={onReplaceFile}
           onDelete={onDelete}
+          onCaptureWebsite={onCapture}
+          captureDefaultDevice={captureDefaultDevice}
+          captureStateKey={captureStateKey}
           innerLightingStyle={innerLightingStyle}
         />
       </div>
@@ -266,6 +277,9 @@ export function ScreenshotFrameContent({
         activeTool={activeTool}
         addressValue={addressValue}
         onAddressChange={onAddressChange}
+        onCapture={onCapture}
+        defaultCaptureDevice={captureDefaultDevice}
+        captureStateKey={captureStateKey}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -286,6 +300,7 @@ export function ScreenshotFrameContent({
         onBrowse={onBrowse}
         onCapture={onCapture}
         defaultCaptureDevice={captureDefaultDevice}
+        captureStateKey={captureStateKey}
         transform={contentTransform}
         shadowFilter={shadowFilter}
         enhanceFilter={imageFilter}
@@ -318,7 +333,7 @@ export function ScreenshotFrameContent({
       data-editor-shadow-box-target={frame.id === "none" ? "" : undefined}
       className={`relative h-full w-full overflow-hidden${
         applyTransformWhenEmpty && !suppressEmptyTransition
-          ? " transition-transform duration-300 ease-out"
+          ? "transition-transform duration-300 ease-out"
           : ""
       }`}
       style={hasAspect ? undefined : emptyPreviewStyle}
@@ -329,6 +344,7 @@ export function ScreenshotFrameContent({
           onBrowse={onBrowse}
           onCapture={onCapture}
           defaultCaptureDevice={captureDefaultDevice}
+          captureStateKey={captureStateKey}
           compact={emptyCompact}
           previewStyle={emptyPreviewStyle}
           aspectW={aspectW}
@@ -344,6 +360,7 @@ export function ScreenshotFrameContent({
             onBrowse={onBrowse}
             onCapture={onCapture}
             defaultCaptureDevice={captureDefaultDevice}
+            captureStateKey={captureStateKey}
             compact={emptyCompact}
           />
         </>

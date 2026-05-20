@@ -12,8 +12,9 @@ import type { CaptureDevice, CaptureSettings } from "./upload-card"
 type CanvasEmptyStateProps = {
   isDragOver: boolean
   onBrowse: () => void
-  onCapture?: (url: string, settings: CaptureSettings) => void
+  onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
+  captureStateKey?: string
   isActive?: boolean
   previewStyle?: React.CSSProperties
   compact?: boolean
@@ -39,6 +40,7 @@ export function CanvasEmptyState({
   onBrowse,
   onCapture,
   defaultCaptureDevice,
+  captureStateKey,
   isActive = false,
   previewStyle,
   compact = false,
@@ -121,6 +123,7 @@ export function CanvasEmptyState({
             onCapture={onCapture}
             compact={useCompact}
             defaultCaptureDevice={defaultCaptureDevice}
+            captureStateKey={captureStateKey}
           />
         </div>
       </div>
@@ -162,6 +165,7 @@ export function CanvasEmptyState({
           onCapture={onCapture}
           compact={useCompact}
           defaultCaptureDevice={defaultCaptureDevice}
+          captureStateKey={captureStateKey}
         />
       </div>
     </div>

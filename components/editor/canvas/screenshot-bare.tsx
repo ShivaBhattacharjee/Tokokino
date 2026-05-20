@@ -5,6 +5,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
+import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
 type PlacementDims = {
   stageW: number
@@ -38,6 +39,12 @@ type ScreenshotBareProps = {
   onCropClick: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  onCaptureWebsite?: (
+    url: string,
+    settings: CaptureSettings
+  ) => void | Promise<void>
+  captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
   shadowBoxTarget?: boolean
   objectFit?: "contain" | "cover" | "fill"
   innerLightingStyle?: React.CSSProperties | null
@@ -68,6 +75,9 @@ export function ScreenshotBare({
   onCropClick,
   onReplaceFile,
   onDelete,
+  onCaptureWebsite,
+  captureDefaultDevice,
+  captureStateKey,
   shadowBoxTarget = false,
   objectFit = "cover",
   innerLightingStyle,
@@ -176,6 +186,9 @@ export function ScreenshotBare({
             onCrop={onCropClick}
             onReplaceFile={onReplaceFile}
             onDelete={onDelete}
+            onCaptureWebsite={onCaptureWebsite}
+            captureDefaultDevice={captureDefaultDevice}
+            captureStateKey={captureStateKey}
           />
         </div>
       )}

@@ -289,6 +289,7 @@ function CanvasViewInner({
     frame.orientation === "horizontal" &&
     mockupDevice?.orientations.includes("portrait") === true
   const captureDefaultDevice = defaultCaptureDeviceForFrame(frame)
+  const mainCaptureStateKey = scopeId ? `canvas:${scopeId}:main` : undefined
   // Keep portrait mockups visually balanced when they are either shown on a
   // portrait/square canvas or rotated into landscape.
   const shouldScopeFrame =
@@ -619,6 +620,7 @@ function CanvasViewInner({
               emptyCompact={inRowMode}
               onCapture={handleCaptureWebsite}
               captureDefaultDevice={captureDefaultDevice}
+              captureStateKey={mainCaptureStateKey}
             />
           ) : null}
 
@@ -695,6 +697,7 @@ function CanvasViewInner({
                     scopeToMinSide={shouldScopeFrame}
                     onCaptureWebsite={handleCaptureWebsite}
                     captureDefaultDevice={captureDefaultDevice}
+                    captureStateKey={mainCaptureStateKey}
                     onSelect={handleScreenshotClickSelect}
                     onPointerDown={(e) => {
                       if (document.activeElement instanceof HTMLElement) {
@@ -755,6 +758,9 @@ function CanvasViewInner({
                       setIsScreenshotSelected(false)
                       setScreenshot(null)
                     }}
+                    onCaptureWebsite={handleCaptureWebsite}
+                    captureDefaultDevice={captureDefaultDevice}
+                    captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
                   />
                 )
@@ -773,6 +779,9 @@ function CanvasViewInner({
                   activeTool={activeTool}
                   addressValue={frameAddress}
                   onAddressChange={setFrameAddress}
+                  onCapture={handleCaptureWebsite}
+                  defaultCaptureDevice={captureDefaultDevice}
+                  captureStateKey={mainCaptureStateKey}
                   compact={
                     isPortraitOrSquareCanvas ||
                     tilt.rx !== 0 ||
@@ -799,6 +808,7 @@ function CanvasViewInner({
                   onBrowse={() => fileInputRef.current?.click()}
                   onCapture={handleCaptureWebsite}
                   defaultCaptureDevice={captureDefaultDevice}
+                  captureStateKey={mainCaptureStateKey}
                   transform={transform}
                   shadowFilter={computedShadowFilter}
                   enhanceFilter={enhanceFilter}
@@ -831,6 +841,7 @@ function CanvasViewInner({
                   onBrowse={() => fileInputRef.current?.click()}
                   onCapture={handleCaptureWebsite}
                   defaultCaptureDevice={captureDefaultDevice}
+                  captureStateKey={mainCaptureStateKey}
                   innerLightingStyle={innerLightingStyle}
                   screenshotAnchor={screenshotAnchor}
                   screenshotOffset={effectiveOffset}

@@ -98,6 +98,7 @@ type ScreenshotSlotRenderProps = {
   previewMode?: boolean
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
 }
 
 type CanvasSharedStyle = {
@@ -158,6 +159,7 @@ export function ScreenshotSlotRender({
   previewMode = false,
   onCapture,
   captureDefaultDevice,
+  captureStateKey,
 }: ScreenshotSlotRenderProps) {
   const shared = useCanvasSharedStyle()
   const effectiveShadow = slot.shadow ?? shared.shadow
@@ -309,6 +311,7 @@ export function ScreenshotSlotRender({
               innerLightingStyle={innerLightingStyle}
               onCapture={onCapture}
               captureDefaultDevice={captureDefaultDevice}
+              captureStateKey={captureStateKey}
             />
 
             {showEditMenu ? (
@@ -340,6 +343,7 @@ export function ScreenshotSlotRender({
                   onDelete={onDeleteFromMenu}
                   onCaptureWebsite={onCapture}
                   captureDefaultDevice={captureDefaultDevice}
+                  captureStateKey={captureStateKey}
                 />
               </div>
             ) : null}
@@ -507,6 +511,7 @@ export function ScreenshotSlotView({
   )
 
   const captureDefaultDevice = defaultCaptureDeviceForFrame(canvasFrame)
+  const captureStateKey = `slot:${slot.id}`
   const handleSlotCapture = React.useCallback(
     async (rawUrl: string, settings: CaptureSettings) => {
       let target: URL
@@ -685,6 +690,7 @@ export function ScreenshotSlotView({
         }}
         onCapture={handleSlotCapture}
         captureDefaultDevice={captureDefaultDevice}
+        captureStateKey={captureStateKey}
       />
 
       {!previewMode &&
