@@ -43,7 +43,7 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
               <div className="relative h-full w-full p-3 sm:p-5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`https://assets.tokokino.com/demo.png`}
+                  src={`https://assets.tokokino.com/screenshot.png`}
                   alt="Tokokino demo preview"
                   className="h-full w-full rounded-md border border-border/40 object-cover"
                 />

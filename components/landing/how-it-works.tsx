@@ -65,7 +65,7 @@ const SPOTLIGHT_REGIONS = {
   ship: { left: "88%", top: "0.8%", width: "12.2%", height: "3.6%" },
 } as const satisfies Record<StepId, SpotlightRegion>
 
-const DEMO_PREVIEW_SRC = `https://assets.tokokino.com/demo.png`
+const DEMO_PREVIEW_SRC = `https://assets.tokokino.com/screenshot.png`
 
 export function HowItWorks() {
   const [activeStep, setActiveStep] = useState<StepId>("compose")
