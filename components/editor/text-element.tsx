@@ -135,14 +135,14 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
       setEditingRequested(true)
     }
 
-    window.addEventListener("beautiful-screenshots:select-text", selectText)
-    window.addEventListener("beautiful-screenshots:edit-text", editText)
+    window.addEventListener("noctivy:select-text", selectText)
+    window.addEventListener("noctivy:edit-text", editText)
     return () => {
       window.removeEventListener(
-        "beautiful-screenshots:select-text",
+        "noctivy:select-text",
         selectText
       )
-      window.removeEventListener("beautiful-screenshots:edit-text", editText)
+      window.removeEventListener("noctivy:edit-text", editText)
     }
   }, [setSelectedAnnotationShapeId, setSelectedTextId, text.id])
 

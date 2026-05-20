@@ -855,7 +855,7 @@ function DefaultToolbarContents() {
       id: string
     ) => {
       window.dispatchEvent(
-        new CustomEvent("beautiful-screenshots:hide-floating-toolbar", {
+        new CustomEvent("noctivy:hide-floating-toolbar", {
           detail: { kind, id, durationMs: 320 },
         })
       )

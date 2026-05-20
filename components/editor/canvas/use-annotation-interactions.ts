@@ -204,7 +204,7 @@ export function useAnnotationInteractions({
         setSelectedAssetId(null)
       } else if (editorElementAtPoint.type === "text") {
         window.dispatchEvent(
-          new CustomEvent("beautiful-screenshots:select-text", {
+          new CustomEvent("noctivy:select-text", {
             detail: { id: editorElementAtPoint.id },
           })
         )

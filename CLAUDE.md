@@ -1,4 +1,4 @@
-# CLAUDE.md — Noctivy (beautiful-screenshots)
+# CLAUDE.md — Noctivy 
 
 ## Project overview
 

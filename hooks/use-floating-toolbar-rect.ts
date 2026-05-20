@@ -34,9 +34,8 @@ type Result = {
  *
  * Handles:
  *  1. ResizeObserver + scroll/resize listeners → keeps toolbarRect current
- *  2. beautiful-screenshots:hide-floating-toolbar event → hides toolbar during
  *     CSS position transitions then re-measures at the settled position via rAF
- *  3. shouldAnimatePositionMove flag (opt-in) for CSS transition coordination
+ *  2. shouldAnimatePositionMove flag (opt-in) for CSS transition coordination
  */
 export function useFloatingToolbarRect({
   elRef,
@@ -76,12 +75,12 @@ export function useFloatingToolbarRect({
       window.setTimeout(() => setHideFloatingToolbar(false), durationMs)
     }
     window.addEventListener(
-      "beautiful-screenshots:hide-floating-toolbar",
+      "noctivy:hide-floating-toolbar",
       onHide
     )
     return () =>
       window.removeEventListener(
-        "beautiful-screenshots:hide-floating-toolbar",
+        "noctivy:hide-floating-toolbar",
         onHide
       )
   }, [elementId, kind, trackPositionAnimate])

@@ -16,7 +16,7 @@ import {
 } from "./defaults"
 import type { EditorStore } from "../store"
 
-export const EDITOR_DRAFT_DB_NAME = "beautiful-screenshots-editor"
+export const EDITOR_DRAFT_DB_NAME = "noctivy-editor"
 export const EDITOR_DRAFT_STORE_NAME = "drafts"
 export const EDITOR_DRAFT_KEY = "current"
 export const EDITOR_DRAFT_SCHEMA_VERSION = 1

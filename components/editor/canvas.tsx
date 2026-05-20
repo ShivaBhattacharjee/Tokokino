@@ -944,7 +944,7 @@ function CanvasViewInner({
               e.preventDefault()
               e.stopPropagation()
               window.dispatchEvent(
-                new CustomEvent("beautiful-screenshots:edit-text", {
+                new CustomEvent("noctivy:edit-text", {
                   detail: { id: editorElementAtPoint.id },
                 })
               )

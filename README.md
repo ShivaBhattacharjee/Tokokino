@@ -37,8 +37,8 @@ Noctivy is a client-heavy Next.js app for creating polished screenshot visuals w
 ### Setup
 
 ```bash
-git clone https://github.com/shivabhattacharjee/beautiful-screenshots.git
-cd beautiful-screenshots
+git clone https://github.com/shivabhattacharjee/noctivy.git
+cd noctivy
 pnpm install
 ```
 
@@ -126,7 +126,7 @@ NEXT_PUBLIC_R2_PUBLIC_BASE="https://your-r2-public-base.example.com" bash script
 Direct one-liner alternative:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/shivabhattacharjee/beautiful-screenshots/main/scripts/install-assets-local.sh | bash
+curl -fsSL https://raw.githubusercontent.com/shivabhattacharjee/noctivy/main/scripts/install-assets-local.sh | bash
 ```
 
 ## Device frames
