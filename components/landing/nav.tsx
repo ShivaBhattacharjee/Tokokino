@@ -14,6 +14,11 @@ const links = [
   { label: "Terms", href: "/terms" },
 ]
 
+function scrollToHash(href: string) {
+  const id = href.slice(1)
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
+}
+
 export function Nav() {
   const [open, setOpen] = useState(false)
 
@@ -29,8 +34,8 @@ export function Nav() {
 
         {/* Desktop links */}
         <div className="hidden items-center gap-1 font-mono text-xs text-foreground/60 md:flex">
-          <a href="#features" className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">Features</a>
-          <a href="#how-it-works" className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">How it works</a>
+          <a href="#features" onClick={(e) => { e.preventDefault(); scrollToHash("#features") }} className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">Features</a>
+          <a href="#how-it-works" onClick={(e) => { e.preventDefault(); scrollToHash("#how-it-works") }} className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">How it works</a>
           <Link href="/privacy" className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">Privacy</Link>
           <Link href="/terms" className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">Terms</Link>
         </div>
@@ -80,7 +85,7 @@ export function Nav() {
                   transition={{ duration: 0.25, delay: i * 0.06, ease }}
                 >
                   {link.href.startsWith("#") ? (
-                    <a href={link.href} onClick={() => setOpen(false)} className="block py-1 font-mono text-5xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary">
+                    <a href={link.href} onClick={(e) => { e.preventDefault(); setOpen(false); setTimeout(() => scrollToHash(link.href), 50) }} className="block py-1 font-mono text-5xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary">
                       {link.label}
                     </a>
                   ) : (

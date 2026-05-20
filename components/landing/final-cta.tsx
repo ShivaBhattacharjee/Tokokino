@@ -90,7 +90,7 @@ export function FinalCta() {
         className="relative mx-auto flex max-w-5xl flex-col items-center text-center"
       >
         <span className="font-mono text-[10px] tracking-[0.28em] text-primary/80 uppercase">{"// Last call"}</span>
-        <h2 className="mt-5 text-[2.1rem] leading-[1] font-medium tracking-[-0.04em] text-balance sm:text-5xl lg:text-[4.5rem]">
+        <h2 className="mt-5 text-[1.65rem] leading-[1.05] font-medium tracking-[-0.04em] text-balance sm:text-4xl lg:text-[3.75rem]">
           Screenshot and mockup
           <br />
           <span className="text-primary">polish that ships.</span>

@@ -61,7 +61,7 @@ const SPOTLIGHT_REGIONS = {
   open: { left: "0%", top: "0%", width: "100%", height: "100%" },
   capture: { left: "18%", top: "18%", width: "61%", height: "61%" },
   compose: { left: "0%", top: "40%", width: "15%", height: "52%" },
-  ship: { left: "87.4%", top: "0.8%", width: "11.2%", height: "3.6%" },
+  ship: { left: "88%", top: "0.8%", width: "12.2%", height: "3.6%" },
 } as const satisfies Record<StepId, SpotlightRegion>
 
 const DEMO_PREVIEW_SRC =
@@ -123,12 +123,12 @@ export function HowItWorks() {
                   }`}
                   aria-expanded={isActive}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-start gap-4">
                     <span
                       className={
                         isActive
-                          ? "font-mono text-xs text-primary"
-                          : "font-mono text-xs text-foreground/28"
+                          ? "pt-0.5 font-mono text-xs text-primary"
+                          : "pt-0.5 font-mono text-xs text-foreground/28"
                       }
                     >
                       {step.k}
@@ -136,8 +136,8 @@ export function HowItWorks() {
                     <span
                       className={
                         isActive
-                          ? "size-2.5 bg-primary shadow-[0_0_0_7px_oklch(from_var(--primary)_l_c_h_/_0.13)]"
-                          : "size-2.5 bg-foreground/22 group-hover:bg-primary/60"
+                          ? "mt-[0.35rem] size-2.5 shrink-0 bg-primary shadow-[0_0_0_7px_oklch(from_var(--primary)_l_c_h_/_0.13)]"
+                          : "mt-[0.35rem] size-2.5 shrink-0 bg-foreground/22 group-hover:bg-primary/60"
                       }
                     />
                     <div className="min-w-0 flex-1">
@@ -159,6 +159,24 @@ export function HowItWorks() {
                       >
                         {step.title}
                       </h3>
+                      <motion.div
+                        initial={false}
+                        animate={{
+                          height: isActive ? "auto" : 0,
+                          opacity: isActive ? 1 : 0,
+                          marginTop: isActive ? (isShip ? 8 : 14) : 0,
+                        }}
+                        transition={{ duration: 0.32, ease }}
+                        className="overflow-hidden"
+                      >
+                        <p
+                          className={`max-w-md text-sm text-foreground/58 ${
+                            isShip ? "leading-5" : "leading-6"
+                          }`}
+                        >
+                          {step.body}
+                        </p>
+                      </motion.div>
                     </div>
                     <motion.span
                       animate={{ rotate: isActive ? 45 : 0 }}
@@ -172,25 +190,6 @@ export function HowItWorks() {
                       +
                     </motion.span>
                   </div>
-
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      height: isActive ? "auto" : 0,
-                      opacity: isActive ? 1 : 0,
-                      marginTop: isActive ? (isShip ? 8 : 14) : 0,
-                    }}
-                    transition={{ duration: 0.32, ease }}
-                    className="overflow-hidden pl-[4.45rem]"
-                  >
-                    <p
-                      className={`max-w-md text-sm text-foreground/58 ${
-                        isShip ? "leading-5" : "leading-6"
-                      }`}
-                    >
-                      {step.body}
-                    </p>
-                  </motion.div>
                 </button>
               )
             })}
@@ -203,7 +202,7 @@ export function HowItWorks() {
 
 function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
   const region = SPOTLIGHT_REGIONS[activeStep]
-  const isShipSpotlight = activeStep === "ship"
+  const spotlightRadius = activeStep === "ship" ? "4px" : "8px"
 
   return (
     <div className="relative aspect-[16/10] w-full max-w-[58rem] overflow-hidden rounded-md border border-border/70 bg-background">
@@ -216,21 +215,10 @@ function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
       <div className="pointer-events-none absolute inset-0 bg-background/48" />
 
       <motion.div
-        className={`pointer-events-none absolute bg-primary/10 ${
-          isShipSpotlight ? "" : "rounded-md border border-primary/80"
-        }`}
-        animate={region}
+        className="pointer-events-none absolute rounded-md border border-primary/80 bg-primary/10"
+        animate={{ ...region, borderRadius: spotlightRadius }}
         transition={{ duration: 0.42, ease }}
-      >
-        {isShipSpotlight ? (
-          <>
-            <span className="absolute top-0 right-1 left-1 h-px bg-primary" />
-            <span className="absolute right-1 bottom-0 left-1 h-px bg-primary" />
-            <span className="absolute top-1 bottom-1 left-0 w-px bg-primary" />
-            <span className="absolute top-1 right-0 bottom-1 w-px bg-primary" />
-          </>
-        ) : null}
-      </motion.div>
+      />
     </div>
   )
 }

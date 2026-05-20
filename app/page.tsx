@@ -8,6 +8,7 @@ import { Footer } from "@/components/landing/footer"
 import { Hero } from "@/components/landing/hero"
 import { HowItWorks } from "@/components/landing/how-it-works"
 import { Nav } from "@/components/landing/nav"
+import { ScrollToTop } from "@/components/landing/scroll-to-top"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
 import { FlickeringGrid } from "@/components/ui/flickering-grid"
 
@@ -49,6 +50,7 @@ export default function Page() {
       <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
         <Footer />
       </div>
+      <ScrollToTop />
     </main>
   )
 }
