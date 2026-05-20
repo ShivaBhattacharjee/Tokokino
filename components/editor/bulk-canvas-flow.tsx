@@ -85,6 +85,7 @@ function CanvasNodeToolbar({
   const inverseZoom = zoom > 0 ? Math.min(10, 1 / Math.sqrt(zoom / 2)) : 1
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       style={{
         position: "absolute",
@@ -109,6 +110,12 @@ function CanvasNodeToolbar({
             onClick={(e) => {
               e.stopPropagation()
               onActivate()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation()
+                onActivate()
+              }
             }}
           >
             <RiDragMove2Line className="size-4" />
@@ -204,6 +211,7 @@ function CanvasNode({ data }: NodeProps<CanvasFlowNode>) {
   }, [canvasId])
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       style={{ width: widthPx, height: heightPx }}
       className="relative"
@@ -265,7 +273,7 @@ function BulkCanvasFlowInner() {
   React.useEffect(() => {
     if (fitViewSeq === 0) return
     const id = requestAnimationFrame(() => {
-      fitView({ padding: 0.2, duration: 350 })
+      void fitView({ padding: 0.2, duration: 350 })
     })
     return () => cancelAnimationFrame(id)
   }, [fitViewSeq, fitView])
@@ -354,7 +362,7 @@ function BulkCanvasFlowInner() {
         onMoveStart={onViewportMoveStart}
         onMoveEnd={onViewportMoveEnd}
         onInit={(instance) => {
-          instance.fitView({ padding: 0.2 })
+          void instance.fitView({ padding: 0.2 })
           requestAnimationFrame(() => setIsReady(true))
         }}
         minZoom={0.05}
@@ -390,7 +398,7 @@ function GlassControls() {
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={() => zoomIn({ duration: 150 })}
+            onClick={() => void zoomIn({ duration: 150 })}
             aria-label="Zoom in"
             className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-foreground/85 transition-colors hover:bg-white/10"
           >
@@ -403,7 +411,7 @@ function GlassControls() {
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={() => zoomOut({ duration: 150 })}
+            onClick={() => void zoomOut({ duration: 150 })}
             aria-label="Zoom out"
             className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-foreground/85 transition-colors hover:bg-white/10"
           >
@@ -417,7 +425,7 @@ function GlassControls() {
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={() => fitView({ padding: 0.2, duration: 300 })}
+            onClick={() => void fitView({ padding: 0.2, duration: 300 })}
             aria-label="Fit view"
             className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-foreground/85 transition-colors hover:bg-white/10"
           >

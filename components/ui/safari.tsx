@@ -129,6 +129,7 @@ export function Safari({
             borderRadius: screenBorderRadius,
           }}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imageRef}
             src={imageSrc}
@@ -156,6 +157,7 @@ export function Safari({
       ) : null}
 
       {editableAddress ? (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
         <label
           aria-label="Browser address"
           className="absolute z-20 flex items-center justify-center overflow-hidden px-[2cqw]"

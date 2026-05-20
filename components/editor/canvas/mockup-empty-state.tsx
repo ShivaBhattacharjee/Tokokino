@@ -137,6 +137,7 @@ export function MockupEmptyState({
             <InnerLightingOverlay style={innerLightingStyle} />
           </div>
         </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={mockupAsset.src}
           alt=""

@@ -401,6 +401,7 @@ const OverlayThumb = React.memo(function OverlayThumb({
       )}
     >
       {visible ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={overlayThumbUrl(id)}
           alt=""
@@ -574,7 +575,9 @@ export function BackdropSection() {
   const setLighting = (patch: Partial<typeof lighting>) =>
     applyLighting(lightingPatch(activeLighting, patch))
   const overlayRef = React.useRef(overlay)
-  overlayRef.current = overlay
+  React.useEffect(() => {
+    overlayRef.current = overlay
+  })
   const setOverlayPatch = React.useCallback(
     (patch: Partial<typeof overlay>) =>
       setOverlay({ ...overlayRef.current, ...patch }),

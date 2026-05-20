@@ -129,6 +129,7 @@ export function MainScreenshotRender({
   }
   const showEditMenu = !previewMode && screenshot && activeTool === "pointer"
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events
     <div
       ref={containerRef}
       data-box-hover-target={previewMode ? undefined : ""}

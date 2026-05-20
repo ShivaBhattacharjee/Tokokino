@@ -140,10 +140,14 @@ function TextToolbarBody({
   const [fontSettingsOpen, setFontSettingsOpen] = React.useState(false)
   const [fontSizeInput, setFontSizeInput] = React.useState(String(text.fontSize))
 
-  const setSize = (n: number) =>
-    updateText(text.id, { fontSize: Math.max(8, Math.min(200, n)) })
+  const setSize = React.useCallback(
+    (n: number) =>
+      updateText(text.id, { fontSize: Math.max(8, Math.min(200, n)) }),
+    [text.id, updateText]
+  )
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFontSizeInput(String(text.fontSize))
   }, [text.fontSize])
 
@@ -154,7 +158,7 @@ function TextToolbarBody({
       return
     }
     setSize(next)
-  }, [fontSizeInput, text.fontSize])
+  }, [fontSizeInput, text.fontSize, setSize])
 
   const AlignIcon = ALIGN_ICONS[text.align]
 

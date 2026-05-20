@@ -253,6 +253,7 @@ export function LayersPanelContent() {
     assets,
     annotations,
     annotationShapes,
+    frame.id,
     screenshot,
     screenshotLayer,
     screenshotSlots,
@@ -516,6 +517,7 @@ function LayerRow({
           onSelect()
         }
       }}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
       role="button"
       tabIndex={0}
       className={cn(
@@ -535,6 +537,7 @@ function LayerRow({
       </button>
       <span className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border/60 bg-background/60 text-muted-foreground">
         {layer.thumbnail ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={layer.thumbnail}
             alt=""

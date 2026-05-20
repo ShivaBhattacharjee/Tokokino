@@ -134,6 +134,7 @@ export function ScreenshotMockup({
       className="group/mockup pointer-events-none relative h-full w-full"
       style={{ containerType: "size" }}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className={cn(
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
@@ -172,6 +173,7 @@ export function ScreenshotMockup({
               transform: mockupScreenTransform(mockupSpec.screen),
             }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={imageRef}
               src={screenshot}
@@ -190,6 +192,7 @@ export function ScreenshotMockup({
             <InnerLightingOverlay style={innerLightingStyle} />
           </div>
         </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={mockupAsset.src}
           alt=""

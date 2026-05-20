@@ -29,6 +29,7 @@ export function EditableValue({
   const inputRef = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!editing) setText(String(value))
   }, [value, editing])
 

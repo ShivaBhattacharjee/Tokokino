@@ -117,7 +117,7 @@ async function extractDominantRgb(url: string, max: number): Promise<Rgb[]> {
         }
         resolve(picked)
       } catch (err) {
-        reject(err)
+        reject(err instanceof Error ? err : new Error(String(err)))
       }
     }
     img.onerror = () => reject(new Error("image load failed"))
@@ -256,7 +256,7 @@ async function imageAverageLuminance(url: string): Promise<number> {
         }
         resolve(count ? sum / count : 0.5)
       } catch (err) {
-        reject(err)
+        reject(err instanceof Error ? err : new Error(String(err)))
       }
     }
     img.onerror = () => reject(new Error("image load failed"))
@@ -329,7 +329,7 @@ async function sampleImageLuminanceAtPoint(
         }
         resolve(count ? sum / count : 0.5)
       } catch (err) {
-        reject(err)
+        reject(err instanceof Error ? err : new Error(String(err)))
       }
     }
     img.onerror = () => reject(new Error("image load failed"))

@@ -233,6 +233,7 @@ export function ScreenshotSlotRender({
   const showEditMenu = !previewMode && Boolean(slot.src)
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events
     <div
       ref={containerRef}
       data-box-hover-target={previewMode ? undefined : ""}
@@ -374,7 +375,7 @@ const readFileAsDataUrl = (file: File): Promise<string> =>
       if (typeof reader.result === "string") resolve(reader.result)
       else reject(new Error("Could not read file"))
     }
-    reader.onerror = () => reject(reader.error)
+    reader.onerror = () => reject(reader.error ?? new Error("FileReader error"))
     reader.readAsDataURL(file)
   })
 
@@ -533,16 +534,16 @@ export function ScreenshotSlotView({
           }),
         })
         if (!res.ok) {
-          const { error } = await res
+          const { error } = (await res
             .json()
-            .catch(() => ({ error: "Capture failed" }))
-          throw new Error(error || "Capture failed")
+            .catch(() => ({ error: "Capture failed" }))) as { error?: string }
+          throw new Error(error ?? "Capture failed")
         }
         const blob = await res.blob()
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const fr = new FileReader()
-          fr.onload = () => resolve(fr.result as string)
-          fr.onerror = () => reject(fr.error)
+          fr.onload = () => resolve(typeof fr.result === "string" ? fr.result : "")
+          fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
         setScreenshotSlotImage(slot.id, dataUrl)

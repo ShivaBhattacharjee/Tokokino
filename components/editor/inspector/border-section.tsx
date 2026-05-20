@@ -89,7 +89,7 @@ export function BorderSection() {
         if (active) setDynamicColors([])
       }
     }
-    loadColors()
+    void loadColors()
     return () => {
       active = false
     }

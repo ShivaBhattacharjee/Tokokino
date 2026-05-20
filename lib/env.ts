@@ -18,7 +18,7 @@ const serverSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
-  CLOUDFLARE_API_TOKEN: z.string().optional(),
+  CLOUDFLARE_BROWSER_API_TOKEN: z.string().optional(),
 })
 
 const booleanEnvFlag = z
@@ -48,7 +48,7 @@ const serverEnv = serverSchema.parse({
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
-  CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
+  CLOUDFLARE_BROWSER_API_TOKEN: process.env.CLOUDFLARE_BROWSER_API_TOKEN,
 })
 
 const clientEnv = clientSchema.parse({
@@ -68,6 +68,18 @@ const r2ConfigSchema = z.object({
   accessKeyId: z.string().min(1),
   secretAccessKey: z.string().min(1),
 })
+
+export function requireAuthConfig() {
+  const { BETTER_AUTH_SECRET, BETTER_AUTH_URL } = env
+  if (!BETTER_AUTH_SECRET || !BETTER_AUTH_URL) {
+    const missing = [
+      !BETTER_AUTH_SECRET && "BETTER_AUTH_SECRET",
+      !BETTER_AUTH_URL && "BETTER_AUTH_URL",
+    ].filter(Boolean)
+    throw new Error(`Missing auth config: ${missing.join(", ")}`)
+  }
+  return { secret: BETTER_AUTH_SECRET, baseURL: BETTER_AUTH_URL }
+}
 
 export function requireR2Config() {
   const parsed = r2ConfigSchema.safeParse({

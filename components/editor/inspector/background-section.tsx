@@ -288,6 +288,7 @@ function BackgroundTile({
           active ? "border-transparent" : "border-border/60 hover:border-foreground/30"
         )}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={item.thumb}
           alt=""
@@ -428,6 +429,7 @@ function BackgroundLibrary({
                   className="group relative aspect-video cursor-pointer overflow-hidden rounded-lg border border-border/60 transition-colors hover:border-foreground/30"
                 >
                   {peek ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={peek.thumb}
                       alt=""
@@ -597,10 +599,13 @@ export function BackgroundSection() {
     }
   }, [screenshot])
 
-  const autoGradients =
-    autoResult && screenshot && autoResult.key === screenshot
-      ? autoResult.gradients
-      : []
+  const autoGradients = React.useMemo(
+    () =>
+      autoResult && screenshot && autoResult.key === screenshot
+        ? autoResult.gradients
+        : [],
+    [autoResult, screenshot]
+  )
   const autoStatus: "idle" | "loading" | "ready" | "error" = !screenshot
     ? "idle"
     : !autoResult || autoResult.key !== screenshot
@@ -711,14 +716,21 @@ export function BackgroundSection() {
     [gradientOverrides]
   )
   const gradientCategoryOptions = React.useMemo(() => {
-    let cursor = 0
-    return GRADIENT_LIBRARY.map((category) => {
-      const slice = gradientOptions.slice(
-        cursor,
-        cursor + category.items.length
-      )
-      cursor += category.items.length
-      return { key: category.key, label: category.label, options: slice }
+    const offsets = GRADIENT_LIBRARY.reduce<number[]>(
+      (acc, category, idx) => {
+        acc.push((acc[idx - 1] ?? 0) + category.items.length)
+        return acc
+      },
+      []
+    )
+    return GRADIENT_LIBRARY.map((category, idx) => {
+      const start = idx === 0 ? 0 : offsets[idx - 1]
+      const end = offsets[idx]
+      return {
+        key: category.key,
+        label: category.label,
+        options: gradientOptions.slice(start, end),
+      }
     })
   }, [gradientOptions])
   const [gradientCategoryKey, setGradientCategoryKey] = React.useState<string>(
@@ -970,7 +982,7 @@ export function BackgroundSection() {
                       variant="outline"
                       size="icon"
                       className="h-9 w-9 shrink-0 cursor-pointer disabled:cursor-not-allowed"
-                      onClick={() => searchUnsplash()}
+                      onClick={() => void searchUnsplash()}
                       disabled={unsplashStatus === "loading"}
                     >
                       {unsplashStatus === "loading" ? (
@@ -1036,6 +1048,7 @@ export function BackgroundSection() {
                                 : "border-border/60 hover:border-foreground/30"
                             )}
                           >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={photo.thumb}
                               alt={photo.alt}

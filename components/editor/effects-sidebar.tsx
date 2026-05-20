@@ -3,7 +3,6 @@
 import * as React from "react"
 import {
   RiArrowDownSLine,
-  RiLoginBoxLine,
   RiLogoutBoxRLine,
   RiUserLine,
 } from "@remixicon/react"
@@ -176,6 +175,7 @@ function AccountTile() {
   const [isHydrated, setIsHydrated] = React.useState(false)
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsHydrated(true)
   }, [])
 

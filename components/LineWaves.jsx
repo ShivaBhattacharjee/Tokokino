@@ -247,5 +247,5 @@ export default function LineWaves({
     };
   }, [speed, innerLineCount, outerLineCount, warpIntensity, rotation, edgeFadeWidth, colorCycleSpeed, brightness, color1, color2, color3, enableMouseInteraction, mouseInfluence]);
 
-  return <div ref={containerRef} className="line-waves-container" />;
+  return <div ref={containerRef} className="relative h-full w-full" />;
 }

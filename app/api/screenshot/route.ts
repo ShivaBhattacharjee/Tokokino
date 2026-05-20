@@ -3,8 +3,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod/v4"
 
 import { captureUrlSchema } from "@/lib/editor/capture-url"
-
-export const runtime = "edge"
+import { env } from "@/lib/env"
 
 const ASPECT_RATIOS = ["4:3", "16:9", "1:1", "9:16", "9:19.5"] as const
 
@@ -38,13 +37,13 @@ function heightFromAspect(
 }
 
 export async function POST(request: Request) {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN
+  const accountId = env.CLOUDFLARE_ACCOUNT_ID
+  const apiToken = env.CLOUDFLARE_BROWSER_API_TOKEN
   if (!accountId || !apiToken) {
     return NextResponse.json(
       {
         error:
-          "Screenshot capture isn't configured. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.",
+          "Screenshot capture isn't configured. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_BROWSER_API_TOKEN.",
       },
       { status: 503 }
     )

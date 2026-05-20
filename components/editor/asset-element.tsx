@@ -330,6 +330,7 @@ export function AssetElementView({
 
   return (
     <>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         ref={elRef}
         onPointerDown={startDrag}
@@ -360,6 +361,7 @@ export function AssetElementView({
           display: asset.hidden ? "none" : undefined,
         }}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imgRef}
           src={asset.src}
@@ -695,6 +697,7 @@ function AssetFilterGrid({ asset }: { asset: AssetElement }) {
               )}
             >
               <div className="relative aspect-square w-full overflow-hidden rounded-sm bg-muted/50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={asset.src}
                   alt=""
@@ -766,6 +769,7 @@ function AssetBlendGrid({ asset }: { asset: AssetElement }) {
                     "linear-gradient(135deg,#f59e0b 0%,#ef4444 50%,#3b82f6 100%)",
                 }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={asset.src}
                   alt=""

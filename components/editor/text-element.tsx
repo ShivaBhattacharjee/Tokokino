@@ -101,11 +101,13 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
   // Keep latest text values in refs so drag handlers read fresh values
   // without needing to re-create callbacks on every render.
   const textRef = React.useRef(text)
-  textRef.current = text
   const canvasZoomRef = React.useRef(canvasZoom)
-  canvasZoomRef.current = canvasZoom
   const onCenterGuideChangeRef = React.useRef(onCenterGuideChange)
-  onCenterGuideChangeRef.current = onCenterGuideChange
+  React.useEffect(() => {
+    textRef.current = text
+    canvasZoomRef.current = canvasZoom
+    onCenterGuideChangeRef.current = onCenterGuideChange
+  })
 
   React.useEffect(() => {
     if (!isEditing) return
@@ -284,7 +286,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
     drag.startYPct = clampedY
     drag.startClientX = e.clientX
     drag.startClientY = e.clientY
-  }, [])
+  }, [setToolbarRect])
 
   const endDrag = React.useCallback((e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
@@ -560,6 +562,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
 
   return (
     <>
+    {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
     <div
       ref={elRef}
       className={cn(
@@ -679,6 +682,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
       ) : null}
 
       {isEditing ? (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
           ref={editorRef}
           contentEditable

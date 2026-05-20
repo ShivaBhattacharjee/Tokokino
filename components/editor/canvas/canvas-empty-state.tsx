@@ -89,6 +89,7 @@ export function CanvasEmptyState({
         className="pointer-events-none relative h-full w-full"
         style={{ containerType: "size" }}
       >
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
           ref={rootRef}
           onClick={handleAreaClick}
@@ -140,6 +141,7 @@ export function CanvasEmptyState({
         "data-[drag-over=true]:scale-[1.005]"
       )}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         ref={rootRef}
         onClick={handleAreaClick}

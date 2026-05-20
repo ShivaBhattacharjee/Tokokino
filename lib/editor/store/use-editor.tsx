@@ -92,8 +92,12 @@ export function useActiveCanvasField<T>(
 
   const overrideRef = React.useRef(override)
   const selectorRef = React.useRef(selector)
+  // Refs must reflect the latest values synchronously so the stable selector
+  // (read by zustand during render) sees fresh data. useEffect would lag.
+  /* eslint-disable react-hooks/refs */
   overrideRef.current = override
   selectorRef.current = selector
+  /* eslint-enable react-hooks/refs */
 
   const mergedCacheRef = React.useRef<{
     base: CanvasState | null

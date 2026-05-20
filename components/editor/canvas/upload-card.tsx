@@ -493,7 +493,7 @@ export function UploadCard({
             value={url}
             onChange={(e) => handleUrlChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleCapture(e)
+              if (e.key === "Enter") void handleCapture(e)
             }}
             className={sizing.urlInput}
             onClick={(e) => e.stopPropagation()}
@@ -513,7 +513,7 @@ export function UploadCard({
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation()
-          handleCapture(e)
+          void handleCapture(e)
         }}
         className={cn(
           sizing.captureButton,

@@ -88,10 +88,12 @@ export const ColorPicker = ({
     if (value) {
       const color = Color.rgb(value).rgb().object();
 
+      /* eslint-disable react-hooks/set-state-in-effect */
       setHue(color.r);
       setSaturation(color.g);
       setLightness(color.b);
       setAlpha(color.a);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [value]);
 
@@ -291,8 +293,13 @@ export const ColorPickerEyeDropper = ({
 
   const handleEyeDropper = async () => {
     try {
-      // @ts-expect-error - EyeDropper API is experimental
-      const eyeDropper = new EyeDropper();
+      const EyeDropperCtor = (
+        globalThis as unknown as {
+          EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> };
+        }
+      ).EyeDropper;
+      if (!EyeDropperCtor) throw new Error("EyeDropper not supported");
+      const eyeDropper = new EyeDropperCtor();
       const result = await eyeDropper.open();
       const color = Color(result.sRGBHex);
       const [h, s, l] = color.hsl().array();
@@ -309,7 +316,7 @@ export const ColorPickerEyeDropper = ({
   return (
     <Button
       className={cn("shrink-0 text-muted-foreground", className)}
-      onClick={handleEyeDropper}
+      onClick={() => void handleEyeDropper()}
       size="icon"
       type="button"
       variant="outline"
@@ -325,7 +332,6 @@ export type ColorPickerOutputProps = ComponentProps<typeof SelectTrigger>;
 const formats = ["hex", "rgb", "css", "hsl"];
 
 export const ColorPickerOutput = ({
-  className,
   ...props
 }: ColorPickerOutputProps) => {
   const { mode, setMode } = useColorPicker();

@@ -62,7 +62,7 @@ export async function PUT(
     return ownership ?? NextResponse.json({ error: "Draft not found" }, { status: 404 })
   }
 
-  const body = await request.json().catch(() => null)
+  const body: unknown = await request.json().catch(() => null)
   const parsed = updateDraftBodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(

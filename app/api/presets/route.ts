@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const auth = await requireSession(request)
   if (!auth.ok) return auth.response
 
-  const body = await request.json().catch(() => null)
+  const body: unknown = await request.json().catch(() => null)
   const parsed = createPresetBodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(

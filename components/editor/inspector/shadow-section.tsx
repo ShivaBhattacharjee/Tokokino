@@ -72,6 +72,7 @@ function DirectionField({
   const draftPointRef = React.useRef(sourcePoint)
   const committedLightSourceRef = React.useRef(lightSource)
   const [mounted, setMounted] = React.useState(false)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => setMounted(true), [])
   const x = (sourcePoint.col / 4) * 100
   const y = (sourcePoint.row / 4) * 100

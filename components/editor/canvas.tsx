@@ -21,6 +21,7 @@ import {
 import {
   CanvasPreviewScope,
   CanvasScope,
+  type CanvasState,
   effectsFilterCss,
   enhanceFilterCss,
   overlayUrl,
@@ -30,6 +31,7 @@ import {
   useEditor,
   useEditorStore,
 } from "@/lib/editor/store"
+import type { CaptureSettings } from "./canvas/upload-card"
 import {
   defaultCaptureDeviceForFrame,
   getDeviceMockup,
@@ -82,7 +84,7 @@ type CanvasViewProps = {
   effectiveScale: number
   onActivate: () => void
   previewMode?: boolean
-  canvasOverride?: Partial<import("@/lib/editor/store").CanvasState> | null
+  canvasOverride?: Partial<CanvasState> | null
 }
 
 function CanvasViewInner({
@@ -225,7 +227,7 @@ function CanvasViewInner({
   const handleCaptureWebsite = React.useCallback(
     async (
       rawUrl: string,
-      settings: import("./canvas/upload-card").CaptureSettings
+      settings: CaptureSettings
     ) => {
       let target: URL
       try {
@@ -246,16 +248,16 @@ function CanvasViewInner({
           }),
         })
         if (!res.ok) {
-          const { error } = await res
+          const { error } = (await res
             .json()
-            .catch(() => ({ error: "Capture failed" }))
-          throw new Error(error || "Capture failed")
+            .catch(() => ({ error: "Capture failed" }))) as { error?: string }
+          throw new Error(error ?? "Capture failed")
         }
         const blob = await res.blob()
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const fr = new FileReader()
-          fr.onload = () => resolve(fr.result as string)
-          fr.onerror = () => reject(fr.error)
+          fr.onload = () => resolve(typeof fr.result === "string" ? fr.result : "")
+          fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
         setMainScreenshotImage(dataUrl)
@@ -1170,6 +1172,18 @@ export function Canvas() {
     return { enter: {}, center: {}, exit: {} }
   }, [previewAnimation])
 
+  const handleClearSelection = React.useCallback(() => {
+    setSelectedTextId(null)
+    setSelectedAssetId(null)
+    setSelectedAnnotationShapeId(null)
+    setSelectedScreenshotSlotId(null)
+  }, [
+    setSelectedTextId,
+    setSelectedAssetId,
+    setSelectedAnnotationShapeId,
+    setSelectedScreenshotSlotId,
+  ])
+
   return (
     <section
       ref={sectionRef}
@@ -1185,11 +1199,10 @@ export function Canvas() {
           ? "items-center justify-center p-0"
           : "border-b border-dashed border-border/70"
       )}
-      onClick={() => {
-        setSelectedTextId(null)
-        setSelectedAssetId(null)
-        setSelectedAnnotationShapeId(null)
-        setSelectedScreenshotSlotId(null)
+      role="presentation"
+      onClick={handleClearSelection}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") handleClearSelection()
       }}
     >
       <CornerMarkers className="text-border" size={12} />

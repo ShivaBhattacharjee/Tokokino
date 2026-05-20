@@ -1,6 +1,7 @@
 import { motion } from "motion/react"
 import { CornerTick } from "@/components/landing/landing-svgs"
 import { ease } from "@/components/landing/constants"
+import { env } from "@/lib/env"
 
 export function MockupFrame({ compact = false }: { compact?: boolean }) {
   return (
@@ -40,8 +41,9 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
               <div className="absolute inset-0 [background-image:linear-gradient(to_right,oklch(0.7_0.2_18/0.05)_1px,transparent_1px),linear-gradient(to_bottom,oklch(0.82_0.14_145/0.05)_1px,transparent_1px)] [background-size:42px_42px]" />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,var(--background)_95%)]" />
               <div className="relative h-full w-full p-3 sm:p-5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev/demo.png"
+                  src={`${env.NEXT_PUBLIC_R2_PUBLIC_BASE}/demo.png`}
                   alt="Noctivy demo preview"
                   className="h-full w-full rounded-md border border-border/40 object-cover"
                 />

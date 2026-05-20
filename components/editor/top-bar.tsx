@@ -51,7 +51,6 @@ import { randomDisplayName } from "@/lib/random-name"
 import {
   DRAFT_SCHEMA_VERSION,
   type DraftPayload,
-  type DraftUiState,
   unwrapDraftState,
 } from "@/lib/schemas/draft"
 import {
@@ -1217,6 +1216,7 @@ function BulkExportDialog({
 
   React.useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelected(new Set(canvases.map((c) => c.id)))
       setProgress(null)
     }
@@ -2108,6 +2108,7 @@ function NameDialog({
 
   React.useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(randomDisplayName())
       requestAnimationFrame(() => {
         inputRef.current?.focus()
@@ -2214,6 +2215,7 @@ function OpenProjectDialog({
   React.useEffect(() => {
     if (!open) return
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrafts(null)
     setError(null)
     fetch("/api/drafts", { credentials: "include" })

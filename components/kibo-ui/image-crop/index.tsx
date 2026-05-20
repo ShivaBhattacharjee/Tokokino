@@ -109,7 +109,7 @@ type ImageCropContextType = {
   handleComplete: (
     pixelCrop: PixelCrop,
     percentCrop: PercentCrop
-  ) => Promise<void>;
+  ) => void;
   onImageLoad: (e: SyntheticEvent<HTMLImageElement>) => void;
   applyCrop: () => Promise<void>;
   resetCrop: () => void;
@@ -155,7 +155,7 @@ export const ImageCrop = ({
   useEffect(() => {
     const reader = new FileReader();
     reader.addEventListener("load", () =>
-      setImgSrc(reader.result?.toString() || "")
+      setImgSrc(typeof reader.result === "string" ? reader.result : "")
     );
     reader.readAsDataURL(file);
   }, [file]);
@@ -181,8 +181,7 @@ export const ImageCrop = ({
     onChange?.(pixelCrop, percentCrop);
   };
 
-  // biome-ignore lint/suspicious/useAwait: "onComplete is async"
-  const handleComplete = async (
+  const handleComplete = (
     pixelCrop: PixelCrop,
     percentCrop: PercentCrop
   ) => {
@@ -283,6 +282,7 @@ export const ImageCropContent = ({
       {...reactCropProps}
     >
       {imgSrc && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           alt="crop"
           className="size-full"

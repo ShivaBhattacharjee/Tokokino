@@ -523,6 +523,7 @@ const DeviceTile = React.memo(function DeviceTile({
             imageFit={imageFit}
           />
         ) : preview ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={preview}
             alt=""
@@ -614,6 +615,7 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
           }}
         >
           {screenshot ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={screenshot}
               alt=""
@@ -631,6 +633,7 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
           )}
         </div>
       </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={preview}
         alt=""

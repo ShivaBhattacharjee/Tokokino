@@ -674,7 +674,6 @@ function DefaultToolbarContents() {
     setSelectedTextId,
     addAsset,
     setSelectedAssetId,
-    setSelectedAnnotationShapeId,
     setIsScreenshotSelected,
     screenshot,
     frame,

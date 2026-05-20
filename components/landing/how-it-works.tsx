@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion } from "motion/react"
 import { ease } from "@/components/landing/constants"
+import { env } from "@/lib/env"
 
 type StepId = "open" | "capture" | "compose" | "ship"
 
@@ -64,8 +65,7 @@ const SPOTLIGHT_REGIONS = {
   ship: { left: "88%", top: "0.8%", width: "12.2%", height: "3.6%" },
 } as const satisfies Record<StepId, SpotlightRegion>
 
-const DEMO_PREVIEW_SRC =
-  "https://pub-4a1f61370c844ff69cc9d1a7b3689d25.r2.dev/demo.png"
+const DEMO_PREVIEW_SRC = `${env.NEXT_PUBLIC_R2_PUBLIC_BASE}/demo.png`
 
 export function HowItWorks() {
   const [activeStep, setActiveStep] = useState<StepId>("compose")
@@ -206,6 +206,7 @@ function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
 
   return (
     <div className="relative aspect-[16/10] w-full max-w-[58rem] overflow-hidden rounded-md border border-border/70 bg-background">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={DEMO_PREVIEW_SRC}
         alt="Noctivy editor demo preview"

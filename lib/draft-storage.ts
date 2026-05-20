@@ -101,8 +101,7 @@ export async function deleteDraftThumbnail({
   const { bucket } = requireR2Config()
   await getDraftClient()
     .send(new DeleteObjectCommand({ Bucket: bucket, Key: thumbnailKey }))
-    .catch((err) => {
-      // Best-effort: a missing thumbnail shouldn't fail the user's delete.
+    .catch((err: unknown) => {
       console.warn("Failed to remove draft thumbnail", { userId, id, err })
     })
 }

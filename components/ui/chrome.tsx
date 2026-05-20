@@ -217,6 +217,7 @@ export function Chrome({
       </div>
 
       {editableAddress ? (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
         <label
           aria-label="Chrome address"
           className="absolute z-30 flex items-center overflow-hidden px-[3.45cqw]"
