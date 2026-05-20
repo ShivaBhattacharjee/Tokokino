@@ -3,30 +3,46 @@
 import * as React from "react"
 import Link from "next/link"
 import { motion } from "motion/react"
-
 import { cn } from "@/lib/utils"
 
 const WORDMARK = "Noctivy"
+
+function NoctivyMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={className}
+    >
+      <defs>
+        <linearGradient id="noctivy-mark" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="currentColor" stopOpacity="0.95" />
+          <stop offset="1" stopColor="currentColor" stopOpacity="0.55" />
+        </linearGradient>
+      </defs>
+      <rect x="4.5" y="4.5" width="23" height="23" rx="6" stroke="url(#noctivy-mark)" strokeOpacity="0.55" />
+      <path d="M10 22V10h2.2l7.6 8V10H22v12h-2.2l-7.6-8v8H10Z" fill="currentColor" />
+      <circle cx="22.5" cy="9.5" r="1.4" fill="currentColor" />
+    </svg>
+  )
+}
 
 export function BrandLogo({ className }: { className?: string }) {
   return (
     <Link
       href="/"
-      className={cn("flex min-w-0 items-center gap-0 select-none", className)}
+      className={cn("flex min-w-0 items-center gap-2 select-none", className)}
       aria-label={WORDMARK}
     >
       <motion.span
-        className="relative inline-flex size-12 items-center justify-center"
+        className="relative inline-flex items-center justify-center"
         initial={{ opacity: 0, scale: 0.6, rotate: -16 }}
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
-        transition={{
-          type: "spring",
-          stiffness: 320,
-          damping: 22,
-          mass: 0.6,
-        }}
+        transition={{ type: "spring", stiffness: 320, damping: 22, mass: 0.6 }}
       >
-        <LogoMark className="size-[18px] text-foreground" />
+        <NoctivyMark className="size-5 text-primary" />
       </motion.span>
 
       <motion.span
@@ -35,9 +51,7 @@ export function BrandLogo({ className }: { className?: string }) {
         animate="visible"
         variants={{
           hidden: {},
-          visible: {
-            transition: { staggerChildren: 0.045, delayChildren: 0.18 },
-          },
+          visible: { transition: { staggerChildren: 0.045, delayChildren: 0.18 } },
         }}
         aria-hidden="true"
       >
@@ -51,12 +65,7 @@ export function BrandLogo({ className }: { className?: string }) {
                 y: 0,
                 opacity: 1,
                 filter: "blur(0px)",
-                transition: {
-                  type: "spring",
-                  stiffness: 420,
-                  damping: 28,
-                  mass: 0.5,
-                },
+                transition: { type: "spring", stiffness: 420, damping: 28, mass: 0.5 },
               },
             }}
           >
@@ -65,51 +74,5 @@ export function BrandLogo({ className }: { className?: string }) {
         ))}
       </motion.span>
     </Link>
-  )
-}
-
-function LogoMark({ className }: { className?: string }) {
-  const maskId = React.useId()
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      <defs>
-        <mask id={maskId}>
-          <rect x="3" y="3" width="26" height="26" rx="8" fill="white" />
-          <circle cx="22.5" cy="11" r="6.5" fill="black" />
-        </mask>
-      </defs>
-      <motion.rect
-        x="3"
-        y="3"
-        width="26"
-        height="26"
-        rx="8"
-        fill="currentColor"
-        mask={`url(#${maskId})`}
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut", delay: 0.05 }}
-      />
-      <motion.circle
-        cx="24.5"
-        cy="8.5"
-        r="1.6"
-        fill="currentColor"
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{
-          type: "spring",
-          stiffness: 500,
-          damping: 18,
-          delay: 0.45,
-        }}
-      />
-    </svg>
   )
 }
