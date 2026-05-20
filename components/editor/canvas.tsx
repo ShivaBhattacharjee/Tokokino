@@ -946,7 +946,7 @@ function CanvasViewInner({
               e.preventDefault()
               e.stopPropagation()
               window.dispatchEvent(
-                new CustomEvent("noctivy:edit-text", {
+                new CustomEvent("tokokino:edit-text", {
                   detail: { id: editorElementAtPoint.id },
                 })
               )

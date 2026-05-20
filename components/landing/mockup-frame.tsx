@@ -33,7 +33,7 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
                 <span className="size-2.5 rounded-full bg-accent-foreground/55" />
                 <span className="size-2.5 rounded-full bg-foreground/15" />
               </div>
-              <span className="font-mono text-[10px] tracking-widest text-foreground/40 uppercase">noctivy</span>
+              <span className="font-mono text-[10px] tracking-widest text-foreground/40 uppercase">tokokino</span>
               <span className="font-mono text-[10px] text-foreground/30">⌘ K</span>
             </div>
 
@@ -44,7 +44,7 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`${env.NEXT_PUBLIC_R2_PUBLIC_BASE}/demo.png`}
-                  alt="Noctivy demo preview"
+                  alt="Tokokino demo preview"
                   className="h-full w-full rounded-md border border-border/40 object-cover"
                 />
               </div>

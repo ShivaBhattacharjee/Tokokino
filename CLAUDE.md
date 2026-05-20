@@ -1,8 +1,8 @@
-# CLAUDE.md — Noctivy 
+# CLAUDE.md — Tokokino 
 
 ## Project overview
 
-**Noctivy** is a browser-based screenshot beautifier. Users drop in a screenshot, style it with backgrounds, shadows, device frames, text layers, and annotations, then export as PNG/JPEG/WebP or share a public link. The app is fully client-side for editing; the server handles auth, share uploads to R2, and view tracking in MongoDB.
+**Tokokino** is a browser-based screenshot beautifier. Users drop in a screenshot, style it with backgrounds, shadows, device frames, text layers, and annotations, then export as PNG/JPEG/WebP or share a public link. The app is fully client-side for editing; the server handles auth, share uploads to R2, and view tracking in MongoDB.
 
 **Stack:**
 - Next.js 16.1.7 (App Router) + React 19, Turbopack in dev

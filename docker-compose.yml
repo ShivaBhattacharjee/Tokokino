@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: docker/mongo/Dockerfile
-    image: noctivy-mongo:7-rs
-    container_name: noctivy-mongo
+    image: tokokino-mongo:7-rs
+    container_name: tokokino-mongo
     command:
       - mongod
       - --replSet
@@ -16,9 +16,9 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: noctivy
-      MONGO_INITDB_ROOT_PASSWORD: noctivy
-      MONGO_INITDB_DATABASE: noctivy
+      MONGO_INITDB_ROOT_USERNAME: tokokino
+      MONGO_INITDB_ROOT_PASSWORD: tokokino
+      MONGO_INITDB_DATABASE: tokokino
     volumes:
       - mongo-data:/data/db
     healthcheck:

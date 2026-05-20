@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/b8d39faf-200e-468a-80b1-0bc0025e1867"alt="Noctivy Logo" width="84" height="84" />
+  <img src="https://github.com/user-attachments/assets/b8d39faf-200e-468a-80b1-0bc0025e1867"alt="Tokokino Logo" width="84" height="84" />
 </p>
 
-<h1 align="center">Noctivy</h1>
+<h1 align="center">Tokokino</h1>
 
 <p align="center">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" />
@@ -14,7 +14,7 @@
   <img alt="Cloudflare R2" src="https://img.shields.io/badge/Cloudflare-R2-F38020?logo=cloudflare&logoColor=white" />
 </p>
 
-Noctivy is a client-heavy Next.js app for creating polished screenshot visuals with backgrounds, overlays, and device mockups.
+Tokokino is a client-heavy Next.js app for creating polished screenshot visuals with backgrounds, overlays, and device mockups.
 
 ## Index
 
@@ -37,8 +37,8 @@ Noctivy is a client-heavy Next.js app for creating polished screenshot visuals w
 ### Setup
 
 ```bash
-git clone https://github.com/shivabhattacharjee/noctivy.git
-cd noctivy
+git clone https://github.com/shivabhattacharjee/tokokino.git
+cd tokokino
 pnpm install
 ```
 
@@ -86,7 +86,7 @@ docker compose down
 Use this local connection string in `.env.local`:
 
 ```bash
-MONGODB_URI="mongodb://noctivy:noctivy@localhost:27017/noctivy?authSource=admin&replicaSet=rs0"
+MONGODB_URI="mongodb://tokokino:tokokino@localhost:27017/tokokino?authSource=admin&replicaSet=rs0"
 ```
 
 ## Scripts
@@ -126,7 +126,7 @@ NEXT_PUBLIC_R2_PUBLIC_BASE="https://your-r2-public-base.example.com" bash script
 Direct one-liner alternative:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/shivabhattacharjee/noctivy/main/scripts/install-assets-local.sh | bash
+curl -fsSL https://raw.githubusercontent.com/shivabhattacharjee/tokokino/main/scripts/install-assets-local.sh | bash
 ```
 
 ## Device frames

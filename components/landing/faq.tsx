@@ -6,16 +6,16 @@ import { ease } from "@/components/landing/constants"
 
 const faqs = [
   {
-    q: "Do I need an account to use Noctivy?",
+    q: "Do I need an account to use Tokokino?",
     a: "No account needed to edit and export. You can drop in a screenshot, style it, and download a PNG/JPEG/WebP right away — no sign-in required. An account (email or Google) is only needed if you want to create public share links or access your share history.",
   },
   {
-    q: "Is Noctivy free? Are any features paid?",
+    q: "Is Tokokino free? Are any features paid?",
     a: "The editor and all export options are free. Certain features — such as higher storage limits, additional export quotas, or advanced sharing options — may become paid in the future. Any paid features will be clearly disclosed with pricing before you're charged. Nothing currently requires payment.",
   },
   {
-    q: "Is Noctivy open source?",
-    a: "Yes. The source code is released under the Apache License 2.0. You can inspect, self-host, or contribute via the GitHub repository at github.com/shivabhattacharjee/noctivity.",
+    q: "Is Tokokino open source?",
+    a: "Yes. The source code is released under the Apache License 2.0. You can inspect, self-host, or contribute via the GitHub repository at github.com/shivabhattacharjee/tokokino.",
   },
   {
     q: "What export formats and resolutions are supported?",
@@ -27,7 +27,7 @@ const faqs = [
   },
   {
     q: "What happens to my shared images?",
-    a: "Shared images are stored in the cloud and accessible to anyone with the link. You can view all your shares in the Gallery page. You retain ownership of your content; Noctivy only holds a limited license to host and serve it as described in the Terms.",
+    a: "Shared images are stored in the cloud and accessible to anyone with the link. You can view all your shares in the Gallery page. You retain ownership of your content; Tokokino only holds a limited license to host and serve it as described in the Terms.",
   },
   {
     q: "Can I add multiple screenshots to one canvas?",
@@ -35,15 +35,15 @@ const faqs = [
   },
   {
     q: "What device frames are available?",
-    a: "Noctivy includes pixel-accurate mockup frames for iPhone, Pixel phones, MacBook, and browser chrome (Safari, Chrome, Arc). Frames are applied non-destructively and are stripped from exports automatically if needed.",
+    a: "Tokokino includes pixel-accurate mockup frames for iPhone, Pixel phones, MacBook, and browser chrome (Safari, Chrome, Arc). Frames are applied non-destructively and are stripped from exports automatically if needed.",
   },
   {
-    q: "What browsers and devices does Noctivy support?",
-    a: "Noctivy runs in any modern browser — no installation required. It works best in Chromium-based browsers (Chrome, Edge, Arc) and Safari on macOS. Firefox is supported but some CSS blend modes and backdrop filters may render slightly differently. On mobile, the editor loads but is optimized for desktop use; exporting and sharing work on all devices.",
+    q: "What browsers and devices does Tokokino support?",
+    a: "Tokokino runs in any modern browser — no installation required. It works best in Chromium-based browsers (Chrome, Edge, Arc) and Safari on macOS. Firefox is supported but some CSS blend modes and backdrop filters may render slightly differently. On mobile, the editor loads but is optimized for desktop use; exporting and sharing work on all devices.",
   },
   {
     q: "Do you sell or share my personal data?",
-    a: "No. Noctivy does not sell your personal data to third parties. The only data processed is what's needed to run the service: account info for authentication (via Google or email), and the rendered image you explicitly choose to share. Your original screenshots never leave your browser. See the Terms for the full data practices disclosure.",
+    a: "No. Tokokino does not sell your personal data to third parties. The only data processed is what's needed to run the service: account info for authentication (via Google or email), and the rendered image you explicitly choose to share. Your original screenshots never leave your browser. See the Terms for the full data practices disclosure.",
   },
 ]
 

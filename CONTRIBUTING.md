@@ -1,10 +1,10 @@
-# Contributing to Noctivy
+# Contributing to Tokokino
 
-Thanks for contributing to Noctivy.
+Thanks for contributing to Tokokino.
 
 ## Project Overview
 
-Noctivy is a client-heavy Next.js app for creating polished screenshot compositions. Most logic runs in-browser via Zustand. Backend/API routes are mainly for auth, sharing, and image proxying.
+Tokokino is a client-heavy Next.js app for creating polished screenshot compositions. Most logic runs in-browser via Zustand. Backend/API routes are mainly for auth, sharing, and image proxying.
 
 ## Tech Stack
 

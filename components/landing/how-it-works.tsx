@@ -28,7 +28,7 @@ const FLOW_STEPS = [
     id: "open",
     k: "01",
     eyebrow: "Open",
-    title: "Start inside Noctivy",
+    title: "Start inside Tokokino",
     body: "Open the actual editor shell. This preview is the real app route rendered in readonly mode, so the tour points at the same UI people will use.",
     label: "APP SHELL",
   },
@@ -209,7 +209,7 @@ function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={DEMO_PREVIEW_SRC}
-        alt="Noctivy editor demo preview"
+        alt="Tokokino editor demo preview"
         className="h-full w-full object-cover opacity-80 saturate-[0.82]"
       />
 

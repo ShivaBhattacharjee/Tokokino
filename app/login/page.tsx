@@ -6,8 +6,8 @@ import { BrandLogo } from "@/components/editor/brand-logo"
 import { LoginForm } from "./login-form"
 
 export const metadata: Metadata = {
-  title: "Sign in — Noctivy",
-  description: "Sign in to Noctivy to save and share your screenshots.",
+  title: "Sign in — Tokokino",
+  description: "Sign in to Tokokino to save and share your screenshots.",
 }
 
 const GRAIN_SVG =

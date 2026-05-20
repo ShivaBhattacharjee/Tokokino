@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Noctivy — Create Stunning Screenshots Instantly",
+  title: "Tokokino — Create Stunning Screenshots Instantly",
   description:
     "Transform screenshots into beautiful, share-ready visuals with device mockups, browser frames, gradients, and more. Free, fast, and right in your browser.",
   keywords: [

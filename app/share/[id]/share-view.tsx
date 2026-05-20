@@ -68,9 +68,9 @@ export function ShareView({
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dashed border-border/70 pb-4">
           <div className="min-w-0">
             <p className="label-eyebrow">Shared screenshot</p>
-            <h1 className="mt-1 truncate text-lg font-medium">Noctivy share</h1>
+            <h1 className="mt-1 truncate text-lg font-medium">Tokokino share</h1>
             <p className="mt-1 text-xs text-muted-foreground">
-              {sharedBy ? `Shared by ${sharedBy}` : "Shared with Noctivy"}
+              {sharedBy ? `Shared by ${sharedBy}` : "Shared with Tokokino"}
               {views === null ? null : ` · ${views} view${views === 1 ? "" : "s"}`}
             </p>
           </div>
@@ -110,7 +110,7 @@ export function ShareView({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={imageUrl}
-                alt="Shared Noctivy screenshot"
+                alt="Shared Tokokino screenshot"
                 className="block h-auto max-h-[calc(100svh-9rem)] w-full object-contain"
                 onError={() => setImageFailed(true)}
               />

@@ -74,7 +74,7 @@ export function MobileOnlyWarning() {
             }}
             className="mt-8 text-[30px] leading-[1.04] font-semibold text-balance text-foreground"
           >
-            Open Noctivy on a wider screen
+            Open Tokokino on a wider screen
           </motion.h1>
 
           <motion.p

@@ -10,7 +10,7 @@ function StarCount() {
   const rounded = useTransform(count, (v) => Math.round(v))
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/ShivaBhattacharjee/noctivy")
+    fetch("https://api.github.com/repos/ShivaBhattacharjee/tokokino")
       .then((r) => r.json())
       .then((data: { stargazers_count?: number }) => {
         const stars = data.stargazers_count ?? 0
@@ -25,7 +25,7 @@ function StarCount() {
 
   return (
     <a
-      href="https://github.com/ShivaBhattacharjee/noctivy"
+      href="https://github.com/ShivaBhattacharjee/tokokino"
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/50 px-3 py-1 font-mono text-[10px] tracking-widest uppercase backdrop-blur-sm transition hover:border-border"
@@ -73,7 +73,7 @@ export function Hero() {
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
-              href="https://github.com/ShivaBhattacharjee/noctivy"
+              href="https://github.com/ShivaBhattacharjee/tokokino"
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center gap-2 rounded-md border border-border/70 bg-background/40 px-5 py-2.5 text-sm font-medium text-foreground/70 backdrop-blur-sm transition hover:border-accent-foreground/40 hover:text-foreground"

@@ -854,7 +854,7 @@ function DefaultToolbarContents() {
       id: string
     ) => {
       window.dispatchEvent(
-        new CustomEvent("noctivy:hide-floating-toolbar", {
+        new CustomEvent("tokokino:hide-floating-toolbar", {
           detail: { kind, id, durationMs: 320 },
         })
       )

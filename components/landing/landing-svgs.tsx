@@ -1,6 +1,6 @@
 import type { SVGProps } from "react"
 
-export function NoctivyMark(props: SVGProps<SVGSVGElement>) {
+export function TokokinoMark(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -10,12 +10,12 @@ export function NoctivyMark(props: SVGProps<SVGSVGElement>) {
       {...props}
     >
       <defs>
-        <linearGradient id="noctivy-mark" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+        <linearGradient id="tokokino-mark" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="currentColor" stopOpacity="0.95" />
           <stop offset="1" stopColor="currentColor" stopOpacity="0.55" />
         </linearGradient>
       </defs>
-      <rect x="4.5" y="4.5" width="23" height="23" rx="6" stroke="url(#noctivy-mark)" strokeOpacity="0.55" />
+      <rect x="4.5" y="4.5" width="23" height="23" rx="6" stroke="url(#tokokino-mark)" strokeOpacity="0.55" />
       <path
         d="M10 22V10h2.2l7.6 8V10H22v12h-2.2l-7.6-8v8H10Z"
         fill="currentColor"

@@ -8,9 +8,9 @@ import { BrandLogo } from "@/components/editor/brand-logo"
 import { PolicyIndex } from "./policy-index"
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Noctivy",
+  title: "Privacy Policy — Tokokino",
   description:
-    "Read how Noctivy handles authentication data, shared content, and usage information.",
+    "Read how Tokokino handles authentication data, shared content, and usage information.",
 }
 
 const EFFECTIVE_DATE = "May 20, 2026"
@@ -24,16 +24,16 @@ const sections: PolicySection[] = [
   {
     title: "1. Scope",
     body: [
-      "This Privacy Policy explains what information Noctivy processes, why it is processed, and the choices available to you when using the website, editor, sharing features, and related services.",
-      "Noctivy is an open-source project. Data practices can differ between self-hosted deployments and any official hosted service.",
+      "This Privacy Policy explains what information Tokokino processes, why it is processed, and the choices available to you when using the website, editor, sharing features, and related services.",
+      "Tokokino is an open-source project. Data practices can differ between self-hosted deployments and any official hosted service.",
     ],
   },
   {
     title: "2. Data We Collect",
     body: [
-      "Account and identity data: when you sign in, Noctivy may process information provided by your authentication provider, such as name, email address, profile identifier, and avatar.",
+      "Account and identity data: when you sign in, Tokokino may process information provided by your authentication provider, such as name, email address, profile identifier, and avatar.",
       "Shared content data: if you create a public share link, the rendered exported image and related share metadata are stored so the link can be accessed.",
-      "Operational data: Noctivy may process technical information required for service reliability and abuse prevention, such as request timestamps, user agent data, IP-derived logs, and error diagnostics.",
+      "Operational data: Tokokino may process technical information required for service reliability and abuse prevention, such as request timestamps, user agent data, IP-derived logs, and error diagnostics.",
       "Editor content is local by default. Screenshots and styling work remain in your browser unless you explicitly upload or share them through a server-backed feature.",
     ],
   },
@@ -49,13 +49,13 @@ const sections: PolicySection[] = [
   {
     title: "4. Legal Bases",
     body: [
-      "Depending on your location, Noctivy processes data under one or more legal bases: performance of a contract (to provide requested features), legitimate interests (security and service reliability), consent (where required), and legal obligations.",
+      "Depending on your location, Tokokino processes data under one or more legal bases: performance of a contract (to provide requested features), legitimate interests (security and service reliability), consent (where required), and legal obligations.",
     ],
   },
   {
     title: "5. Sharing and Disclosure",
     body: [
-      "Noctivy does not sell your personal data.",
+      "Tokokino does not sell your personal data.",
       "Data may be shared with infrastructure providers that support core functionality, including hosting, authentication, and object storage, only as needed to operate the service.",
       "Public share links are accessible to anyone who has the URL. You are responsible for deciding what content you publish through share links.",
       "Data may be disclosed when required by applicable law, legal process, or to protect users, rights, or the service.",
@@ -74,25 +74,25 @@ const sections: PolicySection[] = [
     body: [
       "You may choose not to use sign-in or sharing features if you prefer to keep all editing fully local.",
       "Where applicable law grants privacy rights, you may request access, correction, deletion, restriction, objection, portability, or withdrawal of consent for specific processing activities.",
-      "To submit a privacy request, contact Noctivy using the methods listed in the Terms page and include enough detail to verify and process your request.",
+      "To submit a privacy request, contact Tokokino using the methods listed in the Terms page and include enough detail to verify and process your request.",
     ],
   },
   {
     title: "8. Security",
     body: [
-      "Noctivy uses reasonable technical and organizational safeguards to protect personal information. No method of storage or transmission is completely secure, so absolute security cannot be guaranteed.",
+      "Tokokino uses reasonable technical and organizational safeguards to protect personal information. No method of storage or transmission is completely secure, so absolute security cannot be guaranteed.",
     ],
   },
   {
     title: "9. International Transfers",
     body: [
-      "Noctivy services and providers may process data in multiple countries. Where required, reasonable safeguards are used for cross-border processing in line with applicable law.",
+      "Tokokino services and providers may process data in multiple countries. Where required, reasonable safeguards are used for cross-border processing in line with applicable law.",
     ],
   },
   {
     title: "10. Children's Privacy",
     body: [
-      "Noctivy is not intended for children under the minimum age required by applicable law. If you believe a child has provided personal information without proper authorization, contact the project so appropriate action can be taken.",
+      "Tokokino is not intended for children under the minimum age required by applicable law. If you believe a child has provided personal information without proper authorization, contact the project so appropriate action can be taken.",
     ],
   },
   {
@@ -106,8 +106,8 @@ const sections: PolicySection[] = [
     body: [
       <>
         For privacy questions or requests, contact the project through{" "}
-        <ExternalLink href="https://github.com/shivabhattacharjee/noctivity">
-          github.com/shivabhattacharjee/noctivity
+        <ExternalLink href="https://github.com/shivabhattacharjee/tokokino">
+          github.com/shivabhattacharjee/tokokino
         </ExternalLink>{" "}
         or email{" "}
         <ExternalLink href="mailto:hello@theshiva.xyz">
@@ -145,7 +145,7 @@ export default function PrivacyPage() {
               Privacy Policy
             </h1>
             <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-              This policy explains how Noctivy handles personal data for
+              This policy explains how Tokokino handles personal data for
               authentication, sharing, operations, and security while keeping
               editing local-first by default.
             </p>

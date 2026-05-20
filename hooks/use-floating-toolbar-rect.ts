@@ -75,12 +75,12 @@ export function useFloatingToolbarRect({
       window.setTimeout(() => setHideFloatingToolbar(false), durationMs)
     }
     window.addEventListener(
-      "noctivy:hide-floating-toolbar",
+      "tokokino:hide-floating-toolbar",
       onHide
     )
     return () =>
       window.removeEventListener(
-        "noctivy:hide-floating-toolbar",
+        "tokokino:hide-floating-toolbar",
         onHide
       )
   }, [elementId, kind, trackPositionAnimate])

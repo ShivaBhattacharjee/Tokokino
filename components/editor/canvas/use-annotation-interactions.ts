@@ -204,7 +204,7 @@ export function useAnnotationInteractions({
         setSelectedAssetId(null)
       } else if (editorElementAtPoint.type === "text") {
         window.dispatchEvent(
-          new CustomEvent("noctivy:select-text", {
+          new CustomEvent("tokokino:select-text", {
             detail: { id: editorElementAtPoint.id },
           })
         )

@@ -5,9 +5,9 @@ import Link from "next/link"
 import { motion } from "motion/react"
 import { cn } from "@/lib/utils"
 
-const WORDMARK = "Noctivy"
+const WORDMARK = "Tokokino"
 
-function NoctivyMark({ className }: { className?: string }) {
+function TokokinoMark({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -17,12 +17,12 @@ function NoctivyMark({ className }: { className?: string }) {
       className={className}
     >
       <defs>
-        <linearGradient id="noctivy-mark" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+        <linearGradient id="tokokino-mark" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="currentColor" stopOpacity="0.95" />
           <stop offset="1" stopColor="currentColor" stopOpacity="0.55" />
         </linearGradient>
       </defs>
-      <rect x="4.5" y="4.5" width="23" height="23" rx="6" stroke="url(#noctivy-mark)" strokeOpacity="0.55" />
+      <rect x="4.5" y="4.5" width="23" height="23" rx="6" stroke="url(#tokokino-mark)" strokeOpacity="0.55" />
       <path d="M10 22V10h2.2l7.6 8V10H22v12h-2.2l-7.6-8v8H10Z" fill="currentColor" />
       <circle cx="22.5" cy="9.5" r="1.4" fill="currentColor" />
     </svg>
@@ -42,7 +42,7 @@ export function BrandLogo({ className }: { className?: string }) {
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 22, mass: 0.6 }}
       >
-        <NoctivyMark className="size-5 text-primary" />
+        <TokokinoMark className="size-5 text-primary" />
       </motion.span>
 
       <motion.span

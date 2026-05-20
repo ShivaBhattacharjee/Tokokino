@@ -1,4 +1,4 @@
-# agents.md — AI Agent Guide for Noctivy
+# agents.md — AI Agent Guide for Tokokino
 
 Reference this alongside CLAUDE.md. CLAUDE.md covers architecture; this file covers task patterns, where things live, and how to make changes safely.
 
@@ -6,7 +6,7 @@ Reference this alongside CLAUDE.md. CLAUDE.md covers architecture; this file cov
 
 ## App in one paragraph
 
-Noctivy is a client-heavy Next.js app. Almost all logic runs in the browser via a Zustand store. The server exists only for: auth (`/api/auth`), share upload to Cloudflare R2 (`/api/share`), an image CORS proxy (`/api/export/image`), and Unsplash integration. The canvas, styling, export, and annotation tools are all pure client-side React with no server round-trips.
+Tokokino is a client-heavy Next.js app. Almost all logic runs in the browser via a Zustand store. The server exists only for: auth (`/api/auth`), share upload to Cloudflare R2 (`/api/share`), an image CORS proxy (`/api/export/image`), and Unsplash integration. The canvas, styling, export, and annotation tools are all pure client-side React with no server round-trips.
 
 ---
 

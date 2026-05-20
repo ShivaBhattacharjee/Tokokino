@@ -7,8 +7,8 @@ import { recordShareView } from "@/lib/share-db"
 import { ShareView } from "./share-view"
 
 export const metadata: Metadata = {
-  title: "Shared screenshot - Noctivy",
-  description: "View, copy, or download a shared Noctivy screenshot.",
+  title: "Shared screenshot - Tokokino",
+  description: "View, copy, or download a shared Tokokino screenshot.",
 }
 
 export default async function SharePage({

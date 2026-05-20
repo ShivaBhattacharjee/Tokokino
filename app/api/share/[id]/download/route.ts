@@ -29,7 +29,7 @@ export async function GET(
     return new NextResponse(body, {
       headers: {
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Disposition": `attachment; filename="noctivy-share-${id}.png"`,
+        "Content-Disposition": `attachment; filename="tokokino-share-${id}.png"`,
         "Content-Type": object.ContentType ?? "image/png",
       },
     })

@@ -137,14 +137,14 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
       setEditingRequested(true)
     }
 
-    window.addEventListener("noctivy:select-text", selectText)
-    window.addEventListener("noctivy:edit-text", editText)
+    window.addEventListener("tokokino:select-text", selectText)
+    window.addEventListener("tokokino:edit-text", editText)
     return () => {
       window.removeEventListener(
-        "noctivy:select-text",
+        "tokokino:select-text",
         selectText
       )
-      window.removeEventListener("noctivy:edit-text", editText)
+      window.removeEventListener("tokokino:edit-text", editText)
     }
   }, [setSelectedAnnotationShapeId, setSelectedTextId, text.id])
 

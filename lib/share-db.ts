@@ -4,6 +4,7 @@ import { createHash } from "node:crypto"
 import type { Collection, MongoServerError } from "mongodb"
 
 import { getConnectedMongoClient } from "@/lib/mongo"
+import { env } from "./env"
 
 export type ShareRecord = {
   id: string
@@ -177,7 +178,7 @@ function getClientIp(requestHeaders: Headers) {
 }
 
 function hashIpAddress(ip: string) {
-  const secret = process.env.BETTER_AUTH_SECRET ?? "noctivy-share-views"
+  const secret = env.BETTER_AUTH_SECRET 
   return createHash("sha256").update(`${secret}:${ip}`).digest("hex")
 }
 

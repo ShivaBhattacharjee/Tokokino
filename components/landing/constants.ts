@@ -1,7 +1,7 @@
 export const ease = [0.22, 1, 0.36, 1] as const
 
 export const askPrompt = encodeURIComponent(
-  `Explain what Noctivy is and why I should use it.
+  `Explain what Tokokino is and why I should use it.
 
 It's a browser-based screenshot beautifier — drop a capture, add device frames (Safari, Chrome, Arc, iPhone, MacBook), pick a backdrop (or sample one from the screenshot), add annotations, and export PNG/JPEG/WebP or share a public link.
 
