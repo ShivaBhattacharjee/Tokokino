@@ -11,7 +11,7 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white" />
   <img alt="Zustand" src="https://img.shields.io/badge/Zustand-State%20Management-7A3E2B" />
   <img alt="MongoDB" src="https://img.shields.io/badge/MongoDB-Database-47A248?logo=mongodb&logoColor=white" />
-  <img alt="Cloudflare R2" src="https://img.shields.io/badge/Cloudflare-R2-F38020?logo=cloudflare&logoColor=white" />
+  <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white" />
 </p>
 
 Tokokino is a client-heavy Next.js app for creating polished screenshot visuals with backgrounds, overlays, and device mockups.
