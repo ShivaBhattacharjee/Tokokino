@@ -131,6 +131,7 @@ export function TextElementView({ text, canvasRef, onCenterGuideChange, previewM
 
   React.useEffect(() => {
     if (isEditing) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditingAutoWidthPx(null)
   }, [isEditing])
 

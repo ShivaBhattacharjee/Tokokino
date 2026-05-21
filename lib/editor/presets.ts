@@ -1,4 +1,3 @@
-import { env } from "@/lib/env"
 import BACKGROUND_DATA from "./backgrounds-data.json"
 import type {
   BackgroundCategory,

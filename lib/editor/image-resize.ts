@@ -313,6 +313,7 @@ export function useDownscaledImageUrl(
 
   React.useEffect(() => {
     if (!src) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResolved(null)
       return
     }

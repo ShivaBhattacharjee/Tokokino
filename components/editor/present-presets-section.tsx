@@ -682,7 +682,8 @@ export function PresentPresetsSection() {
     fetch("/api/presets", { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) return null
-        return res.json() as Promise<{ presets: CustomPresetSummary[] }>
+        const body: { presets: CustomPresetSummary[] } = await res.json()
+        return body
       })
       .then((data) => {
         if (cancelled || !data) return

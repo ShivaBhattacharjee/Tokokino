@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     )
   }
 
-  const data = (await response.json()) as UnsplashSearchResponse
+  const data: UnsplashSearchResponse = await response.json()
   return NextResponse.json({
     page,
     hasMore: page < data.total_pages,

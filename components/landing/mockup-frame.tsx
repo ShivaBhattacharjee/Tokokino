@@ -1,7 +1,6 @@
 import { motion } from "motion/react"
 import { CornerTick } from "@/components/landing/landing-svgs"
 import { ease } from "@/components/landing/constants"
-import { env } from "@/lib/env"
 
 export function MockupFrame({ compact = false }: { compact?: boolean }) {
   return (

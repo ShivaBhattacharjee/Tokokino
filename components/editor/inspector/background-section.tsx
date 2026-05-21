@@ -663,18 +663,19 @@ export function BackgroundSection() {
         const response = await fetch(
           `/api/unsplash/search?q=${encodeURIComponent(query)}&page=${page}`
         )
-        const data = (await response.json())
+        const data: Record<string, unknown> = await response.json()
 
         if (!response.ok || !("results" in data)) {
           throw new Error(
-            "error" in data && data.error
+            "error" in data && typeof data.error === "string"
               ? data.error
               : "Unable to search Unsplash"
           )
         }
 
+        const results = data.results as UnsplashResult[]
         setUnsplashResults((prev) =>
-          page === 1 ? data.results : [...prev, ...data.results]
+          page === 1 ? results : [...prev, ...results]
         )
         setUnsplashPage(page)
         setUnsplashHasMore(Boolean(data.hasMore))

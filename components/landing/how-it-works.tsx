@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { motion } from "motion/react"
 import { ease } from "@/components/landing/constants"
-import { env } from "@/lib/env"
 
 type StepId = "open" | "capture" | "compose" | "ship"
 
