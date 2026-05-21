@@ -71,8 +71,30 @@ function isDataUrl(v: string | null | undefined): v is string {
   return typeof v === "string" && v.startsWith("data:")
 }
 
+function isObjectUrl(v: string | null | undefined): v is string {
+  return typeof v === "string" && v.startsWith("blob:")
+}
+
 function isSentinel(v: string | null | undefined): v is string {
   return typeof v === "string" && v.startsWith(BLOB_SENTINEL_PREFIX)
+}
+
+// Tracks every Object URL we mint during hydration so the save path can look
+// the original Blob back up cheaply. Without this we'd lose the blob on
+// reload (Object URLs can't be serialised) or be forced to fetch them
+// through XHR on every save, which defeats the point. The map is bounded by
+// the number of distinct screenshots/backgrounds in the active project, so
+// memory is fine — we drop entries when explicitly revoked.
+const objectUrlBlobs = new Map<string, Blob>()
+
+function blobToObjectUrl(blob: Blob): string {
+  const url = URL.createObjectURL(blob)
+  objectUrlBlobs.set(url, blob)
+  return url
+}
+
+function getBlobFromObjectUrl(url: string): Blob | null {
+  return objectUrlBlobs.get(url) ?? null
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -86,20 +108,32 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
-}
-
 // ---------------------------------------------------------------------------
-// Screenshot extraction (data URLs → Blobs) for write path
+// Screenshot extraction (data URLs / object URLs → Blobs) for write path
 // ---------------------------------------------------------------------------
 
 type BlobMap = Record<string, Blob>
+
+function extractField(value: string | null | undefined, key: string, blobs: BlobMap):
+  | { sentinel: string }
+  | null {
+  if (isDataUrl(value)) {
+    blobs[key] = dataUrlToBlob(value)
+    return { sentinel: `${BLOB_SENTINEL_PREFIX}${key}` }
+  }
+  if (isObjectUrl(value)) {
+    // Hydrated this session — reuse the Blob we still hold a ref to instead
+    // of re-decoding from the rendered DOM. If the entry has gone missing
+    // (e.g. user revoked the URL manually), fall through to "no extract"
+    // so we don't accidentally write a stale blob entry.
+    const blob = getBlobFromObjectUrl(value)
+    if (blob) {
+      blobs[key] = blob
+      return { sentinel: `${BLOB_SENTINEL_PREFIX}${key}` }
+    }
+  }
+  return null
+}
 
 function extractScreenshots(state: EditorState): {
   stripped: EditorState
@@ -110,36 +144,39 @@ function extractScreenshots(state: EditorState): {
   const canvases = state.canvases.map((canvas) => {
     const result: CanvasState = { ...canvas }
 
-    if (isDataUrl(canvas.screenshot)) {
-      const key = `screenshot:${canvas.id}`
-      blobs[key] = dataUrlToBlob(canvas.screenshot)
-      result.screenshot = `${BLOB_SENTINEL_PREFIX}${key}`
-    }
+    const screenshotExtract = extractField(
+      canvas.screenshot,
+      `screenshot:${canvas.id}`,
+      blobs
+    )
+    if (screenshotExtract) result.screenshot = screenshotExtract.sentinel
 
-    if (isDataUrl(canvas.originalScreenshot)) {
-      const key = `original:${canvas.id}`
-      blobs[key] = dataUrlToBlob(canvas.originalScreenshot)
-      result.originalScreenshot = `${BLOB_SENTINEL_PREFIX}${key}`
-    }
+    const originalExtract = extractField(
+      canvas.originalScreenshot,
+      `original:${canvas.id}`,
+      blobs
+    )
+    if (originalExtract) result.originalScreenshot = originalExtract.sentinel
 
-    // Uploaded background images can also be large data URLs
-    if (
-      canvas.background.type === "image" &&
-      isDataUrl(canvas.background.value)
-    ) {
-      const key = `bg:${canvas.id}`
-      blobs[key] = dataUrlToBlob(canvas.background.value)
-      result.background = {
-        ...canvas.background,
-        value: `${BLOB_SENTINEL_PREFIX}${key}`,
+    if (canvas.background.type === "image") {
+      const bgExtract = extractField(
+        canvas.background.value,
+        `bg:${canvas.id}`,
+        blobs
+      )
+      if (bgExtract) {
+        result.background = { ...canvas.background, value: bgExtract.sentinel }
       }
     }
 
     result.screenshotSlots = canvas.screenshotSlots.map((slot) => {
-      if (!isDataUrl(slot.src)) return slot
-      const key = `slot:${canvas.id}:${slot.id}`
-      blobs[key] = dataUrlToBlob(slot.src)
-      return { ...slot, src: `${BLOB_SENTINEL_PREFIX}${key}` }
+      const slotExtract = extractField(
+        slot.src,
+        `slot:${canvas.id}:${slot.id}`,
+        blobs
+      )
+      if (!slotExtract) return slot
+      return { ...slot, src: slotExtract.sentinel }
     })
 
     return result
@@ -212,20 +249,21 @@ async function resolveScreenshots(
 
   const blobMap = await readBlobsFromDb(db, keys)
 
-  // Convert all found blobs to data URLs concurrently
-  const dataUrls: Record<string, string> = {}
-  await Promise.all(
-    Object.entries(blobMap).map(async ([key, blob]) => {
-      dataUrls[key] = await blobToDataUrl(blob)
-    })
-  )
+  // Object URLs are O(1) — no FileReader, no base64 parse, browser decodes
+  // the bitmap lazily when the <img> actually renders. That keeps the
+  // hydration setState cheap and stops the post-refresh thundering herd
+  // where every canvas re-rendered with a giant data URL at once.
+  const objectUrls: Record<string, string> = {}
+  for (const [key, blob] of Object.entries(blobMap)) {
+    objectUrls[key] = blobToObjectUrl(blob)
+  }
 
   const resolve = (v: string | null | undefined): string | null => {
     if (!isSentinel(v)) return v ?? null
     const key = v.slice(BLOB_SENTINEL_PREFIX.length)
     // If the blob is missing (corrupted store), fall back to null so the
     // canvas shows the empty-state rather than a broken reference.
-    return dataUrls[key] ?? null
+    return objectUrls[key] ?? null
   }
 
   const canvases = state.canvases.map((canvas) => ({

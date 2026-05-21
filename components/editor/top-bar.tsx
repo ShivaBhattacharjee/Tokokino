@@ -88,6 +88,7 @@ import {
   exportCanvas,
   getOutputDims,
 } from "@/lib/editor/export"
+import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 
 import {
   Tooltip,
@@ -205,18 +206,21 @@ export function TopBar() {
         return
       }
 
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
+      void readImageFileAsDataUrl(file, {
+        downscaleAbove: 10 * 1024 * 1024,
+        maxDimension: 2400,
+      })
+        .then((src) => {
           if (selectedScreenshotSlotId) {
-            setScreenshotSlotImage(selectedScreenshotSlotId, reader.result)
+            setScreenshotSlotImage(selectedScreenshotSlotId, src)
           } else {
-            setScreenshot(reader.result)
+            setScreenshot(src)
           }
           toast.success("Image opened successfully")
-        }
-      }
-      reader.readAsDataURL(file)
+        })
+        .catch(() => {
+          toast.error("Could not read image")
+        })
       e.target.value = ""
     },
     [selectedScreenshotSlotId, setScreenshot, setScreenshotSlotImage]

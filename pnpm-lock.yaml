@@ -26,6 +26,9 @@ importers:
       '@remixicon/react':
         specifier: ^4.9.0
         version: 4.9.0(react@19.2.5)
+      '@smithy/fetch-http-handler':
+        specifier: ^5.4.3
+        version: 5.4.3
       '@xyflow/react':
         specifier: ^12.10.2
         version: 12.10.2(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -2286,8 +2289,8 @@ packages:
     resolution: {integrity: sha512-lWyt4T2XQZUZgK3tQ3Wn0w3XBvZsK/vjTuJl6bXbnGZBHH0ZUSONTYiK9TgjTTzU54xQr3DRFwpjmhp0oLm3gg==}
     engines: {node: '>=18.0.0'}
 
-  '@smithy/fetch-http-handler@5.3.17':
-    resolution: {integrity: sha512-bXOvQzaSm6MnmLaWA1elgfQcAtN4UP3vXqV97bHuoOrHQOJiLT3ds6o9eo5bqd0TJfRFpzdGnDQdW3FACiAVdw==}
+  '@smithy/fetch-http-handler@5.4.3':
+    resolution: {integrity: sha512-F+DRf8IJazRJgYog2A/yJK7eYVc0rqTlRzO+5ZxjJd4WkZoKz0IJRncf7G6t1pdVT3kryJcwuTFhN1c5m6N47A==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/hash-blob-browser@4.2.15':
@@ -5949,7 +5952,7 @@ snapshots:
       '@aws-sdk/util-user-agent-node': 3.973.21
       '@smithy/config-resolver': 4.4.17
       '@smithy/core': 3.23.17
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/hash-node': 4.2.14
       '@smithy/invalid-dependency': 4.2.14
       '@smithy/middleware-content-length': 4.2.14
@@ -5997,7 +6000,7 @@ snapshots:
       '@aws-sdk/util-user-agent-node': 3.973.21
       '@smithy/config-resolver': 4.4.17
       '@smithy/core': 3.23.17
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/hash-node': 4.2.14
       '@smithy/invalid-dependency': 4.2.14
       '@smithy/middleware-content-length': 4.2.14
@@ -6045,7 +6048,7 @@ snapshots:
       '@smithy/eventstream-serde-browser': 4.2.14
       '@smithy/eventstream-serde-config-resolver': 4.3.14
       '@smithy/eventstream-serde-node': 4.2.14
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/hash-node': 4.2.14
       '@smithy/invalid-dependency': 4.2.14
       '@smithy/middleware-content-length': 4.2.14
@@ -6102,7 +6105,7 @@ snapshots:
       '@smithy/eventstream-serde-browser': 4.2.14
       '@smithy/eventstream-serde-config-resolver': 4.3.14
       '@smithy/eventstream-serde-node': 4.2.14
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/hash-blob-browser': 4.2.15
       '@smithy/hash-node': 4.2.14
       '@smithy/hash-stream-node': 4.2.14
@@ -6162,7 +6165,7 @@ snapshots:
       '@smithy/eventstream-serde-browser': 4.2.14
       '@smithy/eventstream-serde-config-resolver': 4.3.14
       '@smithy/eventstream-serde-node': 4.2.14
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/hash-blob-browser': 4.2.15
       '@smithy/hash-node': 4.2.14
       '@smithy/hash-stream-node': 4.2.14
@@ -6212,7 +6215,7 @@ snapshots:
       '@aws-sdk/util-user-agent-node': 3.973.21
       '@smithy/config-resolver': 4.4.17
       '@smithy/core': 3.23.17
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/hash-node': 4.2.14
       '@smithy/invalid-dependency': 4.2.14
       '@smithy/md5-js': 4.2.14
@@ -6285,7 +6288,7 @@ snapshots:
     dependencies:
       '@aws-sdk/core': 3.974.5
       '@aws-sdk/types': 3.973.8
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/node-http-handler': 4.6.1
       '@smithy/property-provider': 4.2.14
       '@smithy/protocol-http': 5.3.14
@@ -6516,7 +6519,7 @@ snapshots:
       '@aws-sdk/util-user-agent-node': 3.973.21
       '@smithy/config-resolver': 4.4.17
       '@smithy/core': 3.23.17
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/hash-node': 4.2.14
       '@smithy/invalid-dependency': 4.2.14
       '@smithy/middleware-content-length': 4.2.14
@@ -8393,12 +8396,10 @@ snapshots:
       '@smithy/types': 4.14.1
       tslib: 2.8.1
 
-  '@smithy/fetch-http-handler@5.3.17':
+  '@smithy/fetch-http-handler@5.4.3':
     dependencies:
-      '@smithy/protocol-http': 5.3.14
-      '@smithy/querystring-builder': 4.2.14
-      '@smithy/types': 4.14.1
-      '@smithy/util-base64': 4.3.2
+      '@smithy/core': 3.24.3
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
 
   '@smithy/hash-blob-browser@4.2.15':
@@ -8635,7 +8636,7 @@ snapshots:
 
   '@smithy/util-stream@4.5.25':
     dependencies:
-      '@smithy/fetch-http-handler': 5.3.17
+      '@smithy/fetch-http-handler': 5.4.3
       '@smithy/node-http-handler': 4.6.1
       '@smithy/types': 4.14.1
       '@smithy/util-base64': 4.3.2

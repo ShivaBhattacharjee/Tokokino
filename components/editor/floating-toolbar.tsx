@@ -54,6 +54,7 @@ import type {
   ScreenshotSlot,
 } from "@/lib/editor/state-types"
 import { editorValueSchemas } from "@/lib/editor/value-schemas"
+import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { cn } from "@/lib/utils"
 
 const FIT_OPTIONS: {
@@ -532,7 +533,7 @@ export function FloatingToolbar() {
   const showBulkBar = bulkEditMode && !isAnnotateMode
 
   return (
-    <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex w-full max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-col items-center gap-2 px-3 sm:w-auto sm:px-0">
+    <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex w-full max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-col items-center gap-2 px-3 sm:w-auto sm:px-0 md:max-xl:left-4 md:max-xl:translate-x-0 md:max-xl:items-start">
       <AnimatePresence initial={false}>
         {showBulkBar ? (
           <motion.div
@@ -986,18 +987,21 @@ function DefaultToolbarContents() {
       toast.error("Please choose an image file")
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        const id = addAsset(reader.result)
+    void readImageFileAsDataUrl(file, {
+      downscaleAbove: 10 * 1024 * 1024,
+      maxDimension: 1600,
+    })
+      .then((src) => {
+        const id = addAsset(src)
         setSelectedAssetId(id)
         setSelectedTextId(null)
         setSelectedScreenshotSlotId(null)
         setIsScreenshotSelected(false)
         setActiveTool("pointer")
-      }
-    }
-    reader.readAsDataURL(file)
+      })
+      .catch(() => {
+        toast.error("Could not read image")
+      })
   }
 
   const handleToolClick = (id: EditorTool) => {

@@ -1,6 +1,7 @@
 import "server-only"
 
 import { S3Client } from "@aws-sdk/client-s3"
+import { FetchHttpHandler } from "@smithy/fetch-http-handler"
 
 import { requireR2Config } from "@/lib/env"
 
@@ -21,14 +22,9 @@ export function getR2Client() {
     retryMode: "standard",
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
-    requestHandler: {
-      connectionTimeout: 5000,
-      requestTimeout: 20000,
-      httpsAgent: {
-        keepAlive: true,
-        maxSockets: 25,
-      },
-    },
+    requestHandler: new FetchHttpHandler({
+      requestTimeout: 60000,
+    }),
   })
 
   return client

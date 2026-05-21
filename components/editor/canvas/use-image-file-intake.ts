@@ -3,6 +3,12 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
+
+// Only re-encode screenshots when they're truly oversized — leaves typical
+// 1–5 MB phone screenshots untouched and pixel-perfect.
+const SCREENSHOT_DOWNSCALE_THRESHOLD = 10 * 1024 * 1024
+
 export function useImageFileIntake(onImage: (src: string) => void) {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
@@ -14,11 +20,19 @@ export function useImageFileIntake(onImage: (src: string) => void) {
         return
       }
 
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (typeof reader.result === "string") onImage(reader.result)
-      }
-      reader.readAsDataURL(file)
+      void readImageFileAsDataUrl(file, {
+        downscaleAbove: SCREENSHOT_DOWNSCALE_THRESHOLD,
+        maxDimension: 2400,
+      })
+        .then((src) => onImage(src))
+        .catch(() => {
+          // Fallback: read raw if downscale somehow blows up.
+          const reader = new FileReader()
+          reader.onload = () => {
+            if (typeof reader.result === "string") onImage(reader.result)
+          }
+          reader.readAsDataURL(file)
+        })
     },
     [onImage]
   )

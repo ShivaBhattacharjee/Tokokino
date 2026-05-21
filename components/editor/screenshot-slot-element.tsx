@@ -57,6 +57,7 @@ import {
   useEditorStore,
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
+import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { cn } from "@/lib/utils"
 
 /**
@@ -369,14 +370,9 @@ type DragState = {
 }
 
 const readFileAsDataUrl = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result)
-      else reject(new Error("Could not read file"))
-    }
-    reader.onerror = () => reject(reader.error ?? new Error("FileReader error"))
-    reader.readAsDataURL(file)
+  readImageFileAsDataUrl(file, {
+    downscaleAbove: 10 * 1024 * 1024,
+    maxDimension: 2400,
   })
 
 export function ScreenshotSlotView({

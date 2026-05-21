@@ -32,6 +32,7 @@ import {
   useEditor,
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
+import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { cn } from "@/lib/utils"
 
 type DragState = {
@@ -534,12 +535,14 @@ function AssetToolbar({
   const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const src = ev.target?.result as string
-      if (src) updateAsset(asset.id, { src })
-    }
-    reader.readAsDataURL(file)
+    void readImageFileAsDataUrl(file, {
+      downscaleAbove: 10 * 1024 * 1024,
+      maxDimension: 1600,
+    })
+      .then((src) => updateAsset(asset.id, { src }))
+      .catch(() => {
+        /* swallow — user can retry */
+      })
     e.target.value = ""
   }
 

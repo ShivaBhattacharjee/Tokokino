@@ -1,6 +1,7 @@
 "use client"
 
 import { DashedH } from "@/components/landing/dashed-h"
+import { ComparisonSection } from "@/components/landing/comparison-section"
 import { FeatureRow } from "@/components/landing/feature-row"
 import { Faq } from "@/components/landing/faq"
 import { FinalCta } from "@/components/landing/final-cta"
@@ -10,6 +11,7 @@ import { HowItWorks } from "@/components/landing/how-it-works"
 import { Nav } from "@/components/landing/nav"
 import { ScrollToTop } from "@/components/landing/scroll-to-top"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
+import { UseCasesSection } from "@/components/landing/use-cases-section"
 import { FlickeringGrid } from "@/components/ui/flickering-grid"
 
 const CONTENT_WIDTH = "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
@@ -33,6 +35,14 @@ export default function Page() {
       <DashedH />
       <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
         <FeatureRow />
+      </div>
+      <DashedH />
+      <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
+        <ComparisonSection />
+      </div>
+      <DashedH />
+      <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
+        <UseCasesSection />
       </div>
       <DashedH />
       <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>

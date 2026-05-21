@@ -13,6 +13,7 @@ import {
   type Overlay,
   type Portrait,
 } from "@/lib/editor/store"
+import { useDownscaledImageUrl } from "@/lib/editor/image-resize"
 
 import { lightingOverlayCss, NOISE_DATA_URL, portraitOverlayCss } from "./helpers"
 
@@ -35,6 +36,18 @@ function CanvasBackdropImpl({
   portrait,
   overlay,
 }: CanvasBackdropProps) {
+  // Swap heavy background bitmaps (predefined library / Unsplash hits) for a
+  // downscaled version at render time. Source URL stays untouched in the
+  // store so undo/redo and tile-selection comparisons keep working.
+  const rawImageUrl = background.type === "image" ? background.value : null
+  const optimizedImageUrl = useDownscaledImageUrl(rawImageUrl)
+  const effectiveBackground: Background =
+    background.type === "image" &&
+    optimizedImageUrl &&
+    optimizedImageUrl !== background.value
+      ? { ...background, value: optimizedImageUrl }
+      : background
+
   const portraitStyle = portraitOverlayCss(
     portrait.mode,
     portrait.intensity,
@@ -64,7 +77,7 @@ function CanvasBackdropImpl({
           background.type === "none" && "bg-transparency-checker"
         )}
         style={{
-          ...backgroundCss(background),
+          ...backgroundCss(effectiveBackground),
           filter: filterValue,
         }}
       />

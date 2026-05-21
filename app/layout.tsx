@@ -24,8 +24,11 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { Metadata } from "next"
 
+const siteUrl = new URL("https://tokokino.com")
+const opengraphImageUrl = new URL("/opengraph.png?v=2", siteUrl)
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tokokino.com"),
+  metadataBase: siteUrl,
   applicationName: "Tokokino",
   title: {
     default: "Tokokino - Beautiful Screenshot Mockups",
@@ -66,7 +69,7 @@ export const metadata: Metadata = {
     siteName: "Tokokino",
     images: [
       {
-        url: "/opengraph.png",
+        url: opengraphImageUrl,
         width: 1920,
         height: 1008,
         alt: "Tokokino screenshot mockup editor preview",
@@ -81,7 +84,9 @@ export const metadata: Metadata = {
       "Create polished screenshot mockups for websites, apps, products, decks, and social posts.",
     images: [
       {
-        url: "/opengraph.png",
+        url: opengraphImageUrl,
+        width: 1920,
+        height: 1008,
         alt: "Tokokino screenshot mockup editor preview",
       },
     ],

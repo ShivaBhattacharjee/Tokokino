@@ -9,6 +9,8 @@ import { ease } from "@/components/landing/constants"
 
 const links = [
   { label: "Features", href: "#features" },
+  { label: "Comparison", href: "#comparison" },
+  { label: "Use cases", href: "#use-cases" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
@@ -34,10 +36,29 @@ export function Nav() {
 
         {/* Desktop links */}
         <div className="hidden items-center gap-1 font-mono text-xs text-foreground/60 md:flex">
-          <a href="#features" onClick={(e) => { e.preventDefault(); scrollToHash("#features") }} className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">Features</a>
-          <a href="#how-it-works" onClick={(e) => { e.preventDefault(); scrollToHash("#how-it-works") }} className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">How it works</a>
-          <Link href="/privacy" className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">Privacy</Link>
-          <Link href="/terms" className="rounded px-3 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary">Terms</Link>
+          {links.map((link) => (
+            link.href.startsWith("#") ? (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={(e) => {
+                  e.preventDefault()
+                  scrollToHash(link.href)
+                }}
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary"
+              >
+                {link.label}
+              </a>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary"
+              >
+                {link.label}
+              </Link>
+            )
+          ))}
         </div>
 
         {/* Desktop right */}
@@ -85,11 +106,11 @@ export function Nav() {
                   transition={{ duration: 0.25, delay: i * 0.06, ease }}
                 >
                   {link.href.startsWith("#") ? (
-                    <a href={link.href} onClick={(e) => { e.preventDefault(); setOpen(false); setTimeout(() => scrollToHash(link.href), 50) }} className="block py-1 font-mono text-5xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary">
+                    <a href={link.href} onClick={(e) => { e.preventDefault(); setOpen(false); setTimeout(() => scrollToHash(link.href), 50) }} className="block py-1 font-mono text-4xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-5xl">
                       {link.label}
                     </a>
                   ) : (
-                    <Link href={link.href} onClick={() => setOpen(false)} className="block py-1 font-mono text-5xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary">
+                    <Link href={link.href} onClick={() => setOpen(false)} className="block py-1 font-mono text-4xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-5xl">
                       {link.label}
                     </Link>
                   )}

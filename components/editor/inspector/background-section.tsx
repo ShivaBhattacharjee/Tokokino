@@ -29,6 +29,11 @@ import {
 
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import { EditableValue } from "@/components/editor/editable-value"
+import {
+  downscaleImageFile,
+  downscaleImageFromUrl,
+  seedPlaceholderUrl,
+} from "@/lib/editor/image-resize"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -313,7 +318,7 @@ function BackgroundLibrary({
   onSelect,
 }: {
   activeUrl: string | null
-  onSelect: (value: string) => void
+  onSelect: (value: string, thumb?: string) => void
 }) {
   const categories = BACKGROUND_LIBRARY
   const [activeKey, setActiveKey] = React.useState<string>(() => {
@@ -395,7 +400,7 @@ function BackgroundLibrary({
                     key={item.id}
                     item={item}
                     active={activeUrl === item.full}
-                    onClick={() => onSelect(item.full)}
+                    onClick={() => onSelect(item.full, item.thumb)}
                     layoutId={`bg-tile-ring-${category.key}`}
                   />
                 ))}
@@ -417,7 +422,7 @@ function BackgroundLibrary({
                   key={item.id}
                   item={item}
                   active={activeUrl === item.full}
-                  onClick={() => onSelect(item.full)}
+                  onClick={() => onSelect(item.full, item.thumb)}
                   layoutId={`bg-tile-ring-${category.key}`}
                 />
               ))}
@@ -614,16 +619,38 @@ export function BackgroundSection() {
         ? "error"
         : "ready"
 
-  const onUpload = (file: File) => {
+  const onUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setBackground({ type: "image", value: reader.result })
+    try {
+      const dataUrl = await downscaleImageFile(file)
+      setBackground({ type: "image", value: dataUrl })
+    } catch {
+      // fallback: read as-is so the user still gets their image
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setBackground({ type: "image", value: reader.result })
+        }
       }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
   }
+
+  // Predefined library and Unsplash images are stored in state as URLs; the
+  // CanvasBackdrop renders a downscaled bitmap from those URLs so heavy
+  // sources don't stall paints. Seeding the thumb (small CDN webp) lets the
+  // canvas paint instantly with a lightweight placeholder while the full
+  // downscale fetches/decodes in the background.
+  const selectImageFromUrl = React.useCallback(
+    (url: string, thumbUrl?: string) => {
+      if (thumbUrl) seedPlaceholderUrl(url, thumbUrl)
+      setBackground({ type: "image", value: url })
+      void downscaleImageFromUrl(url).catch(() => {
+        // optimisation is best-effort; canvas falls back to the placeholder
+      })
+    },
+    [setBackground]
+  )
 
   const searchUnsplash = React.useCallback(
     async (overrideQuery?: string, page = 1) => {
@@ -636,9 +663,7 @@ export function BackgroundSection() {
         const response = await fetch(
           `/api/unsplash/search?q=${encodeURIComponent(query)}&page=${page}`
         )
-        const data = (await response.json()) as
-          | { results: UnsplashResult[]; hasMore?: boolean; page?: number }
-          | { error?: string }
+        const data = (await response.json())
 
         if (!response.ok || !("results" in data)) {
           throw new Error(
@@ -690,7 +715,7 @@ export function BackgroundSection() {
   }
 
   const selectUnsplashImage = (photo: UnsplashResult) => {
-    setBackground({ type: "image", value: photo.full })
+    selectImageFromUrl(photo.full, photo.thumb)
     void fetch(
       `/api/unsplash/download?url=${encodeURIComponent(photo.downloadLocation)}`
     )
@@ -935,7 +960,7 @@ export function BackgroundSection() {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0]
-              if (f) onUpload(f)
+              if (f) void onUpload(f)
               e.target.value = ""
             }}
           />
@@ -1083,7 +1108,7 @@ export function BackgroundSection() {
 
           <BackgroundLibrary
             activeUrl={background.type === "image" ? background.value : null}
-            onSelect={(value) => setBackground({ type: "image", value })}
+            onSelect={(value, thumb) => selectImageFromUrl(value, thumb)}
           />
         </TabsContent>
 

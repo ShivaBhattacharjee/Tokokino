@@ -69,6 +69,28 @@ type Rgb = { r: number; g: number; b: number }
 
 const dominantColorCache = new Map<string, Rgb[]>()
 
+function isSameOriginUrl(url: string): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return new URL(url, window.location.href).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
+function readableImageUrl(url: string): string {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url
+  if (isSameOriginUrl(url)) return url
+
+  try {
+    const parsed = new URL(url)
+    if (!["http:", "https:"].includes(parsed.protocol)) return url
+    return `/api/export/image?url=${encodeURIComponent(url)}`
+  } catch {
+    return url
+  }
+}
+
 async function extractDominantRgb(url: string, max: number): Promise<Rgb[]> {
   const cached = dominantColorCache.get(url)
   if (cached && cached.length >= max) return cached.slice(0, max)
@@ -121,7 +143,7 @@ async function extractDominantRgb(url: string, max: number): Promise<Rgb[]> {
       }
     }
     img.onerror = () => reject(new Error("image load failed"))
-    img.src = url
+    img.src = readableImageUrl(url)
   })
   dominantColorCache.set(url, result)
   return result
@@ -260,7 +282,7 @@ async function imageAverageLuminance(url: string): Promise<number> {
       }
     }
     img.onerror = () => reject(new Error("image load failed"))
-    img.src = url
+    img.src = readableImageUrl(url)
   })
   imageLuminanceCache.set(url, result)
   return result
@@ -333,7 +355,7 @@ async function sampleImageLuminanceAtPoint(
       }
     }
     img.onerror = () => reject(new Error("image load failed"))
-    img.src = url
+    img.src = readableImageUrl(url)
   })
 }
 
