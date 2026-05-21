@@ -595,11 +595,15 @@ function TabTriggerRow({
 
 export function PresentPresetsSection() {
   const canvas = useActiveCanvasField((c) => c)
+  const canvasRef = React.useRef(canvas)
+  canvasRef.current = canvas
   const activeCanvasId = useActiveCanvasId()
   const globalAspect = useEditorStore((s) => s.present.aspect)
   const canvasAspect = useActiveCanvasField((c) => c.aspect)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const aspect = bulkEditMode ? (canvasAspect ?? globalAspect) : globalAspect
+  const aspectRef = React.useRef(aspect)
+  aspectRef.current = aspect
   const setTiltAndScale = useEditorStore((s) => s.setTiltAndScale)
   const setScreenshotPosition = useEditorStore((s) => s.setScreenshotPosition)
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
@@ -652,6 +656,11 @@ export function PresentPresetsSection() {
     },
     [activeCanvasId, bulkEditMode]
   )
+
+  // Deferred canvas for preview cards — keeps the main interaction responsive
+  // while preview thumbnails update in a lower-priority render pass.
+  const deferredCanvas = React.useDeferredValue(canvas)
+  const deferredAspect = React.useDeferredValue(aspect)
 
   const bulkPresetUi =
     bulkEditMode && activeCanvasId
@@ -729,8 +738,8 @@ export function PresentPresetsSection() {
   )
   const copyCurrentLayout = React.useCallback(async () => {
     const capture = buildLayoutPresetCapture({
-      canvas,
-      aspect,
+      canvas: canvasRef.current,
+      aspect: aspectRef.current,
       activeLayoutPresetId,
     })
     try {
@@ -740,10 +749,12 @@ export function PresentPresetsSection() {
       console.error(error)
       toast.error("Could not copy preset coordinates")
     }
-  }, [activeLayoutPresetId, aspect, canvas])
+  }, [activeLayoutPresetId, canvasRef, aspectRef])
 
   const applyPreset = React.useCallback(
     (preset: PresentPreset) => {
+      const canvas = canvasRef.current
+      const aspect = aspectRef.current
       const plan = planSinglePreset(preset, canvas, aspect)
       presetMotionCleanupRef.current?.()
       const target =
@@ -787,8 +798,8 @@ export function PresentPresetsSection() {
     },
     [
       activeCanvasId,
-      aspect,
-      canvas,
+      canvasRef,
+      aspectRef,
       rememberBulkPresetUi,
       setActiveCustomPresetId,
       setActiveSinglePresetId,
@@ -802,6 +813,8 @@ export function PresentPresetsSection() {
 
   const applyLayoutPreset = React.useCallback(
     (preset: LayoutPreset) => {
+      const canvas = canvasRef.current
+      const aspect = aspectRef.current
       if (canvas.screenshotSlots.length > preset.slots.length) {
         setPendingLayoutPreset(preset)
         setDowngradeDialogOpen(true)
@@ -841,8 +854,8 @@ export function PresentPresetsSection() {
     },
     [
       addScreenshotSlot,
-      aspect,
-      canvas,
+      canvasRef,
+      aspectRef,
       rememberBulkPresetUi,
       setActiveCustomPresetId,
       setActiveLayoutPresetId,
@@ -884,6 +897,8 @@ export function PresentPresetsSection() {
   )
 
   const handleDowngradeConfirm = React.useCallback(() => {
+    const canvas = canvasRef.current
+    const aspect = aspectRef.current
     const lastSlot = canvas.screenshotSlots[canvas.screenshotSlots.length - 1]
     if (lastSlot) deleteScreenshotSlot(lastSlot.id)
     if (pendingLayoutPreset) {
@@ -922,8 +937,8 @@ export function PresentPresetsSection() {
     }
     setDowngradeDialogOpen(false)
   }, [
-    aspect,
-    canvas,
+    aspectRef,
+    canvasRef,
     deleteScreenshotSlot,
     rememberBulkPresetUi,
     pendingLayoutPreset,
@@ -1006,8 +1021,8 @@ export function PresentPresetsSection() {
               <SinglePresetCard
                 key={preset.id}
                 preset={preset}
-                canvas={canvas}
-                aspect={aspect}
+                canvas={deferredCanvas}
+                aspect={deferredAspect}
                 active={active}
                 onApply={applyPreset}
               />
@@ -1028,8 +1043,8 @@ export function PresentPresetsSection() {
               <LayoutPresetCard
                 key={preset.id}
                 preset={preset}
-                canvas={canvas}
-                aspect={aspect}
+                canvas={deferredCanvas}
+                aspect={deferredAspect}
                 active={active}
                 onApply={applyLayoutPreset}
               />
@@ -1048,8 +1063,8 @@ export function PresentPresetsSection() {
           }
           loggedIn={Boolean(userId)}
           activeCustomPresetId={displayActiveCustomPresetId}
-          canvas={canvas}
-          aspect={aspect}
+          canvas={deferredCanvas}
+          aspect={deferredAspect}
           onApply={applyCustomPreset}
           onDelete={handleDeleteCustomPreset}
         />

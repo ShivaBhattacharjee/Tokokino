@@ -51,6 +51,8 @@ export function EffectsSidebar({
   )
   const selectedSlot = useSelectedScreenshotSlot()
   const activeFrame = frame
+  const activeFrameRef = React.useRef(activeFrame)
+  activeFrameRef.current = activeFrame
 
   const aspect = bulkEditMode ? (canvasAspect ?? globalAspect) : globalAspect
 
@@ -80,6 +82,7 @@ export function EffectsSidebar({
 
   const handleAspectChange = React.useCallback(
     (id: string, custom?: { w: number; h: number }) => {
+      const frame = activeFrameRef.current
       if (custom) {
         const nextAspect = { id, w: custom.w, h: custom.h }
         if (bulkEditMode) {
@@ -88,7 +91,7 @@ export function EffectsSidebar({
           setAspect(nextAspect)
         }
         setCustomSize(custom)
-        showCompatibilityWarning(nextAspect, activeFrame, "Custom size")
+        showCompatibilityWarning(nextAspect, frame, "Custom size")
         return
       }
       const opt = findAspectOption(id)
@@ -100,7 +103,7 @@ export function EffectsSidebar({
           setAspect(nextAspect)
         }
         setCustomSize(null)
-        showCompatibilityWarning(nextAspect, activeFrame, opt.name)
+        showCompatibilityWarning(nextAspect, frame, opt.name)
       }
     },
     [
@@ -108,7 +111,7 @@ export function EffectsSidebar({
       activeCanvasId,
       setAspect,
       setCanvasAspect,
-      activeFrame,
+      activeFrameRef,
       showCompatibilityWarning,
     ]
   )

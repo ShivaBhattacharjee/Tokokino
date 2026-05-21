@@ -7,8 +7,24 @@ import { motion } from "motion/react"
 import { cn } from "@/lib/utils"
 
 const WORDMARK = "Tokokino"
+const WORDMARK_CHARS = WORDMARK.split("")
 
-export function BrandLogo() {
+const wordmarkContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.045, delayChildren: 0.18 } },
+}
+
+const letterVariants = {
+  hidden: { y: "60%", opacity: 0, filter: "blur(4px)" },
+  visible: {
+    y: 0,
+    opacity: 1,
+    filter: "blur(0px)",
+    transition: { type: "spring" as const, stiffness: 420, damping: 28, mass: 0.5 },
+  },
+}
+
+export const BrandLogo = React.memo(function BrandLogo() {
   return (
     <Link href="/" className={cn("flex min-w-0 items-center gap-0 select-none")} aria-label={WORDMARK}>
       <motion.span
@@ -24,25 +40,14 @@ export function BrandLogo() {
         className={cn("font-mono text-[20px] leading-none font-medium tracking-[-0.02em] text-foreground")}
         initial="hidden"
         animate="visible"
-        variants={{
-          hidden: {},
-          visible: { transition: { staggerChildren: 0.045, delayChildren: 0.18 } },
-        }}
+        variants={wordmarkContainerVariants}
         aria-hidden="true"
       >
-        {WORDMARK.split("").map((char, i) => (
+        {WORDMARK_CHARS.map((char, i) => (
           <motion.span
             key={`${char}-${i}`}
             className="inline-block"
-            variants={{
-              hidden: { y: "60%", opacity: 0, filter: "blur(4px)" },
-              visible: {
-                y: 0,
-                opacity: 1,
-                filter: "blur(0px)",
-                transition: { type: "spring", stiffness: 420, damping: 28, mass: 0.5 },
-              },
-            }}
+            variants={letterVariants}
           >
             {char}
           </motion.span>
@@ -50,4 +55,4 @@ export function BrandLogo() {
       </motion.span>
     </Link>
   )
-}
+})
