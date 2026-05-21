@@ -55,7 +55,6 @@ Required for sharing (R2 + DB):
 - `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
 - `CLOUDFLARE_R2_BUCKET`
 - `NEXT_PUBLIC_R2_PUBLIC_BASE`
-- `MONGODB_URI`
 
 Required for auth:
 
