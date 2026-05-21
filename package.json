@@ -20,6 +20,7 @@
     "lint:strict": "eslint --max-warnings=0",
     "lint:fix:strict": "eslint --fix --max-warnings=0",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "prepare": "husky",
     "build:thumbs": "node scripts/build-overlay-thumbs.mjs",

@@ -41,34 +41,35 @@ pnpm install
 
 ### Environment
 
-Copy the example env file:
+Copy the example env file and fill in the values you need:
 
 ```bash
 cp .env.example .env.local
 ```
-
-Then fill in the values in `.env.local`.
-
-Core env variables used in `lib/env.ts`:
-
-- `BETTER_AUTH_SECRET`
-- `BETTER_AUTH_URL`
-- `R2_BUCKET`
-- `R2_S3_ENDPOINT`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
-- `UNSPLASH_ACCESS_KEY` (optional)
-- `GOOGLE_CLIENT_ID` (optional)
-- `GOOGLE_CLIENT_SECRET` (optional)
-- `CLOUDFLARE_ACCOUNT_ID` (needed for browser screenshot API)
-- `CLOUDFLARE_BROWSER_API_TOKEN` (needed for browser screenshot API)
-- `NEXT_PUBLIC_ENABLE_DEBUG_PRESETS` (`true`/`false`, optional)
 
 ### Run
 
 ```bash
 pnpm dev
 ```
+
+## Docker
+
+Build and run the production image:
+
+```bash
+docker build -t tokokino .
+docker run --env-file .env.local -p 3000:3000 tokokino
+```
+
+Run the dev target:
+
+```bash
+docker build --target dev -t tokokino-dev .
+docker run --env-file .env.local -p 3000:3000 -v "$PWD:/app" tokokino-dev
+```
+
+The production image runs `pnpm build:next` during build and starts with `pnpm start`.
 
 ## Database (D1)
 
@@ -88,6 +89,8 @@ pnpm exec wrangler d1 migrations apply tokokino-db --remote
 - `pnpm lint` - ESLint
 - `pnpm lint:fix` - ESLint autofix
 - `pnpm build` - OpenNext Cloudflare build
+- `pnpm build:next` - Next.js production build
+- `pnpm format:check` - Prettier check for TypeScript files
 - `pnpm preview` - OpenNext Cloudflare preview
 - `pnpm deploy` - OpenNext Cloudflare deploy
 - `pnpm cf-typegen` - regenerate `cloudflare-env.d.ts` from Wrangler bindings
