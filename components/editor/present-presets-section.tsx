@@ -678,12 +678,13 @@ export function PresentPresetsSection() {
 
   React.useEffect(() => {
     if (!userId) {
-      setCustomPresetsLoading(false)
       setCustomPresets([])
       return
     }
     let cancelled = false
-    setCustomPresetsLoading(true)
+    queueMicrotask(() => {
+      if (!cancelled) setCustomPresetsLoading(true)
+    })
     fetch("/api/presets", { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) return null

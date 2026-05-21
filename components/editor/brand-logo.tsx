@@ -10,18 +10,14 @@ const WORDMARK = "Tokokino"
 
 export function BrandLogo() {
   return (
-    <Link
-      href="/"
-      className={cn("flex min-w-0 items-center gap-0 select-none", )}
-      aria-label={WORDMARK}
-    >
+    <Link href="/" className={cn("flex min-w-0 items-center gap-0 select-none")} aria-label={WORDMARK}>
       <motion.span
-        className="relative inline-flex -translate-y-px items-center justify-center"
+        className="relative inline-flex shrink-0 -translate-y-px items-center justify-center"
         initial={{ opacity: 0, scale: 0.6, rotate: -16 }}
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 22, mass: 0.6 }}
       >
-        <Image src="/logo.png" alt={WORDMARK} width={22} height={22} className={cn("size-12")} />
+        <Image src="/logo.png" alt={WORDMARK} width={48} height={48} className={cn("size-10 sm:size-12")} />
       </motion.span>
 
       <motion.span

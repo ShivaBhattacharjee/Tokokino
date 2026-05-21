@@ -51,12 +51,12 @@ export function Hero() {
         <div className="flex max-w-5xl flex-col items-center text-center">
           <StarCount />
 
-          <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease, delay: 0.1 }} className="mt-3 text-[2.2rem] leading-[1.04] font-medium tracking-[-0.03em] text-balance sm:text-5xl lg:text-[4.2rem]">
+          <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease, delay: 0.1 }} className="mt-3 text-[2rem] leading-[1.06] font-medium tracking-[-0.03em] text-balance sm:text-5xl lg:text-[4.2rem]">
             Make every screenshot
             <br />
-            <span className="relative inline-block">
+            <span className="relative inline-block whitespace-nowrap">
               <span className="bg-gradient-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent">feel </span>
-              <span className="text-primary">intentional .</span>
+              <span className="text-primary">intentional.</span>
               <svg aria-hidden viewBox="0 0 320 12" className="absolute -bottom-3.5 left-[64%] h-3 w-[92%] -translate-x-1/2 text-primary" fill="none">
                 <path d="M2 8 C 80 2, 240 2, 318 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" style={{ strokeDasharray: 400, strokeDashoffset: 400, animation: "landing-draw 1.4s ease 0.9s forwards" }} />
               </svg>
