@@ -1356,7 +1356,7 @@ function ScreenshotMediaPill() {
     ? presetTab === "multi" || presetTab === "triple"
       ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
       : `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
-    : undefined
+    : "Add a screenshot slot"
 
   return (
     <div className="pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md">
@@ -1387,9 +1387,7 @@ function ScreenshotMediaPill() {
             Add Slot
           </button>
         </TooltipTrigger>
-        {slotTooltip && (
-          <TooltipContent side="top">{slotTooltip}</TooltipContent>
-        )}
+        <TooltipContent side="top">{slotTooltip}</TooltipContent>
       </Tooltip>
 
       {fitHasScreenshot ? (
