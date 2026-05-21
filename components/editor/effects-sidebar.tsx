@@ -52,7 +52,9 @@ export function EffectsSidebar({
   const selectedSlot = useSelectedScreenshotSlot()
   const activeFrame = frame
   const activeFrameRef = React.useRef(activeFrame)
-  activeFrameRef.current = activeFrame
+  React.useLayoutEffect(() => {
+    activeFrameRef.current = activeFrame
+  })
 
   const aspect = bulkEditMode ? (canvasAspect ?? globalAspect) : globalAspect
 

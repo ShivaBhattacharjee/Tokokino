@@ -52,7 +52,9 @@ export function useFloatingToolbarRect({
     React.useState(false)
 
   const onResizeRef = React.useRef(onResize)
-  onResizeRef.current = onResize
+  React.useLayoutEffect(() => {
+    onResizeRef.current = onResize
+  })
 
   // 1. Listen for the hide event emitted when position changes via the toolbar picker
   React.useEffect(() => {

@@ -370,7 +370,7 @@ export function LayersPanelContent() {
   return (
     <div className="w-[300px] p-2">
       {canvasIds.length > 1 ? (
-        <div className="mb-2 flex items-center gap-1 overflow-x-auto rounded-md border border-border/60 bg-secondary/20 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mb-2 flex [scrollbar-width:none] items-center gap-1 overflow-x-auto rounded-md border border-border/60 bg-secondary/20 p-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {canvasIds.map((canvasId, index) => {
             const isActive = canvasId === activeCanvasId
             return (

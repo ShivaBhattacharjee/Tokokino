@@ -596,14 +596,18 @@ function TabTriggerRow({
 export function PresentPresetsSection() {
   const canvas = useActiveCanvasField((c) => c)
   const canvasRef = React.useRef(canvas)
-  canvasRef.current = canvas
+  React.useLayoutEffect(() => {
+    canvasRef.current = canvas
+  })
   const activeCanvasId = useActiveCanvasId()
   const globalAspect = useEditorStore((s) => s.present.aspect)
   const canvasAspect = useActiveCanvasField((c) => c.aspect)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const aspect = bulkEditMode ? (canvasAspect ?? globalAspect) : globalAspect
   const aspectRef = React.useRef(aspect)
-  aspectRef.current = aspect
+  React.useLayoutEffect(() => {
+    aspectRef.current = aspect
+  })
   const setTiltAndScale = useEditorStore((s) => s.setTiltAndScale)
   const setScreenshotPosition = useEditorStore((s) => s.setScreenshotPosition)
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)

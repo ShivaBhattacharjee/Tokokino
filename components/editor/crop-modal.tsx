@@ -132,7 +132,7 @@ export function CropModal({
           {/* Action Bar */}
           <div className="flex items-center justify-between gap-4 border-t border-border/50 bg-background/40 px-4 py-3">
             {/* Aspect chips */}
-            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-0 flex-1 [scrollbar-width:none] items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
               {PRESETS.map((p) => {
                 const isActive = aspect === p.aspect
                 return (
