@@ -59,6 +59,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
 type PresetMotionKind = "canvas" | "slot"
@@ -630,8 +631,10 @@ export function PresentPresetsSection() {
   const [bulkPresetUiByCanvasId, setBulkPresetUiByCanvasId] = React.useState<
     Record<string, CanvasPresetUi>
   >({})
-  const { data: session } = useSession()
+  const { data: session, isPending: isAuthPending } = useSession()
   const userId = session?.user?.id ?? null
+  const [customPresetsLoading, setCustomPresetsLoading] =
+    React.useState(false)
 
   const rememberBulkPresetUi = React.useCallback(
     (patch: Partial<CanvasPresetUi> & { tab: PresetTab }) => {
@@ -675,10 +678,12 @@ export function PresentPresetsSection() {
 
   React.useEffect(() => {
     if (!userId) {
+      setCustomPresetsLoading(false)
       setCustomPresets([])
       return
     }
     let cancelled = false
+    setCustomPresetsLoading(true)
     fetch("/api/presets", { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) return null
@@ -691,6 +696,9 @@ export function PresentPresetsSection() {
       })
       .catch((err) => {
         console.warn("Could not load custom presets", err)
+      })
+      .finally(() => {
+        if (!cancelled) setCustomPresetsLoading(false)
       })
     return () => {
       cancelled = true
@@ -1032,7 +1040,11 @@ export function PresentPresetsSection() {
       {displayTab === "custom" && (
         <CustomPresetList
           presets={customPresets}
-          loaded={customPresetsLoaded}
+          loading={
+            isAuthPending ||
+            customPresetsLoading ||
+            (Boolean(userId) && !customPresetsLoaded)
+          }
           loggedIn={Boolean(userId)}
           activeCustomPresetId={displayActiveCustomPresetId}
           canvas={canvas}
@@ -1047,7 +1059,7 @@ export function PresentPresetsSection() {
 
 function CustomPresetList({
   presets,
-  loaded,
+  loading,
   loggedIn,
   activeCustomPresetId,
   canvas,
@@ -1056,7 +1068,7 @@ function CustomPresetList({
   onDelete,
 }: {
   presets: CustomPresetSummary[]
-  loaded: boolean
+  loading: boolean
   loggedIn: boolean
   activeCustomPresetId: string | null
   canvas: CanvasState
@@ -1064,18 +1076,29 @@ function CustomPresetList({
   onApply: (preset: CustomPresetSummary) => void
   onDelete: (id: string) => void | Promise<void>
 }) {
-  if (!loggedIn) {
+  if (loading) {
     return (
-      <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
-        Sign in to save and reuse your own layout presets.
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-lg border border-border/70 bg-card/70 p-3"
+          >
+            <Skeleton className="aspect-[16/10] w-full rounded-md" />
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-2/3 rounded-md" />
+              <Skeleton className="size-8 rounded-full" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
 
-  if (!loaded) {
+  if (!loggedIn) {
     return (
       <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
-        Loading presets…
+        Sign in to save and reuse your own layout presets.
       </div>
     )
   }

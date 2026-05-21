@@ -190,6 +190,38 @@ export function seedPlaceholderUrl(sourceUrl: string, placeholderUrl: string): v
   placeholderUrlCache.set(sourceUrl, placeholderUrl)
 }
 
+export function remoteImagePreviewUrl(
+  url: string | null | undefined,
+  options: DownscaleOptions = {}
+): string | null {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return null
+  try {
+    const parsed =
+      typeof window === "undefined"
+        ? new URL(url)
+        : new URL(url, window.location.href)
+    if (!["http:", "https:"].includes(parsed.protocol)) return null
+    if (
+      typeof window !== "undefined" &&
+      parsed.origin === window.location.origin &&
+      parsed.pathname === "/api/export/image"
+    ) {
+      return parsed.toString()
+    }
+
+    const maxDimension = options.maxDimension ?? DEFAULT_MAX_DIMENSION
+    const jpegQuality = options.jpegQuality ?? DEFAULT_JPEG_QUALITY
+    const params = new URLSearchParams({
+      url: parsed.toString(),
+      maxDimension: String(maxDimension),
+      quality: String(Math.round(jpegQuality * 100)),
+    })
+    return `/api/export/image?${params}`
+  } catch {
+    return null
+  }
+}
+
 function cacheKeyFor(url: string, options: DownscaleOptions): string {
   const dim = options.maxDimension ?? DEFAULT_MAX_DIMENSION
   const q = options.jpegQuality ?? DEFAULT_JPEG_QUALITY

@@ -4,7 +4,18 @@ export type CropRegion = { x: number; y: number; width: number; height: number }
 
 export type BgType = "none" | "solid" | "gradient" | "image" | "auto"
 
-export type Background = { type: BgType; value: string }
+export type Background = {
+  type: BgType
+  /**
+   * The image/paint value used by the live canvas. For image backgrounds this
+   * should be an editor-safe preview, not necessarily the original source.
+   */
+  value: string
+  /** Original remote/library image URL, kept for selection identity. */
+  sourceUrl?: string
+  /** Tiny placeholder URL used while the editor-safe preview is generated. */
+  thumbUrl?: string
+}
 
 export type Tilt = { rx: number; ry: number; rz: number }
 
@@ -312,6 +323,7 @@ export type BackgroundEntry = {
   id: string
   name: string
   full: string
+  preview?: string
   thumb: string
 }
 

@@ -74,7 +74,7 @@ export default async function LoginPage({
           />
 
           <div className="relative z-10 flex h-full flex-col justify-between p-6 text-white lg:p-8">
-            <BrandLogo className="-ml-3 [&_*]:!text-white" />
+            <BrandLogo  />
 
             <div className="space-y-7">
               <div className="h-px w-10 bg-[oklch(0.7_0.2_18)]/80" />

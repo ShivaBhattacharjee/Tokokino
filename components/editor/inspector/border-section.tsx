@@ -67,7 +67,7 @@ export function BorderSection() {
     async function loadColors() {
       let url = null
       if (background.type === "image") {
-        url = background.value
+        url = background.thumbUrl ?? background.value
       } else if (screenshot) {
         url = screenshot
       }
@@ -93,7 +93,12 @@ export function BorderSection() {
     return () => {
       active = false
     }
-  }, [background, screenshot])
+  }, [
+    background.thumbUrl,
+    background.type,
+    background.value,
+    screenshot,
+  ])
 
   const presets =
     dynamicColors.length > 0

@@ -4,6 +4,7 @@ import * as React from "react"
 import debounce from "lodash/debounce"
 import { AnimatePresence, motion } from "motion/react"
 import InfiniteScroll from "react-infinite-scroll-component"
+import { toast } from "sonner"
 import {
   RiArrowRightLine,
   RiCloudLine,
@@ -31,7 +32,7 @@ import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import { EditableValue } from "@/components/editor/editable-value"
 import {
   downscaleImageFile,
-  downscaleImageFromUrl,
+  remoteImagePreviewUrl,
   seedPlaceholderUrl,
 } from "@/lib/editor/image-resize"
 import { Button } from "@/components/ui/button"
@@ -45,7 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AUTO_PLACEHOLDER_GRADIENT,
   BACKGROUND_LIBRARY,
-  DEFAULT_IMAGE_BACKGROUND,
+  DEFAULT_IMAGE_BACKGROUND_ENTRY,
   GRADIENT_LIBRARY,
   GRADIENT_PRESETS,
   SOLID_PRESETS,
@@ -53,6 +54,7 @@ import {
   sampleImageColorsRaw,
   useActiveCanvasField,
   useEditorStore,
+  type Background,
   type BackgroundEntry,
   type BgType,
 } from "@/lib/editor/store"
@@ -64,6 +66,7 @@ import { ScrollFadeBody } from "../scroll-fade"
 
 const BACKGROUND_PREVIEW_COUNT = 8
 const GRADIENT_PREVIEW_COUNT = 8
+const BACKGROUND_MAX_DIMENSION = 1600
 
 const POP_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -314,16 +317,16 @@ function BackgroundTile({
 }
 
 function BackgroundLibrary({
-  activeUrl,
+  activeSourceUrl,
   onSelect,
 }: {
-  activeUrl: string | null
-  onSelect: (value: string, thumb?: string) => void
+  activeSourceUrl: string | null
+  onSelect: (value: string, thumb?: string, preview?: string) => void
 }) {
   const categories = BACKGROUND_LIBRARY
   const [activeKey, setActiveKey] = React.useState<string>(() => {
     const found = categories.find((c) =>
-      c.items.some((item) => item.full === activeUrl)
+      c.items.some((item) => item.full === activeSourceUrl)
     )
     return found?.key ?? categories[0]?.key ?? ""
   })
@@ -399,8 +402,10 @@ function BackgroundLibrary({
                   <BackgroundTile
                     key={item.id}
                     item={item}
-                    active={activeUrl === item.full}
-                    onClick={() => onSelect(item.full, item.thumb)}
+                    active={activeSourceUrl === item.full}
+                    onClick={() =>
+                      onSelect(item.full, item.thumb, item.preview)
+                    }
                     layoutId={`bg-tile-ring-${category.key}`}
                   />
                 ))}
@@ -421,8 +426,10 @@ function BackgroundLibrary({
                 <BackgroundTile
                   key={item.id}
                   item={item}
-                  active={activeUrl === item.full}
-                  onClick={() => onSelect(item.full, item.thumb)}
+                  active={activeSourceUrl === item.full}
+                  onClick={() =>
+                    onSelect(item.full, item.thumb, item.preview)
+                  }
                   layoutId={`bg-tile-ring-${category.key}`}
                 />
               ))}
@@ -564,6 +571,7 @@ export function BackgroundSection() {
   const background = useActiveCanvasField((c) => c.background)
   const screenshot = useActiveCanvasField((c) => c.screenshot)
   const setBackground = useEditorStore((s) => s.setBackground)
+  const previewPromotionIdRef = React.useRef(0)
   const fileRef = React.useRef<HTMLInputElement>(null)
   const [unsplashQuery, setUnsplashQuery] = React.useState("")
   const [unsplashStatus, setUnsplashStatus] = React.useState<
@@ -621,35 +629,109 @@ export function BackgroundSection() {
 
   const onUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return
+    const canvasId = useEditorStore.getState().present.activeCanvasId
     try {
-      const dataUrl = await downscaleImageFile(file)
-      setBackground({ type: "image", value: dataUrl })
+      const dataUrl = await downscaleImageFile(file, {
+        maxDimension: BACKGROUND_MAX_DIMENSION,
+        maxRawBytes: 0,
+        jpegQuality: 0.9,
+      })
+      setBackground({ type: "image", value: dataUrl }, canvasId)
     } catch {
-      // fallback: read as-is so the user still gets their image
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          setBackground({ type: "image", value: reader.result })
-        }
-      }
-      reader.readAsDataURL(file)
+      toast.error("Could not optimize that background image")
     }
   }
 
-  // Predefined library and Unsplash images are stored in state as URLs; the
-  // CanvasBackdrop renders a downscaled bitmap from those URLs so heavy
-  // sources don't stall paints. Seeding the thumb (small CDN webp) lets the
-  // canvas paint instantly with a lightweight placeholder while the full
-  // downscale fetches/decodes in the background.
-  const selectImageFromUrl = React.useCallback(
-    (url: string, thumbUrl?: string) => {
-      if (thumbUrl) seedPlaceholderUrl(url, thumbUrl)
-      setBackground({ type: "image", value: url })
-      void downscaleImageFromUrl(url).catch(() => {
-        // optimisation is best-effort; canvas falls back to the placeholder
-      })
+  React.useEffect(() => {
+    return () => {
+      previewPromotionIdRef.current += 1
+    }
+  }, [])
+
+  const promoteBackgroundPreviewWhenIdle = React.useCallback(
+    ({
+      canvasId,
+      previewUrl,
+      sourceUrl,
+      thumbUrl,
+    }: {
+      canvasId: string
+      previewUrl: string
+      sourceUrl: string
+      thumbUrl?: string
+    }) => {
+      const promotionId = ++previewPromotionIdRef.current
+      const promote = () => {
+        const image = new Image()
+        image.decoding = "async"
+        image.onload = () => {
+          const decoded =
+            typeof image.decode === "function"
+              ? image.decode().catch(() => undefined)
+              : Promise.resolve()
+          void decoded.then(() => {
+            if (previewPromotionIdRef.current !== promotionId) return
+            const state = useEditorStore.getState()
+            const canvas = state.present.canvases.find((c) => c.id === canvasId)
+            const currentSource =
+              canvas?.background.sourceUrl ?? canvas?.background.value
+            if (canvas?.background.type !== "image" || currentSource !== sourceUrl) {
+              return
+            }
+            setBackground(
+              {
+                type: "image",
+                value: previewUrl,
+                sourceUrl,
+                thumbUrl,
+              },
+              canvasId
+            )
+          })
+        }
+        image.src = previewUrl
+      }
+
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(promote, { timeout: 2000 })
+      } else {
+        setTimeout(promote, 800)
+      }
     },
     [setBackground]
+  )
+
+  // Paint the thumb immediately. Larger previews are decoded and promoted
+  // later while idle, so the selection/restore interaction avoids the costly
+  // image decode + CSS background repaint path.
+  const selectImageFromUrl = React.useCallback(
+    (url: string, thumbUrl?: string, previewUrl?: string) => {
+      if (thumbUrl) seedPlaceholderUrl(url, thumbUrl)
+      const canvasId = useEditorStore.getState().present.activeCanvasId
+      const generatedPreview =
+        previewUrl ??
+        remoteImagePreviewUrl(url, {
+          maxDimension: BACKGROUND_MAX_DIMENSION,
+          jpegQuality: 0.9,
+        })
+      const placeholder = thumbUrl ?? generatedPreview ?? url
+      const placeholderBackground: Background = {
+        type: "image",
+        value: placeholder,
+        sourceUrl: url,
+        thumbUrl,
+      }
+      setBackground(placeholderBackground, canvasId)
+      if (generatedPreview && generatedPreview !== placeholder) {
+        promoteBackgroundPreviewWhenIdle({
+          canvasId,
+          previewUrl: generatedPreview,
+          sourceUrl: url,
+          thumbUrl,
+        })
+      }
+    },
+    [promoteBackgroundPreviewWhenIdle, setBackground]
   )
 
   const searchUnsplash = React.useCallback(
@@ -899,8 +981,9 @@ export function BackgroundSection() {
         value={background.type}
         onValueChange={(v) => {
           const type = v as BgType
-          if (type === "none") setBackground({ type, value: "" })
-          else if (type === "solid")
+          if (type === "none") {
+            setBackground({ type, value: "" })
+          } else if (type === "solid") {
             setBackground({
               type,
               value:
@@ -908,7 +991,7 @@ export function BackgroundSection() {
                   ? background.value
                   : SOLID_PRESETS[0],
             })
-          else if (type === "gradient")
+          } else if (type === "gradient") {
             setBackground({
               type,
               value:
@@ -916,15 +999,19 @@ export function BackgroundSection() {
                   ? background.value
                   : GRADIENT_PRESETS[0],
             })
-          else if (type === "image")
-            setBackground({
-              type,
-              value:
-                background.type === "image"
-                  ? background.value
-                  : DEFAULT_IMAGE_BACKGROUND,
-            })
-          else if (type === "auto")
+          } else if (type === "image") {
+            if (background.type === "image") {
+              setBackground(background)
+            } else if (DEFAULT_IMAGE_BACKGROUND_ENTRY) {
+              selectImageFromUrl(
+                DEFAULT_IMAGE_BACKGROUND_ENTRY.full,
+                DEFAULT_IMAGE_BACKGROUND_ENTRY.thumb,
+                DEFAULT_IMAGE_BACKGROUND_ENTRY.preview
+              )
+            } else {
+              setBackground({ type, value: "" })
+            }
+          } else if (type === "auto") {
             setBackground({
               type,
               value:
@@ -932,6 +1019,7 @@ export function BackgroundSection() {
                   ? background.value
                   : (autoGradients[0] ?? AUTO_PLACEHOLDER_GRADIENT),
             })
+          }
         }}
         className="w-full"
       >
@@ -1069,7 +1157,8 @@ export function BackgroundSection() {
                             className={cn(
                               "relative aspect-video cursor-pointer overflow-hidden rounded-lg border transition-colors",
                               background.type === "image" &&
-                                background.value === photo.full
+                                (background.sourceUrl ?? background.value) ===
+                                  photo.full
                                 ? "border-primary/80 ring-2 ring-primary/60 ring-inset"
                                 : "border-border/60 hover:border-foreground/30"
                             )}
@@ -1108,8 +1197,14 @@ export function BackgroundSection() {
           </div>
 
           <BackgroundLibrary
-            activeUrl={background.type === "image" ? background.value : null}
-            onSelect={(value, thumb) => selectImageFromUrl(value, thumb)}
+            activeSourceUrl={
+              background.type === "image"
+                ? (background.sourceUrl ?? background.value)
+                : null
+            }
+            onSelect={(value, thumb, preview) =>
+              selectImageFromUrl(value, thumb, preview)
+            }
           />
         </TabsContent>
 

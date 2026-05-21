@@ -271,7 +271,9 @@ function CanvasViewInner({
   )
 
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
-  const autoDims = isAuto && naturalDims && !inRowMode ? naturalDims : null
+  const canUseNaturalCanvasAspect =
+    isAuto && naturalDims && !inRowMode && frame.id === "none"
+  const autoDims = canUseNaturalCanvasAspect ? naturalDims : null
   const aw = autoDims ? autoDims.w : aspect.w || 16
   const ah = autoDims ? autoDims.h : aspect.h || 10
   const aspectRatio = `${aw} / ${ah}`

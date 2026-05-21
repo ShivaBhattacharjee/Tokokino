@@ -1,4 +1,4 @@
-import { DEFAULT_IMAGE_BACKGROUND } from "../presets"
+import { DEFAULT_IMAGE_BACKGROUND_ENTRY } from "../presets"
 import type { CanvasState, EditorState } from "../state-types"
 
 import { makeId } from "./canvas-helpers"
@@ -24,7 +24,13 @@ export const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   lastCropRegion: null,
   background: {
     type: "image",
-    value: DEFAULT_IMAGE_BACKGROUND,
+    value:
+      DEFAULT_IMAGE_BACKGROUND_ENTRY?.preview ??
+      DEFAULT_IMAGE_BACKGROUND_ENTRY?.thumb ??
+      DEFAULT_IMAGE_BACKGROUND_ENTRY?.full ??
+      "",
+    sourceUrl: DEFAULT_IMAGE_BACKGROUND_ENTRY?.full,
+    thumbUrl: DEFAULT_IMAGE_BACKGROUND_ENTRY?.thumb,
   },
   padding: 40,
   borderRadius: 7,

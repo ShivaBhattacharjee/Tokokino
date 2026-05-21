@@ -1,4 +1,5 @@
-import type { CanvasState, EditorState } from "../state-types"
+import { BACKGROUND_LIBRARY } from "../presets"
+import type { Background, CanvasState, EditorState } from "../state-types"
 
 import {
   applySlotStyleDefaults,
@@ -430,6 +431,34 @@ export function createEditorDraftSnapshot(
 const cloneEditorState = (state: EditorState): EditorState =>
   JSON.parse(JSON.stringify(state)) as EditorState
 
+const backgroundEntriesByFullUrl = new Map(
+  BACKGROUND_LIBRARY.flatMap((category) =>
+    category.items.map((item) => [item.full, item] as const)
+  )
+)
+
+function normalizeBackground(
+  source: Partial<Background> | null | undefined,
+  fallback: Background
+): Background {
+  const background = { ...fallback, ...(source ?? {}) }
+  if (background.type !== "image") return background
+
+  const sourceUrl = background.sourceUrl ?? background.value
+  const libraryEntry = backgroundEntriesByFullUrl.get(sourceUrl)
+  if (!libraryEntry) return background
+
+  const isRawLibraryValue = background.value === libraryEntry.full
+  return {
+    ...background,
+    value: isRawLibraryValue
+      ? (libraryEntry.preview ?? libraryEntry.thumb)
+      : background.value,
+    sourceUrl: libraryEntry.full,
+    thumbUrl: background.thumbUrl ?? libraryEntry.thumb,
+  }
+}
+
 function normalizeCanvasState(
   canvas: Partial<CanvasState> | null | undefined,
   fallback: CanvasState
@@ -442,7 +471,7 @@ function normalizeCanvasState(
     ...source,
     id: source.id ?? fallback.id,
     position: { ...fallback.position, ...(source.position ?? {}) },
-    background: { ...fallback.background, ...(source.background ?? {}) },
+    background: normalizeBackground(source.background, fallback.background),
     border: { ...fallback.border, ...(source.border ?? {}) },
     backdrop: {
       ...fallbackBackdrop,

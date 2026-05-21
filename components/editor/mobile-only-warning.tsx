@@ -7,7 +7,7 @@ import { RiCheckLine, RiLinkM } from "@remixicon/react"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { cn } from "@/lib/utils"
 
-const RECOMMENDED_MIN_PX = 1024
+const RECOMMENDED_MIN_PX = 1280
 
 export function MobileOnlyWarning() {
   const [viewport, setViewport] = React.useState<number | null>(null)
@@ -47,7 +47,7 @@ export function MobileOnlyWarning() {
       role="dialog"
       aria-modal="true"
       aria-label="Open on a larger screen"
-      className="fixed inset-0 z-[100] flex bg-background font-sans text-foreground md:hidden"
+      className="fixed inset-0 z-[100] flex bg-background font-sans text-foreground xl:hidden"
     >
       <Atmosphere />
 
@@ -58,7 +58,7 @@ export function MobileOnlyWarning() {
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="flex w-full justify-center"
         >
-          <BrandLogo className="[&_span:last-child]:text-[13px] [&_svg]:text-primary [&>span:first-child]:size-9" />
+          <BrandLogo />
         </motion.div>
 
         <div className="flex w-full max-w-[380px] flex-col items-center text-center">
@@ -84,7 +84,7 @@ export function MobileOnlyWarning() {
             className="mt-4 max-w-[34ch] text-[13px] leading-6 text-muted-foreground"
           >
             The editor needs room for its canvas, sidebars, and floating tools.
-            Continue on a tablet, laptop, or desktop for the full workspace.
+            Continue on a laptop or desktop for the full workspace.
           </motion.p>
 
           <motion.div

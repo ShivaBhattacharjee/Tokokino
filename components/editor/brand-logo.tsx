@@ -8,24 +8,24 @@ import { cn } from "@/lib/utils"
 
 const WORDMARK = "Tokokino"
 
-export function BrandLogo({ className }: { className?: string }) {
+export function BrandLogo() {
   return (
     <Link
       href="/"
-      className={cn("flex min-w-0 items-center gap-2.5 select-none", className)}
+      className={cn("flex min-w-0 items-center gap-0 select-none", )}
       aria-label={WORDMARK}
     >
       <motion.span
-        className="relative inline-flex items-center justify-center"
+        className="relative inline-flex -translate-y-px items-center justify-center"
         initial={{ opacity: 0, scale: 0.6, rotate: -16 }}
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 22, mass: 0.6 }}
       >
-        <Image src="/logo.png" alt={WORDMARK} width={24} height={24} className="size-6" />
+        <Image src="/logo.png" alt={WORDMARK} width={22} height={22} className={cn("size-12")} />
       </motion.span>
 
       <motion.span
-        className="font-mono text-[24px] leading-none font-medium tracking-[-0.02em] text-foreground"
+        className={cn("font-mono text-[20px] leading-none font-medium tracking-[-0.02em] text-foreground")}
         initial="hidden"
         animate="visible"
         variants={{

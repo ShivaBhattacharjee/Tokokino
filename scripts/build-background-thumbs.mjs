@@ -5,6 +5,7 @@
  *
  *   - Reads source images from `Pack/{Mesh,Lines,Gradient,Raycast}`.
  *   - Uploads originals to `Backgrounds/{Category}/{slug}.{ext}` (formats kept as-is).
+ *   - Uploads editor-safe previews to `Backgrounds/{Category}/previews/{slug}.webp`.
  *   - Uploads 256px WebP thumbnails to `Backgrounds/{Category}/thumbs/{slug}.webp`.
  *   - Writes `lib/editor/backgrounds-data.json` with the manifest used by the UI.
  *
@@ -13,6 +14,7 @@
  *   pnpm build:backgrounds Mesh Raycast      # only those categories
  *   FORCE=1 pnpm build:backgrounds           # re-upload even if object exists
  *   THUMB_SIZE=320 pnpm build:backgrounds    # override thumb size
+ *   PREVIEW_SIZE=2400 pnpm build:backgrounds # override editor preview size
  */
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -71,6 +73,8 @@ const PUBLIC_BASE = NEXT_PUBLIC_R2_PUBLIC_BASE.replace(/\/$/, "")
 
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 const THUMB_QUALITY = Number(process.env.THUMB_QUALITY ?? 75)
+const PREVIEW_SIZE = Number(process.env.PREVIEW_SIZE ?? 2400)
+const PREVIEW_QUALITY = Number(process.env.PREVIEW_QUALITY ?? 85)
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 4)
 const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true"
 
@@ -188,6 +192,7 @@ async function processFile(category, file) {
   const slug = slugify(file)
   const fullExt = ext.slice(1)
   const fullKey = `Backgrounds/${category.dir}/${slug}.${fullExt}`
+  const previewKey = `Backgrounds/${category.dir}/previews/${slug}.webp`
   const thumbKey = `Backgrounds/${category.dir}/thumbs/${slug}.webp`
 
   const srcPath = join(PACK_DIR, category.dir, file)
@@ -202,25 +207,39 @@ async function processFile(category, file) {
   const fullBuffer = workingBuffer
   const fullContentType = MIME_BY_EXT[ext] ?? "application/octet-stream"
 
+  const previewBuffer = await sharp(workingBuffer, { failOn: "none" })
+    .resize(PREVIEW_SIZE, PREVIEW_SIZE, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: PREVIEW_QUALITY, effort: 5 })
+    .toBuffer()
+
   const thumbBuffer = await sharp(workingBuffer, { failOn: "none" })
     .resize(THUMB_SIZE, THUMB_SIZE, { fit: "inside", withoutEnlargement: true })
     .webp({ quality: THUMB_QUALITY, effort: 5 })
     .toBuffer()
 
-  const [fullRes, thumbRes] = await Promise.all([
+  const [fullRes, previewRes, thumbRes] = await Promise.all([
     uploadIfMissing(fullKey, fullBuffer, fullContentType),
+    uploadIfMissing(previewKey, previewBuffer, "image/webp"),
     uploadIfMissing(thumbKey, thumbBuffer, "image/webp"),
   ])
 
-  const tag = `${fullRes.skipped && thumbRes.skipped ? "·" : "✓"}`
+  const allSkipped = fullRes.skipped && previewRes.skipped && thumbRes.skipped
+  const tag = `${allSkipped ? "·" : "✓"}`
   console.log(
-    `${tag} ${category.dir}/${slug}  full ${(fullBuffer.length / 1024).toFixed(0)}KB${fullRes.skipped ? " (kept)" : ""}  thumb ${(thumbBuffer.length / 1024).toFixed(0)}KB${thumbRes.skipped ? " (kept)" : ""}`
+    `${tag} ${category.dir}/${slug}  ` +
+      `full ${(fullBuffer.length / 1024).toFixed(0)}KB${fullRes.skipped ? " (kept)" : ""}  ` +
+      `preview ${(previewBuffer.length / 1024).toFixed(0)}KB${previewRes.skipped ? " (kept)" : ""}  ` +
+      `thumb ${(thumbBuffer.length / 1024).toFixed(0)}KB${thumbRes.skipped ? " (kept)" : ""}`
   )
 
   return {
     id: slug,
     name: prettyName(file),
     full: `${PUBLIC_BASE}/${fullKey}`,
+    preview: `${PUBLIC_BASE}/${previewKey}`,
     thumb: `${PUBLIC_BASE}/${thumbKey}`,
   }
 }

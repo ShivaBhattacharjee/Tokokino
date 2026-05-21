@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 export const runtime = "nodejs"
 
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024
+const MAX_PREVIEW_DIMENSION = 4096
+const DEFAULT_PREVIEW_QUALITY = 85
 const MAX_REDIRECTS = 5
 const IMAGE_FETCH_HEADERS = {
   Accept:
@@ -13,6 +15,10 @@ const IMAGE_FETCH_HEADERS = {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const rawUrl = searchParams.get("url")
+  const previewDimension = parsePreviewDimension(
+    searchParams.get("maxDimension") ?? searchParams.get("width")
+  )
+  const previewQuality = parsePreviewQuality(searchParams.get("quality"))
 
   if (!rawUrl) {
     return NextResponse.json({ error: "Missing image URL" }, { status: 400 })
@@ -63,6 +69,34 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Image is too large" }, { status: 413 })
   }
 
+  if (previewDimension && !contentType.toLowerCase().includes("svg")) {
+    try {
+      const sharp = (await import("sharp")).default
+      const preview = await sharp(Buffer.from(image), { failOn: "none" })
+        .rotate()
+        .resize(previewDimension, previewDimension, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .webp({ quality: previewQuality, effort: 4 })
+        .toBuffer()
+
+      return new NextResponse(new Uint8Array(preview), {
+        headers: {
+          "Cache-Control":
+            "public, max-age=86400, stale-while-revalidate=604800",
+          "Content-Type": "image/webp",
+          "Access-Control-Allow-Origin": "*",
+        },
+      })
+    } catch {
+      return NextResponse.json(
+        { error: "Image preview failed" },
+        { status: 422 }
+      )
+    }
+  }
+
   return new NextResponse(image, {
     headers: {
       "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
@@ -70,6 +104,20 @@ export async function GET(request: Request) {
       "Access-Control-Allow-Origin": "*",
     },
   })
+}
+
+function parsePreviewDimension(value: string | null): number | null {
+  if (!value) return null
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return null
+  return Math.min(MAX_PREVIEW_DIMENSION, Math.max(1, parsed))
+}
+
+function parsePreviewQuality(value: string | null): number {
+  if (!value) return DEFAULT_PREVIEW_QUALITY
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed)) return DEFAULT_PREVIEW_QUALITY
+  return Math.min(100, Math.max(1, parsed))
 }
 
 function isBlockedHost(hostname: string) {

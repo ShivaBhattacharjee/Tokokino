@@ -2,7 +2,11 @@
 
 import { create } from "zustand"
 
-import { LAYOUT_PRESETS } from "./present-presets"
+import {
+  LAYOUT_PRESETS,
+  PRESENT_PRESETS,
+  resolvePresentPresetScale,
+} from "./present-presets"
 import {
   resolveActivePresetGeometry,
   resolveMainOffsetPx,
@@ -84,6 +88,7 @@ export {
   BACKDROP_PATTERNS,
   BACKGROUND_LIBRARY,
   DEFAULT_IMAGE_BACKGROUND,
+  DEFAULT_IMAGE_BACKGROUND_ENTRY,
   GRADIENT_LIBRARY,
   GRADIENT_PRESETS,
   OVERLAY_COUNT,
@@ -704,6 +709,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               activeGeometry !== null &&
               canvas.id === state.activeCanvasId &&
               canvas.screenshotSlots.length === activeGeometry.slots.length
+            const activeSinglePreset =
+              !activeGeometry && canvas.id === state.activeCanvasId
+                ? PRESENT_PRESETS.find(
+                    (preset) => preset.id === snapshot.activeSinglePresetId
+                  )
+                : undefined
 
             let screenshotSlots = layoutSlotsInRow(
               canvas.screenshotSlots,
@@ -729,6 +740,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   ...(config.zIndex !== undefined && { zIndex: config.zIndex }),
                 }
               })
+            } else if (activeSinglePreset) {
+              const scale = resolvePresentPresetScale(
+                activeSinglePreset,
+                canvas.frame
+              )
+              screenshotSlots = screenshotSlots.map((slot) => ({
+                ...slot,
+                yPct: 50,
+                rotation: 0,
+                tilt: activeSinglePreset.tilt,
+                scale,
+              }))
             }
 
             const screenshotOffset =
@@ -745,10 +768,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               tilt:
                 shouldReapply && activeGeometry
                   ? activeGeometry.canvasTilt
+                  : activeSinglePreset
+                    ? activeSinglePreset.tilt
                   : canvas.tilt,
               scale:
                 shouldReapply && activeGeometry
                   ? activeGeometry.canvasScale
+                  : activeSinglePreset
+                    ? resolvePresentPresetScale(activeSinglePreset, canvas.frame)
                   : canvas.scale,
               screenshotOffset,
               screenshotSlots,
@@ -762,7 +789,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }
       }, "aspect")
     },
-    setCanvasAspect: (canvasId, a) =>
+    setCanvasAspect: (canvasId, a) => {
+      const snapshot = get()
       commitCanvas(
         canvasId,
         (canvas, state) => {
@@ -770,8 +798,83 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             canvas.aspect ?? state.aspect
           )
           const nextAspect = aspectRatioFromState(a)
+          const activeGeometry = resolveActivePresetGeometry({
+            activeLayoutPresetId: snapshot.activeLayoutPresetId,
+            activeCustomPresetId: snapshot.activeCustomPresetId,
+            layoutPresets: LAYOUT_PRESETS,
+            customPresets: snapshot.customPresets,
+            frame: canvas.frame,
+          })
+          const shouldReapply =
+            activeGeometry !== null &&
+            canvas.screenshotSlots.length === activeGeometry.slots.length
+          const activeSinglePreset = !activeGeometry
+            ? PRESENT_PRESETS.find(
+                (preset) => preset.id === snapshot.activeSinglePresetId
+              )
+            : undefined
+
+          let screenshotSlots = layoutSlotsInRow(
+            canvas.screenshotSlots,
+            canvas.frame,
+            nextAspect
+          )
+          if (shouldReapply && activeGeometry) {
+            screenshotSlots = screenshotSlots.map((naturalSlot, index) => {
+              const config = activeGeometry.slots[index]
+              if (!config) return naturalSlot
+              const { xPct, yPct } = resolveSlotPositionPct({
+                config,
+                naturalSlotXPct: naturalSlot.xPct,
+                relativeSlotPositions: activeGeometry.relativeSlotPositions,
+              })
+              return {
+                ...naturalSlot,
+                xPct,
+                yPct,
+                rotation: config.rotation,
+                tilt: config.tilt,
+                scale: config.scale,
+                ...(config.zIndex !== undefined && { zIndex: config.zIndex }),
+              }
+            })
+          } else if (activeSinglePreset) {
+            const scale = resolvePresentPresetScale(
+              activeSinglePreset,
+              canvas.frame
+            )
+            screenshotSlots = screenshotSlots.map((slot) => ({
+              ...slot,
+              yPct: 50,
+              rotation: 0,
+              tilt: activeSinglePreset.tilt,
+              scale,
+            }))
+          }
+
           return {
             aspect: a,
+            tilt:
+              shouldReapply && activeGeometry
+                ? activeGeometry.canvasTilt
+                : activeSinglePreset
+                  ? activeSinglePreset.tilt
+                  : canvas.tilt,
+            scale:
+              shouldReapply && activeGeometry
+                ? activeGeometry.canvasScale
+                : activeSinglePreset
+                  ? resolvePresentPresetScale(activeSinglePreset, canvas.frame)
+                  : canvas.scale,
+            screenshotOffset:
+              shouldReapply && activeGeometry
+                ? resolveMainOffsetPx(activeGeometry.mainOffset)
+                : scaleScreenshotOffsetForAspectChange(
+                    canvas.screenshotOffset,
+                    currentAspect,
+                    nextAspect
+                  ),
+            screenshotSlots,
             annotations: scaleAnnotationStrokesForAspectChange(
               canvas.annotations,
               currentAspect,
@@ -780,7 +883,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           }
         },
         "aspect"
-      ),
+      )
+    },
     setBackground: (b, canvasId) =>
       commitCanvas(canvasId, { background: b }, "background"),
     setPadding: (n, canvasId) =>

@@ -13,7 +13,7 @@ import {
   type Overlay,
   type Portrait,
 } from "@/lib/editor/store"
-import { useDownscaledImageUrl } from "@/lib/editor/image-resize"
+import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
 
 import { lightingOverlayCss, NOISE_DATA_URL, portraitOverlayCss } from "./helpers"
 
@@ -36,17 +36,14 @@ function CanvasBackdropImpl({
   portrait,
   overlay,
 }: CanvasBackdropProps) {
-  // Swap heavy background bitmaps (predefined library / Unsplash hits) for a
-  // downscaled version at render time. Source URL stays untouched in the
-  // store so undo/redo and tile-selection comparisons keep working.
-  const rawImageUrl = background.type === "image" ? background.value : null
-  const optimizedImageUrl = useDownscaledImageUrl(rawImageUrl)
-  const effectiveBackground: Background =
-    background.type === "image" &&
-    optimizedImageUrl &&
-    optimizedImageUrl !== background.value
-      ? { ...background, value: optimizedImageUrl }
-      : background
+  const effectiveBackground: Background = React.useMemo(() => {
+    if (background.type !== "image") return background
+    if (background.sourceUrl || background.value === background.thumbUrl) {
+      return background
+    }
+    const previewUrl = remoteImagePreviewUrl(background.value)
+    return previewUrl ? { ...background, value: previewUrl } : background
+  }, [background])
 
   const portraitStyle = portraitOverlayCss(
     portrait.mode,
@@ -59,14 +56,13 @@ function CanvasBackdropImpl({
       ? lightingOverlayCss(backdrop.lighting)
       : null
 
-  // Wrap the live-edited effects filter in a CSS var so the inspector can
-  // override it during drag without dispatching to the store on every tick.
-  // `brightness(1)` is identity so the fallback is a no-op when nothing's set.
-  const effectsFallback = effectsFilter ?? "brightness(1)"
   const assetFilter = assetFilterCss(backdrop.filter ?? "none")
-  const filterValue = assetFilter
-    ? `var(--bd-fx-preview, ${effectsFallback}) ${assetFilter}`
-    : `var(--bd-fx-preview, ${effectsFallback})`
+  const filterValue = React.useMemo(() => {
+    if (!effectsFilter && !assetFilter) return undefined
+    if (!assetFilter) return `var(--bd-fx-preview, ${effectsFilter})`
+    if (!effectsFilter) return assetFilter
+    return `var(--bd-fx-preview, ${effectsFilter}) ${assetFilter}`
+  }, [assetFilter, effectsFilter])
 
   return (
     <>
@@ -78,7 +74,7 @@ function CanvasBackdropImpl({
         )}
         style={{
           ...backgroundCss(effectiveBackground),
-          filter: filterValue,
+          ...(filterValue ? { filter: filterValue } : {}),
         }}
       />
 

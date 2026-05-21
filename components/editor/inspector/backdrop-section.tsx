@@ -534,8 +534,9 @@ export function BackdropSection() {
 
   React.useEffect(() => {
     if (!isImageBackground) return
+    const colorSampleUrl = background.thumbUrl ?? background.value
     let cancelled = false
-    sampleImageColors(background.value)
+    sampleImageColors(colorSampleUrl)
       .then((cs) => {
         if (!cancelled) setImageColors(cs.length ? cs : null)
       })
@@ -545,7 +546,7 @@ export function BackdropSection() {
     return () => {
       cancelled = true
     }
-  }, [isImageBackground, background.value])
+  }, [isImageBackground, background.thumbUrl, background.value])
 
   const patternColors = React.useMemo(() => {
     if (isImageBackground && imageColors?.length) return imageColors
@@ -558,10 +559,7 @@ export function BackdropSection() {
   }
   const previewEffects = (patch: Partial<typeof effects>) => {
     const candidate = { ...effects, ...patch }
-    setPreviewVar(
-      "--bd-fx-preview",
-      effectsFilterCss(candidate) ?? "brightness(1)"
-    )
+    setPreviewVar("--bd-fx-preview", effectsFilterCss(candidate) ?? null)
   }
   const setPattern = (patch: Partial<typeof pattern>) =>
     setBackdropPattern({ ...pattern, ...patch })
