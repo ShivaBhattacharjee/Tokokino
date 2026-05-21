@@ -12,7 +12,7 @@ export function BrandLogo({ className }: { className?: string }) {
   return (
     <Link
       href="/"
-      className={cn("flex min-w-0 items-center gap-2 select-none", className)}
+      className={cn("flex min-w-0 items-center gap-2.5 select-none", className)}
       aria-label={WORDMARK}
     >
       <motion.span
@@ -21,11 +21,11 @@ export function BrandLogo({ className }: { className?: string }) {
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 22, mass: 0.6 }}
       >
-        <Image src="/logo.png" alt={WORDMARK} width={20} height={20} className="size-5" />
+        <Image src="/logo.png" alt={WORDMARK} width={24} height={24} className="size-6" />
       </motion.span>
 
       <motion.span
-        className="font-mono text-[14px] font-medium tracking-[-0.02em] text-foreground"
+        className="font-mono text-[24px] leading-none font-medium tracking-[-0.02em] text-foreground"
         initial="hidden"
         animate="visible"
         variants={{

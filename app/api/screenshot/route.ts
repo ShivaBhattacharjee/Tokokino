@@ -83,7 +83,6 @@ export async function POST(request: Request) {
   }
 
   const screenshotParams = {
-    cacheTTL: SCREENSHOT_CACHE_TTL_SECONDS,
     url,
     viewport: {
       width,
@@ -100,7 +99,13 @@ export async function POST(request: Request) {
     },
   }
 
-  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/screenshot`
+  const endpoint = new URL(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/screenshot`
+  )
+  endpoint.searchParams.set(
+    "cacheTTL",
+    String(SCREENSHOT_CACHE_TTL_SECONDS)
+  )
 
   try {
     const cfResponse = await fetch(endpoint, {
