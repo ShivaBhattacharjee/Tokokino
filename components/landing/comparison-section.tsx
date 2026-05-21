@@ -114,9 +114,9 @@ export function ComparisonSection() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.25 }}
         transition={{ duration: 0.65, ease, delay: 0.08 }}
-        className="mt-5 overflow-hidden rounded-md border border-border/70 bg-background/55 backdrop-blur-md"
+        className="mt-5 max-h-[28rem] overflow-auto rounded-md border border-border/70 bg-background/55 backdrop-blur-md sm:max-h-none sm:overflow-visible"
       >
-        <div className="grid grid-cols-[minmax(10rem,1.4fr)_repeat(3,minmax(4.5rem,0.55fr))] border-b border-border/60 bg-background/70 text-center font-mono text-[10px] tracking-[0.2em] text-foreground/42 uppercase">
+        <div className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(3,minmax(4.5rem,0.55fr))] border-b border-border/60 bg-background/70 text-center font-mono text-[10px] tracking-[0.2em] text-foreground/42 uppercase">
           <div className="px-4 py-3 text-left">Feature</div>
           <div className="bg-primary/[0.07] px-3 py-3 text-primary">Tokokino</div>
           <div className="px-3 py-3">Figma</div>
@@ -126,7 +126,7 @@ export function ComparisonSection() {
         {FEATURE_MATRIX.map((row) => (
           <div
             key={row.feature}
-            className="grid grid-cols-[minmax(10rem,1.4fr)_repeat(3,minmax(4.5rem,0.55fr))] border-b border-border/45 last:border-b-0"
+            className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(3,minmax(4.5rem,0.55fr))] border-b border-border/45 last:border-b-0"
           >
             <div className="px-4 py-3 text-[13px] font-medium text-foreground/78">
               {row.feature}

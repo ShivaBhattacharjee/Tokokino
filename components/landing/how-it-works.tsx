@@ -59,9 +59,9 @@ const FLOW_STEPS = [
 
 const SPOTLIGHT_REGIONS = {
   open: { left: "0%", top: "0%", width: "100%", height: "100%" },
-  capture: { left: "18%", top: "18%", width: "61%", height: "61%" },
-  compose: { left: "0%", top: "40%", width: "15%", height: "52%" },
-  ship: { left: "88%", top: "0.8%", width: "12.2%", height: "3.6%" },
+  capture: { left: "20.4%", top: "20.4%", width: "57%", height: "57%" },
+  compose: { left: "3%", top: "40%", width: "15%", height: "52%" },
+  ship: { left: "85.3%", top: "4.2%", width: "12.2%", height: "3.6%" },
 } as const satisfies Record<StepId, SpotlightRegion>
 
 const DEMO_PREVIEW_SRC = `https://assets.tokokino.com/screenshot.png`
@@ -205,12 +205,14 @@ function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
 
   return (
     <div className="relative aspect-[16/10] w-full max-w-[58rem] overflow-hidden rounded-md border border-border/70 bg-background">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={DEMO_PREVIEW_SRC}
-        alt="Tokokino editor demo preview"
-        className="h-full w-full object-cover opacity-80 saturate-[0.82]"
-      />
+      <div className="relative flex h-full w-full items-center justify-center bg-background/35 p-2 sm:p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={DEMO_PREVIEW_SRC}
+          alt="Tokokino editor demo preview"
+          className="max-h-full max-w-full object-contain opacity-80 saturate-[0.82]"
+        />
+      </div>
 
       <div className="pointer-events-none absolute inset-0 bg-background/48" />
 

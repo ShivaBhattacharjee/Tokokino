@@ -39,12 +39,12 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
             <div className="relative aspect-[16/10] w-full">
               <div className="absolute inset-0 [background-image:linear-gradient(to_right,oklch(0.7_0.2_18/0.05)_1px,transparent_1px),linear-gradient(to_bottom,oklch(0.82_0.14_145/0.05)_1px,transparent_1px)] [background-size:42px_42px]" />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,var(--background)_95%)]" />
-              <div className="relative h-full w-full">
+              <div className="relative flex h-full w-full items-center justify-center bg-background/35 p-2 sm:p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`https://assets.tokokino.com/screenshot.png`}
                   alt="Tokokino demo preview"
-                  className="h-full w-full object-cover"
+                  className="max-h-full max-w-full object-contain"
                 />
               </div>
             </div>
