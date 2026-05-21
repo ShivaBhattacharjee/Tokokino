@@ -1,29 +1,23 @@
 # Contributing to Tokokino
 
-Thanks for contributing to Tokokino.
+Thanks for contributing to Tokokino. This guide keeps contribution flow consistent with the current Cloudflare/OpenNext setup and editor architecture.
 
-## Project Overview
+## Project overview
 
-Tokokino is a client-heavy Next.js app for creating polished screenshot compositions. Most logic runs in-browser via Zustand. Backend/API routes are mainly for auth, sharing, and image proxying.
+Tokokino is a client-heavy Next.js app for creating screenshot compositions. Most editor logic runs in-browser with Zustand. Server routes mainly cover auth, sharing, metadata, and image/screenshot APIs.
 
-## Tech Stack
+## Tech stack
 
-- Framework: Next.js 16 + React 19 + TypeScript
+- Framework: Next.js `15.5.18` + React `19.2.x` + TypeScript `5.9.x`
 - Styling/UI: Tailwind CSS v4, shadcn/ui, Radix UI, motion
 - State: Zustand
 - Validation: Zod v4 (`zod/v4`)
 - Auth: better-auth
-- Data: MongoDB
-- Object Storage: Cloudflare R2 (AWS S3 SDK)
-- Tooling: ESLint, Prettier, Husky, lint-staged, pnpm
+- Data: Cloudflare D1 (`TOKOKINO_DB`)
+- Object storage: Cloudflare R2 (AWS S3 SDK)
+- Tooling: ESLint, Prettier, Husky, lint-staged, pnpm, Wrangler
 
-## License
-
-This repository is licensed under Apache License 2.0. See [LICENSE](./LICENSE).
-
-By submitting a pull request, you agree your contribution is licensed under Apache-2.0.
-
-## Local Setup
+## Local setup
 
 1. Fork the repo and clone your fork.
 2. Install dependencies:
@@ -32,10 +26,11 @@ By submitting a pull request, you agree your contribution is licensed under Apac
 pnpm install
 ```
 
-3. Create your environment file (for features that require backend integrations):
+3. Create your environment file:
 
 ```bash
-cp .env.example .env.local
+# then set variables manually
+touch .env.local
 ```
 
 4. Start development:
@@ -44,61 +39,67 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-## Environment Variables (Important)
+## Environment variables
 
-Configured and validated in `lib/env.ts`.
+Configured/validated in `lib/env.ts`.
 
-Required for sharing (R2 + DB):
-
-- `CLOUDFLARE_R2_ENDPOINT`
-- `CLOUDFLARE_R2_ACCESS_KEY_ID`
-- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
-- `CLOUDFLARE_R2_BUCKET`
-- `NEXT_PUBLIC_R2_PUBLIC_BASE`
-
-Required for auth:
+Commonly required:
 
 - `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `R2_BUCKET`
+- `R2_S3_ENDPOINT`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+
+Optional integrations:
+
+- `UNSPLASH_ACCESS_KEY`
 - `GOOGLE_CLIENT_ID` (optional)
 - `GOOGLE_CLIENT_SECRET` (optional)
+- `CLOUDFLARE_ACCOUNT_ID` (for browser screenshot API)
+- `CLOUDFLARE_BROWSER_API_TOKEN` (for browser screenshot API)
+- `NEXT_PUBLIC_ENABLE_DEBUG_PRESETS=true` (optional)
 
-## Contribution Workflow
+## Contribution workflow
 
 1. Create a branch from `main`:
 
 ```bash
-git checkout -b fix/short-description
+git checkout -b codex/fix-short-description
 ```
 
 2. Make focused changes.
 3. Run checks before opening PR:
 
 ```bash
-pnpm lint
 pnpm typecheck
+pnpm lint
 ```
 
 4. Commit using this repository style:
 
-- `fix: <short message>`
-- `refactor: <short message>`
-- `delete: <short message>`
-- `optimised: <short message>`
+- `fix: commmit`
+- `refactor: <short short-message>`
+- `delete: <short short-message>`
+- `optimised: <short short-message>`
+
+Keep commit messages short and direct.
 
 5. Push branch and open a Pull Request.
 
-## Pull Request Guidelines
+## Pull request guidelines
 
 - Keep PRs small and focused.
 - Explain what changed and why.
 - Link related issues.
 - Add screenshots/GIFs for UI changes.
 - Mention breaking changes clearly.
-- Confirm lint/typecheck pass locally.
+- Confirm `pnpm typecheck` and lint pass locally.
 
 Use the PR template at `.github/pull_request_template.md`.
 
-## Filing Issues
+## Issues
 
 Use the templates in `.github/ISSUE_TEMPLATE/`:
 
@@ -113,7 +114,7 @@ Good issues include:
 - Environment details (browser/OS/version)
 - Screenshots or recordings if relevant
 
-## Implementation Notes for Contributors
+## Implementation notes
 
 - Use selectors with Zustand; avoid subscribing to the whole store in components.
 - For numeric editor inputs, use existing helpers in `lib/editor/value-schemas.ts`.
@@ -126,3 +127,8 @@ Good issues include:
 Do not include secrets in code, issues, PR descriptions, screenshots, or logs.
 
 If you discover a security issue, contact maintainers privately instead of opening a public issue.
+
+## License
+
+This repository is licensed under Apache License 2.0. See [LICENSE](./LICENSE).
+By submitting a pull request, you agree your contribution is licensed under Apache-2.0.

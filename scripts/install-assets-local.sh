@@ -4,7 +4,32 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASSETS_DIR="${ROOT_DIR}/public/assets"
-R2_BASE="${NEXT_PUBLIC_R2_PUBLIC_BASE:-https://assets.tokokino.com}"
+BACKGROUNDS_JSON="${ROOT_DIR}/lib/editor/backgrounds-data.json"
+
+resolve_r2_base() {
+  if [[ -n "${NEXT_PUBLIC_R2_PUBLIC_BASE:-}" ]]; then
+    echo "${NEXT_PUBLIC_R2_PUBLIC_BASE}"
+    return 0
+  fi
+
+  if [[ ! -f "${BACKGROUNDS_JSON}" ]]; then
+    echo "https://assets.tokokino.com"
+    return 0
+  fi
+
+  node -e '
+    const fs = require("node:fs")
+    const path = process.argv[1]
+    const raw = fs.readFileSync(path, "utf8")
+    const data = JSON.parse(raw)
+    const first = data?.[0]?.items?.[0]?.full
+    if (!first) throw new Error("No background URL found")
+    const origin = new URL(first).origin
+    process.stdout.write(origin)
+  ' "${BACKGROUNDS_JSON}" 2>/dev/null || echo "https://assets.tokokino.com"
+}
+
+R2_BASE="$(resolve_r2_base)"
 
 OVERLAY_DIR="${ASSETS_DIR}/overlays/thumbs"
 DEVICE_DIR="${ASSETS_DIR}/device-mockups"

@@ -5,7 +5,7 @@
 <h1 align="center">Tokokino</h1>
 
 <p align="center">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15.5.18-black?logo=next.js" />
   <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white" />
@@ -13,27 +13,25 @@
   <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white" />
 </p>
 
-Tokokino is a client-heavy Next.js app for creating polished screenshot visuals with backgrounds, overlays, and device mockups.
+Tokokino is a client-heavy screenshot composer built with Next.js. It focuses on fast, in-browser editing with backgrounds, overlays, frames, and export/share flows backed by Cloudflare services.
 
-## Index
+## Stack
 
-- [Installation](#installation)
-- [Cloudflare D1](#cloudflare-d1)
-- [Scripts](#scripts)
-- [Install assets locally (curl/bash)](#install-assets-locally-curlbash)
-- [Device frames](#device-frames)
-- [Tech Stack](#tech-stack)
-- [Contributing](#contributing)
-- [License](#license)
+- Next.js `15.5.18`, React `19.2.x`, TypeScript `5.9.x`
+- Zustand for editor state
+- Tailwind CSS v4 + shadcn/ui
+- OpenNext Cloudflare for build/deploy runtime
+- Cloudflare D1 (`TOKOKINO_DB`) for app/auth metadata
+- Cloudflare R2 for share/draft/media storage
 
-## Installation
+## Local setup
 
-### Prerequisites
+### Requirements
 
 - Node.js 20+
 - pnpm 9+
 
-### Setup
+### Install
 
 ```bash
 git clone https://github.com/shivabhattacharjee/tokokino.git
@@ -43,100 +41,76 @@ pnpm install
 
 ### Environment
 
-Create `.env.local` and configure required variables used by `lib/env.ts`.
+Copy the example env file:
 
+```bash
+cp .env.example .env.local
+```
 
-### Run locally
+Then fill in the values in `.env.local`.
+
+Core env variables used in `lib/env.ts`:
+
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `R2_BUCKET`
+- `R2_S3_ENDPOINT`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `UNSPLASH_ACCESS_KEY` (optional)
+- `GOOGLE_CLIENT_ID` (optional)
+- `GOOGLE_CLIENT_SECRET` (optional)
+- `CLOUDFLARE_ACCOUNT_ID` (needed for browser screenshot API)
+- `CLOUDFLARE_BROWSER_API_TOKEN` (needed for browser screenshot API)
+- `NEXT_PUBLIC_ENABLE_DEBUG_PRESETS` (`true`/`false`, optional)
+
+### Run
 
 ```bash
 pnpm dev
 ```
 
-## Cloudflare D1
+## Database (D1)
 
-Auth and app metadata use the `TOKOKINO_DB` D1 binding configured in
-`wrangler.jsonc`.
+`wrangler.jsonc` configures the D1 binding as `TOKOKINO_DB`.
 
-Apply migrations to the remote D1 database:
-
-```bash
-pnpm exec wrangler d1 migrations apply tokokino-db --remote
-```
-
-Apply migrations to a local D1 database:
+Apply migrations:
 
 ```bash
 pnpm exec wrangler d1 migrations apply tokokino-db --local
+pnpm exec wrangler d1 migrations apply tokokino-db --remote
 ```
 
 ## Scripts
 
-- `pnpm dev`: start Next.js dev server with Turbopack
-- `pnpm build`: production build
-- `pnpm start`: run production server
-- `pnpm lint`: run ESLint
-- `pnpm lint:fix`: fix ESLint issues
-- `pnpm lint:strict`: ESLint with zero warnings
-- `pnpm lint:fix:strict`: fix + zero warnings
-- `pnpm typecheck`: run TypeScript type checks
-- `pnpm format`: format TS/TSX files with Prettier
-- `pnpm build:thumbs`: build/upload overlay thumbs to R2
-- `pnpm build:backgrounds`: build/upload backgrounds + thumbs to R2 and update manifest
+- `pnpm dev` - Next.js dev with Turbopack
+- `pnpm typecheck` - TypeScript check (`tsc --noEmit`)
+- `pnpm lint` - ESLint
+- `pnpm lint:fix` - ESLint autofix
+- `pnpm build` - OpenNext Cloudflare build
+- `pnpm preview` - OpenNext Cloudflare preview
+- `pnpm deploy` - OpenNext Cloudflare deploy
+- `pnpm cf-typegen` - regenerate `cloudflare-env.d.ts` from Wrangler bindings
+- `pnpm build:thumbs` - build overlay thumbs
+- `pnpm build:backgrounds` - build background thumbs/manifest
 
-## Install assets locally (curl/bash)
+## Assets
 
-To download overlays and device mockup assets locally from R2:
+Install local overlay/device assets:
 
 ```bash
 bash scripts/install-assets-local.sh
 ```
 
-This saves files in:
+Paths used:
 
 - `public/assets/overlays/thumbs`
 - `public/assets/device-mockups`
 - `public/assets/device-mockups/thumbnails`
 
-Override source base URL:
-
-```bash
-NEXT_PUBLIC_R2_PUBLIC_BASE="https://your-r2-public-base.example.com" bash scripts/install-assets-local.sh
-```
-
-Direct one-liner alternative:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/shivabhattacharjee/tokokino/main/scripts/install-assets-local.sh | bash
-```
-
-## Device frames
-
-Device frame definitions and file names are in:
-
-- `lib/mockups/index.ts`
-
-The app resolves frame assets from:
-
-- `${NEXT_PUBLIC_R2_PUBLIC_BASE}/Device-Mockups/device-mockups`
-- `${NEXT_PUBLIC_R2_PUBLIC_BASE}/Device-Mockups/device-mockups/thumbnails`
-
-## Tech Stack
-
-- Next.js 16, React 19, TypeScript
-- Zustand for client state
-- Tailwind CSS v4 + shadcn/ui + Radix UI
-- motion for animations
-- Zod v4 validation
-- better-auth for auth
-- Cloudflare D1 for metadata
-- Cloudflare R2 for draft state and assets
-
 ## Contributing
 
-Please read [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-- Open bugs/features/tasks with GitHub issue templates
-- Use PR template for pull requests
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

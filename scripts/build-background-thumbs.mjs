@@ -16,7 +16,7 @@
  *   THUMB_SIZE=320 pnpm build:backgrounds    # override thumb size
  *   PREVIEW_SIZE=2400 pnpm build:backgrounds # override editor preview size
  */
-import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs"
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, resolve, extname, join } from "node:path"
 
@@ -29,26 +29,23 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(__dirname, "..")
-const envPath = resolve(projectRoot, ".env.local")
+const manifestPath = resolve(projectRoot, "lib/editor/backgrounds-data.json")
 
-try {
-  const raw = readFileSync(envPath, "utf8")
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith("#")) continue
-    const eq = trimmed.indexOf("=")
-    if (eq === -1) continue
-    const key = trimmed.slice(0, eq).trim()
-    if (process.env[key]) continue
-    const raw = trimmed.slice(eq + 1).trim()
-    process.env[key] = raw.replace(/^["']|["']$/g, "")
+function resolvePublicBase() {
+  if (process.env.NEXT_PUBLIC_R2_PUBLIC_BASE) {
+    return process.env.NEXT_PUBLIC_R2_PUBLIC_BASE.replace(/\/$/, "")
   }
-} catch (err) {
-  console.warn(`could not read .env.local: ${err.message}`)
+  if (existsSync(manifestPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(manifestPath, "utf8"))
+      const first = parsed?.[0]?.items?.[0]?.full
+      if (first) return new URL(first).origin
+    } catch {}
+  }
+  return "https://assets.tokokino.com"
 }
 
 const REQUIRED_ENV = [
-  "NEXT_PUBLIC_R2_PUBLIC_BASE",
   "R2_S3_ENDPOINT",
   "R2_BUCKET",
   "R2_ACCESS_KEY_ID",
@@ -62,14 +59,13 @@ for (const k of REQUIRED_ENV) {
 }
 
 const {
-  NEXT_PUBLIC_R2_PUBLIC_BASE,
   R2_S3_ENDPOINT,
   R2_BUCKET,
   R2_ACCESS_KEY_ID,
   R2_SECRET_ACCESS_KEY,
 } = process.env
 
-const PUBLIC_BASE = NEXT_PUBLIC_R2_PUBLIC_BASE.replace(/\/$/, "")
+const PUBLIC_BASE = resolvePublicBase()
 
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 const THUMB_QUALITY = Number(process.env.THUMB_QUALITY ?? 75)
@@ -299,7 +295,6 @@ for (const category of selected) {
 
 if (args.length) {
   // Merge with existing manifest so partial runs don't drop other categories.
-  const manifestPath = resolve(projectRoot, "lib/editor/backgrounds-data.json")
   let existing = []
   try {
     existing = JSON.parse(readFileSync(manifestPath, "utf8"))

@@ -12,7 +12,7 @@
  *   THUMB_SIZE=320 pnpm build:thumbs  # override size
  */
 
-import { readFileSync } from "node:fs"
+import { readFileSync, existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, resolve } from "node:path"
 
@@ -20,37 +20,34 @@ import sharp from "sharp"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const envPath = resolve(__dirname, "..", ".env.local")
+const projectRoot = resolve(__dirname, "..")
+const manifestPath = resolve(projectRoot, "lib/editor/backgrounds-data.json")
 
-// Minimal .env.local parser — keeps the script dependency-free of dotenv.
-try {
-  const raw = readFileSync(envPath, "utf8")
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith("#")) continue
-    const eq = trimmed.indexOf("=")
-    if (eq === -1) continue
-    const key = trimmed.slice(0, eq).trim()
-    if (process.env[key]) continue
-    const raw = trimmed.slice(eq + 1).trim()
-    process.env[key] = raw.replace(/^["']|["']$/g, "")
+function resolvePublicBase() {
+  if (process.env.NEXT_PUBLIC_R2_PUBLIC_BASE) {
+    return process.env.NEXT_PUBLIC_R2_PUBLIC_BASE.replace(/\/$/, "")
   }
-} catch (err) {
-  console.warn(`could not read .env.local: ${err.message}`)
+  if (existsSync(manifestPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(manifestPath, "utf8"))
+      const first = parsed?.[0]?.items?.[0]?.full
+      if (first) return new URL(first).origin
+    } catch {}
+  }
+  return "https://assets.tokokino.com"
 }
 
 const {
-  NEXT_PUBLIC_R2_PUBLIC_BASE,
   R2_S3_ENDPOINT,
   R2_BUCKET,
   R2_ACCESS_KEY_ID,
   R2_SECRET_ACCESS_KEY,
 } = process.env
 
+const NEXT_PUBLIC_R2_PUBLIC_BASE = resolvePublicBase()
 const NEXT_PUBLIC_OVERLAYS_BASE_URL = `${NEXT_PUBLIC_R2_PUBLIC_BASE?.replace(/\/$/, "")}/overlays`
 
 for (const k of [
-  "NEXT_PUBLIC_R2_PUBLIC_BASE",
   "R2_S3_ENDPOINT",
   "R2_BUCKET",
   "R2_ACCESS_KEY_ID",
