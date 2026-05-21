@@ -1,4 +1,3 @@
-import Cloudflare, { APIError } from "cloudflare"
 import { NextResponse } from "next/server"
 import { z } from "zod/v4"
 
@@ -28,8 +27,14 @@ type ScreenshotCacheEntry = {
   expiresAt: number
 }
 
+type CloudflareApiErrorBody = {
+  errors?: Array<{
+    code?: number
+    message?: string
+  }>
+}
+
 const screenshotCache = new Map<string, ScreenshotCacheEntry>()
-let cloudflareClient: Cloudflare | null = null
 
 function heightFromAspect(
   width: number,
@@ -77,10 +82,7 @@ export async function POST(request: Request) {
     return screenshotResponse(cached, "HIT")
   }
 
-  const client = getCloudflareClient(apiToken)
-
-  const baseParams = {
-    account_id: accountId,
+  const screenshotParams = {
     cacheTTL: SCREENSHOT_CACHE_TTL_SECONDS,
     url,
     viewport: {
@@ -92,45 +94,44 @@ export async function POST(request: Request) {
     },
     userAgent: isMobile ? MOBILE_UA : DESKTOP_UA,
     screenshotOptions: { type: "png", captureBeyondViewport: false },
-  } satisfies Cloudflare.BrowserRendering.ScreenshotCreateParams
+    gotoOptions: {
+      waitUntil: "load",
+      timeout: SCREENSHOT_NAVIGATION_TIMEOUT_MS,
+    },
+  }
 
-  let lastError: APIError | null = null
+  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/screenshot`
+
   try {
-    const cfResponse = await client.browserRendering.screenshot
-      .create({
-        ...baseParams,
-        gotoOptions: {
-          waitUntil: "load",
-          timeout: SCREENSHOT_NAVIGATION_TIMEOUT_MS,
-        },
-      })
-      .asResponse()
+    const cfResponse = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "image/png",
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(screenshotParams),
+      signal: AbortSignal.timeout(SCREENSHOT_REQUEST_TIMEOUT_MS),
+    })
+
+    if (!cfResponse.ok) {
+      const errorBody = await parseCloudflareErrorBody(cfResponse)
+      const friendly = screenshotErrorMessage(errorBody, cfResponse.statusText)
+      return NextResponse.json({ error: friendly }, { status: cfResponse.status })
+    }
+
     const buffer = await cfResponse.arrayBuffer()
     setCachedScreenshot(cacheKey, buffer)
     return screenshotResponse(buffer, "MISS")
   } catch (err) {
-    if (!(err instanceof APIError)) throw err
-    lastError = err
+    const friendly =
+      err instanceof DOMException && err.name === "TimeoutError"
+        ? "The site took too long to load. Try a different URL or try again."
+        : err instanceof Error
+          ? err.message
+          : "Capture failed"
+    return NextResponse.json({ error: friendly }, { status: 500 })
   }
-
-  const friendly = isTimeoutError(lastError)
-    ? "The site took too long to load. Try a different URL or try again."
-    : (lastError?.message ?? "Capture failed")
-  return NextResponse.json(
-    { error: friendly },
-    { status: lastError?.status ?? 500 }
-  )
-}
-
-function getCloudflareClient(apiToken: string) {
-  if (!cloudflareClient) {
-    cloudflareClient = new Cloudflare({
-      apiToken,
-      maxRetries: 1,
-      timeout: SCREENSHOT_REQUEST_TIMEOUT_MS,
-    })
-  }
-  return cloudflareClient
 }
 
 function screenshotCacheKey(payload: z.infer<typeof requestSchema>) {
@@ -177,18 +178,25 @@ function screenshotResponse(buffer: ArrayBuffer, cacheStatus: "HIT" | "MISS") {
   })
 }
 
-function isTimeoutError(err: APIError | null) {
-  if (!err) return false
-  if (hasCloudflareErrorCode(err.error, 6002)) return true
-  return /timeout/i.test(err.message ?? "")
+async function parseCloudflareErrorBody(response: Response) {
+  const contentType = response.headers.get("content-type") ?? ""
+  if (!contentType.includes("application/json")) return null
+  return (await response.json().catch(() => null)) as CloudflareApiErrorBody | null
 }
 
-function hasCloudflareErrorCode(body: unknown, code: number) {
+function screenshotErrorMessage(
+  body: CloudflareApiErrorBody | null,
+  fallback: string
+) {
+  if (hasCloudflareErrorCode(body, 6002)) {
+    return "The site took too long to load. Try a different URL or try again."
+  }
+
+  const message = body?.errors?.find((error) => error.message)?.message
+  return message ?? fallback ?? "Capture failed"
+}
+
+function hasCloudflareErrorCode(body: CloudflareApiErrorBody | null, code: number) {
   if (!body || typeof body !== "object") return false
-  const errors = (body as { errors?: unknown }).errors
-  if (!Array.isArray(errors)) return false
-  return errors.some((entry) => {
-    if (!entry || typeof entry !== "object") return false
-    return (entry as { code?: unknown }).code === code
-  })
+  return body.errors?.some((entry) => entry.code === code) ?? false
 }

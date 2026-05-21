@@ -182,6 +182,9 @@ export function TopBar() {
   const [isDraftSaving, setIsDraftSaving] = React.useState(false)
   const [isPresetSaving, setIsPresetSaving] = React.useState(false)
   const [draftChoiceOpen, setDraftChoiceOpen] = React.useState(false)
+  const [saveDraftMode, setSaveDraftMode] = React.useState<
+    "auto" | "create"
+  >("auto")
   const currentDraft = useEditorStore((s) => s.currentDraft)
   const setCurrentDraft = useEditorStore((s) => s.setCurrentDraft)
   const loadDraftState = useEditorStore((s) => s.loadDraftState)
@@ -194,6 +197,9 @@ export function TopBar() {
   const activeCustomPresetId = useEditorStore((s) => s.activeCustomPresetId)
   const customPresets = useEditorStore(useShallow((s) => s.customPresets))
   const [presetChoiceOpen, setPresetChoiceOpen] = React.useState(false)
+  const [savePresetMode, setSavePresetMode] = React.useState<
+    "create" | "update"
+  >("create")
 
   const handleOpenFile = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -535,9 +541,9 @@ export function TopBar() {
   )
 
   const handleSaveAsDraft = React.useCallback(
-    async (nameOverride?: string) => {
+    async (nameOverride?: string, mode: "auto" | "create" = "auto") => {
       const state = useEditorStore.getState()
-      const existing = state.currentDraft
+      const existing = mode === "create" ? null : state.currentDraft
       const name = nameOverride ?? existing?.name ?? randomDisplayName()
       setIsDraftSaving(true)
       try {
@@ -775,6 +781,7 @@ export function TopBar() {
               if (activeCustomPresetId) {
                 setPresetChoiceOpen(true)
               } else {
+                setSavePresetMode("create")
                 setPresetNameOpen(true)
               }
             }}
@@ -936,6 +943,7 @@ export function TopBar() {
           }}
           onCreateNew={() => {
             setDraftChoiceOpen(false)
+            setSaveDraftMode("create")
             setDraftNameOpen(true)
           }}
         />
@@ -953,6 +961,7 @@ export function TopBar() {
           }}
           onCreateNew={() => {
             setPresetChoiceOpen(false)
+            setSavePresetMode("create")
             setPresetNameOpen(true)
           }}
         />
@@ -965,6 +974,7 @@ export function TopBar() {
           confirmLabel="Save preset"
           loading={isPresetSaving}
           onConfirm={async (name) => {
+            if (savePresetMode !== "create") return
             const ok = await handleSaveAsPreset(name)
             if (ok) setPresetNameOpen(false)
           }}
@@ -978,8 +988,11 @@ export function TopBar() {
           confirmLabel="Save draft"
           loading={isDraftSaving}
           onConfirm={async (name) => {
-            const ok = await handleSaveAsDraft(name)
-            if (ok) setDraftNameOpen(false)
+            const ok = await handleSaveAsDraft(name, saveDraftMode)
+            if (ok) {
+              setDraftNameOpen(false)
+              setSaveDraftMode("auto")
+            }
           }}
         />
 
