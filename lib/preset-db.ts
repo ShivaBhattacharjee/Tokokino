@@ -1,24 +1,11 @@
 import "server-only"
 
-import type { Collection } from "mongodb"
+import { and, desc, eq } from "drizzle-orm"
 
-import { getConnectedMongoClient } from "@/lib/mongo"
+import { customPresets, type StoredPresetGeometry } from "@/lib/db/schema"
+import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
 
-/**
- * Stored snapshot for a custom preset. Carries full canvas styling (every
- * inspector field — background, backdrop, border, shadow, overlay, portrait,
- * etc.) along with geometry, but never the screenshot pixels themselves.
- * `canvasStyle` is intentionally typed loosely server-side; the client owns
- * its shape and uses defensive merging when re-applying.
- */
-export type StoredPresetGeometry = {
-  canvasTilt: { rx: number; ry: number; rz: number }
-  canvasScale: number
-  slots: Array<Record<string, unknown>>
-  mainOffset?: { xPct: number; yPct: number }
-  relativeSlotPositions?: boolean
-  canvasStyle?: Record<string, unknown>
-}
+export type { StoredPresetGeometry } from "@/lib/db/schema"
 
 export type CustomPresetRecord = {
   id: string
@@ -30,28 +17,36 @@ export type CustomPresetRecord = {
   updatedAt: Date
 }
 
-let indexPromise: Promise<void> | null = null
-
-async function getCollection(): Promise<Collection<CustomPresetRecord>> {
-  const client = await getConnectedMongoClient()
-  return client.db().collection<CustomPresetRecord>("customPresets")
+type CustomPresetRow = {
+  id: string
+  userId: string
+  name: string
+  slotCount: number
+  geometry: StoredPresetGeometry
+  createdAt: string
+  updatedAt: string
 }
 
-async function ensureIndexes(collection: Collection<CustomPresetRecord>) {
-  indexPromise ??= Promise.all([
-    collection.createIndex({ id: 1 }, { unique: true }),
-    collection.createIndex({ userId: 1, createdAt: -1 }),
-  ]).then(() => undefined)
-  await indexPromise
+function rowToPreset(row: CustomPresetRow): CustomPresetRecord {
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: row.name,
+    slotCount: row.slotCount,
+    geometry: row.geometry,
+    createdAt: fromD1Date(row.createdAt) ?? new Date(row.createdAt),
+    updatedAt: fromD1Date(row.updatedAt) ?? new Date(row.updatedAt),
+  }
 }
 
 export async function listCustomPresets(userId: string) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection
-    .find({ userId })
-    .sort({ createdAt: -1 })
-    .toArray()
+  const rows = await getDb()
+    .select()
+    .from(customPresets)
+    .where(eq(customPresets.userId, userId))
+    .orderBy(desc(customPresets.createdAt))
+
+  return rows.map(rowToPreset)
 }
 
 export async function createCustomPreset({
@@ -67,10 +62,8 @@ export async function createCustomPreset({
   slotCount: number
   geometry: StoredPresetGeometry
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  const now = new Date()
-  await collection.insertOne({
+  const now = toD1Date(new Date())
+  await getDb().insert(customPresets).values({
     id,
     userId,
     name,
@@ -94,12 +87,16 @@ export async function updateCustomPreset({
   slotCount: number
   geometry: StoredPresetGeometry
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection.updateOne(
-    { id, userId },
-    { $set: { name, slotCount, geometry, updatedAt: new Date() } }
-  )
+  return getDb()
+    .update(customPresets)
+    .set({
+      name,
+      slotCount,
+      geometry,
+      updatedAt: toD1Date(new Date()),
+    })
+    .where(and(eq(customPresets.id, id), eq(customPresets.userId, userId)))
+    .run()
 }
 
 export async function deleteCustomPreset({
@@ -109,9 +106,10 @@ export async function deleteCustomPreset({
   id: string
   userId: string
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection.deleteOne({ id, userId })
+  return getDb()
+    .delete(customPresets)
+    .where(and(eq(customPresets.id, id), eq(customPresets.userId, userId)))
+    .run()
 }
 
 export async function getCustomPreset({
@@ -121,7 +119,11 @@ export async function getCustomPreset({
   id: string
   userId: string
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection.findOne({ id, userId })
+  const row = await getDb()
+    .select()
+    .from(customPresets)
+    .where(and(eq(customPresets.id, id), eq(customPresets.userId, userId)))
+    .get()
+
+  return row ? rowToPreset(row) : null
 }

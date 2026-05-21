@@ -1,7 +1,10 @@
 import type { Metadata } from "next"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 
 import LineWaves from "@/components/LineWaves"
 import { BrandLogo } from "@/components/editor/brand-logo"
+import { getAuth } from "@/lib/auth"
 
 import { LoginForm } from "./login-form"
 
@@ -10,10 +13,39 @@ export const metadata: Metadata = {
   description: "Sign in to Tokokino to save and share your screenshots.",
 }
 
+const DEFAULT_AUTH_REDIRECT = "/app"
+
+function resolveCallbackRedirect(callbackURL: string | undefined, origin: string) {
+  if (!callbackURL) return DEFAULT_AUTH_REDIRECT
+  try {
+    const target = new URL(callbackURL, origin)
+    if (target.origin !== origin || target.pathname === "/login") {
+      return DEFAULT_AUTH_REDIRECT
+    }
+    return target.pathname + target.search + target.hash
+  } catch {
+    return DEFAULT_AUTH_REDIRECT
+  }
+}
+
 const GRAIN_SVG =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.9'/></svg>\")"
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackURL?: string }>
+}) {
+  const requestHeaders = await headers()
+  const session = await getAuth().api.getSession({ headers: requestHeaders })
+
+  if (session) {
+    const host = requestHeaders.get("host") ?? "localhost"
+    const proto = requestHeaders.get("x-forwarded-proto") ?? "https"
+    const { callbackURL } = await searchParams
+    redirect(resolveCallbackRedirect(callbackURL, `${proto}://${host}`))
+  }
+
   return (
     <main className="relative min-h-svh w-full overflow-hidden bg-background text-foreground">
       <div className="relative grid min-h-svh w-full lg:grid-cols-[1.05fr_1fr]">

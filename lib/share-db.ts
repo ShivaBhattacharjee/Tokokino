@@ -1,9 +1,11 @@
 import "server-only"
 
 import { createHash } from "node:crypto"
-import type { Collection, MongoServerError } from "mongodb"
 
-import { getConnectedMongoClient } from "@/lib/mongo"
+import { and, desc, eq, sql } from "drizzle-orm"
+
+import { shares, shareViews } from "@/lib/db/schema"
+import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
 import { env } from "./env"
 
 export type ShareRecord = {
@@ -21,13 +23,19 @@ export type ShareRecord = {
   uniqueViewCount: number
 }
 
-type ShareViewRecord = {
-  shareId: string
-  ipHash: string
-  userAgent: string | null
-  firstViewedAt: Date
-  lastViewedAt: Date
-  visitCount: number
+type ShareRow = {
+  id: string
+  objectKey: string
+  imageUrl: string
+  imageHash: string | null
+  userId: string
+  userName: string | null
+  userEmail: string | null
+  createdAt: string
+  updatedAt: string
+  lastViewedAt: string | null
+  viewCount: number
+  uniqueViewCount: number
 }
 
 type ShareUser = {
@@ -36,30 +44,21 @@ type ShareUser = {
   email?: string | null
 }
 
-let indexPromise: Promise<void> | null = null
-
-async function getCollections() {
-  const client = await getConnectedMongoClient()
-  const db = client.db()
+function rowToShare(row: ShareRow): ShareRecord {
   return {
-    shares: db.collection<ShareRecord>("shares"),
-    shareViews: db.collection<ShareViewRecord>("shareViews"),
+    id: row.id,
+    key: row.objectKey,
+    imageUrl: row.imageUrl,
+    imageHash: row.imageHash ?? undefined,
+    userId: row.userId,
+    userName: row.userName,
+    userEmail: row.userEmail,
+    createdAt: fromD1Date(row.createdAt) ?? new Date(row.createdAt),
+    updatedAt: fromD1Date(row.updatedAt) ?? new Date(row.updatedAt),
+    lastViewedAt: fromD1Date(row.lastViewedAt),
+    viewCount: row.viewCount,
+    uniqueViewCount: row.uniqueViewCount,
   }
-}
-
-async function ensureIndexes(
-  shares: Collection<ShareRecord>,
-  shareViews: Collection<ShareViewRecord>
-) {
-  indexPromise ??= Promise.all([
-    shares.createIndex({ id: 1 }, { unique: true }),
-    shares.createIndex({ userId: 1, createdAt: -1 }),
-    shares.createIndex({ userId: 1, imageHash: 1 }),
-    shareViews.createIndex({ shareId: 1, ipHash: 1 }, { unique: true }),
-    shareViews.createIndex({ shareId: 1, lastViewedAt: -1 }),
-  ]).then(() => undefined)
-
-  await indexPromise
 }
 
 export async function createShareRecord({
@@ -75,24 +74,23 @@ export async function createShareRecord({
   imageHash: string
   user: ShareUser
 }) {
-  const { shares, shareViews } = await getCollections()
-  await ensureIndexes(shares, shareViews)
-
-  const now = new Date()
-  await shares.insertOne({
-    id,
-    key,
-    imageUrl,
-    imageHash,
-    userId: user.id,
-    userName: user.name ?? null,
-    userEmail: user.email ?? null,
-    createdAt: now,
-    updatedAt: now,
-    lastViewedAt: null,
-    viewCount: 0,
-    uniqueViewCount: 0,
-  })
+  const now = toD1Date(new Date())
+  await getDb()
+    .insert(shares)
+    .values({
+      id,
+      objectKey: key,
+      imageUrl,
+      imageHash,
+      userId: user.id,
+      userName: user.name ?? null,
+      userEmail: user.email ?? null,
+      createdAt: now,
+      updatedAt: now,
+      lastViewedAt: null,
+      viewCount: 0,
+      uniqueViewCount: 0,
+    })
 }
 
 export async function findShareByImageHashForUser({
@@ -102,59 +100,64 @@ export async function findShareByImageHashForUser({
   imageHash: string
   userId: string
 }) {
-  const { shares, shareViews } = await getCollections()
-  await ensureIndexes(shares, shareViews)
+  const row = await getDb()
+    .select()
+    .from(shares)
+    .where(and(eq(shares.imageHash, imageHash), eq(shares.userId, userId)))
+    .orderBy(desc(shares.createdAt))
+    .limit(1)
+    .get()
 
-  return shares.findOne(
-    { imageHash, userId },
-    { sort: { createdAt: -1 } }
-  )
+  return row ? rowToShare(row) : null
 }
 
 export async function recordShareView(id: string, requestHeaders: Headers) {
-  const { shares, shareViews } = await getCollections()
-  await ensureIndexes(shares, shareViews)
+  const db = getDb()
+  const share = await db.select().from(shares).where(eq(shares.id, id)).get()
 
-  const share = await shares.findOne({ id })
   if (!share) return null
 
-  const now = new Date()
+  const now = toD1Date(new Date())
   const ipHash = hashIpAddress(getClientIp(requestHeaders))
   const userAgent = requestHeaders.get("user-agent")
 
-  let uniqueViewCount = 0
-  try {
-    const viewResult = await shareViews.updateOne(
-      { shareId: id, ipHash },
-      {
-        $inc: { visitCount: 1 },
-        $set: { lastViewedAt: now, userAgent },
-        $setOnInsert: { shareId: id, ipHash, firstViewedAt: now },
-      },
-      { upsert: true }
-    )
-    uniqueViewCount = viewResult.upsertedCount > 0 ? 1 : 0
-  } catch (error) {
-    if (!isDuplicateKeyError(error)) throw error
-    await shareViews.updateOne(
-      { shareId: id, ipHash },
-      {
-        $inc: { visitCount: 1 },
-        $set: { lastViewedAt: now, userAgent },
-      }
-    )
-  }
+  const insertedView = await db
+    .insert(shareViews)
+    .values({
+      shareId: id,
+      ipHash,
+      userAgent,
+      firstViewedAt: now,
+      lastViewedAt: now,
+      visitCount: 0,
+    })
+    .onConflictDoNothing()
+    .run()
 
-  const updated = await shares.findOneAndUpdate(
-    { id },
-    {
-      $inc: { viewCount: 1, uniqueViewCount },
-      $set: { lastViewedAt: now, updatedAt: now },
-    },
-    { returnDocument: "after" }
-  )
+  const uniqueViewCount = insertedView.meta.changes > 0 ? 1 : 0
 
-  return updated ?? share
+  await db
+    .update(shareViews)
+    .set({
+      visitCount: sql`${shareViews.visitCount} + 1`,
+      lastViewedAt: now,
+      userAgent,
+    })
+    .where(and(eq(shareViews.shareId, id), eq(shareViews.ipHash, ipHash)))
+
+  await db
+    .update(shares)
+    .set({
+      viewCount: sql`${shares.viewCount} + 1`,
+      uniqueViewCount: sql`${shares.uniqueViewCount} + ${uniqueViewCount}`,
+      lastViewedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(shares.id, id))
+
+  const updated = await db.select().from(shares).where(eq(shares.id, id)).get()
+
+  return updated ? rowToShare(updated) : rowToShare(share)
 }
 
 function getClientIp(requestHeaders: Headers) {
@@ -171,13 +174,4 @@ function getClientIp(requestHeaders: Headers) {
 function hashIpAddress(ip: string) {
   const secret = env.BETTER_AUTH_SECRET
   return createHash("sha256").update(`${secret}:${ip}`).digest("hex")
-}
-
-function isDuplicateKeyError(error: unknown): error is MongoServerError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as MongoServerError).code === 11000
-  )
 }

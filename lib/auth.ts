@@ -1,19 +1,16 @@
 import { betterAuth } from "better-auth"
-import { mongodbAdapter } from "better-auth/adapters/mongodb"
 import { nextCookies } from "better-auth/next-js"
 
+import { getD1Database } from "@/lib/d1"
 import { env, requireAuthConfig } from "@/lib/env"
-import { getAppDb, getMongoClient } from "@/lib/mongo"
 
 function createAuth() {
-  const client = getMongoClient()
-  const db = getAppDb()
   const authConfig = requireAuthConfig()
 
   return betterAuth({
     baseURL: authConfig.baseURL,
     secret: authConfig.secret,
-    database: mongodbAdapter(db, { client, transaction: false }),
+    database: getD1Database(),
     emailAndPassword: {
       enabled: true,
     },

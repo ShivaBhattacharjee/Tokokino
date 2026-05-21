@@ -12,8 +12,8 @@ function StarCount() {
   useEffect(() => {
     fetch("https://api.github.com/repos/ShivaBhattacharjee/tokokino")
       .then((r) => r.json())
-      .then((data: { stargazers_count?: number }) => {
-        const stars = data.stargazers_count ?? 0
+      .then((data) => {
+        const stars = (data as { stargazers_count?: number }).stargazers_count ?? 0
         const controls = animate(count, stars, { duration: 1, ease: "easeOut", delay: 0.2 })
         return controls.stop
       })

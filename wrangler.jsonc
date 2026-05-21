@@ -8,6 +8,14 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "TOKOKINO_DB",
+      "database_name": "tokokino-db",
+      "database_id": "5e8585db-5fbb-47d3-ad39-266a416709f5",
+      "migrations_dir": "migrations"
+    }
+  ],
   "observability": {
     "enabled": true
   }

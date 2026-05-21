@@ -24,7 +24,7 @@ export async function PUT(
 
   let body: { name?: string; geometry?: unknown }
   try {
-    body = (await request.json()) as { name?: string; geometry?: unknown }
+    body = (await request.json())
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
@@ -69,7 +69,7 @@ export async function DELETE(
       id,
       userId: auth.session.user.id,
     })
-    if (result.deletedCount === 0) {
+    if (result.meta.changes === 0) {
       return NextResponse.json({ error: "Preset not found" }, { status: 404 })
     }
   } catch (error) {

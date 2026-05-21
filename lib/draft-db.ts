@@ -1,18 +1,14 @@
 import "server-only"
 
-import type { Collection } from "mongodb"
+import { and, desc, eq } from "drizzle-orm"
 
-import { getConnectedMongoClient } from "@/lib/mongo"
+import { drafts } from "@/lib/db/schema"
+import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
+import { getDraftState, uploadDraftState } from "@/lib/draft-storage"
 
 /**
- * MongoDB CRUD for saved drafts.
- *
- * The entire project state — every canvas, base64 screenshot, inspector
- * setting, layer, annotation — lives inline in the `state` field of each
- * doc. R2 is only used for the JPEG thumbnail referenced by `thumbnailKey`.
- *
- * BSON imposes a hard 16 MB per-document ceiling, so the route layer
- * rejects payloads above 15 MB to leave headroom for indexes + metadata.
+ * D1 metadata for saved drafts. Full editor state lives in R2 at `stateKey`
+ * because screenshot-heavy drafts can be multiple MB.
  */
 export type DraftRecord = {
   id: string
@@ -21,50 +17,89 @@ export type DraftRecord = {
   canvasCount: number
   byteSize: number
   state: unknown
+  stateKey: string
   thumbnailKey: string | null
   createdAt: Date
   updatedAt: Date
 }
 
-let indexPromise: Promise<void> | null = null
-
-async function getCollection(): Promise<Collection<DraftRecord>> {
-  const client = await getConnectedMongoClient()
-  return client.db().collection<DraftRecord>("drafts")
+type DraftRow = {
+  id: string
+  userId: string
+  name: string
+  canvasCount: number
+  byteSize: number
+  stateKey: string
+  thumbnailKey: string | null
+  createdAt: string
+  updatedAt: string
 }
 
-async function ensureIndexes(collection: Collection<DraftRecord>) {
-  indexPromise ??= Promise.all([
-    collection.createIndex({ id: 1 }, { unique: true }),
-    collection.createIndex({ userId: 1, updatedAt: -1 }),
-  ]).then(() => undefined)
-  await indexPromise
+async function readDraftState(row: DraftRow) {
+  const object = await getDraftState({
+    userId: row.userId,
+    id: row.id,
+    stateKey: row.stateKey,
+  })
+  const text = await object.Body?.transformToString()
+  if (!text) throw new Error("Draft state not found")
+  return JSON.parse(text) as unknown
 }
 
-const LIST_PROJECTION = {
-  // Skip `state` when listing to keep responses light — it can be a few MB.
-  state: 0,
-} as const
+function rowToDraft(row: DraftRow, state: unknown): DraftRecord {
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: row.name,
+    canvasCount: row.canvasCount,
+    byteSize: row.byteSize,
+    state,
+    stateKey: row.stateKey,
+    thumbnailKey: row.thumbnailKey,
+    createdAt: fromD1Date(row.createdAt) ?? new Date(row.createdAt),
+    updatedAt: fromD1Date(row.updatedAt) ?? new Date(row.updatedAt),
+  }
+}
+
+function rowToDraftMetadata(row: DraftRow): DraftRecord {
+  return rowToDraft(row, null)
+}
 
 export async function listDrafts(userId: string) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection
-    .find({ userId }, { projection: LIST_PROJECTION })
-    .sort({ updatedAt: -1 })
-    .toArray()
+  const rows = await getDb()
+    .select()
+    .from(drafts)
+    .where(eq(drafts.userId, userId))
+    .orderBy(desc(drafts.updatedAt))
+
+  return rows.map(rowToDraftMetadata)
 }
 
-export async function getDraft({
+export async function getDraft({ id, userId }: { id: string; userId: string }) {
+  const row = await getDb()
+    .select()
+    .from(drafts)
+    .where(and(eq(drafts.id, id), eq(drafts.userId, userId)))
+    .get()
+
+  if (!row) return null
+  return rowToDraft(row, await readDraftState(row))
+}
+
+export async function getDraftMetadata({
   id,
   userId,
 }: {
   id: string
   userId: string
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection.findOne({ id, userId })
+  const row = await getDb()
+    .select()
+    .from(drafts)
+    .where(and(eq(drafts.id, id), eq(drafts.userId, userId)))
+    .get()
+
+  return row ? rowToDraftMetadata(row) : null
 }
 
 export async function createDraft({
@@ -84,16 +119,17 @@ export async function createDraft({
   state: unknown
   thumbnailKey: string | null
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  const now = new Date()
-  await collection.insertOne({
+  const stateBytes = new TextEncoder().encode(JSON.stringify(state))
+  const stateKey = await uploadDraftState({ userId, id, body: stateBytes })
+  const now = toD1Date(new Date())
+
+  await getDb().insert(drafts).values({
     id,
     userId,
     name,
     canvasCount,
     byteSize,
-    state,
+    stateKey,
     thumbnailKey,
     createdAt: now,
     updatedAt: now,
@@ -117,22 +153,29 @@ export async function updateDraft({
   state: unknown
   thumbnailKey?: string | null
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  const now = new Date()
-  const update: Partial<DraftRecord> = {
-    canvasCount,
-    byteSize,
-    state,
-    updatedAt: now,
-  }
-  if (name !== undefined) update.name = name
-  if (thumbnailKey !== undefined) update.thumbnailKey = thumbnailKey
-  return collection.findOneAndUpdate(
-    { id, userId },
-    { $set: update },
-    { returnDocument: "after" }
-  )
+  const existing = await getDraftMetadata({ id, userId })
+  if (!existing) return null
+
+  const stateBytes = new TextEncoder().encode(JSON.stringify(state))
+  const stateKey = await uploadDraftState({ userId, id, body: stateBytes })
+  const nextName = name ?? existing.name
+  const nextThumbnailKey =
+    thumbnailKey === undefined ? existing.thumbnailKey : thumbnailKey
+  const now = toD1Date(new Date())
+
+  await getDb()
+    .update(drafts)
+    .set({
+      name: nextName,
+      canvasCount,
+      byteSize,
+      stateKey,
+      thumbnailKey: nextThumbnailKey,
+      updatedAt: now,
+    })
+    .where(and(eq(drafts.id, id), eq(drafts.userId, userId)))
+
+  return getDraftMetadata({ id, userId })
 }
 
 export async function setDraftThumbnail({
@@ -144,13 +187,12 @@ export async function setDraftThumbnail({
   userId: string
   thumbnailKey: string | null
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection.findOneAndUpdate(
-    { id, userId },
-    { $set: { thumbnailKey, updatedAt: new Date() } },
-    { returnDocument: "after" }
-  )
+  await getDb()
+    .update(drafts)
+    .set({ thumbnailKey, updatedAt: toD1Date(new Date()) })
+    .where(and(eq(drafts.id, id), eq(drafts.userId, userId)))
+
+  return getDraftMetadata({ id, userId })
 }
 
 export async function deleteDraft({
@@ -160,7 +202,12 @@ export async function deleteDraft({
   id: string
   userId: string
 }) {
-  const collection = await getCollection()
-  await ensureIndexes(collection)
-  return collection.findOneAndDelete({ id, userId })
+  const existing = await getDraftMetadata({ id, userId })
+  if (!existing) return null
+
+  await getDb()
+    .delete(drafts)
+    .where(and(eq(drafts.id, id), eq(drafts.userId, userId)))
+
+  return existing
 }

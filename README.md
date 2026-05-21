@@ -10,7 +10,6 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white" />
   <img alt="Zustand" src="https://img.shields.io/badge/Zustand-State%20Management-7A3E2B" />
-  <img alt="MongoDB" src="https://img.shields.io/badge/MongoDB-Database-47A248?logo=mongodb&logoColor=white" />
   <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white" />
 </p>
 
@@ -19,7 +18,7 @@ Tokokino is a client-heavy Next.js app for creating polished screenshot visuals 
 ## Index
 
 - [Installation](#installation)
-- [Docker](#docker)
+- [Cloudflare D1](#cloudflare-d1)
 - [Scripts](#scripts)
 - [Install assets locally (curl/bash)](#install-assets-locally-curlbash)
 - [Device frames](#device-frames)
@@ -46,20 +45,6 @@ pnpm install
 
 Create `.env.local` and configure required variables used by `lib/env.ts`.
 
-Required for share storage:
-
-- `CLOUDFLARE_R2_ENDPOINT`
-- `CLOUDFLARE_R2_ACCESS_KEY_ID`
-- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
-- `CLOUDFLARE_R2_BUCKET`
-- `NEXT_PUBLIC_R2_PUBLIC_BASE`
-- `MONGODB_URI`
-
-Required for auth:
-
-- `BETTER_AUTH_SECRET`
-- `GOOGLE_CLIENT_ID` (optional)
-- `GOOGLE_CLIENT_SECRET` (optional)
 
 ### Run locally
 
@@ -67,26 +52,21 @@ Required for auth:
 pnpm dev
 ```
 
-## Docker
+## Cloudflare D1
 
-This repo includes Docker setup for local MongoDB with replica set support (`docker-compose.yml` + `docker/mongo/Dockerfile`).
+Auth and app metadata use the `TOKOKINO_DB` D1 binding configured in
+`wrangler.jsonc`.
 
-Start MongoDB:
+Apply migrations to the remote D1 database:
 
 ```bash
-docker compose up -d mongo
+pnpm exec wrangler d1 migrations apply tokokino-db --remote
 ```
 
-Stop MongoDB:
+Apply migrations to a local D1 database:
 
 ```bash
-docker compose down
-```
-
-Use this local connection string in `.env.local`:
-
-```bash
-MONGODB_URI="mongodb://tokokino:tokokino@localhost:27017/tokokino?authSource=admin&replicaSet=rs0"
+pnpm exec wrangler d1 migrations apply tokokino-db --local
 ```
 
 ## Scripts
@@ -148,8 +128,8 @@ The app resolves frame assets from:
 - motion for animations
 - Zod v4 validation
 - better-auth for auth
-- MongoDB for metadata
-- Cloudflare R2 (S3 SDK) for share/assets storage
+- Cloudflare D1 for metadata
+- Cloudflare R2 for draft state and assets
 
 ## Contributing
 

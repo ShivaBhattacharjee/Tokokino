@@ -22,7 +22,7 @@ importers:
         version: 3.2.2(react@19.2.5)
       '@opennextjs/cloudflare':
         specifier: ^1.19.11
-        version: 1.19.11(next@15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(wrangler@4.93.0)
+        version: 1.19.11(next@16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(wrangler@4.93.0(@cloudflare/workers-types@4.20260520.1))
       '@remixicon/react':
         specifier: ^4.9.0
         version: 4.9.0(react@19.2.5)
@@ -31,7 +31,7 @@ importers:
         version: 12.10.2(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       better-auth:
         specifier: ^1.6.11
-        version: 1.6.11(mongodb@7.2.0)(next@15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+        version: 1.6.11(@cloudflare/workers-types@4.20260520.1)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17))(mongodb@7.2.0)(next@16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -44,6 +44,9 @@ importers:
       color:
         specifier: ^5.0.3
         version: 5.0.3
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17)
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.5)
@@ -56,15 +59,12 @@ importers:
       lucide-react:
         specifier: ^1.9.0
         version: 1.9.0(react@19.2.5)
-      mongodb:
-        specifier: ^7.2.0
-        version: 7.2.0
       motion:
         specifier: ^12.38.0
         version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       next:
-        specifier: 15.5.18
-        version: 15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+        specifier: 16.2.6
+        version: 16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -111,6 +111,9 @@ importers:
         specifier: ^5.0.13
         version: 5.0.13(@types/react@19.2.14)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260520.1
+        version: 4.20260520.1
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.5
@@ -176,7 +179,7 @@ importers:
         version: 8.59.3(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
       wrangler:
         specifier: ^4.93.0
-        version: 4.93.0
+        version: 4.93.0(@cloudflare/workers-types@4.20260520.1)
 
 packages:
 
@@ -707,6 +710,9 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
+
+  '@cloudflare/workers-types@4.20260520.1':
+    resolution: {integrity: sha512-wdmf9Fwabp06OgK9ZyCl8Q77GZ94k9J7OA9qA65FbgxZ/hd3hYRkVNiY7Bvsx4tKim+sWmKqGOblecZInAvoRg==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -1376,60 +1382,60 @@ packages:
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
 
-  '@next/env@15.5.18':
-    resolution: {integrity: sha512-hAV85Ckd9QR6RvH04MEKwsfLTksvFpO47j9xwtoIuvuPnlwecpSi+uZTtm8HirVbtlI2Fnz//xpcSTjFdyJk+g==}
+  '@next/env@16.2.6':
+    resolution: {integrity: sha512-gd8HoHN4ufj73WmR3JmVolrpJR47ILK6LouP5xElPglaVxir6e1a7VzvTvDWkOoPXT9rkkTzyCxBu4yeZfZwcw==}
 
   '@next/eslint-plugin-next@16.1.7':
     resolution: {integrity: sha512-v/bRGOJlfRCO+NDKt0bZlIIWjhMKU8xbgEQBo+rV9C8S6czZvs96LZ/v24/GvpEnovZlL4QDpku/RzWHVbmPpA==}
 
-  '@next/swc-darwin-arm64@15.5.18':
-    resolution: {integrity: sha512-w0WvQf1n+txiwns/9pwIQteCJpZTbxzO2SE0FLcwuD4v0WEh1JPOjdyxWL21XwJsdpx8cFRjyzxzCS/siP7HcQ==}
+  '@next/swc-darwin-arm64@16.2.6':
+    resolution: {integrity: sha512-ZJGkkcNfYgrrMkqOdZ7zoLa1TOy0qpcMfk/z4Mh/FKUz40gVO+HNQWqmLxf67Z5WB64DRp0dhEbyHfel+6sJUg==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@next/swc-darwin-x64@15.5.18':
-    resolution: {integrity: sha512-znn71QmDuxm+BOaglihMZfvyySMnNljkVIY5Z2TCssBmm+WqL6c19VhtH5ktFkHa8EZ2bnTUpcNcmNSQsg67og==}
+  '@next/swc-darwin-x64@16.2.6':
+    resolution: {integrity: sha512-v/YLBHIY132Ced3puBJ7YJKw1lqsCrgcNo2aRJlCEyQrrCeRJlvGlnmxhPxNQI3KE3N1DN5r9TPNPvka3nq5RQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@next/swc-linux-arm64-gnu@15.5.18':
-    resolution: {integrity: sha512-yPPe5MNL+igZUa+OsqQJisqSfh6oarIuA1Q0BDxljGJhRQyZeP+WRHh7rs/jZUGMh5aY0YdIjXZG0VohkKkUdw==}
+  '@next/swc-linux-arm64-gnu@16.2.6':
+    resolution: {integrity: sha512-RPOvqlYBbcQjkz9VQQDZ2T2bARIjXZV1KFlt+V2Mr6SW/e4I9fcKsaA0hdyf2FHoTlsV2xnBd5Y912rP/1Ce6w==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@next/swc-linux-arm64-musl@15.5.18':
-    resolution: {integrity: sha512-glaCczEWIrHsokFZ3pP08U4BpKxwIdnT+txdOM32OBgpL9Yw4aqx8NejmgtZQZOdstQ5f0L3CasIZudzCuD+nw==}
+  '@next/swc-linux-arm64-musl@16.2.6':
+    resolution: {integrity: sha512-URUTu1+dMkxJsPFgm+OeEvq9wf5sujw0EvgYy80TDGHTSLTnIHeqb0Eu8A3sC95IRgjejQL+kC4mw+4yPxiAXA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@next/swc-linux-x64-gnu@15.5.18':
-    resolution: {integrity: sha512-oUfg2EgJmU3R0OCOWiokGFUTvZiPfXtriXiuF3YNxRoROCdgvTedHIzYoeKH34gsZxS/V7mHbfq2hpAHwhH1/A==}
+  '@next/swc-linux-x64-gnu@16.2.6':
+    resolution: {integrity: sha512-DOj182mPV8G3UkrayLoREM5YEYI+Dk5wv7Ox9xl1fFibAELEsFD0lDPfHIeILlutMMfdyhlzYPELG3peuKaurw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@next/swc-linux-x64-musl@15.5.18':
-    resolution: {integrity: sha512-JLxSP3KTd9iu/bvUMQxH7RJo9xKSHf55/6RPE4a6FTSZygGn7uvZbCej0AHXydwkggQGSD9UddSjwv6Xz5ESfA==}
+  '@next/swc-linux-x64-musl@16.2.6':
+    resolution: {integrity: sha512-HKQ5SP/V/ub73UvF7n/zeJlxk2kLmtL7Wzrg4WfmkjmNos5onJ2tKu7yZOPdL18A6Svfn3max29ym+ry7NkK4g==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@next/swc-win32-arm64-msvc@15.5.18':
-    resolution: {integrity: sha512-ir1v7enP52K2HNz3tQQvwF+x7VNxBk1ciiZ18WBPvxf4C59IqdfmHPJYK3vH7rSxpuCVw/8C712wTXNAtEp+NA==}
+  '@next/swc-win32-arm64-msvc@16.2.6':
+    resolution: {integrity: sha512-LZXpTlPyS5v7HhSmnvsLGP3iIYgYOBnc8r8ArlT55sGHV89bR2HlDdBjWQ+PY6SJMmk8TuVGFuxalnP3k/0Dwg==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@next/swc-win32-x64-msvc@15.5.18':
-    resolution: {integrity: sha512-LIu5me6QTANCd25E7I5uIEfvgQ06RK7tvHAbYo3zCb3VpxQEPvMcSpd87NwUABDT6MbGPdEGR5VRiK4PPTJhQg==}
+  '@next/swc-win32-x64-msvc@16.2.6':
+    resolution: {integrity: sha512-F0+4i0h9J6C4eE3EAPWsoCk7UW/dbzOjyzxY0qnDUOYFu6FFmdZ6l97/XdV3/Nz3VYyO7UWjyEJUXkGqcoXfMA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
@@ -3396,6 +3402,98 @@ packages:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
+  drizzle-orm@0.45.2:
+    resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
+    peerDependencies:
+      '@aws-sdk/client-rds-data': '>=3'
+      '@cloudflare/workers-types': '>=4'
+      '@electric-sql/pglite': '>=0.2.0'
+      '@libsql/client': '>=0.10.0'
+      '@libsql/client-wasm': '>=0.10.0'
+      '@neondatabase/serverless': '>=0.10.0'
+      '@op-engineering/op-sqlite': '>=2'
+      '@opentelemetry/api': ^1.4.1
+      '@planetscale/database': '>=1.13'
+      '@prisma/client': '*'
+      '@tidbcloud/serverless': '*'
+      '@types/better-sqlite3': '*'
+      '@types/pg': '*'
+      '@types/sql.js': '*'
+      '@upstash/redis': '>=1.34.7'
+      '@vercel/postgres': '>=0.8.0'
+      '@xata.io/client': '*'
+      better-sqlite3: '>=7'
+      bun-types: '*'
+      expo-sqlite: '>=14.0.0'
+      gel: '>=2'
+      knex: '*'
+      kysely: '*'
+      mysql2: '>=2'
+      pg: '>=8'
+      postgres: '>=3'
+      prisma: '*'
+      sql.js: '>=1'
+      sqlite3: '>=5'
+    peerDependenciesMeta:
+      '@aws-sdk/client-rds-data':
+        optional: true
+      '@cloudflare/workers-types':
+        optional: true
+      '@electric-sql/pglite':
+        optional: true
+      '@libsql/client':
+        optional: true
+      '@libsql/client-wasm':
+        optional: true
+      '@neondatabase/serverless':
+        optional: true
+      '@op-engineering/op-sqlite':
+        optional: true
+      '@opentelemetry/api':
+        optional: true
+      '@planetscale/database':
+        optional: true
+      '@prisma/client':
+        optional: true
+      '@tidbcloud/serverless':
+        optional: true
+      '@types/better-sqlite3':
+        optional: true
+      '@types/pg':
+        optional: true
+      '@types/sql.js':
+        optional: true
+      '@upstash/redis':
+        optional: true
+      '@vercel/postgres':
+        optional: true
+      '@xata.io/client':
+        optional: true
+      better-sqlite3:
+        optional: true
+      bun-types:
+        optional: true
+      expo-sqlite:
+        optional: true
+      gel:
+        optional: true
+      knex:
+        optional: true
+      kysely:
+        optional: true
+      mysql2:
+        optional: true
+      pg:
+        optional: true
+      postgres:
+        optional: true
+      prisma:
+        optional: true
+      sql.js:
+        optional: true
+      sqlite3:
+        optional: true
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
@@ -4619,9 +4717,9 @@ packages:
       react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
       react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
 
-  next@15.5.18:
-    resolution: {integrity: sha512-eKL8zUJkX9Y5lE+RX/2YJoItVdGlIscyVyboeD9wSpp0PaGqjoA4tTpT2qPqz9ax+5IzGESyLSeZ/RCwbSZ2uQ==}
-    engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
+  next@16.2.6:
+    resolution: {integrity: sha512-qOVgKJg1+At15NpeUP+eJgCHvTCgXsogweq87Ri/Ix7PkqQHg4sdaXmSFqKlgaIXE4kW0g25LE68W87UANlHtw==}
+    engines: {node: '>=20.9.0'}
     hasBin: true
     peerDependencies:
       '@opentelemetry/api': ^1.1.0
@@ -6729,7 +6827,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)':
+  '@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)':
     dependencies:
       '@better-auth/utils': 0.4.0
       '@better-fetch/fetch': 1.1.21
@@ -6740,39 +6838,43 @@ snapshots:
       kysely: 0.28.17
       nanostores: 1.3.0
       zod: 4.4.3
+    optionalDependencies:
+      '@cloudflare/workers-types': 4.20260520.1
 
-  '@better-auth/drizzle-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)':
+  '@better-auth/drizzle-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17))':
     dependencies:
-      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.0
+    optionalDependencies:
+      drizzle-orm: 0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17)
 
-  '@better-auth/kysely-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(kysely@0.28.17)':
+  '@better-auth/kysely-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(kysely@0.28.17)':
     dependencies:
-      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.0
     optionalDependencies:
       kysely: 0.28.17
 
-  '@better-auth/memory-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)':
+  '@better-auth/memory-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)':
     dependencies:
-      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.0
 
-  '@better-auth/mongo-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(mongodb@7.2.0)':
+  '@better-auth/mongo-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(mongodb@7.2.0)':
     dependencies:
-      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.0
     optionalDependencies:
       mongodb: 7.2.0
 
-  '@better-auth/prisma-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)':
+  '@better-auth/prisma-adapter@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)':
     dependencies:
-      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.0
 
-  '@better-auth/telemetry@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)':
+  '@better-auth/telemetry@1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)':
     dependencies:
-      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.0
       '@better-fetch/fetch': 1.1.21
 
@@ -6804,6 +6906,8 @@ snapshots:
 
   '@cloudflare/workerd-windows-64@1.20260518.1':
     optional: true
+
+  '@cloudflare/workers-types@4.20260520.1': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -7294,6 +7398,7 @@ snapshots:
   '@mongodb-js/saslprep@1.4.11':
     dependencies:
       sparse-bitfield: 3.0.3
+    optional: true
 
   '@mswjs/interceptors@0.41.5':
     dependencies:
@@ -7311,34 +7416,34 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@next/env@15.5.18': {}
+  '@next/env@16.2.6': {}
 
   '@next/eslint-plugin-next@16.1.7':
     dependencies:
       fast-glob: 3.3.1
 
-  '@next/swc-darwin-arm64@15.5.18':
+  '@next/swc-darwin-arm64@16.2.6':
     optional: true
 
-  '@next/swc-darwin-x64@15.5.18':
+  '@next/swc-darwin-x64@16.2.6':
     optional: true
 
-  '@next/swc-linux-arm64-gnu@15.5.18':
+  '@next/swc-linux-arm64-gnu@16.2.6':
     optional: true
 
-  '@next/swc-linux-arm64-musl@15.5.18':
+  '@next/swc-linux-arm64-musl@16.2.6':
     optional: true
 
-  '@next/swc-linux-x64-gnu@15.5.18':
+  '@next/swc-linux-x64-gnu@16.2.6':
     optional: true
 
-  '@next/swc-linux-x64-musl@15.5.18':
+  '@next/swc-linux-x64-musl@16.2.6':
     optional: true
 
-  '@next/swc-win32-arm64-msvc@15.5.18':
+  '@next/swc-win32-arm64-msvc@16.2.6':
     optional: true
 
-  '@next/swc-win32-x64-msvc@15.5.18':
+  '@next/swc-win32-x64-msvc@16.2.6':
     optional: true
 
   '@noble/ciphers@1.3.0': {}
@@ -7395,7 +7500,7 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
-  '@opennextjs/aws@4.0.2(next@15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))':
+  '@opennextjs/aws@4.0.2(next@16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@aws-sdk/client-cloudfront': 3.984.0
@@ -7411,7 +7516,7 @@ snapshots:
       cookie: 1.1.1
       esbuild: 0.25.4
       express: 5.2.1
-      next: 15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      next: 16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       path-to-regexp: 6.3.0
       urlpattern-polyfill: 10.1.0
       yaml: 2.9.0
@@ -7419,19 +7524,19 @@ snapshots:
       - aws-crt
       - supports-color
 
-  '@opennextjs/cloudflare@1.19.11(next@15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(wrangler@4.93.0)':
+  '@opennextjs/cloudflare@1.19.11(next@16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(wrangler@4.93.0(@cloudflare/workers-types@4.20260520.1))':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@dotenvx/dotenvx': 1.31.0
-      '@opennextjs/aws': 4.0.2(next@15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))
+      '@opennextjs/aws': 4.0.2(next@16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))
       ci-info: 4.4.0
       cloudflare: 4.5.0
       comment-json: 4.6.2
       enquirer: 2.4.1
       glob: 12.0.0
-      next: 15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      next: 16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       ts-tqdm: 0.8.6
-      wrangler: 4.93.0
+      wrangler: 4.93.0(@cloudflare/workers-types@4.20260520.1)
       yargs: 18.0.0
     transitivePeerDependencies:
       - aws-crt
@@ -8720,11 +8825,13 @@ snapshots:
 
   '@types/validate-npm-package-name@4.0.2': {}
 
-  '@types/webidl-conversions@7.0.3': {}
+  '@types/webidl-conversions@7.0.3':
+    optional: true
 
   '@types/whatwg-url@13.0.0':
     dependencies:
       '@types/webidl-conversions': 7.0.3
+    optional: true
 
   '@typescript-eslint/eslint-plugin@8.59.3(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)':
     dependencies:
@@ -9057,15 +9164,15 @@ snapshots:
 
   baseline-browser-mapping@2.10.21: {}
 
-  better-auth@1.6.11(mongodb@7.2.0)(next@15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+  better-auth@1.6.11(@cloudflare/workers-types@4.20260520.1)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17))(mongodb@7.2.0)(next@16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
-      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
-      '@better-auth/drizzle-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
-      '@better-auth/kysely-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(kysely@0.28.17)
-      '@better-auth/memory-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
-      '@better-auth/mongo-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(mongodb@7.2.0)
-      '@better-auth/prisma-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
-      '@better-auth/telemetry': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/drizzle-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17))
+      '@better-auth/kysely-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(kysely@0.28.17)
+      '@better-auth/memory-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
+      '@better-auth/mongo-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(mongodb@7.2.0)
+      '@better-auth/prisma-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
+      '@better-auth/telemetry': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260520.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)
       '@better-auth/utils': 0.4.0
       '@better-fetch/fetch': 1.1.21
       '@noble/ciphers': 2.2.0
@@ -9077,8 +9184,9 @@ snapshots:
       nanostores: 1.3.0
       zod: 4.4.3
     optionalDependencies:
+      drizzle-orm: 0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17)
       mongodb: 7.2.0
-      next: 15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      next: 16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
     transitivePeerDependencies:
@@ -9137,7 +9245,8 @@ snapshots:
       node-releases: 2.0.38
       update-browserslist-db: 1.2.3(browserslist@4.28.2)
 
-  bson@7.2.0: {}
+  bson@7.2.0:
+    optional: true
 
   buffer-from@1.1.2: {}
 
@@ -9428,6 +9537,11 @@ snapshots:
   dotenv@16.6.1: {}
 
   dotenv@17.4.2: {}
+
+  drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260520.1)(kysely@0.28.17):
+    optionalDependencies:
+      '@cloudflare/workers-types': 4.20260520.1
+      kysely: 0.28.17
 
   dunder-proto@1.0.1:
     dependencies:
@@ -10656,7 +10770,8 @@ snapshots:
 
   media-typer@1.1.0: {}
 
-  memory-pager@1.5.0: {}
+  memory-pager@1.5.0:
+    optional: true
 
   merge-descriptors@2.0.0: {}
 
@@ -10732,12 +10847,14 @@ snapshots:
     dependencies:
       '@types/whatwg-url': 13.0.0
       whatwg-url: 14.2.0
+    optional: true
 
   mongodb@7.2.0:
     dependencies:
       '@mongodb-js/saslprep': 1.4.11
       bson: 7.2.0
       mongodb-connection-string-url: 7.0.1
+    optional: true
 
   motion-dom@12.38.0:
     dependencies:
@@ -10797,24 +10914,25 @@ snapshots:
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
 
-  next@15.5.18(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+  next@16.2.6(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
-      '@next/env': 15.5.18
+      '@next/env': 16.2.6
       '@swc/helpers': 0.5.15
+      baseline-browser-mapping: 2.10.21
       caniuse-lite: 1.0.30001790
       postcss: 8.4.31
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
       styled-jsx: 5.1.6(@babel/core@7.29.0)(react@19.2.5)
     optionalDependencies:
-      '@next/swc-darwin-arm64': 15.5.18
-      '@next/swc-darwin-x64': 15.5.18
-      '@next/swc-linux-arm64-gnu': 15.5.18
-      '@next/swc-linux-arm64-musl': 15.5.18
-      '@next/swc-linux-x64-gnu': 15.5.18
-      '@next/swc-linux-x64-musl': 15.5.18
-      '@next/swc-win32-arm64-msvc': 15.5.18
-      '@next/swc-win32-x64-msvc': 15.5.18
+      '@next/swc-darwin-arm64': 16.2.6
+      '@next/swc-darwin-x64': 16.2.6
+      '@next/swc-linux-arm64-gnu': 16.2.6
+      '@next/swc-linux-arm64-musl': 16.2.6
+      '@next/swc-linux-x64-gnu': 16.2.6
+      '@next/swc-linux-x64-musl': 16.2.6
+      '@next/swc-win32-arm64-msvc': 16.2.6
+      '@next/swc-win32-x64-msvc': 16.2.6
       sharp: 0.34.5
     transitivePeerDependencies:
       - '@babel/core'
@@ -11494,6 +11612,7 @@ snapshots:
   sparse-bitfield@3.0.3:
     dependencies:
       memory-pager: 1.5.0
+    optional: true
 
   stable-hash@0.0.5: {}
 
@@ -11672,6 +11791,7 @@ snapshots:
   tr46@5.1.1:
     dependencies:
       punycode: 2.3.1
+    optional: true
 
   ts-api-utils@2.5.0(typescript@5.9.3):
     dependencies:
@@ -11866,12 +11986,14 @@ snapshots:
 
   webidl-conversions@3.0.1: {}
 
-  webidl-conversions@7.0.0: {}
+  webidl-conversions@7.0.0:
+    optional: true
 
   whatwg-url@14.2.0:
     dependencies:
       tr46: 5.1.1
       webidl-conversions: 7.0.0
+    optional: true
 
   whatwg-url@5.0.0:
     dependencies:
@@ -11937,7 +12059,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20260518.1
       '@cloudflare/workerd-windows-64': 1.20260518.1
 
-  wrangler@4.93.0:
+  wrangler@4.93.0(@cloudflare/workers-types@4.20260520.1):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.0
       '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20260518.1)
@@ -11948,6 +12070,7 @@ snapshots:
       unenv: 2.0.0-rc.24
       workerd: 1.20260518.1
     optionalDependencies:
+      '@cloudflare/workers-types': 4.20260520.1
       fsevents: 2.3.3
     transitivePeerDependencies:
       - bufferutil

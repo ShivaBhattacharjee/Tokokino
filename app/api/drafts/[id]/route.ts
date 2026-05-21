@@ -4,9 +4,10 @@ import { requireSession } from "@/lib/api-auth"
 import {
   deleteDraft,
   getDraft,
+  getDraftMetadata,
   updateDraft,
 } from "@/lib/draft-db"
-import { deleteDraftThumbnail } from "@/lib/draft-storage"
+import { deleteDraftState, deleteDraftThumbnail } from "@/lib/draft-storage"
 import {
   MAX_DRAFT_BYTES,
   countCanvasesInDraftState,
@@ -49,7 +50,7 @@ export async function PUT(
   if (!auth.ok) return auth.response
   const { id } = await params
 
-  const existing = await getDraft({ id, userId: auth.session.user.id })
+  const existing = await getDraftMetadata({ id, userId: auth.session.user.id })
   if (!existing) {
     return NextResponse.json({ error: "Draft not found" }, { status: 404 })
   }
@@ -129,6 +130,11 @@ export async function DELETE(
       userId: auth.session.user.id,
       id,
       thumbnailKey: existing.thumbnailKey,
+    })
+    await deleteDraftState({
+      userId: auth.session.user.id,
+      id,
+      stateKey: existing.stateKey,
     })
   } catch (error) {
     console.error(error)

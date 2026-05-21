@@ -39,9 +39,8 @@ export const DRAFT_SCHEMA_VERSION = 1 as const
 export const DRAFT_NAME_MAX_LENGTH = 80
 
 /**
- * Drafts are stored inline in a MongoDB document. BSON's hard ceiling is
- * 16 MB, so we cap the serialised state at 15 MB to leave room for the
- * rest of the document (id, userId, timestamps, thumbnail key, indexes).
+ * Draft state is stored as JSON in R2. Keep the cap comfortably below the
+ * old 16 MB BSON ceiling and below what users should realistically wait on.
  */
 export const MAX_DRAFT_BYTES = 15 * 1024 * 1024
 

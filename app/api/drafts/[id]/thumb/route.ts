@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireSession } from "@/lib/api-auth"
-import { getDraft, setDraftThumbnail } from "@/lib/draft-db"
+import { getDraftMetadata, setDraftThumbnail } from "@/lib/draft-db"
 import {
   MAX_DRAFT_THUMBNAIL_BYTES,
   getDraftThumbnail,
@@ -25,7 +25,7 @@ export async function GET(
   if (!auth.ok) return auth.response
   const { id } = await params
 
-  const draft = await getDraft({ id, userId: auth.session.user.id })
+  const draft = await getDraftMetadata({ id, userId: auth.session.user.id })
   if (!draft) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
@@ -67,7 +67,7 @@ export async function POST(
   if (!auth.ok) return auth.response
   const { id } = await params
 
-  const existing = await getDraft({ id, userId: auth.session.user.id })
+  const existing = await getDraftMetadata({ id, userId: auth.session.user.id })
   if (!existing) {
     return NextResponse.json({ error: "Draft not found" }, { status: 404 })
   }
