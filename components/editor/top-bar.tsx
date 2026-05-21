@@ -2232,7 +2232,7 @@ function OpenProjectDialog({
       })
       .then((data) => {
         if (cancelled) return
-        setDrafts(data.drafts)
+        setDrafts((data as { drafts: DraftListItem[] }).drafts)
       })
       .catch((err) => {
         if (cancelled) return
