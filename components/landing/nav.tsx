@@ -1,11 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
+import { useTheme } from "next-themes"
 import { ArrowRight } from "@/components/landing/landing-svgs"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ease } from "@/components/landing/constants"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const links = [
   { label: "Features", href: "#features" },
@@ -26,6 +28,14 @@ function scrollToHash(href: string) {
 
 export function Nav() {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const { resolvedTheme, setTheme } = useTheme()
+
+  useEffect(() => setMounted(true), [])
+
+  const toggleTheme = () => {
+    setTheme(mounted && resolvedTheme === "dark" ? "light" : "dark")
+  }
 
   return (
     <>
@@ -66,6 +76,7 @@ export function Nav() {
 
         {/* Desktop right */}
         <div className="hidden items-center gap-3 xl:flex">
+          <ThemeToggle />
           <Link
             href="/login"
             className="inline-flex items-center gap-1.5 rounded-md border border-border/70 px-3.5 py-1.5 text-[12px] font-medium text-foreground/70 transition hover:border-foreground/40 hover:text-foreground"
@@ -156,6 +167,18 @@ export function Nav() {
               }}
               className="mt-auto flex flex-col gap-3"
             >
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex w-full items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition hover:border-foreground/40"
+              >
+                <span className="font-mono text-sm font-bold text-foreground/70 uppercase">
+                  Theme
+                </span>
+                <span className="pointer-events-none">
+                  <ThemeToggle />
+                </span>
+              </button>
               <Link
                 href="/login"
                 onClick={() => setOpen(false)}
