@@ -7,6 +7,7 @@ import { useEditor } from "@/lib/editor/store"
 import { BoxEmptyState } from "./box-empty-state"
 import { frameFitStyle, framePositionTransform } from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
+import type { EditorTool } from "@/lib/editor/store"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
 type CanvasEmptyStateProps = {
@@ -33,6 +34,11 @@ type CanvasEmptyStateProps = {
   shadowFilter?: string
   /** Optional style overrides for the empty screenshot box (e.g. border effects). */
   boxStyle?: React.CSSProperties
+  activeTool?: EditorTool
+  isBeingDragged?: boolean
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerMove?: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void
 }
 
 export function CanvasEmptyState({
@@ -53,6 +59,11 @@ export function CanvasEmptyState({
   transform,
   shadowFilter,
   boxStyle,
+  activeTool,
+  isBeingDragged,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
 }: CanvasEmptyStateProps) {
   const { aspect } = useEditor()
   const aw = aspectW ?? aspect.w ?? 16
@@ -99,8 +110,13 @@ export function CanvasEmptyState({
           data-editor-shadow-filter-base={shadowFilter || ""}
           className={cn(
             "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
-            "cursor-pointer overflow-hidden rounded-3xl border border-border/30 transition-all duration-300 ease-out dark:border-white/8",
-            "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35"
+            "overflow-hidden rounded-3xl border border-border/30 transition-all duration-300 ease-out dark:border-white/8",
+            "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35",
+            onPointerDown && activeTool === "pointer"
+              ? isBeingDragged
+                ? "cursor-grabbing transition-none"
+                : "cursor-grab"
+              : "cursor-pointer"
           )}
           style={{
             ...fitStyle,
@@ -116,6 +132,10 @@ export function CanvasEmptyState({
             transformStyle: "preserve-3d",
             filter: shadowFilter || undefined,
           }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
         >
           <InnerLightingOverlay style={innerLightingStyle} />
           <BoxEmptyState

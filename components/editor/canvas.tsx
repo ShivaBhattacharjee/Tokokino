@@ -858,6 +858,16 @@ function CanvasViewInner({
                     scale !== 100 ||
                     screenshotSlots.length > 0
                   }
+                  activeTool={activeTool}
+                  isBeingDragged={isScreenshotDragging}
+                  onPointerDown={(e) => {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur()
+                    }
+                    startMockupDrag(e)
+                  }}
+                  onPointerMove={moveMockup}
+                  onPointerUp={stopMockupDrag}
                 />
               )}
             </div>

@@ -120,6 +120,12 @@ type ShareDialogState = {
 }
 
 const SHARE_SKELETON_MIN_MS = 700
+const CHOICE_DIALOG_NAME_LIMIT = 12
+
+function truncateChoiceDialogName(name: string) {
+  if (name.length <= CHOICE_DIALOG_NAME_LIMIT) return name
+  return `${name.slice(0, CHOICE_DIALOG_NAME_LIMIT).trimEnd()}...`
+}
 
 function waitForShareSkeleton(startedAt: number) {
   const elapsed = performance.now() - startedAt
@@ -2068,13 +2074,13 @@ function SaveActionRow({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-secondary/40 px-3 py-2.5 text-left transition-colors hover:border-border/60 hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-60"
+      className="group flex w-full max-w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-transparent bg-secondary/40 px-3 py-2.5 text-left transition-colors hover:border-border/60 hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-background text-foreground/80 ring-1 ring-border/50">
         <Icon className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-medium text-foreground">
+        <span className="block truncate text-[13px] font-medium text-foreground">
           {loading ? "Saving…" : title}
         </span>
         <span className="block truncate text-[11px] text-muted-foreground">
@@ -2139,21 +2145,23 @@ function DraftChoiceDialog({
   onUpdateExisting: () => Promise<void>
   onCreateNew: () => void
 }) {
+  const displayDraftName = truncateChoiceDialogName(draftName)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>Save draft</DialogTitle>
           <DialogDescription>
-            You&apos;re editing &ldquo;{draftName}&rdquo;. Update it or save as
-            a new draft.
+            You&apos;re editing &ldquo;{displayDraftName}&rdquo;. Update it or
+            save as a new draft.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <SaveActionRow
             icon={RiSaveLine}
             title="Update existing draft"
-            description={`Overwrite "${draftName}" with your current changes.`}
+            description={`Overwrite "${displayDraftName}" with your current changes.`}
             loading={isSaving}
             onClick={() => void onUpdateExisting()}
           />
@@ -2194,21 +2202,23 @@ function PresetChoiceDialog({
   onUpdateExisting: () => Promise<void>
   onCreateNew: () => void
 }) {
+  const displayPresetName = truncateChoiceDialogName(presetName)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>Save preset</DialogTitle>
           <DialogDescription>
-            You&apos;re editing &ldquo;{presetName}&rdquo;. Update it or save as
-            a new preset.
+            You&apos;re editing &ldquo;{displayPresetName}&rdquo;. Update it or
+            save as a new preset.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <SaveActionRow
             icon={RiBookmarkLine}
             title="Update existing preset"
-            description={`Overwrite "${presetName}" with the current layout.`}
+            description={`Overwrite "${displayPresetName}" with the current layout.`}
             loading={isSaving}
             onClick={() => void onUpdateExisting()}
           />
