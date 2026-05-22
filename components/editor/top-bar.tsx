@@ -80,6 +80,7 @@ import {
   copyCanvasAsPng,
   captureCanvasForShare,
   captureCanvasThumbnail,
+  createImageThumbnailBlob,
   EXPORT_FORMAT_EXTENSION,
   EXPORT_FORMAT_LABELS,
   EXPORT_RESOLUTION_LABELS,
@@ -709,9 +710,18 @@ export function TopBar() {
         // gradient placeholder.
         void (async () => {
           try {
-            const thumb = await captureCanvasThumbnail(
-              state.present.activeCanvasId
+            const activeCanvas = state.present.canvases.find(
+              (canvas) => canvas.id === state.present.activeCanvasId
             )
+            const fallbackSource =
+              activeCanvas?.screenshot ??
+              activeCanvas?.screenshotSlots.find((slot) => slot.src)?.src ??
+              null
+            const thumb =
+              (await captureCanvasThumbnail(state.present.activeCanvasId)) ??
+              (fallbackSource
+                ? await createImageThumbnailBlob(fallbackSource)
+                : null)
             if (!thumb) return
             await fetch(`/api/drafts/${next.id}/thumb`, {
               method: "POST",
