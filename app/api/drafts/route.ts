@@ -5,7 +5,7 @@ import { createDraft, listDrafts } from "@/lib/draft-db"
 import {
   MAX_DRAFT_BYTES,
   countCanvasesInDraftState,
-  createDraftBodySchema,
+  parseDraftSaveBody,
 } from "@/lib/schemas/draft"
 
 export const runtime = "nodejs"
@@ -40,17 +40,23 @@ export async function POST(request: Request) {
     )
   }
 
-  const body: unknown = await request.json().catch(() => null)
-  const parsed = createDraftBodySchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid body" },
-      { status: 400 }
-    )
+  const bodyText = await request.text().catch(() => null)
+  if (!bodyText) {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 })
   }
-  const { name, state } = parsed.data
 
-  const stateBytes = new TextEncoder().encode(JSON.stringify(state))
+  let body: unknown
+  try {
+    body = JSON.parse(bodyText)
+  } catch {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 })
+  }
+  const parsed = parseDraftSaveBody(body, { requireName: true })
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
+  }
+
+  const stateBytes = new TextEncoder().encode(JSON.stringify(parsed.state))
   if (stateBytes.byteLength > MAX_DRAFT_BYTES) {
     return NextResponse.json(
       { error: "Project is too large to save" },
@@ -58,17 +64,17 @@ export async function POST(request: Request) {
     )
   }
 
-  const canvasCount = countCanvasesInDraftState(state)
+  const canvasCount = countCanvasesInDraftState(parsed.state)
   const id = crypto.randomUUID()
 
   try {
     await createDraft({
       id,
       userId: auth.session.user.id,
-      name,
+      name: parsed.name!,
       canvasCount,
       byteSize: stateBytes.byteLength,
-      state,
+      stateBytes,
       thumbnailKey: null,
     })
   } catch (error) {
@@ -83,7 +89,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     draft: {
       id,
-      name,
+      name: parsed.name!,
       canvasCount,
       byteSize: stateBytes.byteLength,
     },

@@ -11,7 +11,7 @@ import { deleteDraftState, deleteDraftThumbnail } from "@/lib/draft-storage"
 import {
   MAX_DRAFT_BYTES,
   countCanvasesInDraftState,
-  updateDraftBodySchema,
+  parseDraftSaveBody,
 } from "@/lib/schemas/draft"
 
 export const runtime = "nodejs"
@@ -63,17 +63,24 @@ export async function PUT(
     )
   }
 
-  const body: unknown = await request.json().catch(() => null)
-  const parsed = updateDraftBodySchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid body" },
-      { status: 400 }
-    )
+  const bodyText = await request.text().catch(() => null)
+  if (!bodyText) {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 })
   }
-  const { name, state } = parsed.data
 
-  const stateBytes = new TextEncoder().encode(JSON.stringify(state))
+  let body: unknown
+  try {
+    body = JSON.parse(bodyText)
+  } catch {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 })
+  }
+
+  const parsed = parseDraftSaveBody(body, { requireName: false })
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
+  }
+
+  const stateBytes = new TextEncoder().encode(JSON.stringify(parsed.state))
   if (stateBytes.byteLength > MAX_DRAFT_BYTES) {
     return NextResponse.json(
       { error: "Project is too large to save" },
@@ -83,16 +90,17 @@ export async function PUT(
 
   // Supports both the new wrapped shape ({ present, ui }) and the legacy
   // raw EditorState shape that older drafts may still be persisted as.
-  const canvasCount = countCanvasesInDraftState(state) || existing.canvasCount
+  const canvasCount =
+    countCanvasesInDraftState(parsed.state) || existing.canvasCount
 
   try {
     const updated = await updateDraft({
       id,
       userId: auth.session.user.id,
-      name,
+      name: parsed.name,
       canvasCount,
       byteSize: stateBytes.byteLength,
-      state,
+      stateBytes,
     })
     return NextResponse.json({
       draft: {

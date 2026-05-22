@@ -107,6 +107,51 @@ export const updateDraftBodySchema = z.object({
 
 // --- Helpers ---------------------------------------------------------------
 
+function hasDraftCanvases(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  const candidate = value as { canvases?: unknown }
+  return Array.isArray(candidate.canvases) && candidate.canvases.length > 0
+}
+
+export function isDraftStateLike(value: unknown): value is ParsedDraftState {
+  if (hasDraftCanvases(value)) return true
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  const candidate = value as { present?: unknown; schemaVersion?: unknown }
+  return (
+    candidate.schemaVersion === DRAFT_SCHEMA_VERSION &&
+    hasDraftCanvases(candidate.present)
+  )
+}
+
+export function parseDraftSaveBody(
+  value: unknown,
+  { requireName }: { requireName: boolean }
+):
+  | { ok: true; name?: string; state: ParsedDraftState }
+  | { ok: false; error: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, error: "Invalid body" }
+  }
+
+  const body = value as { name?: unknown; state?: unknown }
+  const name =
+    typeof body.name === "string" && body.name.trim()
+      ? body.name.trim()
+      : undefined
+
+  if (requireName && !name) {
+    return { ok: false, error: "Name is required" }
+  }
+  if (name && name.length > DRAFT_NAME_MAX_LENGTH) {
+    return { ok: false, error: "Name is too long" }
+  }
+  if (!isDraftStateLike(body.state)) {
+    return { ok: false, error: "Invalid draft state" }
+  }
+
+  return { ok: true, name, state: body.state }
+}
+
 export function isWrappedDraftState(value: unknown): value is DraftPayload {
   if (!value || typeof value !== "object") return false
   const candidate = value as { present?: unknown; schemaVersion?: unknown }

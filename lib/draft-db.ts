@@ -108,7 +108,7 @@ export async function createDraft({
   name,
   canvasCount,
   byteSize,
-  state,
+  stateBytes,
   thumbnailKey,
 }: {
   id: string
@@ -116,10 +116,9 @@ export async function createDraft({
   name: string
   canvasCount: number
   byteSize: number
-  state: unknown
+  stateBytes: Uint8Array
   thumbnailKey: string | null
 }) {
-  const stateBytes = new TextEncoder().encode(JSON.stringify(state))
   const stateKey = await uploadDraftState({ userId, id, body: stateBytes })
   const now = toD1Date(new Date())
 
@@ -142,7 +141,7 @@ export async function updateDraft({
   name,
   canvasCount,
   byteSize,
-  state,
+  stateBytes,
   thumbnailKey,
 }: {
   id: string
@@ -150,13 +149,12 @@ export async function updateDraft({
   name?: string
   canvasCount: number
   byteSize: number
-  state: unknown
+  stateBytes: Uint8Array
   thumbnailKey?: string | null
 }) {
   const existing = await getDraftMetadata({ id, userId })
   if (!existing) return null
 
-  const stateBytes = new TextEncoder().encode(JSON.stringify(state))
   const stateKey = await uploadDraftState({ userId, id, body: stateBytes })
   const nextName = name ?? existing.name
   const nextThumbnailKey =
