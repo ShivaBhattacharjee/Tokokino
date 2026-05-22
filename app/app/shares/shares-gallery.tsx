@@ -322,7 +322,7 @@ export function SharesGallery({
       </section>
 
       <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
-        <div className="mb-6 flex flex-col gap-4 rounded-xl border border-border/70 bg-card/60 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-2.5 rounded-md border border-border/70 bg-card/60 p-2 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">
               {filtered.length}{" "}
@@ -333,16 +333,16 @@ export function SharesGallery({
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
             <Select
               value={dateFilter}
               onValueChange={(value) =>
                 handleDateFilterChange(value as DateFilterId)
               }
             >
-              <SelectTrigger className="h-11 w-full justify-center gap-2 rounded-lg border border-border/70 bg-background px-4 text-sm font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-11 sm:w-[150px]">
-                <span className="flex min-w-0 items-center gap-2">
-                  <RiCalendarLine className="size-4 text-muted-foreground" />
+              <SelectTrigger className="h-8 w-full justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[112px]">
+                <span className="flex min-w-0 items-center gap-1">
+                  <RiCalendarLine className="size-3 text-muted-foreground" />
                   <SelectValue placeholder="All time" />
                 </span>
               </SelectTrigger>
@@ -368,9 +368,9 @@ export function SharesGallery({
                 handleSortFilterChange(value as SortFilterId)
               }
             >
-              <SelectTrigger className="h-11 w-full justify-center gap-2 rounded-lg border border-border/70 bg-background px-4 text-sm font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-11 sm:w-[150px]">
-                <span className="flex min-w-0 items-center gap-2">
-                  <RiSortDesc className="size-4 text-muted-foreground" />
+              <SelectTrigger className="h-8 w-full justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[116px]">
+                <span className="flex min-w-0 items-center gap-1">
+                  <RiSortDesc className="size-3 text-muted-foreground" />
                   <SelectValue placeholder="Latest first" />
                 </span>
               </SelectTrigger>
@@ -395,9 +395,9 @@ export function SharesGallery({
                 type="button"
                 disabled={deletingAll}
                 onClick={() => setDeleteAllOpen(true)}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-background px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 sm:w-[150px]"
+                className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border border-destructive/30 bg-background px-2.5 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 sm:w-[96px]"
               >
-                <RiDeleteBinLine className="size-4" />
+                <RiDeleteBinLine className="size-3" />
                 Delete all
               </button>
             )}
