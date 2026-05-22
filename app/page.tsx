@@ -39,7 +39,7 @@ export default function Page() {
           className="h-full w-full"
         />
       </div>
-      <div className={`sticky top-0 z-50 ${NAV_WIDTH}`} style={RAIL_V_STYLE}>
+      <div className={`sticky top-0 z-50 ${NAV_WIDTH}`}>
         <Nav />
       </div>
       <DashedH />
