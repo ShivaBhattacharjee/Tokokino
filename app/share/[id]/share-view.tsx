@@ -5,6 +5,7 @@ import { RiCheckLine, RiDownloadLine, RiImageLine } from "@remixicon/react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 
 export function ShareView({
   id,
@@ -107,8 +108,7 @@ export function ShareView({
                 </div>
               </div>
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <ShimmerImage
                 src={imageUrl}
                 alt="Shared Tokokino screenshot"
                 className="block h-auto max-h-[calc(100svh-9rem)] w-full object-contain"

@@ -42,6 +42,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { Slider } from "@/components/ui/slider"
 import {
   backgroundCss,
@@ -538,8 +539,7 @@ function LayerRow({
       </button>
       <span className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border/60 bg-background/60 text-muted-foreground">
         {layer.thumbnail ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <ShimmerImage
             src={layer.thumbnail}
             alt=""
             draggable={false}

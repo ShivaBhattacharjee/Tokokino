@@ -17,6 +17,7 @@ import {
 
 import { ScrollFadeBody } from "@/components/editor/scroll-fade"
 import { Input } from "@/components/ui/input"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import {
   Popover,
   PopoverContent,
@@ -541,8 +542,7 @@ const DeviceTile = React.memo(function DeviceTile({
             imageFit={imageFit}
           />
         ) : preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <ShimmerImage
             src={preview}
             alt=""
             className="max-h-full max-w-full object-contain drop-shadow-sm"
@@ -633,8 +633,7 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
           }}
         >
           {screenshot ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <ShimmerImage
               src={screenshot}
               alt=""
               className={cn(
@@ -651,8 +650,7 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
           )}
         </div>
       </div>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <ShimmerImage
         src={preview}
         alt=""
         className={cn(

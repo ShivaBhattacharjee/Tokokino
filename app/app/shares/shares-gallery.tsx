@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import {
   Pagination,
   PaginationContent,
@@ -432,8 +433,7 @@ export function SharesGallery({
                     rel="noopener noreferrer"
                     className="relative block overflow-hidden bg-secondary/30"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <ShimmerImage
                       src={share.imageUrl}
                       alt="Shared screenshot"
                       className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"

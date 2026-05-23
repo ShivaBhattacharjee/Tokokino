@@ -6,6 +6,8 @@ import {
   type SyntheticEvent,
 } from "react"
 
+import { ShimmerImage } from "@/components/ui/shimmer-image"
+
 const ARC_WIDTH = 1228
 const ARC_HEIGHT = 728
 const SCREEN_X = 14
@@ -94,8 +96,7 @@ export function Arc({
       preload="metadata"
     />
   ) : imageSrc ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ShimmerImage
       ref={imageRef}
       src={imageSrc}
       alt=""

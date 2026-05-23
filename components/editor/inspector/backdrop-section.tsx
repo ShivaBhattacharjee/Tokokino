@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   BACKDROP_PATTERNS,
@@ -405,8 +406,7 @@ const OverlayThumb = React.memo(function OverlayThumb({
       )}
     >
       {visible ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <ShimmerImage
           src={overlayThumbUrl(id)}
           alt=""
           decoding="async"

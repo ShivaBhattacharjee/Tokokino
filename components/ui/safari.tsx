@@ -7,6 +7,8 @@ import {
   type SyntheticEvent,
 } from "react"
 
+import { ShimmerImage } from "@/components/ui/shimmer-image"
+
 const SAFARI_WIDTH = 1203
 const SAFARI_HEIGHT = 753
 const SCREEN_X = 1
@@ -140,8 +142,7 @@ export function Safari({
             ...screenBgStyle,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ShimmerImage
             ref={imageRef}
             src={imageSrc}
             alt=""

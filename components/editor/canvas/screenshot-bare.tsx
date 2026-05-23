@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
@@ -90,8 +91,8 @@ export function ScreenshotBare({
       className="group/screenshot pointer-events-none relative h-full w-full overflow-visible"
       onPointerDown={onContainerPointerDown}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
-      <img
+      { }
+      <ShimmerImage
         ref={imageRef}
         data-box-hover-target
         data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}

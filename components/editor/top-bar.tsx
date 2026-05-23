@@ -34,6 +34,7 @@ import { BrandLogo } from "@/components/editor/brand-logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { Switch } from "@/components/ui/switch"
 import {
   MAX_CANVASES,
@@ -251,6 +252,7 @@ export function TopBar() {
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
+
   const [includeExportWatermark, setIncludeExportWatermark] =
     React.useState(true)
 
@@ -1158,6 +1160,7 @@ export function TopBar() {
                 variant="outline"
                 size="lg"
                 onClick={() => void handleCopyPng()}
+                disabled={isCopyingPng}
               >
                 <RiFileCopyLine />
                 <span className="relative hidden xl:inline-grid [&>span]:col-start-1 [&>span]:row-start-1">
@@ -2020,7 +2023,7 @@ function MobileOverflowMenu({
             disabled={isCopyingPng}
           >
             <RiFileCopyLine />
-            {isCopyingPng ? "Copying PNG…" : "Copy as PNG"}
+            {isCopyingPng ? "Copying…" : "Copy as PNG"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -2656,8 +2659,7 @@ function DraftCard({
       >
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary/40">
           {showThumbnail ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <ShimmerImage
               src={draft.thumbnailUrl!}
               alt=""
               className="size-full object-cover"

@@ -41,6 +41,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -314,8 +315,7 @@ function BackgroundTile({
             : "border-border/60 hover:border-foreground/30"
         )}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ShimmerImage
           src={item.thumb}
           alt=""
           loading="lazy"
@@ -457,8 +457,7 @@ function BackgroundLibrary({
                   className="group relative aspect-video cursor-pointer overflow-hidden rounded-lg border border-border/60 transition-colors hover:border-foreground/30"
                 >
                   {peek ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <ShimmerImage
                       src={peek.thumb}
                       alt=""
                       aria-hidden
@@ -1187,8 +1186,7 @@ export function BackgroundSection() {
                                 title={`Photo by ${photo.photographer}`}
                                 className="absolute inset-0 cursor-pointer"
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <ShimmerImage
                                   src={photo.thumb}
                                   alt={photo.alt}
                                   loading="lazy"

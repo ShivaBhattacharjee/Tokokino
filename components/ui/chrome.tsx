@@ -6,6 +6,8 @@ import {
   type SyntheticEvent,
 } from "react"
 
+import { ShimmerImage } from "@/components/ui/shimmer-image"
+
 const CHROME_WIDTH = 1202
 const CHROME_HEIGHT = 776
 const SCREEN_X = 1
@@ -172,8 +174,7 @@ export function Chrome({
       preload="metadata"
     />
   ) : imageSrc ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ShimmerImage
       ref={imageRef}
       src={imageSrc}
       alt=""

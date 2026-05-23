@@ -11,6 +11,7 @@ import {
   RiRefreshLine,
 } from "@remixicon/react"
 
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import {
   bulkToolbarScale,
   floatingToolbarTransform,
@@ -367,8 +368,7 @@ export function AssetElementView({
           display: asset.hidden ? "none" : undefined,
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ShimmerImage
           ref={imgRef}
           src={asset.src}
           alt=""
@@ -704,8 +704,7 @@ function AssetFilterGrid({ asset }: { asset: AssetElement }) {
               )}
             >
               <div className="relative aspect-square w-full overflow-hidden rounded-sm bg-muted/50">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <ShimmerImage
                   src={asset.src}
                   alt=""
                   draggable={false}
@@ -776,8 +775,7 @@ function AssetBlendGrid({ asset }: { asset: AssetElement }) {
                     "linear-gradient(135deg,#f59e0b 0%,#ef4444 50%,#3b82f6 100%)",
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <ShimmerImage
                   src={asset.src}
                   alt=""
                   draggable={false}

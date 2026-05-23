@@ -450,6 +450,35 @@ export async function copyCanvasAsPng(
   ])
 }
 
+/**
+ * Copy the canvas to clipboard as PNG.
+ *
+ * The browser Clipboard API only accepts `"image/png"` as the ClipboardItem
+ * MIME key — passing any other MIME type (jpeg, webp) throws a NotAllowedError.
+ * Regardless of which `format` is passed, we always write a PNG blob so the
+ * write never fails. The `format` parameter is kept for API compatibility.
+ */
+export async function copyCanvasAsFormat(
+  canvasId: string,
+  _format: ExportFormat,
+  resolution: CopyResolution = "1080p",
+  options: ExportCaptureOptions = { watermark: true }
+): Promise<void> {
+  if (!navigator?.clipboard?.write) {
+    throw new Error("Clipboard write is not supported")
+  }
+
+  // Always copy as PNG — it's the only format universally supported by the
+  // Clipboard API across Chrome, Firefox, and Safari.
+  const pngBlob = await captureCanvasAsPngBlob(
+    canvasId,
+    COPY_RESOLUTION_WIDTHS[resolution],
+    options
+  )
+
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })])
+}
+
 export async function captureCanvasAsPngBlob(
   canvasId: string,
   targetWidth = SHARE_RESOLUTION_WIDTH,

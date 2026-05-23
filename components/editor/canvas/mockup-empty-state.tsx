@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
 import type { EditorTool } from "@/lib/editor/store"
 import type { DeviceMockupAsset, DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
@@ -137,8 +138,7 @@ export function MockupEmptyState({
             <InnerLightingOverlay style={innerLightingStyle} />
           </div>
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ShimmerImage
           src={mockupAsset.src}
           alt=""
           draggable={false}

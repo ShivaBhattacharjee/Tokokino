@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "motion/react"
 import { ease } from "@/components/landing/constants"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 
 type StepId = "open" | "capture" | "compose" | "ship"
 
@@ -216,8 +217,7 @@ function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
   return (
     <div className="relative aspect-[16/10] w-full max-w-[58rem] overflow-hidden rounded-md border border-border/70 bg-muted/30 shadow-[0_18px_50px_rgb(15_23_42_/_0.08)] dark:bg-background">
       <div className="relative flex h-full w-full items-center justify-center bg-white p-2 sm:p-3 dark:bg-background/35">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ShimmerImage
           src={DEMO_PREVIEW_SRC}
           alt="Tokokino editor demo preview"
           className="max-h-full max-w-full object-contain contrast-[1.03] saturate-[1.02] dark:opacity-80 dark:saturate-[0.82]"

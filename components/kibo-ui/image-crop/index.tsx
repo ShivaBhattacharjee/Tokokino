@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { CropIcon, RotateCcwIcon } from "lucide-react"
 import { Slot } from "radix-ui"
 import {
@@ -277,8 +278,7 @@ export const ImageCropContent = ({
       {...reactCropProps}
     >
       {imgSrc && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <ShimmerImage
           alt="crop"
           className="size-full"
           onLoad={onImageLoad}
