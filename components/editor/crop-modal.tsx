@@ -24,6 +24,16 @@ function dataURLtoFile(dataurl: string, filename: string) {
   return new File([u8arr], filename, { type: mime })
 }
 
+function isDataUrl(src: string) {
+  return src.startsWith("data:")
+}
+
+async function urlToFile(url: string, filename: string): Promise<File> {
+  const res = await fetch(url)
+  const blob = await res.blob()
+  return new File([blob], filename, { type: blob.type || "image/png" })
+}
+
 type Preset = {
   label: string
   aspect: number | undefined
@@ -56,6 +66,7 @@ export function CropModal({
   onCrop: (croppedBase64: string, region: CropRegion) => void
 }) {
   const [aspect, setAspect] = React.useState<number | undefined>(undefined)
+  const [file, setFile] = React.useState<File | null>(null)
 
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
@@ -65,9 +76,26 @@ export function CropModal({
     [onOpenChange]
   )
 
-  const file = React.useMemo(() => {
-    if (!open || !screenshotUrl) return null
-    return dataURLtoFile(screenshotUrl, "screenshot.png")
+  React.useEffect(() => {
+    if (!open || !screenshotUrl) {
+      setFile(null)
+      return
+    }
+    if (isDataUrl(screenshotUrl)) {
+      try {
+        setFile(dataURLtoFile(screenshotUrl, "screenshot.png"))
+      } catch {
+        setFile(null)
+      }
+    } else {
+      let cancelled = false
+      void urlToFile(screenshotUrl, "screenshot.png").then((f) => {
+        if (!cancelled) setFile(f)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
   }, [open, screenshotUrl])
 
   const initialPercentCrop = React.useMemo<PercentCrop | undefined>(() => {

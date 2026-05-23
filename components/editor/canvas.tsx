@@ -31,6 +31,7 @@ import {
   useEditor,
   useEditorStore,
 } from "@/lib/editor/store"
+import { computeCoverCropRegion } from "@/lib/editor/crop-utils"
 import type { CaptureSettings } from "./canvas/upload-card"
 import {
   defaultCaptureDeviceForFrame,
@@ -971,7 +972,17 @@ function CanvasViewInner({
           open={isCropModalOpen}
           onOpenChange={setIsCropModalOpen}
           screenshotUrl={originalScreenshot ?? screenshot}
-          initialRegion={lastCropRegion}
+          initialRegion={
+            lastCropRegion ??
+            ((objectFit ?? "cover") === "cover" && imageRef.current
+              ? computeCoverCropRegion(
+                  imageRef.current.naturalWidth,
+                  imageRef.current.naturalHeight,
+                  imageRef.current.width,
+                  imageRef.current.height
+                )
+              : null)
+          }
           onCrop={applyCroppedScreenshot}
         />
       )}

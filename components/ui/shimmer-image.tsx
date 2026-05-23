@@ -15,10 +15,19 @@ export const ShimmerImage = React.forwardRef<
   HTMLImageElement,
   ShimmerImageProps
 >(function ShimmerImage({ src, className, style, onLoad, ...imgProps }, ref) {
+  const imgRef = React.useRef<HTMLImageElement | null>(null)
   const [loaded, setLoaded] = React.useState(false)
 
-  React.useEffect(() => {
-    setLoaded(false)
+  // Runs synchronously after DOM update but before paint.
+  // If the image is already complete (cached / data URL), mark it loaded
+  // so the shimmer pulse is never visible to the user.
+  React.useLayoutEffect(() => {
+    const img = imgRef.current
+    if (img && img.complete && img.naturalWidth > 0) {
+      setLoaded(true)
+    } else {
+      setLoaded(false)
+    }
   }, [src])
 
   const handleLoad = React.useCallback(
@@ -29,10 +38,20 @@ export const ShimmerImage = React.forwardRef<
     [onLoad]
   )
 
+  const setRef = React.useCallback(
+    (node: HTMLImageElement | null) => {
+      imgRef.current = node
+      if (typeof ref === "function") ref(node)
+      else if (ref)
+        (ref).current = node
+    },
+    [ref]
+  )
+
   return (
     <img
       {...imgProps}
-      ref={ref}
+      ref={setRef}
       src={src}
       alt={imgProps.alt}
       onLoad={handleLoad}
