@@ -91,7 +91,6 @@ export function ScreenshotBare({
       className="group/screenshot pointer-events-none relative h-full w-full overflow-visible"
       onPointerDown={onContainerPointerDown}
     >
-      { }
       <ShimmerImage
         ref={imageRef}
         data-box-hover-target

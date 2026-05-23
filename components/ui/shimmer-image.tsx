@@ -30,8 +30,6 @@ export const ShimmerImage = React.forwardRef<
   )
 
   return (
-     
-
     <img
       {...imgProps}
       ref={ref}
