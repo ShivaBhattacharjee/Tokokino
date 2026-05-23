@@ -42,8 +42,7 @@ export const ShimmerImage = React.forwardRef<
     (node: HTMLImageElement | null) => {
       imgRef.current = node
       if (typeof ref === "function") ref(node)
-      else if (ref)
-        (ref).current = node
+      else if (ref) ref.current = node
     },
     [ref]
   )
