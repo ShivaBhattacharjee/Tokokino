@@ -216,6 +216,8 @@ export function SharesGallery({
     DATE_FILTERS.find((p) => p.id === dateFilter)?.label ?? "All time"
   const sortFilterLabel =
     SORT_FILTERS.find((p) => p.id === sortFilter)?.label ?? "Latest first"
+  const dateFilterApplied = dateFilter !== "all"
+  const sortFilterApplied = sortFilter !== "latest"
 
   const handleCopyLink = (id: string) => {
     const url = `${window.location.origin}/share/${id}`
@@ -273,7 +275,7 @@ export function SharesGallery({
   const pageRange = buildPageRange(safePage, totalPages)
 
   return (
-    <div className="min-h-screen w-full bg-background text-foreground">
+    <div className="h-full min-h-0 w-full overflow-y-auto bg-background text-foreground">
       <section className="border-b border-border/70 bg-card/30">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10">
           <nav className="flex items-center justify-between gap-4">
@@ -323,7 +325,7 @@ export function SharesGallery({
       </section>
 
       <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
-        <div className="mb-4 flex flex-col gap-2.5 rounded-md border border-border/70 bg-card/60 p-2 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky top-0 z-20 mb-4 flex flex-col gap-2.5 rounded-md border border-border/70 bg-card/80 p-2 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">
               {filtered.length}{" "}
@@ -334,16 +336,27 @@ export function SharesGallery({
             </p>
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+          <div className="flex flex-row flex-wrap items-center gap-1.5">
             <Select
               value={dateFilter}
               onValueChange={(value) =>
                 handleDateFilterChange(value as DateFilterId)
               }
             >
-              <SelectTrigger className="h-8 w-full justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[112px]">
+              <SelectTrigger
+                className={cn(
+                  "h-8 w-auto min-w-[112px] flex-1 justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[112px] sm:flex-none",
+                  dateFilterApplied &&
+                    "border-destructive/60 text-destructive hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
+                )}
+              >
                 <span className="flex min-w-0 items-center gap-1">
-                  <RiCalendarLine className="size-3 text-muted-foreground" />
+                  <RiCalendarLine
+                    className={cn(
+                      "size-3 text-muted-foreground",
+                      dateFilterApplied && "text-destructive"
+                    )}
+                  />
                   <SelectValue placeholder="All time" />
                 </span>
               </SelectTrigger>
@@ -369,9 +382,20 @@ export function SharesGallery({
                 handleSortFilterChange(value as SortFilterId)
               }
             >
-              <SelectTrigger className="h-8 w-full justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[116px]">
+              <SelectTrigger
+                className={cn(
+                  "h-8 w-auto min-w-[116px] flex-1 justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[116px] sm:flex-none",
+                  sortFilterApplied &&
+                    "border-destructive/60 text-destructive hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
+                )}
+              >
                 <span className="flex min-w-0 items-center gap-1">
-                  <RiSortDesc className="size-3 text-muted-foreground" />
+                  <RiSortDesc
+                    className={cn(
+                      "size-3 text-muted-foreground",
+                      sortFilterApplied && "text-destructive"
+                    )}
+                  />
                   <SelectValue placeholder="Latest first" />
                 </span>
               </SelectTrigger>
@@ -396,7 +420,7 @@ export function SharesGallery({
                 type="button"
                 disabled={deletingAll}
                 onClick={() => setDeleteAllOpen(true)}
-                className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border border-destructive/30 bg-background px-2.5 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 sm:w-[96px]"
+                className="inline-flex h-8 w-auto min-w-[96px] flex-1 items-center justify-center gap-1 rounded-md border border-destructive/30 bg-background px-2.5 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 sm:w-[96px] sm:flex-none"
               >
                 <RiDeleteBinLine className="size-3" />
                 Delete all
