@@ -93,6 +93,7 @@ export function ScreenshotBare({
     >
       <ShimmerImage
         ref={imageRef}
+        shimmer={false}
         data-box-hover-target
         data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
         src={screenshot}
@@ -160,7 +161,7 @@ export function ScreenshotBare({
         <div
           className={cn(
             "pointer-events-none absolute z-50 flex items-center justify-center transition-opacity",
-            editOpen
+            editOpen || isScreenshotSelected
               ? "opacity-100"
               : "opacity-0 group-hover/screenshot:opacity-100",
             isScreenshotDragging || suppressTransition

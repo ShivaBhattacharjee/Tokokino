@@ -296,10 +296,12 @@ export const ImageCropContent = ({
 
       e.preventDefault()
       e.stopPropagation()
+      e.currentTarget.setPointerCapture(e.pointerId)
 
       const image = imgRef.current
-      const mediaW = image.width
-      const mediaH = image.height
+      const imageRect = image.getBoundingClientRect()
+      const mediaW = imageRect.width || image.width
+      const mediaH = imageRect.height || image.height
       if (!mediaW || !mediaH) return
 
       const startCrop = {
@@ -316,6 +318,7 @@ export const ImageCropContent = ({
       const resize = (clientX: number, clientY: number, complete: boolean) => {
         const dx = clientX - startClientX
         const dy = clientY - startClientY
+        const aspect = reactCropProps.aspect
         const resizingWidth = edge === "e" || edge === "w"
         const desiredWidth =
           edge === "e"
@@ -341,14 +344,58 @@ export const ImageCropContent = ({
           reactCropProps.minHeight ?? Math.min(mediaW, mediaH) * 0.08,
           Math.max(1, maxHeight)
         )
-        const nextWidth = resizingWidth
+        let nextWidth = resizingWidth
           ? Math.max(minWidth, Math.min(maxWidth, desiredWidth))
           : startCrop.width
-        const nextHeight = resizingWidth
+        let nextHeight = resizingWidth
           ? startCrop.height
           : Math.max(minHeight, Math.min(maxHeight, desiredHeight))
-        const nextX = edge === "w" ? right - nextWidth : startCrop.x
-        const nextY = edge === "n" ? bottom - nextHeight : startCrop.y
+        let nextX = edge === "w" ? right - nextWidth : startCrop.x
+        let nextY = edge === "n" ? bottom - nextHeight : startCrop.y
+
+        if (aspect && Number.isFinite(aspect) && aspect > 0) {
+          const centerX = startCrop.x + startCrop.width / 2
+          const centerY = startCrop.y + startCrop.height / 2
+          const centeredMaxWidth = Math.max(
+            1,
+            2 * Math.min(centerX, mediaW - centerX)
+          )
+          const centeredMaxHeight = Math.max(
+            1,
+            2 * Math.min(centerY, mediaH - centerY)
+          )
+          const aspectMinWidth = Math.max(minWidth, minHeight * aspect)
+          const aspectMinHeight = Math.max(minHeight, minWidth / aspect)
+
+          if (resizingWidth) {
+            const aspectMaxWidth = Math.min(
+              maxWidth,
+              centeredMaxHeight * aspect
+            )
+            nextWidth = Math.max(
+              Math.min(aspectMinWidth, aspectMaxWidth),
+              Math.min(aspectMaxWidth, desiredWidth)
+            )
+            nextHeight = nextWidth / aspect
+            nextX = edge === "w" ? right - nextWidth : startCrop.x
+            nextY = centerY - nextHeight / 2
+          } else {
+            const aspectMaxHeight = Math.min(
+              maxHeight,
+              centeredMaxWidth / aspect
+            )
+            nextHeight = Math.max(
+              Math.min(aspectMinHeight, aspectMaxHeight),
+              Math.min(aspectMaxHeight, desiredHeight)
+            )
+            nextWidth = nextHeight * aspect
+            nextX = centerX - nextWidth / 2
+            nextY = edge === "n" ? bottom - nextHeight : startCrop.y
+          }
+
+          nextX = Math.max(0, Math.min(mediaW - nextWidth, nextX))
+          nextY = Math.max(0, Math.min(mediaH - nextHeight, nextY))
+        }
 
         const pixelCrop: PixelCrop = {
           unit: "px",
@@ -369,18 +416,34 @@ export const ImageCropContent = ({
         if (complete) handleComplete(pixelCrop, percentCrop)
       }
 
-      const onMove = (event: PointerEvent) =>
+      const target = e.currentTarget
+      const pointerId = e.pointerId
+      const onMove = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return
+        event.preventDefault()
         resize(event.clientX, event.clientY, false)
+      }
       const onUp = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return
         resize(event.clientX, event.clientY, true)
-        window.removeEventListener("pointermove", onMove)
-        window.removeEventListener("pointerup", onUp)
-        window.removeEventListener("pointercancel", onUp)
+        cleanup()
+      }
+      const onCancel = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return
+        cleanup()
+      }
+      const cleanup = () => {
+        target.removeEventListener("pointermove", onMove)
+        target.removeEventListener("pointerup", onUp)
+        target.removeEventListener("pointercancel", onCancel)
+        if (target.hasPointerCapture(pointerId)) {
+          target.releasePointerCapture(pointerId)
+        }
       }
 
-      window.addEventListener("pointermove", onMove)
-      window.addEventListener("pointerup", onUp)
-      window.addEventListener("pointercancel", onUp)
+      target.addEventListener("pointermove", onMove)
+      target.addEventListener("pointerup", onUp)
+      target.addEventListener("pointercancel", onCancel)
     },
     [crop, handleChange, handleComplete, imgRef, reactCropProps]
   )

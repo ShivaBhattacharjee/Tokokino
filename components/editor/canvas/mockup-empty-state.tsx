@@ -139,6 +139,7 @@ export function MockupEmptyState({
           </div>
         </div>
         <ShimmerImage
+          shimmer={false}
           src={mockupAsset.src}
           alt=""
           draggable={false}

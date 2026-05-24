@@ -41,7 +41,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -315,12 +314,10 @@ function BackgroundTile({
             : "border-border/60 hover:border-foreground/30"
         )}
       >
-        <ShimmerImage
-          src={item.thumb}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-cover"
+        <span
+          aria-hidden
+          className="block size-full bg-cover bg-center"
+          style={{ backgroundImage: `url("${item.thumb}")` }}
         />
       </button>
       {active ? (
@@ -457,11 +454,10 @@ function BackgroundLibrary({
                   className="group relative aspect-video cursor-pointer overflow-hidden rounded-lg border border-border/60 transition-colors hover:border-foreground/30"
                 >
                   {peek ? (
-                    <ShimmerImage
-                      src={peek.thumb}
-                      alt=""
+                    <span
                       aria-hidden
-                      className="h-full w-full scale-110 object-cover blur-sm"
+                      className="block size-full scale-110 bg-cover bg-center blur-sm"
+                      style={{ backgroundImage: `url("${peek.thumb}")` }}
                     />
                   ) : (
                     <div className="h-full w-full bg-secondary/40" />
@@ -1186,12 +1182,12 @@ export function BackgroundSection() {
                                 title={`Photo by ${photo.photographer}`}
                                 className="absolute inset-0 cursor-pointer"
                               >
-                                <ShimmerImage
-                                  src={photo.thumb}
-                                  alt={photo.alt}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="h-full w-full object-cover"
+                                <span
+                                  aria-hidden
+                                  className="block size-full bg-cover bg-center"
+                                  style={{
+                                    backgroundImage: `url("${photo.thumb}")`,
+                                  }}
                                 />
                               </button>
                               <a

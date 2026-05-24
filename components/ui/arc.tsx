@@ -34,6 +34,7 @@ export interface ArcProps extends HTMLAttributes<HTMLDivElement> {
   imageFit?: ImageFit
   frameBorderRadius?: string | number
   screenBorderRadius?: string | number
+  shimmer?: boolean
 }
 
 export function Arc({
@@ -47,6 +48,7 @@ export function Arc({
   imageFit = "cover",
   frameBorderRadius = "24px",
   screenBorderRadius = "18px",
+  shimmer = true,
   className,
   style,
   ...props
@@ -98,6 +100,7 @@ export function Arc({
   ) : imageSrc ? (
     <ShimmerImage
       ref={imageRef}
+      shimmer={shimmer}
       src={imageSrc}
       alt=""
       onLoad={onImageLoad}

@@ -683,6 +683,7 @@ function CanvasViewInner({
                     screenshotAnchor={screenshotAnchor}
                     enhanceFilter={enhanceFilter}
                     objectFit={objectFit ?? "cover"}
+                    isScreenshotSelected={isScreenshotSelected && isActive}
                     isScreenshotDragging={isScreenshotDragging}
                     hoverActionsDisabled={
                       bulkCanvasDragging || isScreenshotDragging
@@ -726,6 +727,7 @@ function CanvasViewInner({
                     screenshotAnchor={screenshotAnchor}
                     enhanceFilter={enhanceFilter}
                     objectFit={objectFit ?? "cover"}
+                    isScreenshotSelected={isScreenshotSelected && isActive}
                     isScreenshotDragging={isScreenshotDragging}
                     activeTool={activeTool}
                     placementDims={placementDims}

@@ -9,12 +9,16 @@ type ShimmerImageProps = Omit<
   "src"
 > & {
   src: string
+  shimmer?: boolean
 }
 
 export const ShimmerImage = React.forwardRef<
   HTMLImageElement,
   ShimmerImageProps
->(function ShimmerImage({ src, className, style, onLoad, ...imgProps }, ref) {
+>(function ShimmerImage(
+  { src, shimmer = true, className, style, onLoad, ...imgProps },
+  ref
+) {
   const imgRef = React.useRef<HTMLImageElement | null>(null)
   const [loaded, setLoaded] = React.useState(false)
 
@@ -48,6 +52,7 @@ export const ShimmerImage = React.forwardRef<
   )
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       {...imgProps}
       ref={setRef}
@@ -55,7 +60,7 @@ export const ShimmerImage = React.forwardRef<
       alt={imgProps.alt}
       onLoad={handleLoad}
       data-loaded={loaded ? "true" : "false"}
-      className={cn(!loaded && "animate-pulse bg-muted", className)}
+      className={cn(shimmer && !loaded && "animate-pulse bg-muted", className)}
       style={style}
     />
   )

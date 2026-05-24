@@ -321,7 +321,7 @@ export function ScreenshotSlotRender({
               <div
                 className={cn(
                   "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
-                  editOpen
+                  editOpen || isSelected
                     ? "opacity-100"
                     : "opacity-0 group-hover/slot:opacity-100",
                   bulkCanvasDragging && !editOpen && "!opacity-0"
@@ -574,6 +574,7 @@ export function ScreenshotSlotView({
     imageRef,
     onCropRequest,
     slot.id,
+    slot.lastCropRegion,
     slot.objectFit,
     stageRef,
   ])

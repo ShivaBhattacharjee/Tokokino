@@ -71,42 +71,58 @@ export function CropModal({
       ? targetAspect
       : null
   const defaultAspect = safeTargetAspect ?? 16 / 10
-  const [aspect, setAspect] = React.useState<number>(defaultAspect)
-  const [file, setFile] = React.useState<File | null>(null)
+  const [aspectOverride, setAspectOverride] = React.useState<{
+    defaultAspect: number
+    aspect: number
+  } | null>(null)
+  const [loadedFile, setLoadedFile] = React.useState<{
+    url: string
+    file: File
+  } | null>(null)
+  const aspect =
+    aspectOverride?.defaultAspect === defaultAspect
+      ? aspectOverride.aspect
+      : defaultAspect
+  const setAspect = React.useCallback(
+    (nextAspect: number) => {
+      setAspectOverride({ defaultAspect, aspect: nextAspect })
+    },
+    [defaultAspect]
+  )
 
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
-      if (!nextOpen) setAspect(defaultAspect)
+      if (!nextOpen) setAspectOverride(null)
       onOpenChange(nextOpen)
     },
-    [defaultAspect, onOpenChange]
+    [onOpenChange]
   )
 
-  React.useEffect(() => {
-    if (open) setAspect(defaultAspect)
-  }, [defaultAspect, open])
-
-  React.useEffect(() => {
-    if (!open || !screenshotUrl) {
-      setFile(null)
-      return
-    }
-    if (isDataUrl(screenshotUrl)) {
-      try {
-        setFile(dataURLtoFile(screenshotUrl, "screenshot.png"))
-      } catch {
-        setFile(null)
-      }
-    } else {
-      let cancelled = false
-      void urlToFile(screenshotUrl, "screenshot.png").then((f) => {
-        if (!cancelled) setFile(f)
-      })
-      return () => {
-        cancelled = true
-      }
+  const dataUrlFile = React.useMemo(() => {
+    if (!open || !screenshotUrl || !isDataUrl(screenshotUrl)) return null
+    try {
+      return dataURLtoFile(screenshotUrl, "screenshot.png")
+    } catch {
+      return null
     }
   }, [open, screenshotUrl])
+
+  React.useEffect(() => {
+    if (!open || !screenshotUrl || isDataUrl(screenshotUrl)) return
+
+    let cancelled = false
+    void urlToFile(screenshotUrl, "screenshot.png").then((file) => {
+      if (!cancelled) setLoadedFile({ url: screenshotUrl, file })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, screenshotUrl])
+
+  const file =
+    dataUrlFile ??
+    (open && loadedFile?.url === screenshotUrl ? loadedFile.file : null)
 
   const initialPercentCrop = React.useMemo<PercentCrop | undefined>(() => {
     if (!initialRegion) return undefined
@@ -182,6 +198,7 @@ export function CropModal({
           key={aspect}
           file={file}
           aspect={aspect}
+          keepSelection
           initialCrop={
             Math.abs(aspect - targetPreset.aspect) < 0.01
               ? initialPercentCrop

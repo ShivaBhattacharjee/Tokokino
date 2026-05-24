@@ -46,6 +46,7 @@ type ScreenshotBrowserFrameProps = {
   screenshotAnchor: { x: number; y: number }
   enhanceFilter: string | undefined
   objectFit?: ImageFit
+  isScreenshotSelected: boolean
   isScreenshotDragging: boolean
   hoverActionsDisabled?: boolean
   hoverActionsInline?: boolean
@@ -109,6 +110,7 @@ export function ScreenshotBrowserFrame({
   screenshotAnchor,
   enhanceFilter,
   objectFit = "cover",
+  isScreenshotSelected,
   isScreenshotDragging,
   hoverActionsDisabled,
   activeTool,
@@ -186,6 +188,7 @@ export function ScreenshotBrowserFrame({
             imageRef={imageRef}
             onImageLoad={onImageLoad}
             imageFit={objectFit}
+            shimmer={false}
             className="h-full w-full"
           />
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
@@ -198,6 +201,7 @@ export function ScreenshotBrowserFrame({
             imageRef={imageRef}
             onImageLoad={onImageLoad}
             imageFit={objectFit}
+            shimmer={false}
             className="h-full w-full"
           />
         ) : (
@@ -210,6 +214,7 @@ export function ScreenshotBrowserFrame({
             imageRef={imageRef}
             onImageLoad={onImageLoad}
             imageFit={objectFit}
+            shimmer={false}
             className="h-full w-full"
           />
         )}
@@ -240,7 +245,7 @@ export function ScreenshotBrowserFrame({
           <div
             className={cn(
               "pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
-              editOpen
+              editOpen || isScreenshotSelected
                 ? "opacity-100"
                 : "opacity-0 group-hover/browser-frame:opacity-100",
               isScreenshotDragging && !editOpen && "!opacity-0",

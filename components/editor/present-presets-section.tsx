@@ -1156,6 +1156,15 @@ function CustomPresetList({
   )
 }
 
+function previewImageAt(canvas: CanvasState, index: number) {
+  const sources = [
+    canvas.screenshot,
+    ...canvas.screenshotSlots.map((slot) => slot.src),
+  ].filter((src): src is string => Boolean(src))
+  if (sources.length === 0) return null
+  return sources[index] ?? sources[sources.length - 1] ?? null
+}
+
 const CustomPresetCard = React.memo(function CustomPresetCard({
   preset,
   canvas,
@@ -1184,7 +1193,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
     const style = geometry.canvasStyle
     const virtualSlots: ScreenshotSlot[] = geometry.slots.map((cfg, i) => ({
       id: `_custom_preview_${preset.id}_${i}`,
-      src: canvas.screenshotSlots[i]?.src ?? null,
+      src: previewImageAt(canvas, i + 1),
       xPct: cfg.xPct,
       yPct: cfg.yPct,
       widthPct: cfg.widthPct ?? 60,
@@ -1477,7 +1486,7 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
     const plan = planLayoutPreset(preset, canvas, aspect)
     const virtualSlots: ScreenshotSlot[] = plan.slots.map((patch, i) => ({
       id: `_layout_preview_${i}`,
-      src: canvas.screenshotSlots[i]?.src ?? null,
+      src: previewImageAt(canvas, i + 1),
       xPct: patch.xPct,
       yPct: patch.yPct,
       widthPct: 60,

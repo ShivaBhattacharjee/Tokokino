@@ -7,7 +7,6 @@ import {
   RiDeleteBinLine,
   RiPencilLine,
 } from "@remixicon/react"
-import { motion } from "motion/react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import {
@@ -16,11 +15,7 @@ import {
   type CaptureSettings,
 } from "@/components/editor/canvas/upload-card"
 import { ScrollFadeBody } from "@/components/editor/scroll-fade"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -64,6 +59,7 @@ export function ScreenshotEditMenu({
   captureStateKey,
 }: ScreenshotEditMenuProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
   const fallbackCaptureStateKey = React.useId()
   const resolvedCaptureStateKey = captureStateKey ?? fallbackCaptureStateKey
 
@@ -88,14 +84,20 @@ export function ScreenshotEditMenu({
         }}
       />
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
+        <PopoverAnchor asChild>
           <button
+            ref={triggerRef}
             type="button"
             aria-label="Edit screenshot"
             title="Edit screenshot"
-            onPointerDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+            }}
             onPointerUp={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              handleOpenChange(!open)
+            }}
             // Counter-scale by the canvas's autoFit so the pencil keeps a
             // consistent on-screen size whether the canvas is landscape
             // (autoFit ≈ 1) or tall portrait (autoFit ≈ 0.3).
@@ -108,29 +110,26 @@ export function ScreenshotEditMenu({
           >
             <RiPencilLine className="size-7" />
           </button>
-        </PopoverTrigger>
+        </PopoverAnchor>
         <PopoverContent
           align="center"
           side="bottom"
           sideOffset={10}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
-          asChild
-          className="w-[320px] rounded-2xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl"
+          onInteractOutside={(e) => {
+            const target = e.target
+            if (
+              target instanceof Node &&
+              triggerRef.current?.contains(target)
+            ) {
+              e.preventDefault()
+            }
+          }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="screenshot-edit-popover w-[320px] gap-0 rounded-2xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl data-closed:animate-none"
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: -6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -4 }}
-            transition={{
-              type: "spring",
-              stiffness: 380,
-              damping: 28,
-              mass: 0.6,
-            }}
-            style={{ originY: 0 }}
-            className="overflow-hidden rounded-2xl"
-          >
+          <div className="overflow-hidden rounded-2xl">
             <UploadCard
               onBrowse={() => replaceInputRef.current?.click()}
               defaultDevice={captureDefaultDevice}
@@ -172,7 +171,7 @@ export function ScreenshotEditMenu({
                 </button>
               ) : null}
             </div>
-          </motion.div>
+          </div>
         </PopoverContent>
       </Popover>
     </>

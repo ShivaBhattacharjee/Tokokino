@@ -45,6 +45,7 @@ export interface SafariProps extends HTMLAttributes<HTMLDivElement> {
   addressValue?: string
   addressPlaceholder?: string
   onAddressChange?: (value: string) => void
+  shimmer?: boolean
 }
 
 export function Safari({
@@ -62,6 +63,7 @@ export function Safari({
   addressValue,
   addressPlaceholder = "your-url.com",
   onAddressChange,
+  shimmer = true,
   className,
   style,
   ...props
@@ -144,6 +146,7 @@ export function Safari({
         >
           <ShimmerImage
             ref={imageRef}
+            shimmer={shimmer}
             src={imageSrc}
             alt=""
             onLoad={onImageLoad}

@@ -42,6 +42,7 @@ export interface ChromeProps extends HTMLAttributes<HTMLDivElement> {
   addressValue?: string
   addressPlaceholder?: string
   onAddressChange?: (value: string) => void
+  shimmer?: boolean
 }
 
 export function Chrome({
@@ -59,6 +60,7 @@ export function Chrome({
   addressValue,
   addressPlaceholder = "Search Google or type a URL",
   onAddressChange,
+  shimmer = true,
   className,
   style,
   ...props
@@ -176,6 +178,7 @@ export function Chrome({
   ) : imageSrc ? (
     <ShimmerImage
       ref={imageRef}
+      shimmer={shimmer}
       src={imageSrc}
       alt=""
       onLoad={onImageLoad}

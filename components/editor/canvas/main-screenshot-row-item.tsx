@@ -212,7 +212,7 @@ export function MainScreenshotRender({
             <div
               className={cn(
                 "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
-                editOpen
+                editOpen || isSelected
                   ? "opacity-100"
                   : "opacity-0 group-hover/main-row:opacity-100",
                 (bulkCanvasDragging || isScreenshotDragging) &&

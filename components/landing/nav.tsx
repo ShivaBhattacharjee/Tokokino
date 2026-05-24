@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { useTheme } from "next-themes"
 import { ArrowRight } from "@/components/landing/landing-svgs"
@@ -28,13 +28,10 @@ function scrollToHash(href: string) {
 
 export function Nav() {
   const [open, setOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
 
-  useEffect(() => setMounted(true), [])
-
   const toggleTheme = () => {
-    setTheme(mounted && resolvedTheme === "dark" ? "light" : "dark")
+    setTheme(resolvedTheme === "dark" ? "light" : "dark")
   }
 
   return (

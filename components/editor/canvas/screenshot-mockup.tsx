@@ -41,6 +41,7 @@ type ScreenshotMockupProps = {
   screenshotAnchor: { x: number; y: number }
   enhanceFilter: string | undefined
   objectFit?: ImageFit
+  isScreenshotSelected: boolean
   isScreenshotDragging: boolean
   activeTool: EditorTool
   placementDims: PlacementDims | null
@@ -78,6 +79,7 @@ export function ScreenshotMockup({
   screenshotAnchor,
   enhanceFilter,
   objectFit = "cover",
+  isScreenshotSelected,
   isScreenshotDragging,
   activeTool,
   placementDims,
@@ -176,6 +178,7 @@ export function ScreenshotMockup({
           >
             <ShimmerImage
               ref={imageRef}
+              shimmer={false}
               src={screenshot}
               alt="Screenshot"
               draggable={false}
@@ -193,6 +196,7 @@ export function ScreenshotMockup({
           </div>
         </div>
         <ShimmerImage
+          shimmer={false}
           src={mockupAsset.src}
           alt=""
           draggable={false}
@@ -216,7 +220,7 @@ export function ScreenshotMockup({
               <div
                 className={cn(
                   "pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
-                  editOpen
+                  editOpen || isScreenshotSelected
                     ? "opacity-100"
                     : "opacity-0 group-hover/mockup:opacity-100",
                   isScreenshotDragging && !editOpen && "!opacity-0"
@@ -244,7 +248,7 @@ export function ScreenshotMockup({
           <div
             className={cn(
               "pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
-              editOpen
+              editOpen || isScreenshotSelected
                 ? "opacity-100"
                 : "opacity-0 group-hover/mockup:opacity-100",
               isScreenshotDragging && !editOpen && "!opacity-0"
