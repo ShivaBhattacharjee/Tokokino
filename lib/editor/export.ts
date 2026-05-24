@@ -371,7 +371,7 @@ export async function exportCanvas(
 
   const baseOptions = {
     pixelRatio,
-    cacheBust: true,
+    cacheBust: false,
     filter: filterExportHidden,
   } as const
 
@@ -511,7 +511,7 @@ export async function captureCanvasAsPngBlob(
     // in the cloned document). Two attempts is the standard workaround.
     const captureOptions = {
       pixelRatio,
-      cacheBust: true,
+      cacheBust: false,
       filter: filterExportHidden,
     } as const
 
