@@ -54,6 +54,7 @@ const SHAPES: ToolDef[] = [
     shortcut: "O",
   },
   { id: "blur", label: "Blur / Redact", shortcut: "B", icon: RiBlurOffLine },
+  { id: "step", label: "Step markers", shortcut: "S" },
 ]
 
 const LINE_STYLES: { id: AnnotationLineStyle; label: string }[] = [
@@ -92,6 +93,8 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
     annotation.mode === "arrow" ||
     annotation.mode === "rect" ||
     annotation.mode === "ellipse"
+  const showThicknessInColorPicker =
+    annotation.mode !== "step" && annotation.mode !== "blur"
   const previewShapeKind = annotationModeToShapeKind(annotation.mode) ?? "arrow"
 
   return (
@@ -131,18 +134,21 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
       <ToolGroup>
         {SHAPES.map((t) => {
           const shapeKind = annotationModeToShapeKind(t.id)
+          const isActive = annotation.mode === t.id
           return (
             <ToolButton
               key={t.id}
               tool={t}
-              active={annotation.mode === t.id}
+              active={isActive}
               tint={annotation.color}
               iconOverride={
-                shapeKind && shapeKind !== "blur" ? (
+                shapeKind === "step" ? (
+                  <StepMarkerIcon active={isActive} color={annotation.color} />
+                ) : shapeKind && shapeKind !== "blur" ? (
                   <LineStylePreview
                     style="solid"
                     kind={shapeKind}
-                    active={annotation.mode === t.id}
+                    active={isActive}
                   />
                 ) : undefined
               }
@@ -205,7 +211,7 @@ export function AnnotationToolbar({ onExit }: { onExit: () => void }) {
               side="top"
               align="center"
               footer={
-                activeShapeKind ? (
+                showThicknessInColorPicker ? (
                   <ShapeThicknessPanel
                     value={annotation.strokeWidth}
                     color={annotation.color}
@@ -613,11 +619,44 @@ function annotationModeToShapeKind(
     mode === "arrow" ||
     mode === "rect" ||
     mode === "ellipse" ||
-    mode === "blur"
+    mode === "blur" ||
+    mode === "step"
   ) {
     return mode
   }
   return null
+}
+
+function StepMarkerIcon({ active, color }: { active: boolean; color: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={cn(
+        "size-5",
+        active ? "text-foreground" : "text-foreground/55"
+      )}
+      aria-hidden="true"
+    >
+      <circle
+        cx="10"
+        cy="10"
+        r="8.5"
+        fill={active ? color : "transparent"}
+        stroke={active ? color : "currentColor"}
+        strokeWidth="1.5"
+      />
+      <text
+        x="10"
+        y="14"
+        textAnchor="middle"
+        fontSize="9"
+        fontWeight="700"
+        fill={active ? "white" : "currentColor"}
+      >
+        1
+      </text>
+    </svg>
+  )
 }
 
 function lineDashArray(style: AnnotationLineStyle) {

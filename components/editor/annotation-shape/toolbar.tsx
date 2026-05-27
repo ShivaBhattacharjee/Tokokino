@@ -64,13 +64,15 @@ export function AnnotationShapeToolbar({
         }}
       />
 
-      <ToolbarDuplicateButton
-        ariaLabel="Duplicate shape"
-        onDuplicate={() => {
-          const id = duplicateAnnotationShape(shape.id)
-          if (id) setSelectedAnnotationShapeId(id)
-        }}
-      />
+      {shape.kind !== "step" ? (
+        <ToolbarDuplicateButton
+          ariaLabel="Duplicate shape"
+          onDuplicate={() => {
+            const id = duplicateAnnotationShape(shape.id)
+            if (id) setSelectedAnnotationShapeId(id)
+          }}
+        />
+      ) : null}
 
       {shape.kind === "blur" ? (
         <>
@@ -118,27 +120,29 @@ export function AnnotationShapeToolbar({
             </button>
           </ColorPickerPopover>
 
-          {LINE_STYLES.map((style) => (
-            <ToolbarButton
-              key={style.id}
-              aria-label={`${style.label} line`}
-              tooltip={style.label}
-              active={shape.lineStyle === style.id}
-              onClick={() =>
-                updateAnnotationShape(shape.id, { lineStyle: style.id })
-              }
-            >
-              <LineStylePreview
-                style={style.id}
-                kind={shape.kind}
-                active={shape.lineStyle === style.id}
-              />
-            </ToolbarButton>
-          ))}
+          {shape.kind !== "step"
+            ? LINE_STYLES.map((style) => (
+                <ToolbarButton
+                  key={style.id}
+                  aria-label={`${style.label} line`}
+                  tooltip={style.label}
+                  active={shape.lineStyle === style.id}
+                  onClick={() =>
+                    updateAnnotationShape(shape.id, { lineStyle: style.id })
+                  }
+                >
+                  <LineStylePreview
+                    style={style.id}
+                    kind={shape.kind}
+                    active={shape.lineStyle === style.id}
+                  />
+                </ToolbarButton>
+              ))
+            : null}
         </>
       ) : null}
 
-      {shape.kind !== "blur" ? (
+      {shape.kind !== "blur" && shape.kind !== "step" ? (
         <>
           <span className="mx-1 h-5 w-px bg-border" />
 
@@ -158,6 +162,15 @@ export function AnnotationShapeToolbar({
                 />
               </>
             )}
+          />
+        </>
+      ) : shape.kind !== "blur" ? (
+        <>
+          <span className="mx-1 h-5 w-px bg-border" />
+          <ToolbarLayerOrderMenu
+            contentClassName="w-56 p-1"
+            onBringToFront={() => bringAnnotationShapeToFront(shape.id)}
+            onSendToBack={() => sendAnnotationShapeToBack(shape.id)}
           />
         </>
       ) : null}

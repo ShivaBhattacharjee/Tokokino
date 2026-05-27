@@ -266,6 +266,7 @@ export type AnnotationMode =
   | "rect"
   | "ellipse"
   | "blur"
+  | "step"
 
 export type AnnotationLineStyle = "solid" | "dashed" | "dotted"
 
@@ -304,7 +305,7 @@ export type AnnotationStroke = {
 
 export type AnnotationShapeKind = Extract<
   AnnotationMode,
-  "arrow" | "rect" | "ellipse" | "blur"
+  "arrow" | "rect" | "ellipse" | "blur" | "step"
 >
 
 export type AnnotationShape = {
@@ -320,6 +321,7 @@ export type AnnotationShape = {
   lineStyle: AnnotationLineStyle
   blurEffect?: AnnotationBlurEffect
   blurAmount?: number
+  stepNumber?: number
   zIndex: number
   opacity?: number
   blendMode?: AssetBlendMode

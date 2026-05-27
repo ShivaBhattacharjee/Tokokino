@@ -773,6 +773,7 @@ function annotationName(kind: string) {
   if (kind === "rect") return "Rectangle"
   if (kind === "ellipse") return "Ellipse"
   if (kind === "blur") return "Blur layer"
+  if (kind === "step") return "Step marker"
   return "Arrow"
 }
 

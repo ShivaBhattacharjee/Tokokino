@@ -469,6 +469,8 @@ export function AnnotationShapeElement({
           shape.strokeWidth
         )
       : null
+  const isStep = shape.kind === "step"
+  const STEP_SIZE = 28
 
   return (
     <>
@@ -493,8 +495,8 @@ export function AnnotationShapeElement({
         style={{
           left: `${shape.xPct}%`,
           top: `${shape.yPct}%`,
-          width: `${shape.widthPct}%`,
-          height: `${shape.heightPct}%`,
+          width: isStep ? STEP_SIZE : `${shape.widthPct}%`,
+          height: isStep ? STEP_SIZE : `${shape.heightPct}%`,
           transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
           transition:
             !isDragging &&
@@ -513,7 +515,20 @@ export function AnnotationShapeElement({
           display: shape.hidden ? "none" : undefined,
         }}
       >
-        {shape.kind === "arrow" ? (
+        {shape.kind === "step" ? (
+          <div
+            className="flex h-full w-full items-center justify-center rounded-full font-bold text-white"
+            style={{
+              background: shape.color,
+              fontSize: (shape.stepNumber ?? 1) >= 10 ? 11 : 13,
+              lineHeight: 1,
+              userSelect: "none",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+            }}
+          >
+            {shape.stepNumber ?? 1}
+          </div>
+        ) : shape.kind === "arrow" ? (
           arrowGeometry ? (
             <svg
               className="absolute inset-0 h-full w-full overflow-visible"
@@ -595,15 +610,20 @@ export function AnnotationShapeElement({
           style={{
             left: `${shape.xPct}%`,
             top: `${shape.yPct}%`,
-            width: `${shape.widthPct}%`,
-            height: `${shape.heightPct}%`,
+            width: isStep ? STEP_SIZE : `${shape.widthPct}%`,
+            height: isStep ? STEP_SIZE : `${shape.heightPct}%`,
             transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
             zIndex: 1001 + shape.zIndex,
             display: shape.hidden ? "none" : undefined,
           }}
         >
           {shape.kind !== "arrow" ? (
-            <div className="pointer-events-none absolute inset-0 border border-dashed border-[#92b97a]/80" />
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-0 border border-dashed border-[#92b97a]/80",
+                isStep && "rounded-full"
+              )}
+            />
           ) : null}
           {isRotateSnapped && (
             <div className="pointer-events-none absolute top-1/2 left-1/2 z-[-1] -translate-x-1/2 -translate-y-1/2">
@@ -611,50 +631,54 @@ export function AnnotationShapeElement({
               <div className="absolute h-[4000px] -translate-y-1/2 border-l border-dashed border-[#9BCD64]/95" />
             </div>
           )}
-          {shape.kind === "arrow"
-            ? ARROW_ENDPOINT_HANDLES.map((handle) => (
-                <button
-                  key={handle.id}
-                  aria-label={`${handle.id} arrow endpoint`}
-                  className={cn(
-                    "pointer-events-auto absolute z-10 size-5 rounded-full border-2 border-[#92b97a] bg-background shadow",
-                    handle.className
-                  )}
-                  onPointerDown={startArrowEndpoint(handle.id)}
-                  onPointerMove={moveArrowEndpoint}
-                  onPointerUp={endArrowEndpoint}
-                  onPointerCancel={endArrowEndpoint}
-                />
-              ))
-            : RESIZE_HANDLES.map((handle) => (
-                <button
-                  key={handle}
-                  aria-label={`Resize ${handle}`}
-                  className={cn(
-                    "pointer-events-auto absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
-                    HANDLE_CLASS[handle]
-                  )}
-                  onPointerDown={startResize(handle)}
-                  onPointerMove={moveResize}
-                  onPointerUp={endResize}
-                  onPointerCancel={endResize}
-                />
-              ))}
-          <button
-            aria-label="Rotate shape"
-            onPointerDown={startRotate}
-            onPointerMove={moveRotate}
-            onPointerUp={endRotate}
-            onPointerCancel={endRotate}
-            onClick={(e) => e.stopPropagation()}
-            className="pointer-events-auto absolute -bottom-9 left-1/2 z-10 flex size-7 cursor-grab items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md"
-            style={{
-              transform: `translate(-50%, 0) ${counterRotate}`,
-              transformOrigin: "top center",
-            }}
-          >
-            <RiRefreshLine className="size-3.5" />
-          </button>
+          {isStep
+            ? null
+            : shape.kind === "arrow"
+              ? ARROW_ENDPOINT_HANDLES.map((handle) => (
+                  <button
+                    key={handle.id}
+                    aria-label={`${handle.id} arrow endpoint`}
+                    className={cn(
+                      "pointer-events-auto absolute z-10 size-5 rounded-full border-2 border-[#92b97a] bg-background shadow",
+                      handle.className
+                    )}
+                    onPointerDown={startArrowEndpoint(handle.id)}
+                    onPointerMove={moveArrowEndpoint}
+                    onPointerUp={endArrowEndpoint}
+                    onPointerCancel={endArrowEndpoint}
+                  />
+                ))
+              : RESIZE_HANDLES.map((handle) => (
+                  <button
+                    key={handle}
+                    aria-label={`Resize ${handle}`}
+                    className={cn(
+                      "pointer-events-auto absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
+                      HANDLE_CLASS[handle]
+                    )}
+                    onPointerDown={startResize(handle)}
+                    onPointerMove={moveResize}
+                    onPointerUp={endResize}
+                    onPointerCancel={endResize}
+                  />
+                ))}
+          {!isStep ? (
+            <button
+              aria-label="Rotate shape"
+              onPointerDown={startRotate}
+              onPointerMove={moveRotate}
+              onPointerUp={endRotate}
+              onPointerCancel={endRotate}
+              onClick={(e) => e.stopPropagation()}
+              className="pointer-events-auto absolute -bottom-9 left-1/2 z-10 flex size-7 cursor-grab items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md"
+              style={{
+                transform: `translate(-50%, 0) ${counterRotate}`,
+                transformOrigin: "top center",
+              }}
+            >
+              <RiRefreshLine className="size-3.5" />
+            </button>
+          ) : null}
         </div>
       ) : null}
       {!previewMode &&

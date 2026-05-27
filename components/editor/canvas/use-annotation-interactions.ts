@@ -250,6 +250,27 @@ export function useAnnotationInteractions({
     setSelectedAssetId(null)
     setIsScreenshotSelected(false)
 
+    if (annotation.mode === "step") {
+      const xPct = (point.x / layer.clientWidth) * 100
+      const yPct = (point.y / layer.clientHeight) * 100
+      const stepNumber =
+        annotationShapes.filter((s) => s.kind === "step").length + 1
+      const shapeId = addAnnotationShape({
+        kind: "step",
+        xPct,
+        yPct,
+        widthPct: 0,
+        heightPct: 0,
+        rotation: 0,
+        color: annotation.color,
+        strokeWidth: 2,
+        lineStyle: "solid",
+        stepNumber,
+      })
+      setSelectedAnnotationShapeId(shapeId)
+      return
+    }
+
     if (
       annotation.mode === "arrow" ||
       annotation.mode === "rect" ||
@@ -511,7 +532,8 @@ export function useAnnotationInteractions({
       ? "cursor-cell"
       : annotation.mode === "pen" ||
           annotation.mode === "highlight" ||
-          annotation.mode === "blur"
+          annotation.mode === "blur" ||
+          annotation.mode === "step"
         ? "cursor-crosshair"
         : "cursor-default"
 

@@ -1157,12 +1157,8 @@ function CustomPresetList({
 }
 
 function previewImageAt(canvas: CanvasState, index: number) {
-  const sources = [
-    canvas.screenshot,
-    ...canvas.screenshotSlots.map((slot) => slot.src),
-  ].filter((src): src is string => Boolean(src))
-  if (sources.length === 0) return null
-  return sources[index] ?? sources[sources.length - 1] ?? null
+  if (index === 0) return canvas.screenshot ?? null
+  return canvas.screenshotSlots[index - 1]?.src ?? null
 }
 
 const CustomPresetCard = React.memo(function CustomPresetCard({
