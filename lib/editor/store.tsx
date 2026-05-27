@@ -664,7 +664,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           screenshot,
           originalScreenshot: screenshot,
           lastCropRegion: null,
-          objectFit: canvas.objectFit ?? "cover",
+          objectFit: canvas.objectFit ?? "contain",
           screenshotLayer: {
             ...canvas.screenshotLayer,
             zIndex:
@@ -1598,7 +1598,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   src,
                   originalSrc: src,
                   lastCropRegion: null,
-                  objectFit: slot.objectFit ?? "cover",
+                  objectFit: slot.objectFit ?? "contain",
                 }
               : slot
           )

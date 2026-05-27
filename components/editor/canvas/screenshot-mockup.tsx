@@ -176,6 +176,21 @@ export function ScreenshotMockup({
               transform: mockupScreenTransform(mockupSpec.screen),
             }}
           >
+            {/* Blurred backdrop — fills letterbox/pillarbox areas in contain mode */}
+            {objectFit === "contain" && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={screenshot}
+                alt=""
+                aria-hidden
+                draggable={false}
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
+                style={{
+                  filter: "blur(18px) brightness(0.55) saturate(1.4)",
+                  transform: "scale(1.12)",
+                }}
+              />
+            )}
             <ShimmerImage
               ref={imageRef}
               shimmer={false}
@@ -185,7 +200,7 @@ export function ScreenshotMockup({
               onLoad={onImageLoad}
               className={cn(
                 "pointer-events-none h-full w-full max-w-none object-center select-none",
-                objectFit === "contain" && "object-contain",
+                objectFit === "contain" && "relative z-10 object-contain",
                 objectFit === "cover" && "object-cover",
                 objectFit === "fill" && "object-fill",
                 mockupRotation && "absolute top-1/2 left-1/2"

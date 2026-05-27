@@ -67,7 +67,7 @@ export const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   scale: 100,
   screenshotPosition: "center",
   screenshotOffset: { x: 0, y: 0 },
-  objectFit: "cover",
+  objectFit: "contain",
   screenshotLayer: {
     zIndex: 1,
     opacity: 100,

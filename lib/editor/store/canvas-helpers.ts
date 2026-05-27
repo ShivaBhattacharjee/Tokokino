@@ -263,7 +263,7 @@ export const createScreenshotSlot = (
   scale: 100,
   zIndex,
   filter: "none",
-  objectFit: "cover",
+  objectFit: "contain",
   ...base,
 })
 

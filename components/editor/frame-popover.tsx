@@ -633,15 +633,32 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
           }}
         >
           {screenshot ? (
-            <ShimmerImage
-              src={screenshot}
-              alt=""
-              className={cn(
-                "h-full w-full object-center",
-                imageFitClassName(imageFit)
+            <>
+              {/* Blurred backdrop for contain mode — fills letterbox/pillarbox areas */}
+              {imageFit === "contain" && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={screenshot}
+                  alt=""
+                  aria-hidden
+                  draggable={false}
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
+                  style={{
+                    filter: "blur(18px) brightness(0.55) saturate(1.4)",
+                    transform: "scale(1.12)",
+                  }}
+                />
               )}
-              loading="lazy"
-            />
+              <ShimmerImage
+                src={screenshot}
+                alt=""
+                className={cn(
+                  "relative z-10 h-full w-full object-center",
+                  imageFitClassName(imageFit)
+                )}
+                loading="lazy"
+              />
+            </>
           ) : (
             <ScaledEmptyContent
               stageWidth={stageWidth}

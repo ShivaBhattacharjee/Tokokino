@@ -98,14 +98,31 @@ export function Arc({
       preload="metadata"
     />
   ) : imageSrc ? (
-    <ShimmerImage
-      ref={imageRef}
-      shimmer={shimmer}
-      src={imageSrc}
-      alt=""
-      onLoad={onImageLoad}
-      className={`block size-full ${imageFitClassName(imageFit)}`}
-    />
+    <>
+      {/* Blurred backdrop — fills letterbox/pillarbox areas in contain mode */}
+      {imageFit === "contain" && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageSrc}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
+          style={{
+            filter: "blur(18px) brightness(0.55) saturate(1.4)",
+            transform: "scale(1.12)",
+          }}
+        />
+      )}
+      <ShimmerImage
+        ref={imageRef}
+        shimmer={shimmer}
+        src={imageSrc}
+        alt=""
+        onLoad={onImageLoad}
+        className={`relative z-10 block size-full ${imageFitClassName(imageFit)}`}
+      />
+    </>
   ) : (
     children
   )

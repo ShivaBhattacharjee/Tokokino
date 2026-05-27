@@ -297,7 +297,7 @@ export function ScreenshotSlotRender({
               applyTransformWhenEmpty
               suppressEmptyTransition
               emptyCompact={Boolean(rowLayout)}
-              objectFit={slot.objectFit ?? "cover"}
+              objectFit={slot.objectFit ?? "contain"}
               activeTool={activeTool}
               isDragging={false}
               stageRef={stageRef}
@@ -558,7 +558,7 @@ export function ScreenshotSlotView({
   const requestCrop = React.useCallback(() => {
     const target = computeCropTarget({
       frame: canvasFrame,
-      objectFit: slot.objectFit ?? "cover",
+      objectFit: slot.objectFit ?? "contain",
       stageElement: stageRef.current,
       imageElement: imageRef.current,
       fallbackAspect: canvasAspectRatio,
