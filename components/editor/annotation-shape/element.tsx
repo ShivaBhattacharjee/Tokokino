@@ -186,6 +186,7 @@ export function AnnotationShapeElement({
   }
 
   const startDrag = (e: React.PointerEvent<Element>) => {
+    if (isStep) return
     const canvas = canvasRef.current
     if (!canvas || e.button !== 0) return
     selectShape(e)
@@ -601,7 +602,7 @@ export function AnnotationShapeElement({
           </svg>
         )}
       </div>
-      {isSelected && !previewMode ? (
+      {isSelected && !previewMode && !isStep ? (
         <div
           ref={selectionChromeRef}
           data-annotation-selection-chrome-id={shape.id}
@@ -683,6 +684,7 @@ export function AnnotationShapeElement({
       ) : null}
       {!previewMode &&
       !bulkCanvasDragging &&
+      !isStep &&
       isSelected &&
       !hideFloatingToolbar &&
       toolbarRect &&
