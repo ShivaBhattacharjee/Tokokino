@@ -245,6 +245,9 @@ export function TopBar() {
     signature: null,
     error: null,
   })
+  const [shareSurface, setShareSurface] = React.useState<
+    "desktop" | "mobile" | null
+  >(null)
   const [isShareLinkCopied, setIsShareLinkCopied] = React.useState(false)
   const canvasIds = useEditorStore(
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
@@ -265,6 +268,7 @@ export function TopBar() {
   const [showNewAlert, setShowNewAlert] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [saveOpen, setSaveOpen] = React.useState(false)
+  const [mobileSaveOpen, setMobileSaveOpen] = React.useState(false)
   const [presetNameOpen, setPresetNameOpen] = React.useState(false)
   const [draftNameOpen, setDraftNameOpen] = React.useState(false)
   const [openProjectDialogOpen, setOpenProjectDialogOpen] =
@@ -449,6 +453,52 @@ export function TopBar() {
     },
     [handleShare, isAuthPending, session]
   )
+
+  const handleMobileSaveClick = React.useCallback(() => {
+    if (isAuthPending) return
+
+    if (!session) {
+      void saveCurrentEditorDraft().catch((error) => {
+        console.warn("Could not save local editor state before auth", error)
+      })
+      setShareDialog((current) => ({ ...current, open: false }))
+      setAuthDialog({ open: true, action: "save" })
+      return
+    }
+
+    setMobileSaveOpen(true)
+  }, [isAuthPending, session])
+
+  const handleDesktopShareClick = React.useCallback(() => {
+    setShareSurface("desktop")
+    handleProtectedAction("share")
+  }, [handleProtectedAction])
+
+  const handleMobileShareClick = React.useCallback(() => {
+    setShareSurface("mobile")
+    handleProtectedAction("share")
+  }, [handleProtectedAction])
+
+  const openSavePresetFlow = React.useCallback(() => {
+    setSaveOpen(false)
+    setMobileSaveOpen(false)
+    if (activeCustomPresetId) {
+      setPresetChoiceOpen(true)
+    } else {
+      setSavePresetMode("create")
+      setPresetNameOpen(true)
+    }
+  }, [activeCustomPresetId])
+
+  const openSaveDraftFlow = React.useCallback(() => {
+    setSaveOpen(false)
+    setMobileSaveOpen(false)
+    if (currentDraft) {
+      setDraftChoiceOpen(true)
+    } else {
+      setDraftNameOpen(true)
+    }
+  }, [currentDraft])
 
   const handleSaveAsPreset = React.useCallback(
     async (name: string) => {
@@ -916,26 +966,11 @@ export function TopBar() {
                 setSaveOpen(false)
               }
             }}
-            onSaveAsPreset={() => {
-              setSaveOpen(false)
-              if (activeCustomPresetId) {
-                setPresetChoiceOpen(true)
-              } else {
-                setSavePresetMode("create")
-                setPresetNameOpen(true)
-              }
-            }}
-            onSaveAsDraft={() => {
-              setSaveOpen(false)
-              if (currentDraft) {
-                setDraftChoiceOpen(true)
-              } else {
-                setDraftNameOpen(true)
-              }
-            }}
+            onSaveAsPreset={openSavePresetFlow}
+            onSaveAsDraft={openSaveDraftFlow}
           />
           <ShareControls
-            open={shareDialog.open}
+            open={shareDialog.open && shareSurface === "desktop"}
             status={shareDialog.status}
             url={shareDialog.url}
             error={shareDialog.error}
@@ -943,8 +978,9 @@ export function TopBar() {
             onOpenChange={(open) => {
               setTopBarPopoverOpen(open)
               setShareDialog((current) => ({ ...current, open }))
+              if (!open) setShareSurface(null)
             }}
-            onShare={() => handleProtectedAction("share")}
+            onShare={handleDesktopShareClick}
             onCopyLink={handleCopyShareLink}
             onRetry={handleShare}
           />
@@ -971,7 +1007,7 @@ export function TopBar() {
                   its default state. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter>
+              <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row-reverse">
                 <AlertDialogCancel className="cursor-pointer">
                   Cancel
                 </AlertDialogCancel>
@@ -1151,6 +1187,27 @@ export function TopBar() {
             if (ok) setOpenProjectDialogOpen(false)
           }}
         />
+        <MobileSaveDialog
+          open={mobileSaveOpen}
+          currentDraft={currentDraft}
+          isDraftSaving={isDraftSaving}
+          onOpenChange={setMobileSaveOpen}
+          onSaveAsPreset={openSavePresetFlow}
+          onSaveAsDraft={openSaveDraftFlow}
+        />
+        <MobileShareDialog
+          open={shareDialog.open && shareSurface === "mobile"}
+          status={shareDialog.status}
+          url={shareDialog.url}
+          error={shareDialog.error}
+          copied={isShareLinkCopied}
+          onOpenChange={(open) => {
+            setShareDialog((current) => ({ ...current, open }))
+            if (!open) setShareSurface(null)
+          }}
+          onCopyLink={handleCopyShareLink}
+          onRetry={handleShare}
+        />
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-1.5">
@@ -1204,7 +1261,8 @@ export function TopBar() {
         <MobileOverflowMenu
           bulkEditMode={bulkEditMode}
           onBulkEditClick={handleBulkEditClick}
-          onProtectedAction={handleProtectedAction}
+          onSaveClick={handleMobileSaveClick}
+          onShareClick={handleMobileShareClick}
           onCopyPng={handleCopyPng}
           isCopyingPng={isCopyingPng}
           isPreparingShare={shareDialog.status === "preparing"}
@@ -1745,8 +1803,6 @@ function ShareControls({
   onCopyLink: (url: string) => Promise<void>
   onRetry: () => Promise<void>
 }) {
-  const isPreparing = status === "preparing"
-
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <Tooltip open={open ? false : undefined}>
@@ -1771,78 +1827,148 @@ function ShareControls({
         sideOffset={12}
         className="w-[min(calc(100vw-2rem),360px)] gap-3 rounded-2xl border border-border/60 bg-popover/95 p-3 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
       >
-        <div className="px-1">
-          <p className="text-sm font-medium">Share screenshot</p>
-          {isPreparing ? (
-            <div className="mt-2 space-y-1.5">
-              <Skeleton className="h-3 w-56 max-w-full" />
-              <Skeleton className="h-3 w-40 max-w-[80%]" />
-            </div>
-          ) : (
-            <p className="mt-1 text-xs/relaxed text-muted-foreground">
-              {status === "ready"
-                ? "Copy the public link or open the share page."
-                : status === "error"
-                  ? "The link could not be prepared."
-                  : "Create a public link for this canvas."}
-            </p>
-          )}
-        </div>
-
-        {status === "preparing" ? (
-          <div className="space-y-3">
-            <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border/70 bg-secondary/40 p-2">
-              <Skeleton className="size-4 shrink-0 rounded-full" />
-              <Skeleton className="h-4 flex-1" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Skeleton className="h-8 rounded-md" />
-              <Skeleton className="h-8 rounded-md" />
-            </div>
-          </div>
-        ) : null}
-
-        {status === "ready" && url ? (
-          <div className="min-w-0 space-y-3">
-            <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border/70 bg-secondary/40 p-2">
-              <RiLink className="size-4 shrink-0 text-muted-foreground" />
-              <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
-                {url}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="lg"
-                className="min-w-0"
-                onClick={() => void onCopyLink(url)}
-              >
-                {copied ? <RiCheckLine /> : <RiFileCopyLine />}
-                <span>{copied ? "Copied" : "Copy"}</span>
-              </Button>
-              <Button asChild size="lg" className="min-w-0">
-                <a href={url} target="_blank" rel="noreferrer">
-                  <RiExternalLinkLine />
-                  <span>Open</span>
-                </a>
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {status === "error" ? (
-          <div className="space-y-3">
-            <p className="rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-xs/relaxed text-destructive">
-              {error ?? "Something went wrong."}
-            </p>
-            <Button size="lg" className="w-full" onClick={() => void onRetry()}>
-              <RiShareForwardLine />
-              <span>Try again</span>
-            </Button>
-          </div>
-        ) : null}
+        <ShareContent
+          status={status}
+          url={url}
+          error={error}
+          copied={copied}
+          onCopyLink={onCopyLink}
+          onRetry={onRetry}
+        />
       </PopoverContent>
     </Popover>
+  )
+}
+
+function MobileShareDialog({
+  open,
+  status,
+  url,
+  error,
+  copied,
+  onOpenChange,
+  onCopyLink,
+  onRetry,
+}: {
+  open: boolean
+  status: ShareDialogState["status"]
+  url: string | null
+  error: string | null
+  copied: boolean
+  onOpenChange: (open: boolean) => void
+  onCopyLink: (url: string) => Promise<void>
+  onRetry: () => Promise<void>
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(calc(100vw-2rem),360px)] gap-3 rounded-2xl p-3 md:hidden">
+        <DialogTitle className="sr-only">Share screenshot</DialogTitle>
+        <DialogDescription className="sr-only">
+          Create and copy a public link for this canvas.
+        </DialogDescription>
+        <ShareContent
+          status={status}
+          url={url}
+          error={error}
+          copied={copied}
+          onCopyLink={onCopyLink}
+          onRetry={onRetry}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ShareContent({
+  status,
+  url,
+  error,
+  copied,
+  onCopyLink,
+  onRetry,
+}: {
+  status: ShareDialogState["status"]
+  url: string | null
+  error: string | null
+  copied: boolean
+  onCopyLink: (url: string) => Promise<void>
+  onRetry: () => Promise<void>
+}) {
+  const isPreparing = status === "preparing"
+
+  return (
+    <>
+      <div className="px-1">
+        <p className="text-sm font-medium">Share screenshot</p>
+        {isPreparing ? (
+          <div className="mt-2 space-y-1.5">
+            <Skeleton className="h-3 w-56 max-w-full" />
+            <Skeleton className="h-3 w-40 max-w-[80%]" />
+          </div>
+        ) : (
+          <p className="mt-1 text-xs/relaxed text-muted-foreground">
+            {status === "ready"
+              ? "Copy the public link or open the share page."
+              : status === "error"
+                ? "The link could not be prepared."
+                : "Create a public link for this canvas."}
+          </p>
+        )}
+      </div>
+
+      {status === "preparing" ? (
+        <div className="space-y-3">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border/70 bg-secondary/40 p-2">
+            <Skeleton className="size-4 shrink-0 rounded-full" />
+            <Skeleton className="h-4 flex-1" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Skeleton className="h-8 rounded-md" />
+            <Skeleton className="h-8 rounded-md" />
+          </div>
+        </div>
+      ) : null}
+
+      {status === "ready" && url ? (
+        <div className="min-w-0 space-y-3">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border/70 bg-secondary/40 p-2">
+            <RiLink className="size-4 shrink-0 text-muted-foreground" />
+            <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
+              {url}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              size="lg"
+              className="min-w-0"
+              onClick={() => void onCopyLink(url)}
+            >
+              {copied ? <RiCheckLine /> : <RiFileCopyLine />}
+              <span>{copied ? "Copied" : "Copy"}</span>
+            </Button>
+            <Button asChild size="lg" className="min-w-0">
+              <a href={url} target="_blank" rel="noreferrer">
+                <RiExternalLinkLine />
+                <span>Open</span>
+              </a>
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {status === "error" ? (
+        <div className="space-y-3">
+          <p className="rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-xs/relaxed text-destructive">
+            {error ?? "Something went wrong."}
+          </p>
+          <Button size="lg" className="w-full" onClick={() => void onRetry()}>
+            <RiShareForwardLine />
+            <span>Try again</span>
+          </Button>
+        </div>
+      ) : null}
+    </>
   )
 }
 
@@ -1889,7 +2015,8 @@ function TopBarButton({
 function MobileOverflowMenu({
   bulkEditMode,
   onBulkEditClick,
-  onProtectedAction,
+  onSaveClick,
+  onShareClick,
   onCopyPng,
   isCopyingPng,
   isPreparingShare,
@@ -1899,7 +2026,8 @@ function MobileOverflowMenu({
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
-  onProtectedAction: (action: ProtectedTopBarAction) => void
+  onSaveClick: () => void
+  onShareClick: () => void
   onCopyPng: () => Promise<void>
   isCopyingPng: boolean
   isPreparingShare: boolean
@@ -1916,6 +2044,7 @@ function MobileOverflowMenu({
   const addCanvas = useEditorStore((s) => s.addCanvas)
   const canvasCount = useEditorStore((s) => s.present.canvases.length)
   const atCanvasCap = canvasCount >= MAX_CANVASES
+  const [menuOpen, setMenuOpen] = React.useState(false)
   const [showResetAlert, setShowResetAlert] = React.useState(false)
   return (
     <>
@@ -1928,7 +2057,7 @@ function MobileOverflowMenu({
               default state. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row-reverse">
             <AlertDialogCancel className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
@@ -1938,6 +2067,7 @@ function MobileOverflowMenu({
               onClick={() => {
                 reset()
                 setShowResetAlert(false)
+                setMenuOpen(false)
               }}
             >
               Reset
@@ -1945,7 +2075,7 @@ function MobileOverflowMenu({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
@@ -2008,20 +2138,18 @@ function MobileOverflowMenu({
             <RiEyeLine />
             Preview
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onProtectedAction("save")}>
+          <DropdownMenuItem onClick={onSaveClick}>
             <RiSaveLine />
             Save
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => onProtectedAction("share")}
-            disabled={isPreparingShare}
-          >
+          <DropdownMenuItem onClick={onShareClick} disabled={isPreparingShare}>
             <RiShareForwardLine />
             Share
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={(e) => {
               e.preventDefault()
+              setMenuOpen(false)
               setShowResetAlert(true)
             }}
           >
@@ -2181,6 +2309,54 @@ function SaveActionRow({
       </span>
       <RiArrowRightSLine className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
     </button>
+  )
+}
+
+function MobileSaveDialog({
+  open,
+  currentDraft,
+  isDraftSaving,
+  onOpenChange,
+  onSaveAsPreset,
+  onSaveAsDraft,
+}: {
+  open: boolean
+  currentDraft: CurrentDraftInfo | null
+  isDraftSaving: boolean
+  onOpenChange: (open: boolean) => void
+  onSaveAsPreset: () => void
+  onSaveAsDraft: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(calc(100vw-2rem),360px)] gap-2 rounded-2xl p-3 md:hidden">
+        <DialogHeader className="px-1 pb-1 text-left">
+          <DialogTitle>Save</DialogTitle>
+          <DialogDescription>
+            {currentDraft
+              ? `Currently editing “${currentDraft.name}”.`
+              : "Save the current layout or the entire project."}
+          </DialogDescription>
+        </DialogHeader>
+        <SaveActionRow
+          icon={RiBookmarkLine}
+          title="Save as preset"
+          description="Reuse this layout for new projects."
+          onClick={onSaveAsPreset}
+        />
+        <SaveActionRow
+          icon={RiDraftLine}
+          title={currentDraft ? "Save draft" : "Save as draft"}
+          description={
+            currentDraft
+              ? "Update this project so you can resume later."
+              : "Save the project so you can resume editing later."
+          }
+          loading={isDraftSaving}
+          onClick={onSaveAsDraft}
+        />
+      </DialogContent>
+    </Dialog>
   )
 }
 

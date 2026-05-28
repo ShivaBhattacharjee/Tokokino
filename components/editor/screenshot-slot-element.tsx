@@ -582,6 +582,7 @@ export function ScreenshotSlotView({
   const startDrag = (e: React.PointerEvent<Element>) => {
     if (!canvasRef.current) return
     e.stopPropagation()
+    e.preventDefault()
     select(e)
     setIsBeingDragged(true)
     const rect = canvasRef.current.getBoundingClientRect()

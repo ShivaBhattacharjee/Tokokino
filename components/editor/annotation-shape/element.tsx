@@ -481,7 +481,7 @@ export function AnnotationShapeElement({
         tabIndex={0}
         aria-label={`${shape.kind} annotation`}
         className={cn(
-          "pointer-events-auto absolute touch-none select-none",
+          "nodrag nopan pointer-events-auto absolute touch-none select-none",
           isSelected ? "cursor-move" : "cursor-pointer"
         )}
         onClick={selectShape}

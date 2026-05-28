@@ -9,6 +9,7 @@ import {
   bulkToolbarScale,
   floatingToolbarTransform,
 } from "@/components/editor/toolbar/primitives"
+import { Lens } from "@/components/ui/lens"
 import {
   type TextElement,
   pickContrastColorAtPosition,
@@ -66,9 +67,19 @@ type ResizeState = {
   lastPatch: Partial<TextElement> | null
 }
 
+type ResizeLensState = {
+  x: number
+  y: number
+  width: number
+  height: number
+  fontSize: number
+}
+
 const DRAG_THRESHOLD = 4
 const CENTER_SNAP_ENTER_PX = 8
 const CENTER_SNAP_EXIT_PX = 14
+const RESIZE_LENS_PAD = 72
+const RESIZE_LENS_SIZE = 118
 
 function isTextEditingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
@@ -76,6 +87,15 @@ function isTextEditingTarget(target: EventTarget | null) {
   return Boolean(
     target.closest("input, textarea, select, [contenteditable='true']")
   )
+}
+
+function readCanvasFitScale(canvas: HTMLElement | null, fallbackScale: number) {
+  if (!canvas) return fallbackScale
+  const raw = window
+    .getComputedStyle(canvas)
+    .getPropertyValue("--canvas-fit-scale")
+  const scale = Number.parseFloat(raw)
+  return Number.isFinite(scale) && scale > 0 ? scale : fallbackScale
 }
 
 export function TextElementView({
@@ -104,6 +124,9 @@ export function TextElementView({
   >(null)
   const [isDragging, setIsDragging] = React.useState(false)
   const [isRotateSnapped, setIsRotateSnapped] = React.useState(false)
+  const [resizeLens, setResizeLens] = React.useState<ResizeLensState | null>(
+    null
+  )
   const isEditing = isSelected && editingRequested
   const elRef = React.useRef<HTMLDivElement>(null)
   const editorRef = React.useRef<HTMLDivElement>(null)
@@ -130,12 +153,25 @@ export function TextElementView({
   // without needing to re-create callbacks on every render.
   const textRef = React.useRef(text)
   const canvasZoomRef = React.useRef(canvasZoom)
+  const bulkEditModeRef = React.useRef(bulkEditMode)
+  const bulkViewportZoomRef = React.useRef(bulkViewportZoom)
   const onCenterGuideChangeRef = React.useRef(onCenterGuideChange)
   React.useEffect(() => {
     textRef.current = text
     canvasZoomRef.current = canvasZoom
+    bulkEditModeRef.current = bulkEditMode
+    bulkViewportZoomRef.current = bulkViewportZoom
     onCenterGuideChangeRef.current = onCenterGuideChange
   })
+
+  const pointerScale = React.useCallback(() => {
+    const fitScale = readCanvasFitScale(
+      canvasRef.current,
+      canvasZoomRef.current / 100
+    )
+    const flowScale = bulkEditModeRef.current ? bulkViewportZoomRef.current : 1
+    return Math.max(0.05, fitScale * flowScale)
+  }, [canvasRef])
 
   React.useEffect(() => {
     if (!isEditing) return
@@ -435,6 +471,40 @@ export function TextElementView({
 
   /* ---- Resize ---- */
 
+  const updateResizeLens = React.useCallback((handle: ResizeHandleId) => {
+    const el = elRef.current
+    if (!el) return
+    const width = el.offsetWidth
+    const height = el.offsetHeight
+    if (!width || !height) return
+
+    const x =
+      handle === "ml" || handle === "tl" || handle === "bl"
+        ? 0
+        : handle === "mr" || handle === "tr" || handle === "br"
+          ? width
+          : width / 2
+    const y =
+      handle === "mt" || handle === "tl" || handle === "tr"
+        ? 0
+        : handle === "mb" || handle === "bl" || handle === "br"
+          ? height
+          : height / 2
+
+    const liveFontSize = Number.parseFloat(
+      textViewRef.current?.style.fontSize ?? ""
+    )
+    setResizeLens({
+      x,
+      y,
+      width,
+      height,
+      fontSize: Number.isFinite(liveFontSize)
+        ? liveFontSize
+        : textRef.current.fontSize,
+    })
+  }, [])
+
   const startResize = React.useCallback(
     (handle: ResizeHandleId) => (e: React.PointerEvent<HTMLButtonElement>) => {
       const elNode = elRef.current
@@ -444,7 +514,7 @@ export function TextElementView({
       e.preventDefault()
       e.currentTarget.setPointerCapture(e.pointerId)
       const canvasRect = canvasNode.getBoundingClientRect()
-      const scale = canvasZoomRef.current / 100
+      const scale = pointerScale()
       const t = textRef.current
       const elRect = elNode.getBoundingClientRect()
       resizeRef.current = {
@@ -465,8 +535,9 @@ export function TextElementView({
         elH: elRect.height / scale,
         lastPatch: null,
       }
+      updateResizeLens(handle)
     },
-    [canvasRef]
+    [canvasRef, pointerScale, updateResizeLens]
   )
 
   const moveResize = React.useCallback(
@@ -475,7 +546,7 @@ export function TextElementView({
       if (!rs || rs.pointerId !== e.pointerId) return
       const el = elRef.current
       if (!el) return
-      const scale = canvasZoomRef.current / 100
+      const scale = pointerScale()
       const dx = (e.clientX - rs.startClientX) / scale
       const dy = (e.clientY - rs.startClientY) / scale
 
@@ -573,6 +644,7 @@ export function TextElementView({
         if (patch.widthPx != null) el.style.width = `${patch.widthPx}px`
         if (patch.heightPx != null) el.style.height = `${patch.heightPx}px`
         setToolbarRect(el.getBoundingClientRect())
+        updateResizeLens(rs.handle)
       } else {
         let newW = rs.startWidthPx
         let newH = rs.startHeightPx
@@ -624,9 +696,10 @@ export function TextElementView({
         if (patch.widthPx != null) el.style.width = `${patch.widthPx}px`
         if (patch.heightPx != null) el.style.height = `${patch.heightPx}px`
         setToolbarRect(el.getBoundingClientRect())
+        updateResizeLens(rs.handle)
       }
     },
-    [setToolbarRect]
+    [setToolbarRect, updateResizeLens, pointerScale]
   )
 
   const endResize = React.useCallback(
@@ -637,6 +710,7 @@ export function TextElementView({
         updateText(textRef.current.id, rs.lastPatch)
       }
       resizeRef.current = null
+      setResizeLens(null)
     },
     [updateText]
   )
@@ -680,12 +754,13 @@ export function TextElementView({
       <div
         ref={elRef}
         className={cn(
-          "absolute select-none",
+          "nodrag nopan absolute select-none",
           isEditing
             ? "cursor-text"
             : isDragging
               ? "cursor-grabbing"
-              : "cursor-grab"
+              : "cursor-grab",
+          !isEditing && "touch-none"
         )}
         style={{
           left: `${text.xPct}%`,
@@ -764,6 +839,77 @@ export function TextElementView({
               <RiRefreshLine className="size-3.5" />
             </button>
 
+            {resizeLens ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute z-30 md:hidden"
+                style={{
+                  left: -RESIZE_LENS_PAD,
+                  top: -RESIZE_LENS_PAD,
+                  width: resizeLens.width + RESIZE_LENS_PAD * 2,
+                  height: resizeLens.height + RESIZE_LENS_PAD * 2,
+                }}
+              >
+                <div
+                  className="absolute rounded-full border border-border/60 bg-background shadow-2xl"
+                  style={{
+                    left: resizeLens.x + RESIZE_LENS_PAD - RESIZE_LENS_SIZE / 2,
+                    top: resizeLens.y + RESIZE_LENS_PAD - RESIZE_LENS_SIZE / 2,
+                    width: RESIZE_LENS_SIZE,
+                    height: RESIZE_LENS_SIZE,
+                  }}
+                />
+                <Lens
+                  isStatic
+                  showBase={false}
+                  zoomFactor={1.75}
+                  lensSize={RESIZE_LENS_SIZE}
+                  lensColor="#ffffff"
+                  position={{
+                    x: resizeLens.x + RESIZE_LENS_PAD,
+                    y: resizeLens.y + RESIZE_LENS_PAD,
+                  }}
+                  className="h-full w-full rounded-none"
+                  ariaLabel="Text resize preview"
+                >
+                  <div className="relative h-full w-full bg-background">
+                    <div
+                      className="absolute box-border px-2 py-1 break-words whitespace-pre-wrap"
+                      style={{
+                        left: RESIZE_LENS_PAD,
+                        top: RESIZE_LENS_PAD,
+                        width: resizeLens.width,
+                        height: resizeLens.height,
+                        fontFamily: text.fontFamily,
+                        fontSize: resizeLens.fontSize,
+                        fontWeight: text.fontWeight,
+                        letterSpacing: `${text.letterSpacing ?? 0}px`,
+                        color: text.color,
+                        textAlign: text.align,
+                        lineHeight: text.lineHeight ?? 1.3,
+                        borderStyle,
+                        borderWidth,
+                        borderColor,
+                        wordBreak: "break-word",
+                        overflow: "hidden",
+                        WebkitTextStroke:
+                          text.strokeColor && text.strokeWidth
+                            ? `${text.strokeWidth}px ${text.strokeColor}`
+                            : undefined,
+                        paintOrder:
+                          text.strokeColor && text.strokeWidth
+                            ? "stroke fill"
+                            : undefined,
+                        textShadow: text.textShadow ?? undefined,
+                      }}
+                    >
+                      {text.content}
+                    </div>
+                  </div>
+                </Lens>
+              </div>
+            ) : null}
+
             {/* Resize handles */}
             {(
               [
@@ -836,13 +982,22 @@ export function TextElementView({
                 onPointerCancel={endResize}
                 onClick={(e) => e.stopPropagation()}
                 className={cn(
-                  "absolute z-10 size-2.5 rounded-full border border-[#92b97a] bg-background shadow",
+                  "flex",
+                  "absolute z-10 size-8 touch-none items-center justify-center rounded-full border border-transparent bg-transparent",
+                  "md:block md:size-2.5 md:border-[#92b97a] md:bg-background md:shadow",
                   vClass,
                   hClass,
                   transformClass
                 )}
                 style={{ cursor }}
-              />
+              >
+                <span
+                  className={cn(
+                    "block rounded-full border border-[#92b97a] bg-background shadow md:hidden",
+                    id === "ml" || id === "mr" ? "h-6 w-2" : "size-3"
+                  )}
+                />
+              </button>
             ))}
           </div>
         ) : null}

@@ -24,6 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import {
   Pagination,
@@ -278,20 +286,27 @@ export function SharesGallery({
     <div className="h-full min-h-0 w-full overflow-y-auto bg-background text-foreground">
       <section className="border-b border-border/70 bg-card/30">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10">
-          <nav className="flex items-center justify-between gap-4">
+          <nav className="flex items-center">
             <BrandLogo />
-            <Link
-              href="/app"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
-            >
-              <span aria-hidden>←</span>
-              Back to editor
-            </Link>
           </nav>
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div className="min-w-0 space-y-4">
-              <p className="label-eyebrow">Share library</p>
+              <Breadcrumb>
+                <BreadcrumbList className="label-eyebrow gap-1.5 text-muted-foreground">
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild className="hover:text-foreground">
+                      <Link href="/app">Editor</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage className="text-muted-foreground">
+                      Share library
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
               <h1 className="max-w-4xl text-4xl leading-none font-semibold tracking-normal sm:text-6xl lg:text-7xl">
                 My Shares
               </h1>

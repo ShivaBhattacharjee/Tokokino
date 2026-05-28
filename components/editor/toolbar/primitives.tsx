@@ -23,13 +23,13 @@ import {
 import { cn } from "@/lib/utils"
 
 export const iconBtnClass =
-  "inline-flex size-7 sm:size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer shrink-0"
+  "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer shrink-0 touch-manipulation"
 
 export const popoverContentClass =
   "border-border/60 bg-popover/95 backdrop-blur-md"
 
 export const toolbarSurfaceClass =
-  "pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-md border border-border/70 bg-popover/95 p-0.5 sm:p-1 shadow-xl backdrop-blur-md [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-md:max-w-[220px]"
+  "nodrag nopan pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-md:max-w-[280px]"
 
 export function bulkToolbarScale(zoom: number) {
   if (!Number.isFinite(zoom) || zoom <= 0) return 1
@@ -62,6 +62,18 @@ export function ToolbarSurface({
       onPointerDown={(e) => {
         e.stopPropagation()
         props.onPointerDown?.(e)
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation()
+        props.onPointerMove?.(e)
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation()
+        props.onPointerUp?.(e)
+      }}
+      onPointerCancel={(e) => {
+        e.stopPropagation()
+        props.onPointerCancel?.(e)
       }}
       onClick={(e) => {
         e.stopPropagation()

@@ -145,11 +145,40 @@ function TextToolbarBody({
   const [fontSizeInput, setFontSizeInput] = React.useState(
     String(text.fontSize)
   )
+  const fontSizePointerHandledRef = React.useRef(false)
 
   const setSize = React.useCallback(
     (n: number) =>
       updateText(text.id, { fontSize: Math.max(8, Math.min(200, n)) }),
     [text.id, updateText]
+  )
+
+  const changeFontSize = React.useCallback(
+    (delta: number) => setSize(text.fontSize + delta),
+    [setSize, text.fontSize]
+  )
+
+  const onFontSizePointerDown = React.useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>, delta: number) => {
+      fontSizePointerHandledRef.current = true
+      e.preventDefault()
+      e.stopPropagation()
+      changeFontSize(delta)
+    },
+    [changeFontSize]
+  )
+
+  const onFontSizeClick = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>, delta: number) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (fontSizePointerHandledRef.current) {
+        fontSizePointerHandledRef.current = false
+        return
+      }
+      changeFontSize(delta)
+    },
+    [changeFontSize]
   )
 
   React.useEffect(() => {
@@ -217,7 +246,8 @@ function TextToolbarBody({
       <ToolbarButton
         aria-label="Decrease font size"
         tooltip="Decrease size"
-        onClick={() => setSize(text.fontSize - 1)}
+        onPointerDown={(e) => onFontSizePointerDown(e, -1)}
+        onClick={(e) => onFontSizeClick(e, -1)}
       >
         <RiSubtractLine className="size-4" />
       </ToolbarButton>
@@ -242,12 +272,16 @@ function TextToolbarBody({
         }}
         aria-label="Font size"
         title="Font size"
-        className="h-7 w-9 shrink-0 rounded-md bg-secondary/60 text-center font-mono text-[11px] text-foreground outline-none focus:ring-1 focus:ring-ring sm:h-9 sm:w-12 sm:text-[12px]"
+        className="h-9 w-12 shrink-0 touch-manipulation rounded-md bg-secondary/60 text-center font-mono text-[12px] text-foreground outline-none focus:ring-1 focus:ring-ring"
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
       />
       <ToolbarButton
         aria-label="Increase font size"
         tooltip="Increase size"
-        onClick={() => setSize(text.fontSize + 1)}
+        onPointerDown={(e) => onFontSizePointerDown(e, 1)}
+        onClick={(e) => onFontSizeClick(e, 1)}
       >
         <RiAddLine className="size-4" />
       </ToolbarButton>

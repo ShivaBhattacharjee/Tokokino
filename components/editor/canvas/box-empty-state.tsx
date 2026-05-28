@@ -19,6 +19,8 @@ type BoxEmptyStateProps = {
   onUrlChange?: (value: string) => void
   /** Force compact `+` trigger. Otherwise auto-detected by container width. */
   compact?: boolean
+  /** Force compact trigger on phone viewports even when the frame itself is wide. */
+  compactOnMobile?: boolean
   /** Counter-rotate inner content (used when the device mockup is rotated). */
   contentRotation?: number
   /** Static visual only — no popovers, inputs, or click handlers. */
@@ -35,6 +37,7 @@ export function BoxEmptyState({
   onBrowse,
   onCapture,
   compact = false,
+  compactOnMobile = true,
   contentRotation = 0,
   presentational = false,
   plainWideCard = false,
@@ -90,7 +93,10 @@ export function BoxEmptyState({
         <>
           {/* Wide containers (desktop, browser, iPad horizontal) — full card */}
           <div
-            className="@container hidden w-full max-w-[340px] @md:block"
+            className={cn(
+              "@container hidden w-full max-w-[340px] @md:block",
+              compactOnMobile && "max-md:!hidden"
+            )}
             style={{ containerType: "inline-size", ...rotationStyle }}
           >
             <UploadCard
@@ -105,7 +111,10 @@ export function BoxEmptyState({
             />
           </div>
           {/* Narrow containers (phone, iPad portrait) — compact + */}
-          <div className="@md:hidden" style={rotationStyle}>
+          <div
+            className={cn("@md:hidden", compactOnMobile && "max-md:!block")}
+            style={rotationStyle}
+          >
             <UploadCard
               compact
               isDragOver={isDragOver}

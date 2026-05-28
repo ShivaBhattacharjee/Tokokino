@@ -164,6 +164,7 @@ export function AssetElementView({
   const startDrag = (e: React.PointerEvent<Element>) => {
     if (!canvasRef.current) return
     e.stopPropagation()
+    e.preventDefault()
     setSelectedAssetId(asset.id)
     setSelectedTextId(null)
     const rect = canvasRef.current.getBoundingClientRect()
@@ -347,7 +348,7 @@ export function AssetElementView({
         onClick={select}
         data-editor-asset-id={asset.id}
         className={cn(
-          "absolute select-none",
+          "nodrag nopan absolute touch-none select-none",
           isSelected ? "cursor-grabbing" : "cursor-grab"
         )}
         style={{

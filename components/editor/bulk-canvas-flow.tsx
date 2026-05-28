@@ -251,6 +251,7 @@ function buildNodes(
         x: c.position.x - widthPx / 2,
         y: c.position.y - heightPx / 2,
       },
+      dragHandle: ".canvas-drag-handle",
       data: { canvasId: c.id, widthPx, heightPx },
     }
   })
@@ -310,6 +311,7 @@ function BulkCanvasFlowInner() {
           id: c.id,
           type: "canvas" as const,
           position: target,
+          dragHandle: ".canvas-drag-handle",
           data: { canvasId: c.id, widthPx, heightPx },
         }
       })

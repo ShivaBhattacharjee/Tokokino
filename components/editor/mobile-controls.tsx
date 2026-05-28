@@ -194,7 +194,7 @@ function MobileAccountButton() {
           type="button"
           onClick={() => {
             setOpen(false)
-            router.push("/share")
+            router.push("/app/shares")
           }}
           className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-foreground transition-colors hover:bg-accent"
         >
@@ -203,9 +203,9 @@ function MobileAccountButton() {
         </button>
         <button
           type="button"
-          onClick={async () => {
+          onClick={() => {
             setOpen(false)
-            await signOut()
+            void signOut()
           }}
           className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-destructive transition-colors hover:bg-destructive/10"
         >
