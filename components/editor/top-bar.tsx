@@ -1007,7 +1007,7 @@ export function TopBar() {
                   its default state. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row-reverse">
+              <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
                 <AlertDialogCancel className="cursor-pointer">
                   Cancel
                 </AlertDialogCancel>
@@ -1037,7 +1037,7 @@ export function TopBar() {
                 cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row-reverse">
+            <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
               <AlertDialogCancel className="cursor-pointer">
                 Cancel
               </AlertDialogCancel>
@@ -1061,7 +1061,7 @@ export function TopBar() {
                 fresh canvas. This action can be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row-reverse">
+            <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
               <AlertDialogCancel
                 variant="destructive"
                 className="cursor-pointer"
@@ -2057,7 +2057,7 @@ function MobileOverflowMenu({
               default state. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row-reverse">
+          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
             <AlertDialogCancel className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
@@ -2721,7 +2721,7 @@ function OpenProjectDialog({
               undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
             <AlertDialogCancel className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
