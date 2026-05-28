@@ -1,4 +1,4 @@
-import { toPng, toJpeg, toBlob } from "html-to-image"
+import { toJpeg, toBlob } from "html-to-image"
 
 export type ExportFormat = "png" | "jpeg" | "webp"
 export type ExportResolution = "hd" | "4k" | "8k"
@@ -335,6 +335,49 @@ function prepareExportNode(
   }
 }
 
+function getNodeBorderRadius(node: HTMLElement): number {
+  return parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0
+}
+
+async function clipBlobToRoundedRect(
+  blob: Blob,
+  width: number,
+  height: number,
+  radius: number
+): Promise<Blob> {
+  if (radius <= 0) return blob
+  const bitmap = await createImageBitmap(blob)
+  const canvas = document.createElement("canvas")
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return blob
+  const r = Math.min(radius, width / 2, height / 2)
+  ctx.beginPath()
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(0, 0, width, height, r)
+  } else {
+    ctx.moveTo(r, 0)
+    ctx.lineTo(width - r, 0)
+    ctx.arcTo(width, 0, width, r, r)
+    ctx.lineTo(width, height - r)
+    ctx.arcTo(width, height, width - r, height, r)
+    ctx.lineTo(r, height)
+    ctx.arcTo(0, height, 0, height - r, r)
+    ctx.lineTo(0, r)
+    ctx.arcTo(0, 0, r, 0, r)
+    ctx.closePath()
+  }
+  ctx.clip()
+  ctx.drawImage(bitmap, 0, 0)
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("clip failed"))),
+      "image/png"
+    )
+  })
+}
+
 function filterExportHidden(node: Node) {
   if (node instanceof Element) {
     if (node.getAttribute("data-export-hidden") === "true") return false
@@ -357,6 +400,9 @@ export async function exportCanvas(
 
   const targetWidth = EXPORT_RESOLUTION_WIDTHS[resolution]
   const pixelRatio = targetWidth / renderedWidth
+  const outputWidth = Math.round(renderedWidth * pixelRatio)
+  const outputHeight = Math.round(renderedHeight * pixelRatio)
+  const borderRadius = getNodeBorderRadius(node)
 
   const exportTarget = prepareExportNode(
     node,
@@ -386,8 +432,20 @@ export async function exportCanvas(
     await waitForExportAssets(assetUrls)
 
     if (format === "png") {
-      const url = await toPng(exportTarget.node, baseOptions)
-      triggerDownload(url, filename)
+      const rawBlob = await toBlob(exportTarget.node, baseOptions)
+      if (!rawBlob) throw new Error("Could not capture canvas")
+      const clipped = await clipBlobToRoundedRect(
+        rawBlob,
+        outputWidth,
+        outputHeight,
+        borderRadius * pixelRatio
+      )
+      const url = URL.createObjectURL(clipped)
+      try {
+        triggerDownload(url, filename)
+      } finally {
+        setTimeout(() => URL.revokeObjectURL(url), 5000)
+      }
       return filename
     }
     if (format === "jpeg") {

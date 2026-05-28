@@ -96,7 +96,11 @@ export function BorderSection() {
 
   const presets =
     dynamicColors.length > 0
-      ? ["#ffffff", "#0f172a", ...dynamicColors]
+      ? [
+          ...new Set(
+            ["#ffffff", "#0f172a", ...dynamicColors].map((c) => c.toLowerCase())
+          ),
+        ]
       : [...BORDER_PRESETS]
 
   while (presets.length < 6) {

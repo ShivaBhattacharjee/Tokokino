@@ -667,7 +667,7 @@ export function BulkBar() {
 }
 
 export function FloatingToolbar() {
-  const { activeTool, setActiveTool } = useEditor()
+  const { setActiveTool } = useEditor()
   const { isAnnotateMode } = useBulkBarState()
 
   return (

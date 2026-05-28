@@ -249,7 +249,7 @@ function CategoryPanel({
             </Section>
             <div className="my-3 h-px bg-border/50" />
             <Section icon={RiSunLine} title="Backdrop" collapsible={false}>
-              <BackdropSection />
+              <BackdropSection popoverSide="top" />
             </Section>
           </>
         ) : null}

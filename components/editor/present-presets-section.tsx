@@ -1038,7 +1038,7 @@ export function PresentPresetsSection({ flat = false }: { flat?: boolean }) {
           )}
 
           {(displayTab === "multi" || displayTab === "triple") && (
-            <div className="grid grid-cols-3 gap-2 md:block md:space-y-2">
+            <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
               {LAYOUT_PRESETS.filter((p) =>
                 displayTab === "triple"
                   ? p.slots.length === 2
@@ -1102,7 +1102,7 @@ function CustomPresetList({
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-3 gap-2 md:block md:space-y-2">
+      <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
@@ -1140,7 +1140,7 @@ function CustomPresetList({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2 md:block md:space-y-2">
+    <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
       {presets.map((preset) => (
         <CustomPresetCard
           key={preset.id}

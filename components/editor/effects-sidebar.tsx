@@ -202,7 +202,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function AccountTile() {
+export function AccountTile() {
   const { data: session, isPending: isAuthPending } = useSession()
   const [expanded, setExpanded] = React.useState(false)
   const [isSigningOut, setIsSigningOut] = React.useState(false)

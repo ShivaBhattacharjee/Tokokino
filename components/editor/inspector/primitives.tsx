@@ -155,7 +155,7 @@ export function ColorPresetGrid({
   const tileClass = cn(presetTileBaseClass, presetTileAspectClass[tileShape])
   return (
     <div className="grid grid-cols-3 gap-2 px-1 py-1">
-      {presets.map((c) => {
+      {[...new Set(presets.map((c) => c.toLowerCase()))].map((c) => {
         const active =
           selected !== null && selected.toLowerCase() === c.toLowerCase()
         return (

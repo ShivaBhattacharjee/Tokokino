@@ -1326,7 +1326,7 @@ export function BackgroundSection() {
                                     })
                                   }
                                   className={cn(
-                                    "aspect-video w-full cursor-pointer overflow-hidden rounded-xl border",
+                                    "relative aspect-video w-full cursor-pointer rounded-xl border",
                                     active
                                       ? "border-transparent"
                                       : "border-border/60"
@@ -1336,27 +1336,29 @@ export function BackgroundSection() {
                                     className="block size-full rounded-[inherit]"
                                     style={{ background: option.value }}
                                   />
+                                  {active ? (
+                                    <motion.span
+                                      layoutId={`gradient-tile-ring-${activeCategory.key}`}
+                                      className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
+                                      transition={{
+                                        type: "spring",
+                                        stiffness: 380,
+                                        damping: 32,
+                                      }}
+                                    />
+                                  ) : null}
                                 </button>
-                                {active ? (
-                                  <motion.span
-                                    layoutId={`gradient-tile-ring-${activeCategory.key}`}
-                                    className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
-                                    transition={{
-                                      type: "spring",
-                                      stiffness: 380,
-                                      damping: 32,
-                                    }}
-                                  />
-                                ) : null}
                                 {active && gradientConfig ? (
-                                  <GradientCustomizerPopover
-                                    ariaLabel="Customize gradient"
-                                    config={gradientConfig}
-                                    canReset={canResetGradient}
-                                    onAngleChange={setGradientAngle}
-                                    onColorChange={setGradientColor}
-                                    onReset={resetGradientEdits}
-                                  />
+                                  <div className="absolute inset-0">
+                                    <GradientCustomizerPopover
+                                      ariaLabel="Customize gradient"
+                                      config={gradientConfig}
+                                      canReset={canResetGradient}
+                                      onAngleChange={setGradientAngle}
+                                      onColorChange={setGradientColor}
+                                      onReset={resetGradientEdits}
+                                    />
+                                  </div>
                                 ) : null}
                               </motion.div>
                             )
@@ -1392,7 +1394,7 @@ export function BackgroundSection() {
                                   })
                                 }
                                 className={cn(
-                                  "aspect-video w-full cursor-pointer overflow-hidden rounded-xl border",
+                                  "relative aspect-video w-full cursor-pointer rounded-xl border",
                                   active
                                     ? "border-transparent"
                                     : "border-border/60"
@@ -1402,27 +1404,29 @@ export function BackgroundSection() {
                                   className="block size-full rounded-[inherit]"
                                   style={{ background: option.value }}
                                 />
+                                {active ? (
+                                  <motion.span
+                                    layoutId={`gradient-tile-ring-${activeCategory.key}`}
+                                    className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
+                                    transition={{
+                                      type: "spring",
+                                      stiffness: 380,
+                                      damping: 32,
+                                    }}
+                                  />
+                                ) : null}
                               </button>
-                              {active ? (
-                                <motion.span
-                                  layoutId={`gradient-tile-ring-${activeCategory.key}`}
-                                  className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
-                                  transition={{
-                                    type: "spring",
-                                    stiffness: 380,
-                                    damping: 32,
-                                  }}
-                                />
-                              ) : null}
                               {active && gradientConfig ? (
-                                <GradientCustomizerPopover
-                                  ariaLabel="Customize gradient"
-                                  config={gradientConfig}
-                                  canReset={canResetGradient}
-                                  onAngleChange={setGradientAngle}
-                                  onColorChange={setGradientColor}
-                                  onReset={resetGradientEdits}
-                                />
+                                <div className="absolute inset-0">
+                                  <GradientCustomizerPopover
+                                    ariaLabel="Customize gradient"
+                                    config={gradientConfig}
+                                    canReset={canResetGradient}
+                                    onAngleChange={setGradientAngle}
+                                    onColorChange={setGradientColor}
+                                    onReset={resetGradientEdits}
+                                  />
+                                </div>
                               ) : null}
                             </motion.div>
                           )
@@ -1521,7 +1525,7 @@ export function BackgroundSection() {
                           setBackground({ type: "auto", value: option.value })
                         }
                         className={cn(
-                          "aspect-video w-full cursor-pointer overflow-hidden rounded-xl border",
+                          "relative aspect-video w-full cursor-pointer rounded-xl border",
                           active ? "border-transparent" : "border-border/60"
                         )}
                       >
@@ -1529,27 +1533,29 @@ export function BackgroundSection() {
                           className="block size-full rounded-[inherit]"
                           style={{ background: option.value }}
                         />
+                        {active ? (
+                          <motion.span
+                            layoutId="auto-gradient-tile-ring"
+                            className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
+                            transition={{
+                              type: "spring",
+                              stiffness: 380,
+                              damping: 32,
+                            }}
+                          />
+                        ) : null}
                       </button>
-                      {active ? (
-                        <motion.span
-                          layoutId="auto-gradient-tile-ring"
-                          className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
-                          transition={{
-                            type: "spring",
-                            stiffness: 380,
-                            damping: 32,
-                          }}
-                        />
-                      ) : null}
                       {active && gradientConfig ? (
-                        <GradientCustomizerPopover
-                          ariaLabel="Customize auto gradient"
-                          config={gradientConfig}
-                          canReset={canResetGradient}
-                          onAngleChange={setGradientAngle}
-                          onColorChange={setGradientColor}
-                          onReset={resetGradientEdits}
-                        />
+                        <div className="absolute inset-0">
+                          <GradientCustomizerPopover
+                            ariaLabel="Customize auto gradient"
+                            config={gradientConfig}
+                            canReset={canResetGradient}
+                            onAngleChange={setGradientAngle}
+                            onColorChange={setGradientColor}
+                            onReset={resetGradientEdits}
+                          />
+                        </div>
                       ) : null}
                     </div>
                   )

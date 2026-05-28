@@ -4,7 +4,10 @@ import * as React from "react"
 import { RiLayoutMasonryLine, RiSettingsLine } from "@remixicon/react"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 
-import { EffectsSidebar } from "@/components/editor/effects-sidebar"
+import {
+  AccountTile,
+  EffectsSidebar,
+} from "@/components/editor/effects-sidebar"
 import { Inspector } from "@/components/editor/inspector"
 import { cn } from "@/lib/utils"
 
@@ -98,13 +101,17 @@ export function IpadSidebar({ className }: { className?: string }) {
             className="absolute inset-0 flex flex-col"
           >
             {activeTab === "design" ? (
-              <EffectsSidebar className="!h-full !w-full !border-none !bg-transparent" />
+              <EffectsSidebar
+                hideAccount
+                className="!h-full !w-full !border-none !bg-transparent"
+              />
             ) : (
               <Inspector className="!h-full !w-full !border-none !bg-transparent" />
             )}
           </motion.div>
         </AnimatePresence>
       </div>
+      <AccountTile />
     </aside>
   )
 }

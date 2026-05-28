@@ -237,7 +237,7 @@ function DirectionField({
       onPointerCancel={handlePointerCancel}
       onLostPointerCapture={handleLostPointerCapture}
       className={cn(
-        "group relative h-[132px] w-full max-w-full overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_30px_rgba(44,36,25,0.06)] transition outline-none dark:border-white/10 dark:bg-[#202020] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "group relative h-[132px] w-full max-w-full touch-none overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_30px_rgba(44,36,25,0.06)] transition outline-none dark:border-white/10 dark:bg-[#202020] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
         disabled
           ? "cursor-not-allowed opacity-55"
           : "cursor-grab focus-visible:ring-2 focus-visible:ring-[#f65d72]/50 active:cursor-grabbing"

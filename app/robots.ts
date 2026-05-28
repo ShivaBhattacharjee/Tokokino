@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/login", "/share/", "/app/share"],
     },
-    sitemap: new URL("/sitemap.xml", SITE_URL).toString(),
+    sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,
   }
 }

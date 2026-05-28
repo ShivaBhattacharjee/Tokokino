@@ -21,6 +21,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { WebMcpProvider } from "@/components/web-mcp-provider"
 import { cn } from "@/lib/utils"
 import type { Metadata } from "next"
 
@@ -176,6 +177,7 @@ export default function RootLayout({
           <ThemeProvider defaultTheme="dark">
             <TooltipProvider delayDuration={150}>
               {children}
+              <WebMcpProvider />
               <Toaster position="top-right" />
             </TooltipProvider>
           </ThemeProvider>

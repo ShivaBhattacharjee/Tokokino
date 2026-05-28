@@ -203,6 +203,7 @@ function BackdropControlPopover({
   open,
   onOpenChange,
   forceMount,
+  popoverSide = "left",
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
@@ -220,6 +221,7 @@ function BackdropControlPopover({
   open?: boolean
   onOpenChange?: (open: boolean) => void
   forceMount?: true
+  popoverSide?: "left" | "top"
 }) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -227,8 +229,9 @@ function BackdropControlPopover({
         <BackdropTile icon={icon} label={label} active={active} />
       </PopoverTrigger>
       <PopoverContent
-        side="left"
-        align="start"
+        side={popoverSide}
+        align={popoverSide === "top" ? "center" : "start"}
+        collisionPadding={8}
         forceMount={forceMount}
         className={cn(
           "w-[260px] gap-2 overflow-hidden bg-popover/95 p-2 backdrop-blur-md",
@@ -482,7 +485,11 @@ function BackdropFilterGrid({
   )
 }
 
-export function BackdropSection() {
+export function BackdropSection({
+  popoverSide = "left",
+}: {
+  popoverSide?: "left" | "top"
+} = {}) {
   const backdrop = useActiveCanvasField((c) => c.backdrop)
   const background = useActiveCanvasField((c) => c.background)
   const overlay = useActiveCanvasField((c) => c.overlay)
@@ -638,6 +645,7 @@ export function BackdropSection() {
 
       <div className="grid grid-cols-3 gap-2">
         <BackdropControlPopover
+          popoverSide={popoverSide}
           icon={RiSunLine}
           label="Overlay"
           active={overlayActive}
@@ -703,6 +711,7 @@ export function BackdropSection() {
         </BackdropControlPopover>
 
         <BackdropControlPopover
+          popoverSide={popoverSide}
           icon={RiSunLine}
           label="Lighting"
           active={lightingActive}
@@ -718,7 +727,7 @@ export function BackdropSection() {
           }
           resetTitle="Reset lighting"
           contentClassName="w-[240px]"
-          bodyClassName="pr-1"
+          bodyClassName="pr-1 overflow-y-auto max-h-[140px] md:max-h-[min(220px,calc(100vh-10rem))]"
           footer={
             <div className="space-y-3">
               <div className="space-y-2">
@@ -848,6 +857,7 @@ export function BackdropSection() {
         </BackdropControlPopover>
 
         <BackdropControlPopover
+          popoverSide={popoverSide}
           icon={RiEqualizerLine}
           label="Effects"
           active={effectsDirty}
@@ -941,6 +951,7 @@ export function BackdropSection() {
         </BackdropControlPopover>
 
         <BackdropControlPopover
+          popoverSide={popoverSide}
           icon={RiGridLine}
           label="Pattern"
           active={patternActive}
@@ -1079,6 +1090,7 @@ export function BackdropSection() {
         </BackdropControlPopover>
 
         <BackdropControlPopover
+          popoverSide={popoverSide}
           icon={RiFocus2Line}
           label="Portrait"
           active={portraitActive}
@@ -1152,6 +1164,7 @@ export function BackdropSection() {
         </BackdropControlPopover>
 
         <BackdropControlPopover
+          popoverSide={popoverSide}
           icon={RiMagicLine}
           label="Filters"
           active={backdropFilter !== "none"}
