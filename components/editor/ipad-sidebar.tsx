@@ -29,15 +29,12 @@ const TAB_ORDER: TabId[] = ["design", "tools"]
  */
 export function IpadSidebar({ className }: { className?: string }) {
   const [activeTab, setActiveTab] = React.useState<TabId>("design")
-  const prevTabRef = React.useRef<TabId>("design")
-
-  const direction =
-    TAB_ORDER.indexOf(activeTab) > TAB_ORDER.indexOf(prevTabRef.current)
-      ? 1
-      : -1
+  const [direction, setDirection] = React.useState<number>(1)
 
   const handleTabChange = (id: TabId) => {
-    prevTabRef.current = activeTab
+    if (id === activeTab) return
+    const newDir = TAB_ORDER.indexOf(id) > TAB_ORDER.indexOf(activeTab) ? 1 : -1
+    setDirection(newDir)
     setActiveTab(id)
   }
 
