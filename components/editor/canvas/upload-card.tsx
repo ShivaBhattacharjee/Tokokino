@@ -545,7 +545,7 @@ const DEFAULT_SIZING = {
     "flex min-h-10 flex-1 items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 text-left transition-colors focus-within:border-neutral-300 focus-within:bg-white dark:border-white/10 dark:bg-white/8 dark:focus-within:bg-white/12",
   urlIconTint: "text-neutral-400 dark:text-white/35",
   urlInput:
-    "min-w-0 flex-1 bg-transparent text-[13px] text-neutral-950 placeholder:text-neutral-400 focus:outline-none dark:text-white dark:placeholder:text-white/35",
+    "min-w-0 flex-1 bg-transparent text-[16px] text-neutral-950 placeholder:text-neutral-400 focus:outline-none sm:text-[13px] dark:text-white dark:placeholder:text-white/35",
   captureButton:
     "flex w-full items-center justify-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 py-2.5 text-[13px] font-medium text-neutral-500 transition-all hover:bg-neutral-100 hover:text-neutral-800 dark:border-white/10 dark:bg-white/8 dark:text-white/45 dark:hover:bg-white/12 dark:hover:text-white/75",
   captureDisabled:
