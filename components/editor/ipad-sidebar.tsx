@@ -44,7 +44,7 @@ export function IpadSidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "flex h-full min-h-0 w-[264px] shrink-0 flex-col overflow-hidden border-r border-dashed border-border/70 bg-sidebar lg:w-[288px]",
+        "flex h-full min-h-0 w-[300px] shrink-0 flex-col overflow-hidden border-r border-dashed border-border/70 bg-sidebar lg:w-[320px]",
         className
       )}
     >
