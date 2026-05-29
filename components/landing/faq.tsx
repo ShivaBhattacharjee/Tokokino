@@ -20,7 +20,7 @@ const faqs = [
   },
   {
     q: "Is Tokokino open source?",
-    a: "Yes. The source code is released under the Apache License 2.0. You can inspect, self-host, or contribute via the GitHub repository at git.new/Tokokino.",
+    a: "Yes. The source code is released under the AGPL-3.0 license. You can inspect, self-host, or contribute via the GitHub repository at git.new/Tokokino.",
   },
   {
     q: "What export formats and resolutions are supported?",

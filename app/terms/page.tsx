@@ -62,8 +62,8 @@ const sections: TermsSection[] = [
       <>
         Except for your User Content and third-party materials, the Tokokino
         source code and project materials are made available under the{" "}
-        <ExternalLink href="https://www.apache.org/licenses/LICENSE-2.0">
-          Apache License 2.0
+        <ExternalLink href="https://www.gnu.org/licenses/agpl-3.0.en.html">
+          AGPL-3.0
         </ExternalLink>
         . You should review the repository license and notices before copying,
         distributing, modifying, or self-hosting the project.

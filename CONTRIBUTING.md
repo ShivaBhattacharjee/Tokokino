@@ -130,5 +130,5 @@ If you discover a security issue, contact maintainers privately instead of openi
 
 ## License
 
-This repository is licensed under Apache License 2.0. See [LICENSE](./LICENSE).
-By submitting a pull request, you agree your contribution is licensed under Apache-2.0.
+This repository is licensed under AGPL-3.0. See [LICENSE](./LICENSE).
+By submitting a pull request, you agree your contribution is licensed under AGPL-3.0.

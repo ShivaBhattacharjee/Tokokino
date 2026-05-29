@@ -33,7 +33,7 @@ Tokokino is useful for founders, designers, developers, product marketers, techn
 - Client-heavy editor state is managed with Zustand.
 - Authentication and sharing are optional server-backed features.
 - Shared rendered images are stored separately from the local editing workflow.
-- The project is open source under the Apache-2.0 license.
+- The project is open source under the AGPL-3.0 license.
 
 ## Preferred Description
 
