@@ -6,6 +6,8 @@ import {
   createShareRecord,
   deleteAllUserShares,
   getUserShares,
+  getUserStorageUsage,
+  MAX_USER_SHARE_STORAGE_BYTES,
 } from "@/lib/share-db"
 import {
   getShareImageUrl,
@@ -26,8 +28,14 @@ export async function GET(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "Sign in required" }, { status: 401 })
   }
-  const shares = await getUserShares(session.user.id)
-  return NextResponse.json({ shares })
+  const [shares, storageUsed] = await Promise.all([
+    getUserShares(session.user.id),
+    getUserStorageUsage(session.user.id),
+  ])
+  return NextResponse.json({
+    shares,
+    storage: { used: storageUsed, limit: MAX_USER_SHARE_STORAGE_BYTES },
+  })
 }
 
 export async function DELETE(request: Request) {
@@ -86,6 +94,20 @@ export async function POST(request: Request) {
 
   const imageHash = createHash("sha256").update(image).digest("hex")
 
+  const storageUsed = await getUserStorageUsage(session.user.id)
+  if (storageUsed + image.byteLength > MAX_USER_SHARE_STORAGE_BYTES) {
+    return NextResponse.json(
+      {
+        error: "Storage limit reached",
+        storage: {
+          used: storageUsed,
+          limit: MAX_USER_SHARE_STORAGE_BYTES,
+        },
+      },
+      { status: 413 }
+    )
+  }
+
   const id = crypto.randomUUID()
   if (!isValidShareId(id)) {
     return NextResponse.json(
@@ -108,6 +130,7 @@ export async function POST(request: Request) {
       key,
       imageUrl,
       imageHash,
+      sizeBytes: image.byteLength,
       user: {
         id: session.user.id,
         name: session.user.name,

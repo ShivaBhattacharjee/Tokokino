@@ -57,6 +57,7 @@ export type SerializedShare = {
   id: string
   imageUrl: string
   viewCount: number
+  sizeBytes: number
   createdAt: string
 }
 
@@ -137,6 +138,17 @@ function formatCount(value: number) {
   return new Intl.NumberFormat("en-US", { notation: "compact" }).format(value)
 }
 
+function formatBytes(bytes: number) {
+  if (bytes <= 0) return "0 MB"
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  const i = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024))
+  )
+  const value = bytes / Math.pow(1024, i)
+  return `${value.toFixed(value >= 100 || i <= 1 ? 0 : 1)} ${units[i]}`
+}
+
 function startOfDay(date: Date) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
@@ -159,10 +171,15 @@ function buildPageRange(current: number, total: number): (number | "…")[] {
 
 export function SharesGallery({
   shares: initialShares,
+  storageUsed,
+  storageLimit,
 }: {
   shares: SerializedShare[]
+  storageUsed: number
+  storageLimit: number
 }) {
   const [shares, setShares] = React.useState(initialShares)
+  const [usedBytes, setUsedBytes] = React.useState(storageUsed)
   const [page, setPage] = React.useState(1)
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null)
   const [deleteAllOpen, setDeleteAllOpen] = React.useState(false)
@@ -244,13 +261,17 @@ export function SharesGallery({
   const handleDeleteConfirm = async (id: string) => {
     setDeleteTarget(null)
     const snapshot = shares
+    const usedSnapshot = usedBytes
+    const removed = shares.find((s) => s.id === id)
     setShares((prev) => prev.filter((s) => s.id !== id))
+    setUsedBytes((prev) => Math.max(0, prev - (removed?.sizeBytes || 0)))
     try {
       const res = await fetch(`/api/share/${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error()
       toast.success("Screenshot deleted")
     } catch {
       setShares(snapshot)
+      setUsedBytes(usedSnapshot)
       toast.error("Could not delete screenshot")
     }
   }
@@ -258,7 +279,9 @@ export function SharesGallery({
   const handleDeleteAll = async () => {
     setDeleteAllOpen(false)
     const snapshot = shares
+    const usedSnapshot = usedBytes
     setShares([])
+    setUsedBytes(0)
     setDeletingAll(true)
     try {
       const res = await fetch("/api/share", { method: "DELETE" })
@@ -266,6 +289,7 @@ export function SharesGallery({
       toast.success("All screenshots deleted")
     } catch {
       setShares(snapshot)
+      setUsedBytes(usedSnapshot)
       toast.error("Could not delete all screenshots")
     } finally {
       setDeletingAll(false)
@@ -276,6 +300,9 @@ export function SharesGallery({
     () => shares.reduce((sum, share) => sum + share.viewCount, 0),
     [shares]
   )
+  const storagePercent =
+    storageLimit > 0 ? Math.min(100, (usedBytes / storageLimit) * 100) : 0
+  const storageNearFull = storagePercent >= 90
   const activeFilterDescription =
     dateFilter === "all"
       ? sortFilterLabel
@@ -317,21 +344,53 @@ export function SharesGallery({
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/70 bg-background/70 p-3 shadow-sm">
-              <div className="rounded-lg bg-secondary/45 px-4 py-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Saved
-                </p>
-                <p className="tabular mt-1 text-2xl font-semibold">
-                  {formatCount(shares.length)}
-                </p>
+            <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background/70 p-3 shadow-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-secondary/45 px-4 py-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Saved
+                  </p>
+                  <p className="tabular mt-1 text-2xl font-semibold">
+                    {formatCount(shares.length)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-secondary/45 px-4 py-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Views
+                  </p>
+                  <p className="tabular mt-1 text-2xl font-semibold">
+                    {formatCount(totalViews)}
+                  </p>
+                </div>
               </div>
+
               <div className="rounded-lg bg-secondary/45 px-4 py-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Views
-                </p>
-                <p className="tabular mt-1 text-2xl font-semibold">
-                  {formatCount(totalViews)}
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Storage
+                  </p>
+                  <p
+                    className={cn(
+                      "tabular text-xs font-medium text-muted-foreground",
+                      storageNearFull && "text-destructive"
+                    )}
+                  >
+                    {formatBytes(usedBytes)} / {formatBytes(storageLimit)}
+                  </p>
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border/70">
+                  <div
+                    className={cn(
+                      "h-full rounded-full bg-primary transition-[width] duration-500",
+                      storageNearFull && "bg-destructive"
+                    )}
+                    style={{ width: `${storagePercent}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {storageNearFull
+                    ? "You're almost out of space — delete shares to free up room."
+                    : `${Math.round(storagePercent)}% of your 1 GB share storage used`}
                 </p>
               </div>
             </div>
@@ -490,6 +549,9 @@ export function SharesGallery({
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {formatDate(share.createdAt)}
+                        {share.sizeBytes > 0 && (
+                          <> · {formatBytes(share.sizeBytes)}</>
+                        )}
                       </p>
                     </div>
 

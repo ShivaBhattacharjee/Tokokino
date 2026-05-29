@@ -8,11 +8,15 @@ import { shares, shareViews } from "@/lib/db/schema"
 import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
 import { env } from "./env"
 
+/** Per-user storage budget for shared images: 1 GB. */
+export const MAX_USER_SHARE_STORAGE_BYTES = 1024 * 1024 * 1024
+
 export type ShareRecord = {
   id: string
   key: string
   imageUrl: string
   imageHash?: string
+  sizeBytes: number
   userId: string
   userName: string | null
   userEmail: string | null
@@ -28,6 +32,7 @@ type ShareRow = {
   objectKey: string
   imageUrl: string
   imageHash: string | null
+  sizeBytes: number
   userId: string
   userName: string | null
   userEmail: string | null
@@ -50,6 +55,7 @@ function rowToShare(row: ShareRow): ShareRecord {
     key: row.objectKey,
     imageUrl: row.imageUrl,
     imageHash: row.imageHash ?? undefined,
+    sizeBytes: row.sizeBytes ?? 0,
     userId: row.userId,
     userName: row.userName,
     userEmail: row.userEmail,
@@ -77,6 +83,17 @@ export async function getUserShares(
   return rows.map(rowToShare)
 }
 
+export async function getUserStorageUsage(userId: string): Promise<number> {
+  const row = await getDb()
+    .select({
+      total: sql<number>`COALESCE(SUM(${shares.sizeBytes}), 0)`,
+    })
+    .from(shares)
+    .where(eq(shares.userId, userId))
+    .get()
+  return Number(row?.total ?? 0)
+}
+
 export async function deleteShareRecord(id: string, userId: string) {
   await getDb()
     .delete(shares)
@@ -99,12 +116,14 @@ export async function createShareRecord({
   key,
   imageUrl,
   imageHash,
+  sizeBytes,
   user,
 }: {
   id: string
   key: string
   imageUrl: string
   imageHash: string
+  sizeBytes: number
   user: ShareUser
 }) {
   const now = toD1Date(new Date())
@@ -115,6 +134,7 @@ export async function createShareRecord({
       objectKey: key,
       imageUrl,
       imageHash,
+      sizeBytes,
       userId: user.id,
       userName: user.name ?? null,
       userEmail: user.email ?? null,

@@ -63,6 +63,7 @@ export const shares = sqliteTable(
     objectKey: text("object_key").notNull(),
     imageUrl: text("image_url").notNull(),
     imageHash: text("image_hash"),
+    sizeBytes: integer("size_bytes").notNull().default(0),
     userId: text("user_id").notNull(),
     userName: text("user_name"),
     userEmail: text("user_email"),

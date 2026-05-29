@@ -3,7 +3,11 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { getAuth } from "@/lib/auth"
-import { getUserShares } from "@/lib/share-db"
+import {
+  getUserShares,
+  getUserStorageUsage,
+  MAX_USER_SHARE_STORAGE_BYTES,
+} from "@/lib/share-db"
 
 import { SharesGallery } from "./shares-gallery"
 
@@ -23,14 +27,24 @@ export default async function SharesPage() {
     redirect("/login?callbackURL=/shares")
   }
 
-  const shares = await getUserShares(session.user.id).catch(() => [])
+  const [shares, storageUsed] = await Promise.all([
+    getUserShares(session.user.id).catch(() => []),
+    getUserStorageUsage(session.user.id).catch(() => 0),
+  ])
 
   const serialized = shares.map((s) => ({
     id: s.id,
     imageUrl: s.imageUrl,
     viewCount: s.viewCount,
+    sizeBytes: s.sizeBytes,
     createdAt: s.createdAt.toISOString(),
   }))
 
-  return <SharesGallery shares={serialized} />
+  return (
+    <SharesGallery
+      shares={serialized}
+      storageUsed={storageUsed}
+      storageLimit={MAX_USER_SHARE_STORAGE_BYTES}
+    />
+  )
 }
