@@ -29,7 +29,7 @@ export const popoverContentClass =
   "border-border/60 bg-popover/95 backdrop-blur-md"
 
 export const toolbarSurfaceClass =
-  "nodrag nopan pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-md:max-w-[280px]"
+  "nodrag pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-md border border-border/70 bg-popover/95 p-1 shadow-xl backdrop-blur-md [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-md:max-w-[280px]"
 
 export function bulkToolbarScale(zoom: number) {
   if (!Number.isFinite(zoom) || zoom <= 0) return 1

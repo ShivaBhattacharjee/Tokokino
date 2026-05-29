@@ -12,10 +12,13 @@ import {
   RiImageAddLine,
   RiLayoutGridLine,
   RiMoreLine,
+  RiMoonLine,
   RiRefreshLine,
   RiSaveLine,
   RiShareForwardLine,
+  RiSunLine,
 } from "@remixicon/react"
+import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
 import {
@@ -74,6 +77,12 @@ export function MobileOverflowMenu({
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [showResetAlert, setShowResetAlert] = React.useState(false)
 
+  const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  React.useEffect(() => setMounted(true), [])
+  const isDark = mounted && resolvedTheme === "dark"
+
   return (
     <>
       <AlertDialog open={showResetAlert} onOpenChange={setShowResetAlert}>
@@ -115,7 +124,7 @@ export function MobileOverflowMenu({
             <RiMoreLine />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent align="start" className="w-52">
           <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
             File
           </DropdownMenuLabel>
@@ -193,6 +202,16 @@ export function MobileOverflowMenu({
           >
             <RiFileCopyLine />
             {isCopyingPng ? "Copying…" : "Copy as PNG"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.preventDefault()
+              setTheme(isDark ? "light" : "dark")
+            }}
+          >
+            {isDark ? <RiSunLine /> : <RiMoonLine />}
+            {isDark ? "Light mode" : "Dark mode"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

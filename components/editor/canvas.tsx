@@ -1165,16 +1165,29 @@ export function Canvas() {
 
   const sectionRef = React.useRef<HTMLElement | null>(null)
   const [autoFit, setAutoFit] = React.useState(0.6)
-  const topGutter = isPreviewMode ? 24 : 24
-  const bottomGutter = isPreviewMode ? 80 : 96
-  const verticalOffset = isPreviewMode ? 0 : (topGutter - bottomGutter) / 2
+  const [layoutMetrics, setLayoutMetrics] = React.useState({
+    topGutter: 24,
+    bottomGutter: 96,
+  })
+
   React.useLayoutEffect(() => {
     const el = sectionRef.current
     if (!el) return
     const measure = () => {
       const rect = el.getBoundingClientRect()
       if (!rect.width || !rect.height) return
-      const hGutter = 48
+
+      const isMobile = window.innerWidth < 768
+      const topGutter = isPreviewMode ? 24 : isMobile ? 16 : 24
+      const bottomGutter = isPreviewMode
+        ? 80
+        : isMobile
+          ? window.innerHeight * 0.42 + 64
+          : 96
+
+      setLayoutMetrics({ topGutter, bottomGutter })
+
+      const hGutter = isMobile ? 32 : 48
       const fitW = Math.max(0, rect.width - hGutter) / widthPx
       const fitH =
         Math.max(0, rect.height - topGutter - bottomGutter) / heightPx
@@ -1183,8 +1196,16 @@ export function Canvas() {
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(el)
-    return () => observer.disconnect()
-  }, [widthPx, heightPx, topGutter, bottomGutter])
+    window.addEventListener("resize", measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", measure)
+    }
+  }, [widthPx, heightPx, isPreviewMode])
+
+  const verticalOffset = isPreviewMode
+    ? 0
+    : (layoutMetrics.topGutter - layoutMetrics.bottomGutter) / 2
 
   const effectiveScale = autoFit * zoomScale
 

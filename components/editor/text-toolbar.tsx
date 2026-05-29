@@ -272,7 +272,7 @@ function TextToolbarBody({
         }}
         aria-label="Font size"
         title="Font size"
-        className="h-9 w-12 shrink-0 touch-manipulation rounded-md bg-secondary/60 text-center font-mono text-[12px] text-foreground outline-none focus:ring-1 focus:ring-ring"
+        className="h-9 w-12 shrink-0 touch-manipulation rounded-md bg-secondary/60 text-center font-mono text-[16px] text-foreground outline-none focus:ring-1 focus:ring-ring"
         onPointerDown={(e) => e.stopPropagation()}
         onPointerMove={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
