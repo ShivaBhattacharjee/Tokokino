@@ -415,7 +415,7 @@ export function FramePopover({
                   <SelectContent
                     align="start"
                     position="popper"
-                    className="z-[70] min-w-[160px]"
+                    className="z-[1100] min-w-[160px]"
                   >
                     {current.colors.map((color) => (
                       <SelectItem key={color} value={color}>
