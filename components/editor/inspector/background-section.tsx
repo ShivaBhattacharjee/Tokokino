@@ -1279,7 +1279,7 @@ export function BackgroundSection() {
                                     })
                                   }
                                   className={cn(
-                                    "relative aspect-video w-full cursor-pointer rounded-xl border",
+                                    "relative aspect-video w-full cursor-pointer rounded-lg border",
                                     active
                                       ? "border-transparent"
                                       : "border-border/60"
@@ -1292,7 +1292,7 @@ export function BackgroundSection() {
                                   {active ? (
                                     <motion.span
                                       layoutId={`gradient-tile-ring-${activeCategory.key}`}
-                                      className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
+                                      className="pointer-events-none absolute -inset-0.5 rounded-[10px] ring-1 ring-primary/45"
                                       transition={{
                                         type: "spring",
                                         stiffness: 380,
@@ -1347,7 +1347,7 @@ export function BackgroundSection() {
                                   })
                                 }
                                 className={cn(
-                                  "relative aspect-video w-full cursor-pointer rounded-xl border",
+                                  "relative aspect-video w-full cursor-pointer rounded-lg border",
                                   active
                                     ? "border-transparent"
                                     : "border-border/60"
@@ -1360,7 +1360,7 @@ export function BackgroundSection() {
                                 {active ? (
                                   <motion.span
                                     layoutId={`gradient-tile-ring-${activeCategory.key}`}
-                                    className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
+                                    className="pointer-events-none absolute -inset-0.5 rounded-[10px] ring-1 ring-primary/45"
                                     transition={{
                                       type: "spring",
                                       stiffness: 380,
@@ -1389,7 +1389,7 @@ export function BackgroundSection() {
                             variants={TILE_ITEM_VARIANTS}
                             onClick={() => setGradientExpanded(true)}
                             title={`Show all ${items.length} ${activeCategory.label.toLowerCase()} gradients`}
-                            className="group relative aspect-video w-full cursor-pointer overflow-hidden rounded-xl border border-border/60 transition-colors hover:border-foreground/30"
+                            className="group relative aspect-video w-full cursor-pointer overflow-hidden rounded-lg border border-border/60 transition-colors hover:border-foreground/30"
                           >
                             {peek ? (
                               <span
@@ -1479,7 +1479,7 @@ export function BackgroundSection() {
                           setBackground({ type: "auto", value: option.value })
                         }
                         className={cn(
-                          "relative aspect-video w-full cursor-pointer rounded-xl border",
+                          "relative aspect-video w-full cursor-pointer rounded-lg border",
                           active ? "border-transparent" : "border-border/60"
                         )}
                       >
@@ -1490,7 +1490,7 @@ export function BackgroundSection() {
                         {active ? (
                           <motion.span
                             layoutId="auto-gradient-tile-ring"
-                            className="pointer-events-none absolute -inset-0.5 rounded-[13px] ring-1 ring-primary/45"
+                            className="pointer-events-none absolute -inset-0.5 rounded-[10px] ring-1 ring-primary/45"
                             transition={{
                               type: "spring",
                               stiffness: 380,
