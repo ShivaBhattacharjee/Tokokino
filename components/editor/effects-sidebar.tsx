@@ -6,11 +6,11 @@ import {
   RiGalleryLine,
   RiHardDrive2Line,
   RiLogoutBoxRLine,
-  RiUserLine,
 } from "@remixicon/react"
 import Link from "next/link"
 import { toast } from "sonner"
 
+import { AccountAvatar } from "@/components/editor/account-avatar"
 import {
   AspectPopover,
   findAspectOption,
@@ -287,17 +287,12 @@ export function AccountTile() {
             className="flex h-12 w-full items-center gap-2.5 rounded-md px-1.5 text-left focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
             aria-expanded={expanded}
           >
-            {user.image ? (
-              <span
-                className="size-8 shrink-0 rounded-full bg-cover bg-center ring-1 ring-border/70"
-                style={{ backgroundImage: `url(${user.image})` }}
-                aria-hidden
-              />
-            ) : (
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground ring-1 ring-border/70">
-                <RiUserLine className="size-4" />
-              </span>
-            )}
+            <AccountAvatar
+              src={user.image}
+              name={displayName}
+              className="size-8 rounded-full ring-1 ring-border/70"
+              iconClassName="size-4"
+            />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-medium text-foreground">
                 {displayName}

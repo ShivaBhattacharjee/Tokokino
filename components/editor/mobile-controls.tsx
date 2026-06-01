@@ -23,6 +23,7 @@ import {
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
+import { AccountAvatar } from "@/components/editor/account-avatar"
 import {
   MobileAspectPicker,
   findAspectOption,
@@ -103,7 +104,8 @@ const TOOLS_CATEGORIES: Category[] = [
 
 const ALL_CATEGORIES = [...DESIGN_CATEGORIES, ...TOOLS_CATEGORIES]
 
-// Inline panel height per category. Picker-style categories want the full height.
+// Most inline panels size to their content, capped at max-h. Layout uses a
+// fixed panel height so horizontal preset scrolling never changes the sheet.
 const TALL_CATEGORIES = new Set<CategoryId>(["layout"])
 
 /**
@@ -273,8 +275,10 @@ export function MobileControls({
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
               className={cn(
-                "pointer-events-auto flex w-[min(440px,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-border/60 bg-sidebar/95 shadow-xl backdrop-blur",
-                TALL_CATEGORIES.has(inlineActive) ? "h-[46vh]" : "max-h-[46vh]"
+                "pointer-events-auto flex w-[min(440px,calc(100vw-1rem))] flex-col overflow-hidden rounded-md border border-border/60 bg-sidebar/95 shadow-xl backdrop-blur",
+                TALL_CATEGORIES.has(inlineActive)
+                  ? "h-[36vh] max-h-[270px] min-h-[240px]"
+                  : "max-h-[46vh]"
               )}
             >
               <div className="flex shrink-0 items-center justify-between px-3 py-2">
@@ -442,16 +446,12 @@ function InlineOptions({
   }
 
   if (id === "layout") {
-    return (
-      <ScrollArea className="h-full">
-        <PresentPresetsSection flat />
-      </ScrollArea>
-    )
+    return <PresentPresetsSection flat horizontal showPresetHeading={false} />
   }
 
   return (
-    <ScrollArea className="h-full">
-      <div className="px-4 py-2 pb-6">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 pb-6">
+      <div>
         {id === "background" ? <BackgroundSection /> : null}
         {id === "backdrop" ? <BackdropSection popoverSide="top" /> : null}
         {id === "border" ? <BorderSection /> : null}
@@ -459,7 +459,7 @@ function InlineOptions({
         {id === "shadow" ? <ShadowSection /> : null}
         {id === "transform" ? <TiltSection /> : null}
       </div>
-    </ScrollArea>
+    </div>
   )
 }
 
@@ -490,14 +490,12 @@ function MobileAccountButton() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button type="button" className={triggerClass} aria-label="Account">
-          {user.image ? (
-            <span
-              className="size-7 rounded-full bg-cover bg-center ring-1 ring-border/70"
-              style={{ backgroundImage: `url(${user.image})` }}
-            />
-          ) : (
-            <RiUserLine className="size-[18px]" />
-          )}
+          <AccountAvatar
+            src={user.image}
+            name={user.name}
+            className="size-7 rounded-full ring-1 ring-border/70"
+            iconClassName="size-[18px]"
+          />
         </button>
       </PopoverTrigger>
       <PopoverContent

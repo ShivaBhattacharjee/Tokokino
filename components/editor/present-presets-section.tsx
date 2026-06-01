@@ -596,7 +596,15 @@ function TabTriggerRow({
   )
 }
 
-export function PresentPresetsSection({ flat = false }: { flat?: boolean }) {
+export function PresentPresetsSection({
+  flat = false,
+  horizontal = false,
+  showPresetHeading = true,
+}: {
+  flat?: boolean
+  horizontal?: boolean
+  showPresetHeading?: boolean
+}) {
   const canvas = useActiveCanvasField((c) => c)
   const canvasRef = React.useRef(canvas)
   React.useLayoutEffect(() => {
@@ -963,7 +971,12 @@ export function PresentPresetsSection({ flat = false }: { flat?: boolean }) {
   }, [])
 
   return (
-    <div className={flat ? "flex flex-col" : "flex min-h-0 flex-1 flex-col"}>
+    <div
+      className={cn(
+        flat ? "flex flex-col" : "flex min-h-0 flex-1 flex-col",
+        flat && horizontal && "min-h-0 flex-1"
+      )}
+    >
       <AlertDialog
         open={downgradeDialogOpen}
         onOpenChange={setDowngradeDialogOpen}
@@ -996,21 +1009,27 @@ export function PresentPresetsSection({ flat = false }: { flat?: boolean }) {
         </AlertDialogContent>
       </AlertDialog>
       <div className="shrink-0 px-4 pb-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-[13px] font-medium text-foreground">Presets</p>
-          {ENABLE_DEBUG_PRESETS && (
-            <button
-              type="button"
-              onClick={() => void copyCurrentLayout()}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/12 bg-white/[0.045] px-2 text-[11px] font-medium text-foreground/75 transition-colors hover:border-primary/45 hover:bg-primary/10 hover:text-foreground"
-              title="Copy current layout coordinates"
-              aria-label="Copy current layout coordinates"
-            >
-              <RiFileCopyLine className="size-3.5" />
-              Temp copy
-            </button>
-          )}
-        </div>
+        {(showPresetHeading || ENABLE_DEBUG_PRESETS) && (
+          <div className="mb-2 flex items-center justify-between gap-2">
+            {showPresetHeading ? (
+              <p className="text-[13px] font-medium text-foreground">Presets</p>
+            ) : (
+              <span aria-hidden />
+            )}
+            {ENABLE_DEBUG_PRESETS && (
+              <button
+                type="button"
+                onClick={() => void copyCurrentLayout()}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/12 bg-white/[0.045] px-2 text-[11px] font-medium text-foreground/75 transition-colors hover:border-primary/45 hover:bg-primary/10 hover:text-foreground"
+                title="Copy current layout coordinates"
+                aria-label="Copy current layout coordinates"
+              >
+                <RiFileCopyLine className="size-3.5" />
+                Temp copy
+              </button>
+            )}
+          </div>
+        )}
         <TabTriggerRow
           tab={displayTab}
           slotCount={canvas.screenshotSlots.length}
@@ -1018,69 +1037,116 @@ export function PresentPresetsSection({ flat = false }: { flat?: boolean }) {
         />
       </div>
 
-      <ScrollArea className={flat ? "pr-3 pl-4" : "min-h-0 flex-1 pr-3 pl-4"}>
-        <div className="pr-1 pb-4">
-          {displayTab === "single" && (
-            <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
-              {PRESENT_PRESETS.map((preset) => {
-                const active = displayActiveSinglePresetId === preset.id
+      {(() => {
+        const body = (
+          <>
+            {displayTab === "single" && (
+              <PresetCardRow horizontal={horizontal}>
+                {PRESENT_PRESETS.map((preset) => {
+                  const active = displayActiveSinglePresetId === preset.id
+                  return (
+                    <PresetCardSlot key={preset.id} horizontal={horizontal}>
+                      <SinglePresetCard
+                        preset={preset}
+                        canvas={deferredCanvas}
+                        aspect={deferredAspect}
+                        active={active}
+                        onApply={applyPreset}
+                      />
+                    </PresetCardSlot>
+                  )
+                })}
+              </PresetCardRow>
+            )}
 
-                return (
-                  <SinglePresetCard
-                    key={preset.id}
-                    preset={preset}
-                    canvas={deferredCanvas}
-                    aspect={deferredAspect}
-                    active={active}
-                    onApply={applyPreset}
-                  />
-                )
-              })}
-            </div>
-          )}
+            {(displayTab === "multi" || displayTab === "triple") && (
+              <PresetCardRow horizontal={horizontal}>
+                {LAYOUT_PRESETS.filter((p) =>
+                  displayTab === "triple"
+                    ? p.slots.length === 2
+                    : p.slots.length === 1
+                ).map((preset) => {
+                  const active = displayActiveLayoutPresetId === preset.id
+                  return (
+                    <PresetCardSlot key={preset.id} horizontal={horizontal}>
+                      <LayoutPresetCard
+                        preset={preset}
+                        canvas={deferredCanvas}
+                        aspect={deferredAspect}
+                        active={active}
+                        onApply={applyLayoutPreset}
+                      />
+                    </PresetCardSlot>
+                  )
+                })}
+              </PresetCardRow>
+            )}
 
-          {(displayTab === "multi" || displayTab === "triple") && (
-            <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
-              {LAYOUT_PRESETS.filter((p) =>
-                displayTab === "triple"
-                  ? p.slots.length === 2
-                  : p.slots.length === 1
-              ).map((preset) => {
-                const active = displayActiveLayoutPresetId === preset.id
-                return (
-                  <LayoutPresetCard
-                    key={preset.id}
-                    preset={preset}
-                    canvas={deferredCanvas}
-                    aspect={deferredAspect}
-                    active={active}
-                    onApply={applyLayoutPreset}
-                  />
-                )
-              })}
-            </div>
-          )}
+            {displayTab === "custom" && (
+              <CustomPresetList
+                horizontal={horizontal}
+                presets={customPresets}
+                loading={
+                  isAuthPending ||
+                  customPresetsLoading ||
+                  (Boolean(userId) && !customPresetsLoaded)
+                }
+                loggedIn={Boolean(userId)}
+                activeCustomPresetId={displayActiveCustomPresetId}
+                canvas={deferredCanvas}
+                aspect={deferredAspect}
+                onApply={applyCustomPreset}
+                onDelete={handleDeleteCustomPreset}
+              />
+            )}
+          </>
+        )
 
-          {displayTab === "custom" && (
-            <CustomPresetList
-              presets={customPresets}
-              loading={
-                isAuthPending ||
-                customPresetsLoading ||
-                (Boolean(userId) && !customPresetsLoaded)
-              }
-              loggedIn={Boolean(userId)}
-              activeCustomPresetId={displayActiveCustomPresetId}
-              canvas={deferredCanvas}
-              aspect={deferredAspect}
-              onApply={applyCustomPreset}
-              onDelete={handleDeleteCustomPreset}
-            />
-          )}
-        </div>
-      </ScrollArea>
+        if (horizontal) return <div className="pb-2">{body}</div>
+        return (
+          <ScrollArea
+            className={flat ? "pr-3 pl-4" : "min-h-0 flex-1 pr-3 pl-4"}
+          >
+            <div className="pr-1 pb-4">{body}</div>
+          </ScrollArea>
+        )
+      })()}
     </div>
   )
+}
+
+/** Lays preset cards out in a horizontal x-scroll strip (mobile) or the
+ * default responsive grid/column. */
+function PresetCardRow({
+  horizontal,
+  children,
+}: {
+  horizontal: boolean
+  children: React.ReactNode
+}) {
+  if (horizontal) {
+    return (
+      <div className="flex [scrollbar-width:none] gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden">
+        {children}
+      </div>
+    )
+  }
+  return (
+    <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
+      {children}
+    </div>
+  )
+}
+
+function PresetCardSlot({
+  horizontal,
+  children,
+}: {
+  horizontal: boolean
+  children: React.ReactNode
+}) {
+  if (horizontal) return <div className="w-[172px] shrink-0">{children}</div>
+  return <>{children}</>
 }
 
 function CustomPresetList({
@@ -1090,6 +1156,7 @@ function CustomPresetList({
   activeCustomPresetId,
   canvas,
   aspect,
+  horizontal = false,
   onApply,
   onDelete,
 }: {
@@ -1099,28 +1166,30 @@ function CustomPresetList({
   activeCustomPresetId: string | null
   canvas: CanvasState
   aspect: AspectState
+  horizontal?: boolean
   onApply: (preset: CustomPresetSummary) => void
   onDelete: (id: string) => void | Promise<void>
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
+      <PresetCardRow horizontal={horizontal}>
         {Array.from({ length: 2 }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              "rounded-lg border border-border/70 bg-card/70 p-3",
-              i === 1 && "md:hidden"
-            )}
-          >
-            <Skeleton className="aspect-[16/10] w-full rounded-md" />
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <Skeleton className="h-5 w-2/3 rounded-md" />
-              <Skeleton className="size-8 rounded-full" />
+          <PresetCardSlot key={i} horizontal={horizontal}>
+            <div
+              className={cn(
+                "rounded-lg border border-border/70 bg-card/70 p-3",
+                !horizontal && i === 1 && "md:hidden"
+              )}
+            >
+              <Skeleton className="aspect-[16/10] w-full rounded-md" />
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <Skeleton className="h-5 w-2/3 rounded-md" />
+                <Skeleton className="size-8 rounded-full" />
+              </div>
             </div>
-          </div>
+          </PresetCardSlot>
         ))}
-      </div>
+      </PresetCardRow>
     )
   }
 
@@ -1145,19 +1214,20 @@ function CustomPresetList({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 md:block md:space-y-2">
+    <PresetCardRow horizontal={horizontal}>
       {presets.map((preset) => (
-        <CustomPresetCard
-          key={preset.id}
-          preset={preset}
-          canvas={canvas}
-          aspect={aspect}
-          active={activeCustomPresetId === preset.id}
-          onApply={onApply}
-          onDelete={onDelete}
-        />
+        <PresetCardSlot key={preset.id} horizontal={horizontal}>
+          <CustomPresetCard
+            preset={preset}
+            canvas={canvas}
+            aspect={aspect}
+            active={activeCustomPresetId === preset.id}
+            onApply={onApply}
+            onDelete={onDelete}
+          />
+        </PresetCardSlot>
       ))}
-    </div>
+    </PresetCardRow>
   )
 }
 
@@ -1390,7 +1460,7 @@ const PresetCardShell = React.memo(function PresetCardShell({
         containIntrinsicSize: intrinsicSize,
       }}
       className={cn(
-        "group w-full cursor-pointer overflow-hidden rounded-[8px] border bg-white/[0.045] p-2 text-left transition-colors",
+        "group w-full cursor-pointer overflow-hidden rounded-[8px] border bg-white/[0.045] p-1.5 text-left transition-colors",
         active
           ? "border-primary ring-1 ring-primary/40"
           : "border-white/12 hover:border-primary/55"
@@ -1404,8 +1474,8 @@ const PresetCardShell = React.memo(function PresetCardShell({
       >
         {visible ? children : null}
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="truncate text-[12px] leading-tight font-medium">{name}</p>
+      <div className="mt-1.5 flex items-center justify-between gap-1.5">
+        <p className="truncate text-[11px] leading-tight font-medium">{name}</p>
         <span
           className={cn(
             "grid size-5 shrink-0 place-items-center rounded-full border text-white transition-opacity",

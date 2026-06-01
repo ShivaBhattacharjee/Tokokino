@@ -546,14 +546,16 @@ export function MobileFramePicker({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Search */}
-      <div className="relative shrink-0 px-3 pb-2">
-        <RiSearchLine className="pointer-events-none absolute top-1/2 left-5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search devices…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-9 !pl-8 text-[13px]"
-        />
+      <div className="shrink-0 px-3 pb-2">
+        <div className="relative">
+          <RiSearchLine className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search devices…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-10 !pl-9 text-[13px]"
+          />
+        </div>
       </div>
 
       {/* Device grid */}
