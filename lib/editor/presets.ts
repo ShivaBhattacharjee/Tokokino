@@ -130,6 +130,10 @@ export const GRADIENT_LIBRARY: GradientCategory[] = [
       "linear-gradient(135deg, #0f172a, #1e3a8a, #38bdf8)",
       "linear-gradient(135deg, #7c3aed, #db2777, #f59e0b)",
       "linear-gradient(135deg, #134e4a, #5eead4)",
+      "linear-gradient(135deg, #84fab0, #8fd3f4)",
+      "linear-gradient(135deg, #30cfd0, #330867)",
+      "linear-gradient(135deg, #ff6a88, #ff99ac)",
+      "linear-gradient(135deg, #5ee7df, #b490ca)",
     ],
   },
   {
@@ -184,6 +188,10 @@ export const GRADIENT_LIBRARY: GradientCategory[] = [
       "linear-gradient(135deg, #ff5f6d, #ffc371)",
       "linear-gradient(135deg, #21d4fd, #b721ff)",
       "linear-gradient(135deg, #08aeea, #2af598)",
+      "linear-gradient(135deg, #00dbde, #fc00ff)",
+      "linear-gradient(135deg, #fc466b, #3f5efb)",
+      "linear-gradient(135deg, #7028e4, #e5b2ca)",
+      "linear-gradient(135deg, #f9d423, #ff4e50)",
     ],
   },
   {
@@ -363,6 +371,30 @@ export const GRADIENT_LIBRARY: GradientCategory[] = [
       auroraGradient("#0d0a05", [
         { y: 26, h: 20, rot: 24, color: "#fbbf24" },
         { y: 56, h: 20, rot: 24, color: "#f97316" },
+      ]),
+      // Northern-lights green / teal / violet
+      auroraGradient("#030f0c", [
+        { y: 18, h: 16, rot: -14, color: "#34d399" },
+        { y: 42, h: 18, rot: -14, color: "#2dd4bf" },
+        { y: 66, h: 16, rot: -14, color: "#818cf8" },
+      ]),
+      // Acid green / cyan / hyper-violet streaks
+      auroraGradient("#070314", [
+        { y: 20, h: 16, rot: 20, color: "#a3e635" },
+        { y: 44, h: 18, rot: 20, color: "#22d3ee" },
+        { y: 68, h: 16, rot: 20, color: "#a855f7" },
+      ]),
+      // Rose / amber warm bands
+      auroraGradient("#160309", [
+        { y: 22, h: 18, rot: -20, color: "#fb7185" },
+        { y: 50, h: 20, rot: -20, color: "#fbbf24" },
+        { y: 76, h: 16, rot: -20, color: "#e879f9" },
+      ]),
+      // Steep ice-blue cascade
+      auroraGradient("#020814", [
+        { y: 16, h: 14, rot: -34, color: "#38bdf8" },
+        { y: 40, h: 16, rot: -34, color: "#818cf8" },
+        { y: 64, h: 18, rot: -34, color: "#22d3ee" },
       ]),
     ],
   },
