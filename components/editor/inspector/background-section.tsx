@@ -989,23 +989,25 @@ export function BackgroundSection() {
         }}
         className="w-full"
       >
-        <TabsList className="flex h-auto w-full justify-between bg-transparent p-0">
-          <BgTabTrigger value="none" label="None">
-            <RiEraserLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
-          </BgTabTrigger>
-          <BgTabTrigger value="auto" label="Auto">
-            <RiMagicLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
-          </BgTabTrigger>
-          <BgTabTrigger value="solid" label="Solid">
-            <RiDropLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
-          </BgTabTrigger>
-          <BgTabTrigger value="gradient" label="Gradient">
-            <RiGradienterLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
-          </BgTabTrigger>
-          <BgTabTrigger value="image" label="Image">
-            <RiImageLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
-          </BgTabTrigger>
-        </TabsList>
+        <div className="-mx-4 bg-[#111111] px-4 pt-1 pb-3">
+          <TabsList className="flex h-auto w-full justify-between bg-transparent p-0">
+            <BgTabTrigger value="none" label="None">
+              <RiEraserLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
+            </BgTabTrigger>
+            <BgTabTrigger value="auto" label="Auto">
+              <RiMagicLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
+            </BgTabTrigger>
+            <BgTabTrigger value="solid" label="Solid">
+              <RiDropLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
+            </BgTabTrigger>
+            <BgTabTrigger value="gradient" label="Gradient">
+              <RiGradienterLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
+            </BgTabTrigger>
+            <BgTabTrigger value="image" label="Image">
+              <RiImageLine className="size-4 text-muted-foreground group-data-[state=active]:text-[#e8445a]" />
+            </BgTabTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="image" className="mt-6 space-y-4">
           <input

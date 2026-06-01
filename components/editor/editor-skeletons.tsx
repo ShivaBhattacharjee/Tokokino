@@ -1,7 +1,5 @@
 "use client"
 
-import * as React from "react"
-
 import { CornerMarkers } from "@/components/editor/corner-marker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
@@ -81,44 +79,14 @@ export function EffectsSidebarSkeleton({ className }: { className?: string }) {
 
 export function CanvasSkeleton() {
   const aspect = useEditorStore((s) => s.present.aspect)
-  const canvasZoom = useEditorStore((s) => s.present.canvasZoom)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
 
   const aw = aspect.w || 16
   const ah = aspect.h || 10
   const widthPx = BASE_CANVAS_WIDTH
-  const heightPx = (BASE_CANVAS_WIDTH * ah) / aw
-  const zoomScale = isPreviewMode ? 1 : canvasZoom / 100
-
-  const sectionRef = React.useRef<HTMLElement | null>(null)
-  const [autoFit, setAutoFit] = React.useState(0.6)
-  const topGutter = isPreviewMode ? 24 : 24
-  const bottomGutter = isPreviewMode ? 80 : 96
-  const verticalOffset = isPreviewMode ? 0 : (topGutter - bottomGutter) / 2
-
-  React.useLayoutEffect(() => {
-    const el = sectionRef.current
-    if (!el) return
-    const measure = () => {
-      const rect = el.getBoundingClientRect()
-      if (!rect.width || !rect.height) return
-      const hGutter = 48
-      const fitW = Math.max(0, rect.width - hGutter) / widthPx
-      const fitH =
-        Math.max(0, rect.height - topGutter - bottomGutter) / heightPx
-      setAutoFit(Math.max(0.05, Math.min(1, Math.min(fitW, fitH))))
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [widthPx, heightPx, topGutter, bottomGutter])
-
-  const effectiveScale = autoFit * zoomScale
 
   return (
     <section
-      ref={sectionRef}
       data-editor-canvas-surface
       className={cn(
         "relative z-0 flex flex-1 touch-none overflow-hidden overscroll-none bg-background transition-all duration-300 dark:bg-black",
@@ -135,17 +103,17 @@ export function CanvasSkeleton() {
     >
       <CornerMarkers className="text-border" size={12} />
       <div
-        className="absolute top-1/2 left-1/2 origin-center transition-transform duration-200 ease-out"
+        className={cn(
+          "absolute left-1/2 origin-center -translate-x-1/2 -translate-y-1/2",
+          isPreviewMode ? "top-1/2" : "top-[23%] md:top-1/2"
+        )}
         style={{
-          transform: `translate(-50%, calc(-50% + ${verticalOffset}px)) scale(${effectiveScale})`,
-          ["--canvas-fit-scale" as string]: effectiveScale,
+          width: `min(${widthPx}px, calc(100cqw - 32px))`,
         }}
       >
         <Skeleton
-          className="rounded-xl opacity-30 ring-1 ring-border/40"
+          className="w-full rounded-xl opacity-30 ring-1 ring-border/40"
           style={{
-            width: widthPx,
-            height: heightPx,
             aspectRatio: `${aw} / ${ah}`,
           }}
         />

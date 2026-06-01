@@ -237,7 +237,7 @@ function DirectionField({
       onPointerCancel={handlePointerCancel}
       onLostPointerCapture={handleLostPointerCapture}
       className={cn(
-        "group relative h-[132px] w-full max-w-full touch-none overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_30px_rgba(44,36,25,0.06)] transition outline-none dark:border-white/10 dark:bg-[#202020] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "group relative h-[132px] w-full max-w-full touch-none overflow-hidden rounded-md border border-black/10 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_30px_rgba(44,36,25,0.06)] transition outline-none dark:border-white/10 dark:bg-[#202020] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
         disabled
           ? "cursor-not-allowed opacity-55"
           : "cursor-grab focus-visible:ring-2 focus-visible:ring-[#f65d72]/50 active:cursor-grabbing"
@@ -322,7 +322,7 @@ function ColorRail({
             aria-label={`Use ${preset} shadow`}
             onClick={() => onChange(preset)}
             className={cn(
-              "size-6 rounded-full border border-white/10 transition hover:scale-105 xl:size-7",
+              "size-6 rounded-md border border-white/10 transition hover:scale-105 xl:size-7",
               active
                 ? "ring-2 ring-[#f65d72] ring-offset-2 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
                 : "ring-1 ring-black/30"
@@ -341,7 +341,7 @@ function ColorRail({
           type="button"
           aria-label="Choose custom shadow color"
           className={cn(
-            "relative size-7 rounded-full border border-white/15 transition hover:scale-105 xl:size-8",
+            "relative size-7 rounded-md border border-white/15 transition hover:scale-105 xl:size-8",
             isCustomColor
               ? "ring-2 ring-[#f65d72] ring-offset-2 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
               : "ring-1 ring-black/30"
@@ -352,7 +352,7 @@ function ColorRail({
               : "conic-gradient(from 180deg, #f87171, #f59e0b, #34d399, #38bdf8, #a78bfa, #f472b6, #f87171)",
           }}
         >
-          <span className="absolute inset-2 rounded-full border border-white/80" />
+          <span className="absolute inset-2 rounded-sm border border-white/80" />
         </button>
       </ColorPickerPopover>
     </div>
@@ -560,20 +560,22 @@ export function ShadowSection() {
 
   return (
     <div className="min-w-0 space-y-3">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
         {types.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setType(t.id)}
             className={cn(
-              "flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border p-1.5 transition-all",
+              "flex w-[92px] shrink-0 cursor-pointer flex-col items-center gap-1 rounded-md border p-1.5 transition-all md:w-auto md:gap-1.5",
               type === t.id
                 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                 : "border-border/60 bg-secondary/20 hover:border-foreground/30"
             )}
           >
-            <div className="aspect-square w-full">{t.icon}</div>
+            <div className="h-14 w-full md:aspect-square md:h-auto">
+              {t.icon}
+            </div>
             <span
               className={cn(
                 "text-[9px] font-medium",
@@ -588,7 +590,7 @@ export function ShadowSection() {
 
       <div
         className={cn(
-          "min-w-0 rounded-2xl border border-black/10 bg-white p-3 shadow-[0_14px_30px_rgba(44,36,25,0.08)] dark:border-white/8 dark:bg-[#151515] dark:shadow-none",
+          "min-w-0 rounded-md border border-black/10 bg-white p-3 shadow-[0_14px_30px_rgba(44,36,25,0.08)] dark:border-white/8 dark:bg-[#151515] dark:shadow-none",
           !enabled && "opacity-55"
         )}
       >

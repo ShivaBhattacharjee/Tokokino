@@ -247,7 +247,7 @@ export function BorderSection() {
 
       <div>
         <SubHeader>Style</SubHeader>
-        <div className="mb-4 grid grid-cols-3 gap-2">
+        <div className="mb-4 flex [scrollbar-width:none] gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
           {borderStyles.map((t) => (
             <button
               key={t.id}
@@ -261,7 +261,7 @@ export function BorderSection() {
                 applyBorder({ ...border, ...patch })
               }}
               className={cn(
-                "flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border p-1.5 transition-all",
+                "flex w-[92px] shrink-0 cursor-pointer flex-col items-center gap-1 rounded-md border p-1.5 transition-all md:w-auto md:gap-1.5 md:rounded-lg",
                 (
                   t.id === "none"
                     ? !enabled
@@ -271,7 +271,9 @@ export function BorderSection() {
                   : "border-border/60 bg-secondary/20 hover:border-foreground/30"
               )}
             >
-              <div className="aspect-square w-full">{t.icon}</div>
+              <div className="h-14 w-full md:aspect-square md:h-auto">
+                {t.icon}
+              </div>
               <span
                 className={cn(
                   "text-[9px] font-medium",

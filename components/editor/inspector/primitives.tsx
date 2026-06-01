@@ -123,7 +123,7 @@ export function PopoverHeader({
 }
 
 const presetTileBaseClass =
-  "w-full overflow-hidden rounded-xl border cursor-pointer"
+  "w-full overflow-hidden rounded-md border cursor-pointer"
 const presetTileAspectClass = {
   square: "aspect-square",
   rect: "aspect-[4/3]",
@@ -154,7 +154,7 @@ export function ColorPresetGrid({
 }) {
   const tileClass = cn(presetTileBaseClass, presetTileAspectClass[tileShape])
   return (
-    <div className="grid grid-cols-3 gap-2 px-1 py-1">
+    <div className="grid grid-cols-4 gap-2 px-1 py-1 md:grid-cols-3">
       {[...new Set(presets.map((c) => c.toLowerCase()))].map((c) => {
         const active =
           selected !== null && selected.toLowerCase() === c.toLowerCase()
@@ -194,7 +194,7 @@ export function ColorPresetGrid({
                   : "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)",
               }}
             />
-            <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/35 text-white">
+            <span className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/35 text-white">
               <RiGradienterLine className="size-3.5" />
             </span>
           </button>

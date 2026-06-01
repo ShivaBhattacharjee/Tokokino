@@ -269,7 +269,7 @@ export function MobileControls({
         <AnimatePresence>
           {inlineActive ? (
             <motion.div
-              key={inlineActive}
+              key="mobile-inline-options"
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -278,7 +278,11 @@ export function MobileControls({
                 "pointer-events-auto flex w-[min(440px,calc(100vw-1rem))] flex-col overflow-hidden rounded-md border border-border/60 bg-sidebar/95 shadow-xl backdrop-blur",
                 TALL_CATEGORIES.has(inlineActive)
                   ? "h-[36vh] max-h-[270px] min-h-[240px]"
-                  : "max-h-[46vh]"
+                  : inlineActive === "background" ||
+                      inlineActive === "border" ||
+                      inlineActive === "shadow"
+                    ? "max-h-[38vh]"
+                    : "max-h-[46vh]"
               )}
             >
               <div className="flex shrink-0 items-center justify-between px-3 py-2">
@@ -295,13 +299,21 @@ export function MobileControls({
                 </button>
               </div>
               <div className="flex min-h-0 flex-1 flex-col">
-                <InlineOptions
-                  id={inlineActive}
-                  aspect={aspect}
-                  objectFit={objectFit}
-                  onAspectChange={handleAspectChange}
-                  onClose={close}
-                />
+                <motion.div
+                  key={inlineActive}
+                  initial={{ opacity: 0.72 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.1, ease: "easeOut" }}
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <InlineOptions
+                    id={inlineActive}
+                    aspect={aspect}
+                    objectFit={objectFit}
+                    onAspectChange={handleAspectChange}
+                    onClose={close}
+                  />
+                </motion.div>
               </div>
             </motion.div>
           ) : null}
@@ -318,10 +330,10 @@ export function MobileControls({
                 onClick={() => openCategory(cat.id)}
                 aria-pressed={isActive}
                 className={cn(
-                  "flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-colors",
+                  "flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors",
                   isActive
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-foreground/60 hover:text-foreground"
+                    ? "border-[#ff5a6f] bg-[#ff5a6f] text-white"
+                    : "border-transparent text-foreground/60 hover:bg-[#cfe5b8]/20 hover:text-foreground dark:hover:bg-[#cfe5b8]/10"
                 )}
               >
                 <cat.icon className="size-5 shrink-0" />
@@ -364,14 +376,14 @@ export function MobileControls({
                     className={cn(
                       "relative flex cursor-pointer items-center gap-1.5 rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors",
                       isActive
-                        ? "text-background"
+                        ? "text-white"
                         : "text-foreground/70 hover:text-foreground"
                     )}
                   >
                     {isActive ? (
                       <motion.span
                         layoutId="mobile-tab-pill"
-                        className="absolute inset-0 rounded-md bg-foreground"
+                        className="absolute inset-0 rounded-md bg-[#ff5a6f]"
                         transition={{
                           type: "spring",
                           stiffness: 420,
