@@ -110,7 +110,6 @@ export function MobileMovePanel() {
   const [mainStageDims, setMainStageDims] =
     React.useState<StagePlacementDims | null>(null)
 
-   
   React.useLayoutEffect(() => {
     if (!isBareMainTarget) {
       setMainStageDims(null)
