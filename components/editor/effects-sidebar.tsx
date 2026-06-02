@@ -320,14 +320,14 @@ export function AccountTile() {
           <Link
             href="/app/shares"
             onClick={() => setExpanded(false)}
-            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors hover:bg-secondary/60"
+            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
           >
             <RiGalleryLine className="size-4 shrink-0 text-muted-foreground" />
             My Shares
           </Link>
           <button
             type="button"
-            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors hover:bg-secondary/60"
+            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
             onClick={() => {
               setExpanded(false)
               setStorageOpen(true)
@@ -339,7 +339,7 @@ export function AccountTile() {
           <button
             type="button"
             disabled={isSigningOut}
-            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-60"
+            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-xs font-medium text-destructive transition-colors outline-none hover:bg-destructive/10 focus:ring-0 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-60 sm:focus-visible:ring-2 sm:focus-visible:ring-destructive/30"
             onClick={() => void handleSignOut()}
           >
             <RiLogoutBoxRLine className="size-4 shrink-0" />
