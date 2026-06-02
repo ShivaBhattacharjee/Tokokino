@@ -396,7 +396,7 @@ function BulkCanvasFlowInner() {
 function GlassControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow()
   return (
-    <div className="pointer-events-auto absolute top-3 right-3 z-50 flex flex-col items-center gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 shadow-lg backdrop-blur-md backdrop-saturate-150 dark:border-white/10 dark:bg-white/5">
+    <div className="pointer-events-auto absolute top-3 right-3 z-50 flex flex-col items-center gap-0.5 rounded-md border border-white/10 bg-white/5 p-1 shadow-lg backdrop-blur-md backdrop-saturate-150 dark:border-white/10 dark:bg-white/5">
       <Tooltip>
         <TooltipTrigger asChild>
           <button

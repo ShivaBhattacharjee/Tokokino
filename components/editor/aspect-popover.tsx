@@ -554,7 +554,7 @@ export function AspectPopover({
         sideOffset={8}
         collisionPadding={8}
         avoidCollisions={false}
-        className="flex h-[min(560px,80dvh)] max-h-[min(560px,80dvh)] w-[min(360px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden bg-popover p-0 max-md:h-[min(560px,80dvh)] max-md:max-h-[min(560px,80dvh)]"
+        className="flex h-[min(480px,70dvh)] max-h-[min(480px,70dvh)] w-[min(360px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden bg-popover p-0 max-md:h-[min(480px,70dvh)] max-md:max-h-[min(480px,70dvh)]"
       >
         {/* Search */}
         <motion.div

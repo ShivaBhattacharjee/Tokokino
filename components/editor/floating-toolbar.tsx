@@ -535,7 +535,7 @@ function BulkBarContent({
   resetPositions: () => void
 }) {
   return (
-    <div className="pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md">
+    <div className="pointer-events-auto flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md">
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -678,7 +678,7 @@ export function FloatingToolbar() {
         <div
           data-mode={isAnnotateMode ? "annotate" : "default"}
           className={cn(
-            "pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md",
+            "pointer-events-auto flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md",
             "[scrollbar-width:none] overflow-x-auto [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
             isAnnotateMode &&
               "max-w-[calc(100vw-1.5rem)] md:max-xl:max-w-[calc(100vw-340px)]"
@@ -1675,7 +1675,7 @@ function ScreenshotMediaPill() {
   const activeScale = selectedSlot?.scale ?? scale
 
   return (
-    <div className="pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md">
+    <div className="pointer-events-auto flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md">
       {/* Undo / Redo — mobile + iPad only */}
       <span className="flex items-center xl:hidden">
         <Tooltip>
@@ -1736,7 +1736,7 @@ function ScreenshotMediaPill() {
                 )
               }
             }}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
             <RiGalleryLine className="size-4 shrink-0" />
             <span className="hidden sm:inline">Add Slot</span>
@@ -1755,7 +1755,7 @@ function ScreenshotMediaPill() {
               aria-label="Image fit"
               aria-pressed={open}
               className={cn(
-                "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent",
+                "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent",
                 open && "bg-accent text-foreground"
               )}
             >
@@ -1802,7 +1802,7 @@ function ScreenshotMediaPill() {
               type="button"
               disabled
               aria-label="Image fit"
-              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 opacity-40"
+              className="inline-flex h-9 cursor-not-allowed items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 opacity-40"
             >
               <RiFullscreenLine className="size-4 shrink-0" />
               <span className="hidden sm:inline">Fill Mode</span>
