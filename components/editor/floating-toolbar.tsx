@@ -34,8 +34,15 @@ import {
 import {
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
+  setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
 } from "@/components/editor/position-preview-vars"
+import {
+  bareScreenshotPositionPct,
+  bareScreenshotTargetLeftTop,
+  resolveBareScreenshotPlacement,
+  type StagePlacementDims,
+} from "@/components/editor/mobile-controls/position-math"
 import {
   ToolbarButton,
   ToolbarPopover,
@@ -807,6 +814,52 @@ function DefaultToolbarContents() {
                       ? "screenshot"
                       : null
 
+  // The frame-less main screenshot is positioned in real stage pixels (mirroring
+  // the canvas renderer's placement math), not the base-canvas space the legacy
+  // helpers below assume — so it needs DOM-measured dimensions.
+  const isBareMainTarget =
+    positionTarget === "screenshot" &&
+    !hasDeviceFrame &&
+    screenshotSlots.length === 0 &&
+    Boolean(screenshot)
+  const scaleFactor = scale / 100
+
+  // Measure the live stage/image of the frame-less main screenshot in the same
+  // CSS-pixel space the canvas renderer uses, so committed placement matches the
+  // preview instead of jumping (the stored offset is rendered as raw px).
+  const measureMainStageDims =
+    React.useCallback((): StagePlacementDims | null => {
+      if (typeof document === "undefined" || !activeCanvasId) return null
+      const canvasElement = document.querySelector<HTMLElement>(
+        `[data-canvas-id="${CSS.escape(activeCanvasId)}"]`
+      )
+      const image = canvasElement?.querySelector<HTMLElement>(
+        "[data-editor-shadow-box-target]"
+      )
+      const stage = image?.parentElement
+      if (!image || !stage) return null
+      const computed = getComputedStyle(stage)
+      const dims = {
+        stageW: parseFloat(computed.width) || stage.clientWidth,
+        stageH: parseFloat(computed.height) || stage.clientHeight,
+        imgW: image.offsetWidth,
+        imgH: image.offsetHeight,
+      }
+      if (!dims.stageW || !dims.stageH || !dims.imgW || !dims.imgH) return null
+      return dims
+    }, [activeCanvasId])
+
+  const [mainStageDims, setMainStageDims] =
+    React.useState<StagePlacementDims | null>(null)
+
+  React.useLayoutEffect(() => {
+    if (!isBareMainTarget) {
+      setMainStageDims(null)
+      return
+    }
+    setMainStageDims(measureMainStageDims())
+  }, [isBareMainTarget, measureMainStageDims, scale, aspect, screenshot])
+
   const currentPositionPoint = React.useMemo<PositionSwipePoint | null>(() => {
     let xPct: number
     let yPct: number
@@ -865,6 +918,14 @@ function DefaultToolbarContents() {
         yPct: clampPercent(center.yPct),
       }
     } else if (positionTarget === "screenshot") {
+      if (isBareMainTarget && mainStageDims) {
+        return bareScreenshotPositionPct({
+          dims: mainStageDims,
+          scaleFactor,
+          position: screenshotPosition,
+          offset: screenshotOffset,
+        })
+      }
       const point = mainScreenshotPositionPct({
         aspect,
         frame,
@@ -890,6 +951,9 @@ function DefaultToolbarContents() {
     screenshotOffset,
     activeCanvasPosition,
     hasMainScreenshot,
+    isBareMainTarget,
+    mainStageDims,
+    scaleFactor,
   ])
 
   const getActiveCanvasElement = React.useCallback(() => {
@@ -995,16 +1059,26 @@ function DefaultToolbarContents() {
         setCanvasPosition(activeCanvasId, { x, y })
       } else if (positionTarget === "screenshot") {
         emitHideFloatingToolbar("screenshot", "")
-        setScreenshotPlacement(
-          posId,
-          mainScreenshotOffsetForPoint({
-            aspect,
-            frame,
-            position: posId,
-            slots: screenshotSlots,
+        const dims = isBareMainTarget ? measureMainStageDims() : null
+        if (dims) {
+          const placement = resolveBareScreenshotPlacement({
+            dims,
+            scaleFactor,
             point: safePoint,
           })
-        )
+          setScreenshotPlacement(placement.position, placement.offset)
+        } else {
+          setScreenshotPlacement(
+            posId,
+            mainScreenshotOffsetForPoint({
+              aspect,
+              frame,
+              position: posId,
+              slots: screenshotSlots,
+              point: safePoint,
+            })
+          )
+        }
       } else if (positionTarget === "allScreenshots") {
         const currentGroupCenter = allScreenshotGroupCenter({
           hasMainScreenshot,
@@ -1060,7 +1134,10 @@ function DefaultToolbarContents() {
       collectPositionPreviewElements,
       frame,
       hasMainScreenshot,
+      isBareMainTarget,
+      measureMainStageDims,
       positionTarget,
+      scaleFactor,
       screenshotOffset,
       screenshotPosition,
       screenshotSlots,
@@ -1141,6 +1218,18 @@ function DefaultToolbarContents() {
         return
       }
       if (positionTarget === "screenshot") {
+        if (isBareMainTarget) {
+          const dims = measureMainStageDims()
+          if (dims) {
+            const target = bareScreenshotTargetLeftTop(dims, safePoint)
+            setMainScreenshotBarePreviewPx(
+              canvasElement,
+              target.left,
+              target.top
+            )
+            return
+          }
+        }
         setMainScreenshotPositionPreview(canvasElement, safePoint)
         return
       }
@@ -1190,6 +1279,8 @@ function DefaultToolbarContents() {
       frame,
       getActiveCanvasElement,
       hasMainScreenshot,
+      isBareMainTarget,
+      measureMainStageDims,
       positionTarget,
       queryActiveCanvasElement,
       screenshotOffset,

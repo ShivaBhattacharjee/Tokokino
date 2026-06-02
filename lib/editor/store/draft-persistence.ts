@@ -98,6 +98,49 @@ function getBlobFromObjectUrl(url: string): Blob | null {
   return objectUrlBlobs.get(url) ?? null
 }
 
+// Safari/WebKit only guarantees that a Blob read from IndexedDB stays readable
+// while the source database connection is open — once we `db.close()`, the
+// IDB-backed bytes can be released and any Object URL minted from them resolves
+// to a broken image ("sometimes" blank screenshots on reload). Copying the
+// bytes into a fresh in-memory Blob before the connection closes severs that
+// dependency. We also re-stamp a concrete image MIME type, since Safari refuses
+// to render an Object URL whose Blob has an empty `type`.
+async function materializeBlob(blob: Blob): Promise<Blob> {
+  const buffer = await blob.arrayBuffer()
+  const type =
+    blob.type || sniffImageMime(new Uint8Array(buffer)) || "image/png"
+  return new Blob([buffer], { type })
+}
+
+function sniffImageMime(bytes: Uint8Array): string | null {
+  if (bytes.length >= 4) {
+    if (
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47
+    )
+      return "image/png"
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
+      return "image/jpeg"
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46)
+      return "image/gif"
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  )
+    return "image/webp"
+  return null
+}
+
 function dataUrlToBlob(dataUrl: string): Blob {
   const comma = dataUrl.indexOf(",")
   const header = dataUrl.slice(0, comma)
@@ -256,10 +299,16 @@ async function resolveScreenshots(
   // the bitmap lazily when the <img> actually renders. That keeps the
   // hydration setState cheap and stops the post-refresh thundering herd
   // where every canvas re-rendered with a giant data URL at once.
+  //
+  // Materialize each Blob into memory *before* the caller closes the DB so the
+  // Object URLs survive on Safari (see materializeBlob). Done in parallel to
+  // keep hydration fast.
   const objectUrls: Record<string, string> = {}
-  for (const [key, blob] of Object.entries(blobMap)) {
-    objectUrls[key] = blobToObjectUrl(blob)
-  }
+  await Promise.all(
+    Object.entries(blobMap).map(async ([key, blob]) => {
+      objectUrls[key] = blobToObjectUrl(await materializeBlob(blob))
+    })
+  )
 
   const resolve = (v: string | null | undefined): string | null => {
     if (!isSentinel(v)) return v ?? null

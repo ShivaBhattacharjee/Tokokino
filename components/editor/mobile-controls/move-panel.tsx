@@ -9,16 +9,21 @@ import {
 import {
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
+  setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
 } from "@/components/editor/position-preview-vars"
 import { useEditor, useEditorStore } from "@/lib/editor/store"
 
 import {
+  bareScreenshotPositionPct,
+  bareScreenshotTargetLeftTop,
   clampPercent,
   mainScreenshotOffsetForPoint,
   mainScreenshotPositionPct,
   positionIdFromPercent,
+  resolveBareScreenshotPlacement,
   screenshotSlotGroupCenter,
+  type StagePlacementDims,
 } from "./position-math"
 
 export function MobileMovePanel() {
@@ -50,6 +55,10 @@ export function MobileMovePanel() {
   const hasDeviceFrame = editor.frame.id !== "none"
   const hasMainTarget = Boolean(editor.screenshot) || hasDeviceFrame
   const hasSlotGroup = editor.screenshotSlots.length > 0
+  // The frame-less main screenshot is positioned in real stage pixels (not the
+  // base-canvas space), so it needs the DOM-measured placement math below.
+  const isBareMainTarget =
+    hasMainTarget && !hasDeviceFrame && editor.screenshotSlots.length === 0
   const targetLabel = selectedText
     ? "text"
     : selectedAsset
@@ -78,6 +87,44 @@ export function MobileMovePanel() {
       getActiveCanvasElement()?.querySelector<HTMLElement>(selector) ?? null,
     [getActiveCanvasElement]
   )
+
+  // Measure the live stage/image of the frame-less main screenshot in the same
+  // CSS-pixel space the canvas renderer uses, so committed placement matches the
+  // preview instead of jumping (the stored offset is rendered as raw px).
+  const measureMainStageDims =
+    React.useCallback((): StagePlacementDims | null => {
+      const image = queryActiveCanvasElement("[data-editor-shadow-box-target]")
+      const stage = image?.parentElement
+      if (!image || !stage) return null
+      const computed = getComputedStyle(stage)
+      const dims = {
+        stageW: parseFloat(computed.width) || stage.clientWidth,
+        stageH: parseFloat(computed.height) || stage.clientHeight,
+        imgW: image.offsetWidth,
+        imgH: image.offsetHeight,
+      }
+      if (!dims.stageW || !dims.stageH || !dims.imgW || !dims.imgH) return null
+      return dims
+    }, [queryActiveCanvasElement])
+
+  const [mainStageDims, setMainStageDims] =
+    React.useState<StagePlacementDims | null>(null)
+
+  React.useLayoutEffect(() => {
+    if (!isBareMainTarget) {
+      setMainStageDims(null)
+      return
+    }
+    setMainStageDims(measureMainStageDims())
+  }, [
+    isBareMainTarget,
+    measureMainStageDims,
+    editor.scale,
+    editor.aspect,
+    editor.screenshot,
+  ])
+
+  const scaleFactor = editor.scale / 100
 
   const collectPositionPreviewElements = React.useCallback(() => {
     const canvasElement = getActiveCanvasElement()
@@ -134,6 +181,14 @@ export function MobileMovePanel() {
     }
     if (selectedSlot)
       return { xPct: selectedSlot.xPct, yPct: selectedSlot.yPct }
+    if (isBareMainTarget && mainStageDims) {
+      return bareScreenshotPositionPct({
+        dims: mainStageDims,
+        scaleFactor,
+        position: editor.screenshotPosition,
+        offset: editor.screenshotOffset,
+      })
+    }
     if (hasMainTarget) {
       const point = mainScreenshotPositionPct({
         aspect: editor.aspect,
@@ -154,6 +209,9 @@ export function MobileMovePanel() {
     editor.screenshotSlots,
     hasMainTarget,
     hasSlotGroup,
+    isBareMainTarget,
+    mainStageDims,
+    scaleFactor,
     selectedAnnotation,
     selectedAsset,
     selectedSlot,
@@ -205,6 +263,14 @@ export function MobileMovePanel() {
         )
         return
       }
+      if (isBareMainTarget) {
+        const dims = measureMainStageDims()
+        if (dims) {
+          const target = bareScreenshotTargetLeftTop(dims, safePoint)
+          setMainScreenshotBarePreviewPx(canvasElement, target.left, target.top)
+          return
+        }
+      }
       if (hasMainTarget) {
         setMainScreenshotPositionPreview(canvasElement, safePoint)
         return
@@ -232,6 +298,8 @@ export function MobileMovePanel() {
       getActiveCanvasElement,
       hasMainTarget,
       hasSlotGroup,
+      isBareMainTarget,
+      measureMainStageDims,
       queryActiveCanvasElement,
       selectedAnnotation,
       selectedAsset,
@@ -265,6 +333,18 @@ export function MobileMovePanel() {
           editor.updateScreenshotSlot(selectedSlot.id, safePoint)
           return
         }
+        if (isBareMainTarget) {
+          const dims = measureMainStageDims()
+          if (dims) {
+            const placement = resolveBareScreenshotPlacement({
+              dims,
+              scaleFactor,
+              point: safePoint,
+            })
+            editor.setScreenshotPlacement(placement.position, placement.offset)
+            return
+          }
+        }
         if (hasMainTarget) {
           editor.setScreenshotPlacement(
             position,
@@ -290,6 +370,9 @@ export function MobileMovePanel() {
       editor,
       hasMainTarget,
       hasSlotGroup,
+      isBareMainTarget,
+      measureMainStageDims,
+      scaleFactor,
       selectedAnnotation,
       selectedAsset,
       selectedSlot,

@@ -661,10 +661,13 @@ export function SharesGallery({
               removed. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+            <AlertDialogCancel className="cursor-pointer">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+              variant="destructive"
+              className="cursor-pointer"
               onClick={() => void handleDeleteConfirm(deleteTarget!)}
             >
               Delete
@@ -684,10 +687,13 @@ export function SharesGallery({
               all share links will stop working. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+            <AlertDialogCancel className="cursor-pointer">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+              variant="destructive"
+              className="cursor-pointer"
               onClick={() => void handleDeleteAll()}
             >
               Delete all

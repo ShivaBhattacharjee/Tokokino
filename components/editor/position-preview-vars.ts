@@ -56,6 +56,23 @@ export function setMainScreenshotPositionPreview(
   canvasElement.style.setProperty(MAIN_BARE_TOP_VAR, `${point.yPct}%`)
 }
 
+/**
+ * Live-preview the frame-less main screenshot by driving its top-left corner in
+ * stage pixels. Once a screenshot exists the image renders without a centering
+ * `translate(-50%, -50%)`, so the bare vars must carry the same px box-left the
+ * commit will produce — a percentage (as `setMainScreenshotPositionPreview`
+ * uses) would shift the image by half its size and make it jump on release.
+ */
+export function setMainScreenshotBarePreviewPx(
+  canvasElement: HTMLElement | null | undefined,
+  leftPx: number,
+  topPx: number
+) {
+  if (!canvasElement) return
+  canvasElement.style.setProperty(MAIN_BARE_LEFT_VAR, `${leftPx}px`)
+  canvasElement.style.setProperty(MAIN_BARE_TOP_VAR, `${topPx}px`)
+}
+
 export function clearPositionPreviewVars(
   element: HTMLElement | null | undefined
 ) {
