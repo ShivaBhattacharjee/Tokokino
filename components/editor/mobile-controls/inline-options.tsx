@@ -43,10 +43,8 @@ export function InlineOptions({
 
   if (id === "layers") {
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-4">
-        <div className="[&>div]:w-full">
-          <LayersPanelContent />
-        </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
+        <LayersPanelContent flat />
       </div>
     )
   }

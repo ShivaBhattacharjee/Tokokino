@@ -107,7 +107,7 @@ const restrictLayerDrag: Modifier = ({
   return { ...transform, x: 0, y }
 }
 
-export function LayersPanelContent() {
+export function LayersPanelContent({ flat }: { flat?: boolean }) {
   const {
     screenshot,
     background,
@@ -374,7 +374,7 @@ export function LayersPanelContent() {
   }
 
   return (
-    <div className="w-[300px] p-2">
+    <div className={cn(flat ? "w-full p-2" : "w-[300px] p-2")}>
       {canvasIds.length > 1 ? (
         <div className="mb-2 flex [scrollbar-width:none] items-center gap-1 overflow-x-auto rounded-md border border-border/60 bg-secondary/20 p-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {canvasIds.map((canvasId, index) => {
@@ -431,7 +431,12 @@ export function LayersPanelContent() {
           items={layers.map((layer) => layer.key)}
           strategy={verticalListSortingStrategy}
         >
-          <ul className="flex max-h-[300px] flex-col gap-0.5 overflow-y-auto pr-1">
+          <ul
+            className={cn(
+              "flex flex-col gap-0.5 pr-1",
+              !flat && "max-h-[300px] overflow-y-auto"
+            )}
+          >
             {layers.map((layer, index) => (
               <LayerRow
                 key={layer.key}

@@ -364,7 +364,7 @@ export function MobileAspectPicker({
   const [h, setH] = React.useState("1200")
 
   const q = query.trim().toLowerCase()
-  const matches = (o: AspectOption) => {
+  const matchesOption = (o: AspectOption) => {
     if (!q) return true
     return (
       o.name.toLowerCase().includes(q) ||
@@ -373,8 +373,12 @@ export function MobileAspectPicker({
       `${o.w}x${o.h}`.includes(q)
     )
   }
+  const matchesSection = (s: AspectSection) =>
+    !q || s.label.toLowerCase().includes(q)
 
-  const filteredOptions = ALL_OPTIONS.filter(matches)
+  const filteredOptions = SECTIONS.flatMap((s) =>
+    matchesSection(s) ? s.options : s.options.filter(matchesOption)
+  ).filter(Boolean)
 
   const customW = Number(w)
   const customH = Number(h)
@@ -412,7 +416,6 @@ export function MobileAspectPicker({
 
       {/* Presets — single x-axis scroll (no vertical list on mobile) */}
       <div className="min-h-0 flex-1 px-3 py-1">
-        <div className="label-eyebrow mb-2 !text-[9px]">Presets</div>
         {filteredOptions.length > 0 ? (
           <div className="-mx-3 flex [scrollbar-width:none] items-end gap-3 overflow-x-auto px-3 pb-2 [&::-webkit-scrollbar]:hidden">
             {filteredOptions.map((o) => (
@@ -455,7 +458,7 @@ export function MobileAspectPicker({
             className={cn(
               "h-9 shrink-0 rounded-md px-3 text-[12px] font-medium",
               isCustomValid
-                ? "bg-foreground text-background hover:bg-foreground/90"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "cursor-not-allowed bg-muted text-muted-foreground"
             )}
           >
@@ -662,7 +665,7 @@ export function AspectPopover({
               className={cn(
                 "h-8 shrink-0 rounded-md px-2.5 text-[11px] font-medium",
                 isCustomValid
-                  ? "bg-foreground text-background hover:bg-foreground/90"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : "cursor-not-allowed bg-muted text-muted-foreground"
               )}
             >
@@ -711,7 +714,7 @@ function AspectTile({
         className={cn(
           "flex shrink-0 items-center justify-center rounded-lg border text-center transition-colors",
           active
-            ? "border-transparent bg-foreground text-background"
+            ? "border-transparent bg-[#6e9e5a] text-white"
             : "border-border/60 bg-secondary/60 text-foreground/85 hover:border-foreground/25 hover:bg-secondary"
         )}
       >

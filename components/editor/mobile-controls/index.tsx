@@ -405,7 +405,7 @@ export function MobileControls({
               className={cn(
                 "pointer-events-auto flex w-[min(440px,calc(100vw-1rem))] flex-col overflow-hidden rounded-md border border-border/60 bg-sidebar/95 shadow-xl backdrop-blur",
                 inlineActive === "layers"
-                  ? "h-[42vh] max-h-[360px] min-h-[260px]"
+                  ? "h-[42vh] max-h-[360px] min-h-[160px]"
                   : TALL_CATEGORIES.has(inlineActive)
                     ? "h-[36vh] max-h-[270px] min-h-[240px]"
                     : inlineActive === "move"
