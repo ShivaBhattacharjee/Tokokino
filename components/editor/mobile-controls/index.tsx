@@ -374,6 +374,7 @@ export function MobileControls({
 
   const activeLabel =
     ALL_CATEGORIES.find((c) => c.id === inlineActive)?.label ?? "Controls"
+  const penButtonActive = toolsOpen || annotationOpen || activeTool === "arrow"
 
   return (
     <>
@@ -534,11 +535,11 @@ export function MobileControls({
               <button
                 type="button"
                 aria-label="Tools"
-                aria-pressed={toolsOpen}
+                aria-pressed={penButtonActive}
                 className={cn(
                   "flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors",
-                  toolsOpen
-                    ? "bg-foreground text-background"
+                  penButtonActive
+                    ? "bg-[#ff5a6f] text-white"
                     : "bg-secondary/50 text-foreground/70 hover:text-foreground"
                 )}
               >
