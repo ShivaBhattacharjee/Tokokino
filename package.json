@@ -41,7 +41,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@opennextjs/cloudflare": "^1.19.11",
     "@remixicon/react": "^4.9.0",
-    "@sentry/nextjs": "^9.47.1",
+    "@sentry/browser": "^9.47.1",
     "@smithy/fetch-http-handler": "^5.4.3",
     "@xyflow/react": "^12.10.2",
     "better-auth": "^1.6.11",

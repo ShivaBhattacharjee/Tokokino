@@ -12,7 +12,9 @@ export default function GlobalError({
   error: Error & { digest?: string }
 }) {
   useEffect(() => {
-    void import("@sentry/nextjs").then((Sentry) => {
+    if (!process.env.NEXT_PUBLIC_SENTRY_DSN) return
+
+    void import("@sentry/browser").then((Sentry) => {
       Sentry.captureException(error)
     })
   }, [error])
