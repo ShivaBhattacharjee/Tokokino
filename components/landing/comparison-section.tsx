@@ -35,42 +35,49 @@ const FEATURE_MATRIX = [
     tokokino: true,
     figma: false,
     canva: false,
+    cleanshot: false,
   },
   {
     feature: "No watermark exports",
     tokokino: true,
     figma: true,
     canva: false,
+    cleanshot: true,
   },
   {
     feature: "Device and browser frames",
     tokokino: true,
     figma: "manual",
     canva: "limited",
+    cleanshot: "limited",
   },
   {
     feature: "Auto-sampled palettes",
     tokokino: true,
     figma: "plugin",
     canva: false,
+    cleanshot: false,
   },
   {
     feature: "Multi-screenshot layouts",
     tokokino: true,
     figma: "manual",
     canva: "manual",
+    cleanshot: true,
   },
   {
     feature: "Local-first by default",
     tokokino: true,
     figma: false,
     canva: false,
+    cleanshot: true,
   },
   {
     feature: "No AI training on uploads",
     tokokino: true,
     figma: "policy",
     canva: "policy",
+    cleanshot: true,
   },
 ] as const
 
@@ -172,19 +179,20 @@ export function ComparisonSection() {
         transition={{ duration: 0.65, ease, delay: 0.08 }}
         className="mt-5 max-h-[28rem] overflow-auto rounded-md border border-border/70 bg-background/55 backdrop-blur-md sm:max-h-none sm:overflow-visible"
       >
-        <div className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(3,minmax(4.5rem,0.55fr))] border-b border-border/60 bg-background/70 text-center font-mono text-[10px] tracking-[0.2em] text-foreground/42 uppercase">
+        <div className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(4.5rem,0.55fr))] border-b border-border/60 bg-background/70 text-center font-mono text-[10px] tracking-[0.2em] text-foreground/42 uppercase">
           <div className="px-4 py-3 text-left">Feature</div>
           <div className="bg-primary/[0.07] px-3 py-3 text-primary">
             Tokokino
           </div>
           <div className="px-3 py-3">Figma</div>
           <div className="px-3 py-3">Canva</div>
+          <div className="px-3 py-3">CleanShot</div>
         </div>
 
         {FEATURE_MATRIX.map((row) => (
           <div
             key={row.feature}
-            className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(3,minmax(4.5rem,0.55fr))] border-b border-border/45 last:border-b-0"
+            className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(4.5rem,0.55fr))] border-b border-border/45 last:border-b-0"
           >
             <div className="px-4 py-3 text-[13px] font-medium text-foreground/78">
               {row.feature}
@@ -197,6 +205,9 @@ export function ComparisonSection() {
             </div>
             <div className="px-3 py-3 text-center">
               <MatrixCell value={row.canva} />
+            </div>
+            <div className="px-3 py-3 text-center">
+              <MatrixCell value={row.cleanshot} />
             </div>
           </div>
         ))}
