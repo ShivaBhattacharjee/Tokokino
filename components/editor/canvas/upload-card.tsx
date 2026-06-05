@@ -582,7 +582,7 @@ const DEFAULT_SIZING = {
     "flex w-full items-center justify-center gap-2.5 rounded-lg px-5 py-4 text-[14px] font-semibold tracking-[-0.02em] transition-all",
   urlRow: "flex items-center gap-1.5",
   urlLabel:
-    "flex min-h-10 flex-1 items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 text-left transition-colors focus-within:border-neutral-300 focus-within:bg-white dark:border-white/10 dark:bg-white/8 dark:focus-within:bg-white/12",
+    "flex min-h-10 flex-1 items-center gap-2 max-md:w-10 rounded-md border border-neutral-200 bg-neutral-50 px-3 text-left transition-colors focus-within:border-neutral-300 focus-within:bg-white dark:border-white/10 dark:bg-white/8 dark:focus-within:bg-white/12",
   urlIconTint: "text-neutral-400 dark:text-white/35",
   urlInput:
     "min-w-0 flex-1 bg-transparent text-[16px] text-neutral-950 placeholder:text-neutral-400 focus:outline-none sm:text-[13px] dark:text-white dark:placeholder:text-white/35",
