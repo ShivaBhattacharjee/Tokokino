@@ -584,17 +584,21 @@ function BackdropFilterGrid({
   current,
   onChange,
   layout = "grid",
+  columns = 3,
 }: {
   current: AssetFilter
   onChange: (f: AssetFilter) => void
   layout?: BackdropPickerLayout
+  columns?: 3 | 4
 }) {
   return (
     <div
       className={cn(
         layout === "carousel"
           ? "flex [scrollbar-width:none] gap-2 overflow-x-auto overflow-y-hidden px-1 py-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-          : "grid grid-cols-4 gap-2 px-1 py-1"
+          : columns === 4
+            ? "grid grid-cols-4 gap-2 px-1 py-1"
+            : "grid grid-cols-3 gap-2 px-1 py-1"
       )}
     >
       {BACKDROP_FILTERS.map((f) => {
@@ -1446,6 +1450,7 @@ export function BackdropSection({
               current={backdropFilter}
               onChange={setBackdropFilter}
               layout="grid"
+              columns={usesInlineControls ? 4 : 3}
             />
           </BackdropControlPopover>
         ) : null}
