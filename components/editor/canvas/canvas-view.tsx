@@ -751,6 +751,9 @@ function CanvasViewInner({
                       setIsScreenshotSelected(false)
                       setScreenshot(null)
                     }}
+                    onCaptureWebsite={handleCaptureWebsite}
+                    captureDefaultDevice={captureDefaultDevice}
+                    captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
                   />
                 ) : mockupAsset && mockupSpec ? (
