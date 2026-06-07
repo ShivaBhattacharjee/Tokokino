@@ -40,7 +40,7 @@ export function Nav() {
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease }}
-        className="relative z-50 flex h-16 items-center justify-between border-b border-border/35 bg-background/72 px-5 backdrop-blur-xl sm:px-8 lg:px-12"
+        className="relative z-50 flex h-12 shrink-0 items-center justify-between bg-background/72 px-5 backdrop-blur-xl sm:px-8 lg:px-12"
       >
         <BrandLogo />
 
@@ -110,7 +110,7 @@ export function Nav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.28, ease }}
-            className="fixed inset-x-0 top-16 bottom-0 z-40 flex flex-col overflow-y-auto px-7 pt-8 pb-12 xl:hidden"
+            className="fixed inset-x-0 top-12 bottom-0 z-40 flex flex-col overflow-y-auto px-7 pt-8 pb-12 xl:hidden"
             style={{
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
