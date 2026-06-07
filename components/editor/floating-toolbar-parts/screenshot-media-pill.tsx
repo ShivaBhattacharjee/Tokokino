@@ -38,6 +38,7 @@ export function ScreenshotMediaPill() {
     setIsScreenshotSelected,
     setActiveTool,
     screenshot,
+    tweet,
     objectFit,
     setObjectFit,
     frame,
@@ -64,12 +65,15 @@ export function ScreenshotMediaPill() {
   const isDisabled =
     presetTab === "multi" ||
     presetTab === "triple" ||
+    Boolean(tweet) ||
     screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
 
   const slotTooltip = isDisabled
-    ? presetTab === "multi" || presetTab === "triple"
-      ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
-      : `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
+    ? tweet
+      ? "Disabled for X posts"
+      : presetTab === "multi" || presetTab === "triple"
+        ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
+        : `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
     : "Add a screenshot slot"
 
   const hasDeviceFrame = frame.id !== "none"

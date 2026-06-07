@@ -9,6 +9,7 @@ import { BorderSection } from "@/components/editor/inspector/border-section"
 import { PaddingSection } from "@/components/editor/inspector/padding-section"
 import { ShadowSection } from "@/components/editor/inspector/shadow-section"
 import { TiltSection } from "@/components/editor/inspector/tilt-section"
+import { TweetSection } from "@/components/editor/inspector/tweet-section"
 import type { AspectState } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
@@ -73,6 +74,7 @@ export function InlineOptions({
         {id === "border" ? <BorderSection /> : null}
         {id === "padding" ? <PaddingSection /> : null}
         {id === "shadow" ? <ShadowSection /> : null}
+        {id === "tweet" ? <TweetSection /> : null}
         {id === "transform" ? <TiltSection /> : null}
       </div>
     </div>

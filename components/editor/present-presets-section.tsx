@@ -138,13 +138,18 @@ export function PresentPresetsSection({
   const displayActiveCustomPresetId = bulkEditMode
     ? (bulkPresetUi?.activeCustomPresetId ?? null)
     : activeCustomPresetId
+  const hasTweet = Boolean(canvas.tweet)
 
   const handleTabChange = React.useCallback(
     (nextTab: PresetTab) => {
+      if (hasTweet && (nextTab === "multi" || nextTab === "triple")) {
+        toast("X posts use one content slot")
+        return
+      }
       setTab(nextTab)
       rememberBulkPresetUi(emptyCanvasPresetUi(nextTab))
     },
-    [rememberBulkPresetUi, setTab]
+    [hasTweet, rememberBulkPresetUi, setTab]
   )
 
   React.useEffect(() => {
@@ -276,6 +281,10 @@ export function PresentPresetsSection({
   const applyLayoutPreset = React.useCallback(
     (preset: LayoutPreset) => {
       const canvas = canvasRef.current
+      if (canvas.tweet) {
+        toast("X posts use one content slot")
+        return
+      }
       const aspect = aspectRef.current
       if (canvas.screenshotSlots.length > preset.slots.length) {
         setPendingLayoutPreset(preset)
@@ -333,6 +342,10 @@ export function PresentPresetsSection({
   const applyCustomPreset = React.useCallback(
     (preset: CustomPresetSummary) => {
       const geometry = preset.geometry
+      if (canvasRef.current.tweet && geometry.slots.length > 0) {
+        toast("X posts use one content slot")
+        return
+      }
       // Geometry includes a snapshot of every styling field on the canvas
       // (background, backdrop, border, shadow, overlay, portrait, padding,
       // radius, frame, text/asset/annotation layers, etc.) — not just the
@@ -481,6 +494,7 @@ export function PresentPresetsSection({
         <TabTriggerRow
           tab={displayTab}
           slotCount={canvas.screenshotSlots.length}
+          hasTweet={hasTweet}
           onTabChange={handleTabChange}
         />
       </div>

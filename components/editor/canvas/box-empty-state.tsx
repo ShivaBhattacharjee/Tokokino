@@ -4,6 +4,7 @@ import * as React from "react"
 import { RiAddLine } from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
+import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { EmptyStateBackdrop } from "./empty-state-backdrop"
 import {
   UploadCard,
@@ -15,7 +16,7 @@ type BoxEmptyStateProps = {
   isDragOver?: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
-  onLoadTweet?: (url: string) => Promise<void>
+  onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   url?: string
   onUrlChange?: (value: string) => void
   /** Force compact `+` trigger. Otherwise auto-detected by container width. */

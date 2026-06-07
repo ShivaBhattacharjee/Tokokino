@@ -15,6 +15,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
 import {
@@ -363,6 +369,10 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   }, [canvas, preset])
 
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const disabledReason =
+    canvas.tweet && preset.geometry.slots.length > 0
+      ? "X posts use one content slot."
+      : undefined
 
   return (
     <div className="group/preset relative">
@@ -373,6 +383,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
         aspectStyle={aspectStyle}
         intrinsicSize="auto 220px"
         name={preset.name}
+        disabledReason={disabledReason}
       >
         <CanvasPresetPreview
           aspect={aspect}
@@ -453,6 +464,7 @@ const PresetCardShell = React.memo(function PresetCardShell({
   aspectStyle,
   intrinsicSize,
   name,
+  disabledReason,
   children,
 }: {
   active: boolean
@@ -461,20 +473,24 @@ const PresetCardShell = React.memo(function PresetCardShell({
   aspectStyle: React.CSSProperties
   intrinsicSize: string
   name: string
+  disabledReason?: string
   children: React.ReactNode
 }) {
   const shellRef = React.useRef<HTMLDivElement>(null)
   const visible = useDeferredVisibility(shellRef)
+  const disabled = Boolean(disabledReason)
 
-  return (
+  const shell = (
     <div
       ref={shellRef}
       role="button"
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
       aria-label={ariaLabel}
       aria-pressed={active}
-      onClick={onApply}
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onApply}
       onKeyDown={(e) => {
+        if (disabled) return
         if (e.key !== "Enter" && e.key !== " ") return
         e.preventDefault()
         onApply()
@@ -484,10 +500,13 @@ const PresetCardShell = React.memo(function PresetCardShell({
         containIntrinsicSize: intrinsicSize,
       }}
       className={cn(
-        "group w-full cursor-pointer overflow-hidden rounded-[8px] border bg-white/[0.045] p-1.5 text-left transition-colors",
-        active
+        "group w-full overflow-hidden rounded-[8px] border bg-white/[0.045] p-1.5 text-left transition-colors",
+        disabled
+          ? "cursor-not-allowed border-white/10 opacity-45"
+          : "cursor-pointer",
+        active && !disabled
           ? "border-primary ring-1 ring-primary/40"
-          : "border-white/12 hover:border-primary/55"
+          : !disabled && "border-white/12 hover:border-primary/55"
       )}
     >
       <div
@@ -513,6 +532,19 @@ const PresetCardShell = React.memo(function PresetCardShell({
         </span>
       </div>
     </div>
+  )
+
+  if (!disabledReason) return shell
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{shell}</TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          {disabledReason}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 })
 
@@ -628,6 +660,9 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
     () => onApply(preset),
     [onApply, preset]
   )
+  const disabledReason = canvas.tweet
+    ? "X posts use one content slot."
+    : undefined
 
   return (
     <PresetCardShell
@@ -637,6 +672,7 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
       aspectStyle={aspectStyle}
       intrinsicSize="auto 220px"
       name={preset.name}
+      disabledReason={disabledReason}
     >
       <CanvasPresetPreview
         aspect={aspect}

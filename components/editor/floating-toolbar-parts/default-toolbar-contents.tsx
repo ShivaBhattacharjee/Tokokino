@@ -132,13 +132,20 @@ export function DefaultToolbarContents() {
   const activeEnhance = enhance
   const hasDeviceFrame = activeFrame.id !== "none"
   const hasMainScreenshotTarget =
-    Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
-  const hasMainScreenshot = Boolean(screenshot) || hasDeviceFrame
+    Boolean(screenshot) ||
+    Boolean(tweet) ||
+    hasDeviceFrame ||
+    screenshotSlots.length > 0
+  const hasMainScreenshot =
+    Boolean(screenshot) || Boolean(tweet) || hasDeviceFrame
   const hasScalableContent = selectedSlot
     ? true
     : hasMainScreenshotTarget || Boolean(tweet)
   const hasAnyScreenshotContent =
-    Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
+    Boolean(screenshot) ||
+    Boolean(tweet) ||
+    hasDeviceFrame ||
+    screenshotSlots.length > 0
   const screenshotBoxCount =
     (hasMainScreenshot ? 1 : 0) + screenshotSlots.length
   const canGroupAllScreenshots = screenshotBoxCount > 1
@@ -159,7 +166,7 @@ export function DefaultToolbarContents() {
                   ? "slotGroup"
                   : bulkEditMode
                     ? "canvas"
-                    : screenshot || hasDeviceFrame
+                    : screenshot || tweet || hasDeviceFrame
                       ? "screenshot"
                       : null
 
@@ -657,9 +664,11 @@ export function DefaultToolbarContents() {
                 : positionTarget === "allScreenshots"
                   ? "all screenshots"
                   : positionTarget === "screenshot"
-                    ? hasDeviceFrame
-                      ? "device frame"
-                      : "screenshot"
+                    ? tweet
+                      ? "tweet"
+                      : hasDeviceFrame
+                        ? "device frame"
+                        : "screenshot"
                     : null
 
   const handleAssetUpload = (file: File) => {

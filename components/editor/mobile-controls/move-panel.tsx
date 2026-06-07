@@ -53,12 +53,16 @@ export function MobileMovePanel() {
       )
     : null
   const hasDeviceFrame = editor.frame.id !== "none"
-  const hasMainTarget = Boolean(editor.screenshot) || hasDeviceFrame
+  const hasTweet = Boolean(editor.tweet)
+  const hasMainTarget = Boolean(editor.screenshot) || hasTweet || hasDeviceFrame
   const hasSlotGroup = editor.screenshotSlots.length > 0
   // The frame-less main screenshot is positioned in real stage pixels (not the
   // base-canvas space), so it needs the DOM-measured placement math below.
   const isBareMainTarget =
-    hasMainTarget && !hasDeviceFrame && editor.screenshotSlots.length === 0
+    !hasTweet &&
+    hasMainTarget &&
+    !hasDeviceFrame &&
+    editor.screenshotSlots.length === 0
   const targetLabel = selectedText
     ? "text"
     : selectedAsset
@@ -67,13 +71,15 @@ export function MobileMovePanel() {
         ? "annotation"
         : selectedSlot
           ? "screenshot box"
-          : hasMainTarget
-            ? hasDeviceFrame
-              ? "device frame"
-              : "screenshot"
-            : hasSlotGroup
-              ? "screenshot boxes"
-              : "nothing"
+          : hasTweet
+            ? "tweet"
+            : hasMainTarget
+              ? hasDeviceFrame
+                ? "device frame"
+                : "screenshot"
+              : hasSlotGroup
+                ? "screenshot boxes"
+                : "nothing"
 
   const getActiveCanvasElement = React.useCallback(() => {
     if (typeof document === "undefined" || !activeCanvasId) return null

@@ -174,11 +174,14 @@ function CanvasNodeToolbar({
                   This will remove the canvas and all its content.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+                <AlertDialogCancel className="cursor-pointer">
+                  Cancel
+                </AlertDialogCancel>
                 <AlertDialogAction
+                  variant="destructive"
                   onClick={() => removeCanvas(canvasId)}
-                  className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                  className="cursor-pointer"
                 >
                   Delete
                 </AlertDialogAction>

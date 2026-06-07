@@ -49,6 +49,7 @@ import {
 } from "@/lib/editor/export"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { saveCurrentEditorDraft, useEditorStore } from "@/lib/editor/store"
+import { tweetSettingsFromCard } from "@/lib/editor/tweet-settings"
 import type {
   CurrentDraftInfo,
   CustomPresetGeometry,
@@ -436,6 +437,9 @@ export function TopBar() {
           annotations: activeCanvas.annotations,
           annotationShapes: activeCanvas.annotationShapes,
           aspect: activeCanvas.aspect,
+          tweetSettings: activeCanvas.tweet
+            ? tweetSettingsFromCard(activeCanvas.tweet)
+            : undefined,
         },
       }
 
@@ -546,6 +550,9 @@ export function TopBar() {
           annotations: activeCanvas.annotations,
           annotationShapes: activeCanvas.annotationShapes,
           aspect: activeCanvas.aspect,
+          tweetSettings: activeCanvas.tweet
+            ? tweetSettingsFromCard(activeCanvas.tweet)
+            : undefined,
         },
       }
       setIsPresetSaving(true)

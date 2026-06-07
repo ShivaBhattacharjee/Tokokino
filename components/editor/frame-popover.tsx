@@ -30,6 +30,11 @@ import {
   SelectTrigger,
 } from "@/components/ui/select"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   DEVICE_MOCKUPS,
   getDeviceMockup,
   getDeviceMockupAsset,
@@ -232,12 +237,18 @@ export function FramePopover({
   previewImage,
   imageFit = "cover",
   align = "start",
+  disabled = false,
+  disabledLabel = "Unavailable",
+  disabledTooltip,
 }: {
   value: DeviceFrame
   onChange: (frame: DeviceFrame) => void
   previewImage?: string | null
   imageFit?: ImageFit
   align?: "start" | "end"
+  disabled?: boolean
+  disabledLabel?: string
+  disabledTooltip?: React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
@@ -288,36 +299,59 @@ export function FramePopover({
     [onChange, value.color]
   )
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            "group flex h-11 w-full items-center gap-2.5 rounded-lg bg-secondary/40 px-3 text-left transition-colors hover:bg-secondary/70",
-            open && "bg-secondary/70"
-          )}
-        >
-          <span className="inline-flex size-5 items-center justify-center text-foreground/60">
-            <CurrentIcon className="size-4" />
+  const trigger = (
+    <PopoverTrigger asChild>
+      <button
+        type="button"
+        aria-disabled={disabled}
+        className={cn(
+          "group flex h-11 w-full items-center gap-2.5 rounded-lg bg-secondary/40 px-3 text-left transition-colors hover:bg-secondary/70",
+          open && "bg-secondary/70",
+          disabled && "cursor-not-allowed opacity-55 hover:bg-secondary/40"
+        )}
+      >
+        <span className="inline-flex size-5 items-center justify-center text-foreground/60">
+          <CurrentIcon className="size-4" />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[13px] font-medium text-foreground">
+            {current.name}
           </span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[13px] font-medium text-foreground">
-              {current.name}
+          {disabled ? (
+            <span className="truncate text-[11px] text-muted-foreground">
+              {disabledLabel}
             </span>
-            {current.colors.length > 0 ? (
-              <span className="truncate text-[11px] text-muted-foreground">
-                {formatColor(currentColor)}
-              </span>
-            ) : null}
-          </span>
-          <RiArrowRightSLine
-            className={cn(
-              "size-4 text-muted-foreground/60 transition-transform duration-200",
-              open && "rotate-90"
-            )}
-          />
-        </button>
-      </PopoverTrigger>
+          ) : current.colors.length > 0 ? (
+            <span className="truncate text-[11px] text-muted-foreground">
+              {formatColor(currentColor)}
+            </span>
+          ) : null}
+        </span>
+        <RiArrowRightSLine
+          className={cn(
+            "size-4 text-muted-foreground/60 transition-transform duration-200",
+            open && "rotate-90"
+          )}
+        />
+      </button>
+    </PopoverTrigger>
+  )
+
+  return (
+    <Popover
+      open={open && !disabled}
+      onOpenChange={(next) => setOpen(disabled ? false : next)}
+    >
+      {disabled && disabledTooltip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={8}>
+            {disabledTooltip}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        trigger
+      )}
 
       <PopoverContent
         side="bottom"

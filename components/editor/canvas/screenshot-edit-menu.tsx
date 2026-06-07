@@ -14,6 +14,7 @@ import {
   type CaptureDevice,
   type CaptureSettings,
 } from "@/components/editor/canvas/upload-card"
+import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { ScrollFadeBody } from "@/components/editor/scroll-fade"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import {
@@ -43,6 +44,7 @@ type ScreenshotEditMenuProps = {
     url: string,
     settings: CaptureSettings
   ) => void | Promise<void>
+  onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
 }
@@ -55,6 +57,7 @@ export function ScreenshotEditMenu({
   onDelete,
   showDelete = true,
   onCaptureWebsite,
+  onLoadTweet,
   captureDefaultDevice,
   captureStateKey,
 }: ScreenshotEditMenuProps) {
@@ -137,6 +140,7 @@ export function ScreenshotEditMenu({
               defaultDevice={captureDefaultDevice}
               captureStateKey={resolvedCaptureStateKey}
               onCapture={onCaptureWebsite}
+              onLoadTweet={onLoadTweet}
             />
             <div
               className={cn(

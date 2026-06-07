@@ -16,6 +16,7 @@ import {
 } from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
+import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
 type DeviceMockupSpec = (typeof DEVICE_MOCKUP_SPECS)[string]
@@ -59,6 +60,7 @@ type ScreenshotMockupProps = {
     url: string,
     settings: CaptureSettings
   ) => void | Promise<void>
+  onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
   showHoverActions?: boolean
@@ -94,6 +96,7 @@ export function ScreenshotMockup({
   onReplaceFile,
   onDelete,
   onCaptureWebsite,
+  onLoadTweet,
   captureDefaultDevice,
   captureStateKey,
   showHoverActions = true,
@@ -251,6 +254,7 @@ export function ScreenshotMockup({
                   onReplaceFile={onReplaceFile}
                   onDelete={onDelete}
                   onCaptureWebsite={onCaptureWebsite}
+                  onLoadTweet={onLoadTweet}
                   captureDefaultDevice={captureDefaultDevice}
                   captureStateKey={captureStateKey}
                 />
@@ -276,6 +280,7 @@ export function ScreenshotMockup({
               onReplaceFile={onReplaceFile}
               onDelete={onDelete}
               onCaptureWebsite={onCaptureWebsite}
+              onLoadTweet={onLoadTweet}
               captureDefaultDevice={captureDefaultDevice}
               captureStateKey={captureStateKey}
             />

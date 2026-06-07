@@ -7,6 +7,7 @@ import {
   PRESENT_PRESETS,
   resolvePresentPresetScale,
 } from "./present-presets"
+import type { TweetCardSettings } from "./tweet-settings"
 import {
   resolveActivePresetGeometry,
   resolveMainOffsetPx,
@@ -80,6 +81,8 @@ import type {
   Tilt,
   TweetCard,
 } from "./state-types"
+
+const TWEET_POST_ASPECT: AspectState = { id: "x-post", w: 1080, h: 1080 }
 
 export * from "./state-types"
 export {
@@ -188,6 +191,7 @@ export type CustomPresetCanvasStyle = {
   annotations: AnnotationStroke[]
   annotationShapes: AnnotationShape[]
   aspect?: AspectState
+  tweetSettings?: TweetCardSettings
 }
 
 export type CustomPresetGeometry = {
@@ -581,30 +585,30 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           if (canvas.id !== targetId) return canvas
 
           const existingSlots = canvas.screenshotSlots
-          const slots: ScreenshotSlot[] = snapshot.slots.map(
-            (config, index) => {
-              const previous = existingSlots[index]
-              return {
-                id: previous?.id ?? makeId(),
-                src: previous?.src ?? null,
-                xPct: config.xPct,
-                yPct: config.yPct,
-                widthPct: config.widthPct ?? previous?.widthPct ?? 60,
-                heightPct: config.heightPct ?? previous?.heightPct ?? 28,
-                rotation: config.rotation,
-                tilt: config.tilt,
-                scale: config.scale,
-                zIndex:
-                  config.zIndex ??
-                  previous?.zIndex ??
-                  computeNextLayerZ(canvas) + index,
-                filter: config.filter ?? previous?.filter ?? "none",
-                hidden: config.hidden ?? previous?.hidden,
-                objectFit: config.objectFit ?? previous?.objectFit,
-                shadow: config.shadow ?? previous?.shadow,
-              }
-            }
-          )
+          const slots: ScreenshotSlot[] = canvas.tweet
+            ? []
+            : snapshot.slots.map((config, index) => {
+                const previous = existingSlots[index]
+                return {
+                  id: previous?.id ?? makeId(),
+                  src: previous?.src ?? null,
+                  xPct: config.xPct,
+                  yPct: config.yPct,
+                  widthPct: config.widthPct ?? previous?.widthPct ?? 60,
+                  heightPct: config.heightPct ?? previous?.heightPct ?? 28,
+                  rotation: config.rotation,
+                  tilt: config.tilt,
+                  scale: config.scale,
+                  zIndex:
+                    config.zIndex ??
+                    previous?.zIndex ??
+                    computeNextLayerZ(canvas) + index,
+                  filter: config.filter ?? previous?.filter ?? "none",
+                  hidden: config.hidden ?? previous?.hidden,
+                  objectFit: config.objectFit ?? previous?.objectFit,
+                  shadow: config.shadow ?? previous?.shadow,
+                }
+              })
 
           const offset = resolveMainOffsetPx(snapshot.mainOffset)
 
@@ -629,7 +633,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               : {}),
             ...(style?.shadow ? { shadow: style.shadow } : {}),
             ...(style?.overlay ? { overlay: style.overlay } : {}),
-            ...(style?.frame ? { frame: style.frame } : {}),
+            ...(style?.frame && !canvas.tweet ? { frame: style.frame } : {}),
             ...(style?.portrait ? { portrait: style.portrait } : {}),
             ...(style?.enhance ? { enhance: style.enhance } : {}),
             ...(style?.objectFit ? { objectFit: style.objectFit } : {}),
@@ -645,12 +649,15 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               ? { annotationShapes: style.annotationShapes }
               : {}),
             ...(style?.aspect ? { aspect: style.aspect } : {}),
+            ...(style?.tweetSettings && canvas.tweet
+              ? { tweet: { ...canvas.tweet, ...style.tweetSettings } }
+              : {}),
             // geometry
             tilt: snapshot.canvasTilt,
             scale: snapshot.canvasScale,
             screenshotPosition: style?.screenshotPosition ?? "center",
             screenshotOffset: offset,
-            screenshotSlots: slots,
+            screenshotSlots: canvas.tweet ? [] : slots,
             // always preserved from the live canvas
             screenshot: canvas.screenshot,
             originalScreenshot: canvas.originalScreenshot,
@@ -1045,42 +1052,78 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setFrame: (f, canvasId) =>
       commitCanvas(
         canvasId,
-        (canvas, state) =>
-          applySharedFrameToCanvas(
+        (canvas, state) => {
+          if (canvas.tweet) {
+            return {
+              frame: { id: "none", color: "black", orientation: "vertical" },
+              frameAddress: "",
+            }
+          }
+          return applySharedFrameToCanvas(
             canvas,
             state,
             f,
             get().activeLayoutPresetId
-          ),
+          )
+        },
         "frame"
       ),
     setFrameForMatchingScreenshots: (f, canvasId) =>
       commitCanvas(
         canvasId,
-        (canvas, state) =>
-          applySharedFrameToCanvas(
+        (canvas, state) => {
+          if (canvas.tweet) {
+            return {
+              frame: { id: "none", color: "black", orientation: "vertical" },
+              frameAddress: "",
+            }
+          }
+          return applySharedFrameToCanvas(
             canvas,
             state,
             f,
             get().activeLayoutPresetId
-          ),
+          )
+        },
         "frame"
       ),
     setFrameAddress: (address, canvasId) =>
       commitCanvas(canvasId, { frameAddress: address }, "frame-address"),
-    setTweet: (card, canvasId) =>
-      commitCanvas(
-        canvasId,
-        {
-          // A tweet replaces the screenshot as the canvas's main content.
-          tweet: card,
-          screenshot: null,
-          originalScreenshot: null,
-          lastCropRegion: null,
-          screenshotSlots: [],
-        },
-        null
-      ),
+    setTweet: (card, canvasId) => {
+      commit((state) => {
+        const targetId = canvasId ?? state.activeCanvasId
+        return {
+          aspect: { ...TWEET_POST_ASPECT },
+          canvases: state.canvases.map((canvas) =>
+            canvas.id === targetId
+              ? {
+                  ...canvas,
+                  // A tweet replaces the screenshot as the canvas's main content.
+                  tweet: card,
+                  screenshot: null,
+                  originalScreenshot: null,
+                  lastCropRegion: null,
+                  screenshotSlots: [],
+                  frame: {
+                    id: "none",
+                    color: "black",
+                    orientation: "vertical",
+                  },
+                  frameAddress: "",
+                  screenshotPosition: "center",
+                  screenshotOffset: { x: 0, y: 0 },
+                  aspect: undefined,
+                }
+              : canvas
+          ),
+        }
+      }, null)
+      set({
+        presetTab: "single",
+        activeLayoutPresetId: null,
+        activeCustomPresetId: null,
+      })
+    },
     updateTweet: (patch, canvasId) =>
       commitCanvas(
         canvasId,
@@ -1551,7 +1594,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const target = get().present.canvases.find(
         (canvas) => canvas.id === targetId
       )
-      if (!target || target.screenshotSlots.length >= MAX_SCREENSHOT_SLOTS) {
+      if (
+        !target ||
+        target.tweet ||
+        target.screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
+      ) {
         return null
       }
       const id = makeId()

@@ -223,7 +223,12 @@ function TabIcon({ t, active }: { t: PresetTab; active: boolean }) {
   )
 }
 
-function isTabDisabled(t: PresetTab, slotCount: number): boolean {
+function isTabDisabled(
+  t: PresetTab,
+  slotCount: number,
+  hasTweet: boolean
+): boolean {
+  if (hasTweet && (t === "multi" || t === "triple")) return true
   if (t === "multi") return slotCount > 2
   if (t === "triple") return slotCount > 2
   return false
@@ -234,10 +239,12 @@ const PRESET_TABS: PresetTab[] = ["single", "multi", "triple", "custom"]
 export function TabTriggerRow({
   tab,
   slotCount,
+  hasTweet = false,
   onTabChange,
 }: {
   tab: PresetTab
   slotCount: number
+  hasTweet?: boolean
   onTabChange: (t: PresetTab) => void
 }) {
   const [open, setOpen] = React.useState(false)
@@ -283,11 +290,13 @@ export function TabTriggerRow({
               <TooltipProvider>
                 <div className="grid grid-cols-2 gap-1.5">
                   {PRESET_TABS.map((t) => {
-                    const disabled = isTabDisabled(t, slotCount)
+                    const disabled = isTabDisabled(t, slotCount, hasTweet)
                     const disabledReason =
-                      t === "multi"
-                        ? "Multi supports up to 2 screenshot boxes. Delete slots to switch."
-                        : "Triple supports up to 3 screenshot boxes. Delete a slot to switch."
+                      hasTweet && (t === "multi" || t === "triple")
+                        ? "X posts use one content slot."
+                        : t === "multi"
+                          ? "Multi supports up to 2 screenshot boxes. Delete slots to switch."
+                          : "Triple supports up to 3 screenshot boxes. Delete a slot to switch."
                     return (
                       <Tooltip key={t} open={disabled ? undefined : false}>
                         <TooltipTrigger asChild>

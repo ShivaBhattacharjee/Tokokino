@@ -384,12 +384,21 @@ export type TweetAuthor = {
   verified: boolean
 }
 
+export type TweetMedia = {
+  type: "photo"
+  url: string
+  width?: number
+  height?: number
+  alt?: string
+}
+
 export type TweetData = {
   id: string
   url: string
   text: string
   author: TweetAuthor
   createdAt: string
+  media?: TweetMedia[]
   // The free syndication endpoint only exposes likes + replies reliably;
   // reposts/views require the paid X API and are intentionally omitted.
   metrics: { likes: number; replies: number }
@@ -402,6 +411,9 @@ export type TweetCard = {
   theme: TweetTheme
   showMetrics: boolean
   showAvatar: boolean
+  showImages?: boolean
+  showTimestamp?: boolean
+  fontFamily?: string
 }
 
 export type CanvasState = {

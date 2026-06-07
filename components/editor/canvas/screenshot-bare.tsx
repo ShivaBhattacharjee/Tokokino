@@ -6,6 +6,7 @@ import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
+import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
 type PlacementDims = {
@@ -44,6 +45,7 @@ type ScreenshotBareProps = {
     url: string,
     settings: CaptureSettings
   ) => void | Promise<void>
+  onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
   shadowBoxTarget?: boolean
@@ -77,6 +79,7 @@ export function ScreenshotBare({
   onReplaceFile,
   onDelete,
   onCaptureWebsite,
+  onLoadTweet,
   captureDefaultDevice,
   captureStateKey,
   shadowBoxTarget = false,
@@ -195,6 +198,7 @@ export function ScreenshotBare({
             onReplaceFile={onReplaceFile}
             onDelete={onDelete}
             onCaptureWebsite={onCaptureWebsite}
+            onLoadTweet={onLoadTweet}
             captureDefaultDevice={captureDefaultDevice}
             captureStateKey={captureStateKey}
           />

@@ -36,6 +36,7 @@ import {
   RiPencilRulerLine,
   RiSmartphoneLine,
   RiText,
+  RiTwitterXLine,
 } from "@remixicon/react"
 
 import {
@@ -56,7 +57,13 @@ import { getDeviceMockup } from "@/lib/mockups"
 import { BROWSER_FRAMES } from "@/lib/browser-frame"
 import { cn } from "@/lib/utils"
 
-type EditableLayerType = "screenshot" | "slot" | "asset" | "text" | "annotation"
+type EditableLayerType =
+  | "screenshot"
+  | "tweet"
+  | "slot"
+  | "asset"
+  | "text"
+  | "annotation"
 
 type EditorLayer = {
   key: string
@@ -143,6 +150,7 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
     setActiveCanvasId,
     frame,
     setFrame,
+    tweet,
   } = useEditor()
   const canvasIds = useEditorStore(
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
@@ -166,6 +174,22 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
         opacity: screenshotLayer.opacity,
         blendMode: screenshotLayer.blendMode,
         thumbnail: screenshot,
+      })
+    }
+
+    if (tweet) {
+      next.push({
+        key: "tweet:main",
+        id: "main",
+        type: "tweet",
+        name: "X Post",
+        meta: tweet.data.author.handle
+          ? `@${tweet.data.author.handle}`
+          : "Tweet card",
+        zIndex: screenshotLayer.zIndex,
+        hidden: screenshotLayer.hidden,
+        opacity: screenshotLayer.opacity,
+        blendMode: screenshotLayer.blendMode,
       })
     }
 
@@ -260,8 +284,10 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
     screenshotLayer,
     screenshotSlots,
     texts,
+    tweet,
   ])
 
+  const mainContentLayerKey = tweet ? "tweet:main" : "screenshot:main"
   const activeKey =
     selectedLayerKey ??
     (selectedAssetId
@@ -273,7 +299,7 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
           : selectedScreenshotSlotId
             ? `slot:${selectedScreenshotSlotId}`
             : isScreenshotSelected
-              ? "screenshot:main"
+              ? mainContentLayerKey
               : (layers[0]?.key ?? null))
 
   const sensors = useSensors(
@@ -294,7 +320,8 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
       ...(patch.blendMode !== undefined ? { blendMode: patch.blendMode } : {}),
     }
 
-    if (layer.type === "screenshot") updateScreenshotLayer(layerPatch)
+    if (layer.type === "screenshot" || layer.type === "tweet")
+      updateScreenshotLayer(layerPatch)
     if (layer.type === "slot") {
       // Slot rows show the canvas-shared opacity/blendMode; edits to those
       // route to the canvas layer. zIndex/hidden remain per-slot.
@@ -364,7 +391,9 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
   function selectLayer(layer: EditorLayer) {
     setSelectedLayerKey(layer.key)
     setActiveTool("pointer")
-    setIsScreenshotSelected(layer.type === "screenshot")
+    setIsScreenshotSelected(
+      layer.type === "screenshot" || layer.type === "tweet"
+    )
     setSelectedScreenshotSlotId(layer.type === "slot" ? layer.id : null)
     setSelectedAssetId(layer.type === "asset" ? layer.id : null)
     setSelectedTextId(layer.type === "text" ? layer.id : null)
@@ -453,7 +482,7 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
                 onOpacityChange={(opacity) => updateLayer(layer, { opacity })}
                 onBlendChange={(blendMode) => updateLayer(layer, { blendMode })}
                 onDelete={
-                  layer.type !== "screenshot"
+                  layer.type !== "screenshot" && layer.type !== "tweet"
                     ? () => deleteLayer(layer)
                     : undefined
                 }
@@ -786,6 +815,7 @@ function LayerIcon({ type }: { type: EditableLayerType }) {
   if (type === "text") return <RiText className="size-3.5" />
   if (type === "annotation") return <RiPencilRulerLine className="size-3.5" />
   if (type === "slot") return <RiGalleryLine className="size-3.5" />
+  if (type === "tweet") return <RiTwitterXLine className="size-3.5" />
   return <RiImage2Line className="size-3.5" />
 }
 

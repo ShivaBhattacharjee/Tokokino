@@ -20,8 +20,24 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import {
+  TweetFontSelect,
+  TweetThemeSelect,
+} from "@/components/editor/tweet-font-select"
 import { captureUrlSchema } from "@/lib/editor/capture-url"
-import { TweetUrlPopover } from "./tweet-url-popover"
+import { tweetUrlSchema } from "@/lib/editor/tweet-url"
+import {
+  DEFAULT_TWEET_SETTINGS,
+  type TweetCardSettings,
+} from "@/lib/editor/tweet-settings"
 
 export type CaptureDevice = "desktop" | "mobile"
 export type CaptureDelay = "none" | "2s" | "5s"
@@ -132,6 +148,9 @@ function ToggleChip({ active, onClick, children, layoutId }: ToggleChipProps) {
 function CaptureSettingsPopover({
   settings,
   onChange,
+  tweetMode = false,
+  tweetSettings,
+  onTweetSettingsChange,
   triggerClassName,
   iconClassName,
 }: {
@@ -140,9 +159,175 @@ function CaptureSettingsPopover({
     key: K,
     value: CaptureSettings[K]
   ) => void
+  tweetMode?: boolean
+  tweetSettings: TweetCardSettings
+  onTweetSettingsChange: <K extends keyof TweetCardSettings>(
+    key: K,
+    value: TweetCardSettings[K]
+  ) => void
   triggerClassName?: string
   iconClassName?: string
 }) {
+  const content = tweetMode ? (
+    <div className="flex flex-col divide-y divide-neutral-200 dark:divide-white/10">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Theme
+        </span>
+        <TweetThemeSelect
+          value={tweetSettings.theme}
+          onValueChange={(value) => onTweetSettingsChange("theme", value)}
+          triggerClassName="w-[154px] border-neutral-200 bg-neutral-50 text-neutral-900 shadow-none hover:bg-neutral-100 dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/12"
+          contentClassName="w-[180px]"
+        />
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Avatar
+        </span>
+        <Switch
+          checked={tweetSettings.showAvatar}
+          onCheckedChange={(value) =>
+            onTweetSettingsChange("showAvatar", value)
+          }
+        />
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Images
+        </span>
+        <Switch
+          checked={tweetSettings.showImages}
+          onCheckedChange={(value) =>
+            onTweetSettingsChange("showImages", value)
+          }
+        />
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Stats
+        </span>
+        <Switch
+          checked={tweetSettings.showMetrics}
+          onCheckedChange={(value) =>
+            onTweetSettingsChange("showMetrics", value)
+          }
+        />
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Date & time
+        </span>
+        <Switch
+          checked={tweetSettings.showTimestamp}
+          onCheckedChange={(value) =>
+            onTweetSettingsChange("showTimestamp", value)
+          }
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Font
+        </span>
+        <TweetFontSelect
+          value={tweetSettings.fontFamily}
+          onValueChange={(value) => onTweetSettingsChange("fontFamily", value)}
+          triggerClassName="w-[154px] border-neutral-200 bg-neutral-50 text-neutral-900 shadow-none hover:bg-neutral-100 dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/12"
+        />
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-col divide-y divide-neutral-200 dark:divide-white/10">
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Device
+        </span>
+        <LayoutGroup id="capture-device">
+          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+            {(["desktop", "mobile"] as CaptureDevice[]).map((d) => (
+              <ToggleChip
+                key={d}
+                active={settings.device === d}
+                layoutId="capture-device-pill"
+                onClick={() => {
+                  const isMobile = d === "mobile"
+                  onChange("device", d)
+                  onChange("aspectRatio", isMobile ? "9:19.5" : "16:9")
+                  onChange("width", isMobile ? 390 : 1280)
+                }}
+              >
+                {d === "desktop" ? "Desktop" : "Mobile"}
+              </ToggleChip>
+            ))}
+          </div>
+        </LayoutGroup>
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Aspect Ratio
+        </span>
+        <LayoutGroup id="capture-aspect">
+          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+            {(settings.device === "mobile"
+              ? MOBILE_ASPECT_RATIOS
+              : DESKTOP_ASPECT_RATIOS
+            ).map((r) => (
+              <ToggleChip
+                key={r}
+                active={settings.aspectRatio === r}
+                layoutId="capture-aspect-pill"
+                onClick={() => onChange("aspectRatio", r)}
+              >
+                {r}
+              </ToggleChip>
+            ))}
+          </div>
+        </LayoutGroup>
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Width
+        </span>
+        <LayoutGroup id="capture-width">
+          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+            {(settings.device === "mobile"
+              ? MOBILE_WIDTHS
+              : DESKTOP_WIDTHS
+            ).map((w) => (
+              <ToggleChip
+                key={w}
+                active={settings.width === w}
+                layoutId="capture-width-pill"
+                onClick={() => onChange("width", w)}
+              >
+                {w}
+              </ToggleChip>
+            ))}
+          </div>
+        </LayoutGroup>
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[13px] text-neutral-500 dark:text-white/55">
+          Delay
+        </span>
+        <LayoutGroup id="capture-delay">
+          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+            {(["none", "2s", "5s"] as CaptureDelay[]).map((d) => (
+              <ToggleChip
+                key={d}
+                active={settings.delay === d}
+                layoutId="capture-delay-pill"
+                onClick={() => onChange("delay", d)}
+              >
+                {d === "none" ? "None" : d}
+              </ToggleChip>
+            ))}
+          </div>
+        </LayoutGroup>
+      </div>
+    </div>
+  )
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -166,95 +351,7 @@ function CaptureSettingsPopover({
         onPointerDown={(e) => e.stopPropagation()}
         className="w-[280px] rounded-md border border-neutral-200 bg-white p-0 text-neutral-950 shadow-2xl ring-0 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950 dark:text-white"
       >
-        <div className="flex flex-col divide-y divide-neutral-200 dark:divide-white/10">
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-[13px] text-neutral-500 dark:text-white/55">
-              Device
-            </span>
-            <LayoutGroup id="capture-device">
-              <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
-                {(["desktop", "mobile"] as CaptureDevice[]).map((d) => (
-                  <ToggleChip
-                    key={d}
-                    active={settings.device === d}
-                    layoutId="capture-device-pill"
-                    onClick={() => {
-                      const isMobile = d === "mobile"
-                      onChange("device", d)
-                      onChange("aspectRatio", isMobile ? "9:19.5" : "16:9")
-                      onChange("width", isMobile ? 390 : 1280)
-                    }}
-                  >
-                    {d === "desktop" ? "Desktop" : "Mobile"}
-                  </ToggleChip>
-                ))}
-              </div>
-            </LayoutGroup>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-[13px] text-neutral-500 dark:text-white/55">
-              Aspect Ratio
-            </span>
-            <LayoutGroup id="capture-aspect">
-              <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
-                {(settings.device === "mobile"
-                  ? MOBILE_ASPECT_RATIOS
-                  : DESKTOP_ASPECT_RATIOS
-                ).map((r) => (
-                  <ToggleChip
-                    key={r}
-                    active={settings.aspectRatio === r}
-                    layoutId="capture-aspect-pill"
-                    onClick={() => onChange("aspectRatio", r)}
-                  >
-                    {r}
-                  </ToggleChip>
-                ))}
-              </div>
-            </LayoutGroup>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-[13px] text-neutral-500 dark:text-white/55">
-              Width
-            </span>
-            <LayoutGroup id="capture-width">
-              <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
-                {(settings.device === "mobile"
-                  ? MOBILE_WIDTHS
-                  : DESKTOP_WIDTHS
-                ).map((w) => (
-                  <ToggleChip
-                    key={w}
-                    active={settings.width === w}
-                    layoutId="capture-width-pill"
-                    onClick={() => onChange("width", w)}
-                  >
-                    {w}
-                  </ToggleChip>
-                ))}
-              </div>
-            </LayoutGroup>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-[13px] text-neutral-500 dark:text-white/55">
-              Delay
-            </span>
-            <LayoutGroup id="capture-delay">
-              <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
-                {(["none", "2s", "5s"] as CaptureDelay[]).map((d) => (
-                  <ToggleChip
-                    key={d}
-                    active={settings.delay === d}
-                    layoutId="capture-delay-pill"
-                    onClick={() => onChange("delay", d)}
-                  >
-                    {d === "none" ? "None" : d}
-                  </ToggleChip>
-                ))}
-              </div>
-            </LayoutGroup>
-          </div>
-        </div>
+        {content}
       </PopoverContent>
     </Popover>
   )
@@ -264,8 +361,8 @@ type UploadCardProps = {
   isDragOver?: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
-  /** When provided, shows an "Embed X post" entry that loads a tweet mockup. */
-  onLoadTweet?: (url: string) => Promise<void>
+  /** When provided, X/Twitter status URLs load a tweet card instead of a screenshot. */
+  onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   showHint?: boolean
   /** Pass custom className overrides for the outer card shell */
   className?: string
@@ -300,6 +397,10 @@ export function UploadCard({
       captureSessions.get(captureStateKey ?? "")?.settings ??
       initialCaptureSettings(defaultDevice)
   )
+  const [tweetSettings, setTweetSettings] = React.useState<TweetCardSettings>(
+    DEFAULT_TWEET_SETTINGS
+  )
+  const [tweetError, setTweetError] = React.useState<string | null>(null)
   const persistedCaptureRef = React.useRef(
     captureSessions.has(captureStateKey ?? "")
   )
@@ -345,7 +446,15 @@ export function UploadCard({
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
+  function handleTweetSettingChange<K extends keyof TweetCardSettings>(
+    key: K,
+    value: TweetCardSettings[K]
+  ) {
+    setTweetSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
   function handleUrlChange(value: string) {
+    setTweetError(null)
     if (!value.startsWith(PREFIX)) {
       setUrl(PREFIX)
       return
@@ -357,10 +466,28 @@ export function UploadCard({
   }
 
   const parsedUrl = React.useMemo(() => captureUrlSchema.safeParse(url), [url])
+  const parsedTweet = React.useMemo(() => tweetUrlSchema.safeParse(url), [url])
   const hasUrlInput = url !== PREFIX
+  const isTweetUrl = Boolean(onLoadTweet && parsedTweet.success)
 
   async function handleCapture(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation()
+    if (isTweetUrl) {
+      if (!onLoadTweet || isCapturing) return
+      setIsCapturing(true)
+      setTweetError(null)
+      try {
+        await onLoadTweet(url.trim(), tweetSettings)
+        setUrl(PREFIX)
+      } catch (err) {
+        setTweetError(
+          err instanceof Error ? err.message : "Could not load that post"
+        )
+      } finally {
+        setIsCapturing(false)
+      }
+      return
+    }
     if (!parsedUrl.success || isCapturing || !onCapture) return
     const captureUrl = parsedUrl.data
     setUrl(captureUrl)
@@ -378,10 +505,16 @@ export function UploadCard({
     }
   }
 
-  const captureDisabled = !onCapture || !parsedUrl.success || isCapturing
+  const captureDisabled = isTweetUrl
+    ? isCapturing
+    : !onCapture || !parsedUrl.success || isCapturing
   const captureLabel = isCapturing
-    ? "Capturing screenshot…"
-    : "Capture Screenshot"
+    ? isTweetUrl
+      ? "Loading X post…"
+      : "Capturing screenshot…"
+    : isTweetUrl
+      ? "Load X post"
+      : "Capture Screenshot"
 
   const [compactOpen, setCompactOpen] = React.useState(false)
   const compactTriggerRef = React.useRef<HTMLButtonElement>(null)
@@ -520,6 +653,9 @@ export function UploadCard({
         <CaptureSettingsPopover
           settings={settings}
           onChange={handleSettingChange}
+          tweetMode={isTweetUrl}
+          tweetSettings={tweetSettings}
+          onTweetSettingsChange={handleTweetSettingChange}
           triggerClassName={sizing.settingsTrigger}
           iconClassName={sizing.settingsIcon}
         />
@@ -540,23 +676,17 @@ export function UploadCard({
       >
         {isCapturing ? (
           <RiLoader4Line className={cn(sizing.icon, "animate-spin")} />
+        ) : isTweetUrl ? (
+          <RiTwitterXLine className={sizing.icon} />
         ) : (
           <RiCameraLine className={sizing.icon} />
         )}
         {captureLabel}
       </button>
-      {onLoadTweet ? (
-        <TweetUrlPopover onLoad={onLoadTweet} side="bottom" align="center">
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className={cn(sizing.captureButton)}
-          >
-            <RiTwitterXLine className={sizing.icon} />
-            Embed X post
-          </button>
-        </TweetUrlPopover>
+      {tweetError ? (
+        <p className="px-1 text-[11px] leading-tight text-destructive">
+          {tweetError}
+        </p>
       ) : null}
       {showHint && (
         <div className={sizing.hintBox}>

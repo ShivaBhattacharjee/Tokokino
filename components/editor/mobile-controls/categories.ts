@@ -16,6 +16,7 @@ import {
   RiStackLine,
   RiSunLine,
   RiText,
+  RiTwitterXLine,
 } from "@remixicon/react"
 
 import type { EnhancePreset } from "@/lib/editor/store"
@@ -37,6 +38,7 @@ export type CategoryId =
   | "border"
   | "padding"
   | "shadow"
+  | "tweet"
   | "transform"
 
 export type Category = {
@@ -67,6 +69,7 @@ export const DESIGN_CATEGORIES: Category[] = [
 ]
 
 export const TOOLS_CATEGORIES: Category[] = [
+  { id: "tweet", label: "X Post", icon: RiTwitterXLine },
   { id: "background", label: "Background", icon: RiPaletteLine },
   { id: "backdrop", label: "Backdrop", icon: RiSunLine },
   { id: "border", label: "Border", icon: RiBrushLine },

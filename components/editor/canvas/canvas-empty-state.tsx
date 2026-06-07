@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { useEditor } from "@/lib/editor/store"
+import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { BoxEmptyState } from "./box-empty-state"
 import { frameFitStyle, framePositionTransform } from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
@@ -14,7 +15,7 @@ type CanvasEmptyStateProps = {
   isDragOver: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
-  onLoadTweet?: (url: string) => Promise<void>
+  onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   isActive?: boolean

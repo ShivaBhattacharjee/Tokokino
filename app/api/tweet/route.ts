@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import type { TweetData } from "@/lib/editor/state-types"
+import type { TweetData, TweetMedia } from "@/lib/editor/state-types"
 import { syndicationToken, tweetUrlSchema } from "@/lib/editor/tweet-url"
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit"
 
@@ -24,6 +24,26 @@ type SyndicationTweet = {
   conversation_count?: number
   reply_count?: number
   user?: SyndicationUser
+  photos?: SyndicationPhoto[]
+  mediaDetails?: SyndicationMediaDetail[]
+}
+
+type SyndicationPhoto = {
+  url?: string
+  width?: number
+  height?: number
+  alt_text?: string
+}
+
+type SyndicationMediaDetail = {
+  type?: string
+  media_url_https?: string
+  media_url?: string
+  url?: string
+  width?: number
+  height?: number
+  ext_alt_text?: string
+  alt_text?: string
 }
 
 /** Twitter avatars come back at `_normal` (48px); request the larger crop. */
@@ -32,16 +52,60 @@ function upgradeAvatar(url: string | undefined): string {
   return url.replace(/_normal(\.\w+)$/, "_400x400$1")
 }
 
+function normalizeMedia(raw: SyndicationTweet): TweetMedia[] {
+  const photosFromField = (raw.photos ?? [])
+    .map((photo): TweetMedia | null =>
+      photo.url
+        ? {
+            type: "photo",
+            url: photo.url,
+            width: photo.width,
+            height: photo.height,
+            alt: photo.alt_text,
+          }
+        : null
+    )
+    .filter((media): media is TweetMedia => Boolean(media))
+
+  const photosFromDetails = (raw.mediaDetails ?? [])
+    .filter((media) => media.type === "photo" || media.media_url_https)
+    .map((media): TweetMedia | null => {
+      const url = media.media_url_https ?? media.media_url ?? media.url
+      if (!url) return null
+      return {
+        type: "photo",
+        url,
+        width: media.width,
+        height: media.height,
+        alt: media.ext_alt_text ?? media.alt_text,
+      }
+    })
+    .filter((media): media is TweetMedia => Boolean(media))
+
+  const seen = new Set<string>()
+  return [...photosFromField, ...photosFromDetails].filter((media) => {
+    if (seen.has(media.url)) return false
+    seen.add(media.url)
+    return true
+  })
+}
+
+function normalizeTweetText(text: string, hasMedia: boolean): string {
+  if (!hasMedia) return text
+  return text.replace(/\s*https:\/\/t\.co\/\S+\s*$/i, "").trimEnd()
+}
+
 function normalize(raw: SyndicationTweet, id: string): TweetData | null {
   if (!raw || raw.__typename === "TweetTombstone" || !raw.user) return null
   const user = raw.user
   const handle = user.screen_name ?? ""
+  const media = normalizeMedia(raw)
   return {
     id: raw.id_str ?? id,
     url: handle
       ? `https://x.com/${handle}/status/${id}`
       : `https://x.com/i/status/${id}`,
-    text: raw.text ?? raw.full_text ?? "",
+    text: normalizeTweetText(raw.text ?? raw.full_text ?? "", media.length > 0),
     author: {
       name: user.name ?? handle,
       handle,
@@ -49,6 +113,7 @@ function normalize(raw: SyndicationTweet, id: string): TweetData | null {
       verified: Boolean(user.verified || user.is_blue_verified),
     },
     createdAt: raw.created_at ?? "",
+    media,
     metrics: {
       likes: raw.favorite_count ?? 0,
       replies: raw.conversation_count ?? raw.reply_count ?? 0,

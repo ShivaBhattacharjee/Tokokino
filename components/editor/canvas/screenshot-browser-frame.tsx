@@ -9,6 +9,7 @@ import {
   type CaptureDevice,
   type CaptureSettings,
 } from "@/components/editor/canvas/upload-card"
+import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { Arc } from "@/components/ui/arc"
 import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
@@ -69,6 +70,7 @@ type ScreenshotBrowserFrameProps = {
     url: string,
     settings: CaptureSettings
   ) => void | Promise<void>
+  onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
   showHoverActions?: boolean
@@ -127,6 +129,7 @@ export function ScreenshotBrowserFrame({
   onReplaceFile,
   onDelete,
   onCaptureWebsite,
+  onLoadTweet,
   captureDefaultDevice,
   captureStateKey,
   showHoverActions = true,
@@ -265,6 +268,7 @@ export function ScreenshotBrowserFrame({
               onReplaceFile={onReplaceFile}
               onDelete={onDelete}
               onCaptureWebsite={onCaptureWebsite}
+              onLoadTweet={onLoadTweet}
               captureDefaultDevice={captureDefaultDevice}
               captureStateKey={captureStateKey}
             />

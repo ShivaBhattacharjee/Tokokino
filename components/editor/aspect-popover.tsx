@@ -70,7 +70,7 @@ const SECTIONS: AspectSection[] = [
     label: "X (Twitter)",
     icon: RiTwitterXLine,
     options: [
-      { id: "x-post", name: "Tweet Image", ratio: "16:9", w: 1600, h: 900 },
+      { id: "x-post", name: "Post", ratio: "1:1", w: 1080, h: 1080 },
       {
         id: "x-profile",
         name: "Profile Photo",

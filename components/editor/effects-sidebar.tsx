@@ -51,6 +51,7 @@ export function EffectsSidebar({
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const frame = useActiveCanvasField((c) => c.frame)
   const objectFit = useActiveCanvasField((c) => c.objectFit)
+  const tweet = useActiveCanvasField((c) => c.tweet)
   const setAspect = useEditorStore((s) => s.setAspect)
   const setCanvasAspect = useEditorStore((s) => s.setCanvasAspect)
   const setFrameForMatchingScreenshots = useEditorStore(
@@ -63,7 +64,8 @@ export function EffectsSidebar({
     activeFrameRef.current = activeFrame
   })
 
-  const aspect = bulkEditMode ? (canvasAspect ?? globalAspect) : globalAspect
+  const aspect =
+    bulkEditMode || tweet ? (canvasAspect ?? globalAspect) : globalAspect
   const projectName = currentDraftName?.trim()
 
   const [customSize, setCustomSize] = React.useState<{
@@ -159,6 +161,9 @@ export function EffectsSidebar({
             align={popoverAlign}
             previewImage={selectedSlot ? selectedSlot.src : undefined}
             imageFit={selectedSlot?.objectFit ?? objectFit ?? "cover"}
+            disabled={Boolean(tweet)}
+            disabledLabel="Disabled for X posts"
+            disabledTooltip="Frames are disabled for X posts because the post card already provides the frame and spacing."
             onChange={(nextFrame) => {
               setFrameForMatchingScreenshots(nextFrame)
               showCompatibilityWarning(

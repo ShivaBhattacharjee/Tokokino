@@ -61,6 +61,11 @@ import { ScreenshotMockup } from "./screenshot-mockup"
 import { TweetCardView } from "./tweet-card"
 import { fetchTweetData } from "@/lib/editor/load-tweet"
 import {
+  DEFAULT_TWEET_SETTINGS,
+  tweetSettingsFromCard,
+  type TweetCardSettings,
+} from "@/lib/editor/tweet-settings"
+import {
   downscaleImageFromUrl,
   getOptimizedUrlSync,
 } from "@/lib/editor/image-resize"
@@ -117,6 +122,7 @@ function CanvasViewInner({
     setFrameAddress,
     tweet,
     setTweet,
+    clearTweet,
     portrait,
     enhance,
     annotation,
@@ -329,12 +335,26 @@ function CanvasViewInner({
   )
 
   const handleLoadTweet = React.useCallback(
-    async (url: string) => {
+    async (
+      url: string,
+      settings: TweetCardSettings = DEFAULT_TWEET_SETTINGS
+    ) => {
       // fetchTweetData throws a user-facing Error; let the caller surface it.
       const data = await fetchTweetData(url)
-      setTweet({ data, theme: "dark", showMetrics: true, showAvatar: true })
+      setTweet({ data, ...settings })
     },
     [setTweet]
+  )
+
+  const handleReplaceTweet = React.useCallback(
+    async (url: string, settings?: TweetCardSettings) => {
+      await handleLoadTweet(
+        url,
+        settings ??
+          (tweet ? tweetSettingsFromCard(tweet) : DEFAULT_TWEET_SETTINGS)
+      )
+    },
+    [handleLoadTweet, tweet]
   )
 
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
@@ -522,6 +542,8 @@ function CanvasViewInner({
     typeof positionedStyle?.top === "number"
       ? positionedStyle.top + effectiveOffset.y
       : undefined
+  const mainContentLeftPct = 50 + (effectiveOffset.x / widthPx) * 100
+  const mainContentTopPct = 50 + (effectiveOffset.y / heightPx) * 100
 
   const {
     isAnnotating,
@@ -730,6 +752,30 @@ function CanvasViewInner({
                   boxShadow={shadowBoxShadowCss(computedShadow)}
                   enhanceFilter={enhanceFilter}
                   screenshotLayer={screenshotLayer}
+                  innerLightingStyle={innerLightingStyle}
+                  leftPct={mainContentLeftPct}
+                  topPct={mainContentTopPct}
+                  isSelected={isScreenshotSelected && isActive}
+                  isDragging={isScreenshotDragging}
+                  activeTool={activeTool}
+                  onSelect={handleScreenshotClickSelect}
+                  onPointerDown={(e) => {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur()
+                    }
+                    startMockupDrag(e)
+                  }}
+                  onPointerMove={moveMockup}
+                  onPointerUp={stopMockupDrag}
+                  onReplace={handleReplaceTweet}
+                  onReplaceFile={readFile}
+                  onCaptureWebsite={handleCaptureWebsite}
+                  captureDefaultDevice={captureDefaultDevice}
+                  captureStateKey={mainCaptureStateKey}
+                  onDelete={() => {
+                    setIsScreenshotSelected(false)
+                    clearTweet()
+                  }}
                 />
               ) : screenshot ? (
                 browserFrame ? (
@@ -774,6 +820,7 @@ function CanvasViewInner({
                       setScreenshot(null)
                     }}
                     onCaptureWebsite={handleCaptureWebsite}
+                    onLoadTweet={handleLoadTweet}
                     captureDefaultDevice={captureDefaultDevice}
                     captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
@@ -799,6 +846,7 @@ function CanvasViewInner({
                     imageRef={imageRef}
                     scopeToMinSide={shouldScopeFrame}
                     onCaptureWebsite={handleCaptureWebsite}
+                    onLoadTweet={handleLoadTweet}
                     captureDefaultDevice={captureDefaultDevice}
                     captureStateKey={mainCaptureStateKey}
                     onSelect={handleScreenshotClickSelect}
@@ -862,6 +910,7 @@ function CanvasViewInner({
                       setScreenshot(null)
                     }}
                     onCaptureWebsite={handleCaptureWebsite}
+                    onLoadTweet={handleLoadTweet}
                     captureDefaultDevice={captureDefaultDevice}
                     captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}

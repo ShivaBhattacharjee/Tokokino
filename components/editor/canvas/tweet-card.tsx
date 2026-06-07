@@ -1,9 +1,27 @@
 "use client"
 
 import * as React from "react"
-import { RiTwitterXLine } from "@remixicon/react"
+import { RiDeleteBinLine, RiPencilLine, RiTwitterXLine } from "@remixicon/react"
 
-import type { ScreenshotLayer, TweetCard, TweetTheme } from "@/lib/editor/store"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  UploadCard,
+  type CaptureDevice,
+  type CaptureSettings,
+} from "@/components/editor/canvas/upload-card"
+import { InnerLightingOverlay } from "@/components/editor/canvas/inner-lighting-overlay"
+import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
+import type {
+  EditorTool,
+  ScreenshotLayer,
+  TweetCard,
+  TweetTheme,
+} from "@/lib/editor/store"
+import { DEFAULT_TWEET_FONT_FAMILY } from "@/lib/editor/tweet-settings"
 import { cn } from "@/lib/utils"
 
 type ThemePalette = {
@@ -135,6 +153,19 @@ function renderTweetText(text: string, link: string): React.ReactNode {
   })
 }
 
+function mediaGridClass(count: number) {
+  if (count === 1) return "grid-cols-1"
+  if (count >= 3) return "grid-cols-2 grid-rows-2 aspect-[1.5/1]"
+  return "grid-cols-2"
+}
+
+function mediaItemClass(count: number, index: number) {
+  if (count === 1) return "aspect-[16/9]"
+  if (count === 2) return "aspect-[1.42/1]"
+  if (count === 3 && index === 0) return "row-span-2"
+  return ""
+}
+
 type TweetCardViewProps = {
   tweet: TweetCard
   transform: string
@@ -143,6 +174,24 @@ type TweetCardViewProps = {
   enhanceFilter?: string
   screenshotLayer: ScreenshotLayer
   innerLightingStyle?: React.CSSProperties | null
+  leftPct: number
+  topPct: number
+  isSelected?: boolean
+  isDragging?: boolean
+  activeTool?: EditorTool
+  onSelect?: (e: React.MouseEvent<HTMLDivElement>) => void
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerMove?: (e: React.PointerEvent<HTMLDivElement>) => void
+  onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void
+  onReplace?: (url: string, settings?: TweetCardSettings) => Promise<void>
+  onReplaceFile?: (file: File) => void
+  onCaptureWebsite?: (
+    url: string,
+    settings: CaptureSettings
+  ) => void | Promise<void>
+  captureDefaultDevice?: CaptureDevice
+  captureStateKey?: string
+  onDelete?: () => void
 }
 
 export function TweetCardView({
@@ -152,9 +201,29 @@ export function TweetCardView({
   boxShadow,
   enhanceFilter,
   screenshotLayer,
+  innerLightingStyle,
+  leftPct,
+  topPct,
+  isSelected = false,
+  isDragging = false,
+  activeTool = "pointer",
+  onSelect,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onReplace,
+  onReplaceFile,
+  onCaptureWebsite,
+  captureDefaultDevice,
+  captureStateKey,
+  onDelete,
 }: TweetCardViewProps) {
+  const [editOpen, setEditOpen] = React.useState(false)
+  const replaceInputRef = React.useRef<HTMLInputElement>(null)
   const { data, theme, showMetrics, showAvatar } = tweet
   const t = THEMES[theme] ?? THEMES.dark
+  const media = (tweet.showImages ?? true) ? (data.media ?? []).slice(0, 4) : []
+  const showTimestamp = tweet.showTimestamp ?? true
 
   const cardStyle: React.CSSProperties = {
     background: t.bg,
@@ -167,8 +236,7 @@ export function TweetCardView({
     filter: enhanceFilter || undefined,
     opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
     width: "min(98cqw, 996px)",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    fontFamily: tweet.fontFamily ?? DEFAULT_TWEET_FONT_FAMILY,
   }
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     cardStyle.mixBlendMode = screenshotLayer.blendMode
@@ -178,10 +246,47 @@ export function TweetCardView({
 
   return (
     <div
-      className="pointer-events-none flex h-full w-full items-center justify-center"
+      className="pointer-events-none absolute inset-0"
       style={{ containerType: "size" }}
     >
-      <div className="overflow-hidden p-4" style={cardStyle}>
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) {
+            onReplaceFile?.(file)
+            setEditOpen(false)
+          }
+          e.target.value = ""
+        }}
+      />
+      <div
+        data-editor-shadow-box-target
+        data-tweet-card
+        data-selection-border={isSelected ? "true" : undefined}
+        onClick={onSelect}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className={cn(
+          "group/tweet pointer-events-auto absolute overflow-hidden p-4",
+          onPointerDown
+            ? isDragging
+              ? "cursor-grabbing"
+              : "cursor-grab"
+            : "cursor-default"
+        )}
+        style={{
+          ...cardStyle,
+          left: `var(--editor-main-position-x, ${leftPct}%)`,
+          top: `var(--editor-main-position-y, ${topPct}%)`,
+          transform: `translate(-50%, -50%) ${transform}`,
+        }}
+      >
         <div className="flex items-start gap-3">
           {showAvatar ? (
             data.author.avatarUrl ? (
@@ -227,6 +332,30 @@ export function TweetCardView({
           </p>
         ) : null}
 
+        {media.length > 0 ? (
+          <div
+            className={cn(
+              "mt-3 grid gap-2 overflow-hidden rounded-[18px] border",
+              mediaGridClass(media.length)
+            )}
+            style={{ borderColor: t.border }}
+          >
+            {media.map((item, index) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={item.url}
+                src={item.url}
+                alt={item.alt ?? ""}
+                draggable={false}
+                className={cn(
+                  "h-full min-h-0 w-full object-cover",
+                  mediaItemClass(media.length, index)
+                )}
+              />
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-3 flex flex-col gap-2">
           {showMetrics ? (
             <div
@@ -243,12 +372,91 @@ export function TweetCardView({
               </span>
             </div>
           ) : null}
-          {date ? (
+          {showTimestamp && date ? (
             <div className={cn("text-[16px]")} style={{ color: t.sub }}>
               {date}
             </div>
           ) : null}
         </div>
+
+        <InnerLightingOverlay
+          style={innerLightingStyle}
+          className="rounded-[inherit]"
+        />
+
+        {activeTool === "pointer" && !screenshotLayer.hidden ? (
+          <div
+            data-export-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-200",
+              editOpen || isSelected
+                ? "opacity-100"
+                : "opacity-0 group-hover/tweet:opacity-100",
+              isDragging && !editOpen && "opacity-0!"
+            )}
+          >
+            <Popover open={editOpen} onOpenChange={setEditOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Edit X post"
+                  title="Edit X post"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerUp={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditOpen((open) => !open)
+                  }}
+                  className="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-background text-foreground shadow-xl ring-2 ring-foreground/15 transition-[ring-color] hover:ring-foreground/30 sm:size-14"
+                >
+                  <RiPencilLine className="size-5 sm:size-7" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                data-export-hidden="true"
+                align="center"
+                side="bottom"
+                sideOffset={10}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                className="w-[320px] gap-0 rounded-2xl border border-border bg-popover p-0 shadow-2xl"
+              >
+                <div className="overflow-hidden rounded-2xl">
+                  <UploadCard
+                    onBrowse={() => replaceInputRef.current?.click()}
+                    onCapture={onCaptureWebsite}
+                    onLoadTweet={
+                      onReplace
+                        ? async (url, settings) => {
+                            await onReplace(url, settings)
+                          }
+                        : undefined
+                    }
+                    defaultDevice={captureDefaultDevice}
+                    captureStateKey={captureStateKey}
+                  />
+                  {onDelete ? (
+                    <div className="border-t border-border/60 p-2.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditOpen(false)
+                          onDelete()
+                        }}
+                        className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-destructive/10 text-[13px] font-medium text-destructive transition-all hover:bg-destructive/18 hover:text-destructive"
+                      >
+                        <RiDeleteBinLine className="size-4" />
+                        Remove post
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        ) : null}
       </div>
     </div>
   )
