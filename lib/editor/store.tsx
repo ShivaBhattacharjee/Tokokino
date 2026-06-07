@@ -78,6 +78,7 @@ import type {
   Shadow,
   TextElement,
   Tilt,
+  TweetCard,
 } from "./state-types"
 
 export * from "./state-types"
@@ -286,6 +287,9 @@ export type EditorActions = {
   setFrame: (f: DeviceFrame, canvasId?: string) => void
   setFrameForMatchingScreenshots: (f: DeviceFrame, canvasId?: string) => void
   setFrameAddress: (address: string, canvasId?: string) => void
+  setTweet: (card: TweetCard, canvasId?: string) => void
+  updateTweet: (patch: Partial<TweetCard>, canvasId?: string) => void
+  clearTweet: (canvasId?: string) => void
   setObjectFit: (fit: "contain" | "cover" | "fill", canvasId?: string) => void
   bringScreenshotToFront: (canvasId?: string) => void
   sendScreenshotToBack: (canvasId?: string) => void
@@ -664,6 +668,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           screenshot,
           originalScreenshot: screenshot,
           lastCropRegion: null,
+          // A screenshot replaces any tweet as the canvas's main content.
+          tweet: screenshot ? null : canvas.tweet,
           objectFit: canvas.objectFit ?? "contain",
           screenshotLayer: {
             ...canvas.screenshotLayer,
@@ -1062,6 +1068,27 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       ),
     setFrameAddress: (address, canvasId) =>
       commitCanvas(canvasId, { frameAddress: address }, "frame-address"),
+    setTweet: (card, canvasId) =>
+      commitCanvas(
+        canvasId,
+        {
+          // A tweet replaces the screenshot as the canvas's main content.
+          tweet: card,
+          screenshot: null,
+          originalScreenshot: null,
+          lastCropRegion: null,
+          screenshotSlots: [],
+        },
+        null
+      ),
+    updateTweet: (patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) =>
+          canvas.tweet ? { tweet: { ...canvas.tweet, ...patch } } : {},
+        "tweet"
+      ),
+    clearTweet: (canvasId) => commitCanvas(canvasId, { tweet: null }, null),
     setObjectFit: (fit, canvasId) =>
       commitCanvas(canvasId, { objectFit: fit }, "objectFit"),
     bringScreenshotToFront: (canvasId) =>

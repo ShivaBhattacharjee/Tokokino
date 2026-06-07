@@ -1,0 +1,255 @@
+"use client"
+
+import * as React from "react"
+import { RiTwitterXLine } from "@remixicon/react"
+
+import type { ScreenshotLayer, TweetCard, TweetTheme } from "@/lib/editor/store"
+import { cn } from "@/lib/utils"
+
+type ThemePalette = {
+  bg: string
+  text: string
+  sub: string
+  border: string
+  link: string
+}
+
+const THEMES: Record<TweetTheme, ThemePalette> = {
+  light: {
+    bg: "#ffffff",
+    text: "#0f1419",
+    sub: "#536471",
+    border: "#cfd9de",
+    link: "#1d9bf0",
+  },
+  dim: {
+    bg: "#15202b",
+    text: "#f7f9f9",
+    sub: "#8b98a5",
+    border: "#38444d",
+    link: "#1d9bf0",
+  },
+  dark: {
+    bg: "#000000",
+    text: "#e7e9ea",
+    sub: "#71767b",
+    border: "#2f3336",
+    link: "#1d9bf0",
+  },
+}
+
+const VERIFIED_PATH =
+  "M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.689.878.635.132 1.294.084 1.902-.14.27.586.7 1.084 1.24 1.439.541.354 1.168.551 1.814.569.647-.016 1.276-.213 1.817-.567s.972-.853 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"
+
+function VerifiedBadge({ color }: { color: string }) {
+  return (
+    <svg
+      viewBox="0 0 22 22"
+      aria-label="Verified account"
+      className="ml-0.5 inline-block size-[1.05em] shrink-0 translate-y-[0.08em]"
+      fill={color}
+    >
+      <path d={VERIFIED_PATH} />
+    </svg>
+  )
+}
+
+function ReplyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-[1.05em] shrink-0"
+      aria-hidden
+    >
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
+    </svg>
+  )
+}
+
+function LikeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-[1.05em] shrink-0"
+      aria-hidden
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  )
+}
+
+function formatCount(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0"
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) {
+    const k = n / 1000
+    return `${k.toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, "")}K`
+  }
+  return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
+}
+
+function formatDate(raw: string): string {
+  if (!raw) return ""
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return ""
+  const time = d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  })
+  const date = d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+  return `${time} · ${date}`
+}
+
+const ENTITY_RE = /(https?:\/\/\S+|www\.\S+|@\w{1,15}|#[\p{L}\p{N}_]+)/gu
+
+function isEntity(token: string): boolean {
+  return /^(https?:\/\/|www\.|@\w|#[\p{L}\p{N}_])/u.test(token)
+}
+
+/** Renders tweet text with URLs, @mentions and #hashtags tinted in link color. */
+function renderTweetText(text: string, link: string): React.ReactNode {
+  return text.split(ENTITY_RE).map((token, i) => {
+    if (!token) return null
+    if (isEntity(token)) {
+      return (
+        <span key={i} style={{ color: link }}>
+          {token}
+        </span>
+      )
+    }
+    return <React.Fragment key={i}>{token}</React.Fragment>
+  })
+}
+
+type TweetCardViewProps = {
+  tweet: TweetCard
+  transform: string
+  borderRadius: number
+  boxShadow?: string
+  enhanceFilter?: string
+  screenshotLayer: ScreenshotLayer
+  innerLightingStyle?: React.CSSProperties | null
+}
+
+export function TweetCardView({
+  tweet,
+  transform,
+  borderRadius,
+  boxShadow,
+  enhanceFilter,
+  screenshotLayer,
+}: TweetCardViewProps) {
+  const { data, theme, showMetrics, showAvatar } = tweet
+  const t = THEMES[theme] ?? THEMES.dark
+
+  const cardStyle: React.CSSProperties = {
+    background: t.bg,
+    color: t.text,
+    border: `1px solid ${t.border}`,
+    borderRadius,
+    boxShadow,
+    transform,
+    transformStyle: "preserve-3d",
+    filter: enhanceFilter || undefined,
+    opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
+    width: "min(98cqw, 996px)",
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  }
+  if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
+    cardStyle.mixBlendMode = screenshotLayer.blendMode
+  }
+
+  const date = formatDate(data.createdAt)
+
+  return (
+    <div
+      className="pointer-events-none flex h-full w-full items-center justify-center"
+      style={{ containerType: "size" }}
+    >
+      <div className="overflow-hidden p-4" style={cardStyle}>
+        <div className="flex items-start gap-3">
+          {showAvatar ? (
+            data.author.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={data.author.avatarUrl}
+                alt={data.author.name}
+                width={56}
+                height={56}
+                className="size-14 shrink-0 rounded-full object-cover"
+                draggable={false}
+              />
+            ) : (
+              <div
+                className="size-14 shrink-0 rounded-full"
+                style={{ background: t.border }}
+              />
+            )
+          ) : null}
+          <div className="min-w-0 flex-1 leading-tight">
+            <div
+              className="flex items-center text-[20px] font-bold"
+              style={{ color: t.text }}
+            >
+              <span className="truncate">{data.author.name}</span>
+              {data.author.verified ? <VerifiedBadge color={t.link} /> : null}
+            </div>
+            {data.author.handle ? (
+              <div className="truncate text-[18px]" style={{ color: t.sub }}>
+                @{data.author.handle}
+              </div>
+            ) : null}
+          </div>
+          <RiTwitterXLine
+            className="size-[28px] shrink-0"
+            style={{ color: t.text }}
+          />
+        </div>
+
+        {data.text ? (
+          <p className="mt-3 text-[20px] leading-normal break-words whitespace-pre-wrap">
+            {renderTweetText(data.text, t.link)}
+          </p>
+        ) : null}
+
+        <div className="mt-3 flex flex-col gap-2">
+          {showMetrics ? (
+            <div
+              className="flex items-center gap-5 text-[18px]"
+              style={{ color: t.sub }}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <ReplyIcon />
+                {formatCount(data.metrics.replies)}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <LikeIcon />
+                {formatCount(data.metrics.likes)}
+              </span>
+            </div>
+          ) : null}
+          {date ? (
+            <div className={cn("text-[16px]")} style={{ color: t.sub }}>
+              {date}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}

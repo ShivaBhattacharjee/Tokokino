@@ -58,6 +58,8 @@ import {
   ScreenshotBrowserFrame,
 } from "./screenshot-browser-frame"
 import { ScreenshotMockup } from "./screenshot-mockup"
+import { TweetCardView } from "./tweet-card"
+import { fetchTweetData } from "@/lib/editor/load-tweet"
 import {
   downscaleImageFromUrl,
   getOptimizedUrlSync,
@@ -113,6 +115,8 @@ function CanvasViewInner({
     setFrame,
     frameAddress,
     setFrameAddress,
+    tweet,
+    setTweet,
     portrait,
     enhance,
     annotation,
@@ -322,6 +326,15 @@ function CanvasViewInner({
       }
     },
     [setMainScreenshotImage]
+  )
+
+  const handleLoadTweet = React.useCallback(
+    async (url: string) => {
+      // fetchTweetData throws a user-facing Error; let the caller surface it.
+      const data = await fetchTweetData(url)
+      setTweet({ data, theme: "dark", showMetrics: true, showAvatar: true })
+    },
+    [setTweet]
   )
 
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
@@ -709,7 +722,16 @@ function CanvasViewInner({
                 zIndex: 60 + screenshotLayer.zIndex,
               }}
             >
-              {screenshot ? (
+              {tweet ? (
+                <TweetCardView
+                  tweet={tweet}
+                  transform={transform}
+                  borderRadius={borderRadius}
+                  boxShadow={shadowBoxShadowCss(computedShadow)}
+                  enhanceFilter={enhanceFilter}
+                  screenshotLayer={screenshotLayer}
+                />
+              ) : screenshot ? (
                 browserFrame ? (
                   <ScreenshotBrowserFrame
                     screenshot={screenshot}
@@ -921,6 +943,7 @@ function CanvasViewInner({
                   isDragOver={isDragOver}
                   onBrowse={() => fileInputRef.current?.click()}
                   onCapture={handleCaptureWebsite}
+                  onLoadTweet={handleLoadTweet}
                   defaultCaptureDevice={captureDefaultDevice}
                   captureStateKey={mainCaptureStateKey}
                   innerLightingStyle={innerLightingStyle}

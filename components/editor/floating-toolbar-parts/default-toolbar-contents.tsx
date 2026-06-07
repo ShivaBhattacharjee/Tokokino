@@ -68,6 +68,7 @@ export function DefaultToolbarContents() {
     setSelectedAssetId,
     setIsScreenshotSelected,
     screenshot,
+    tweet,
     frame,
     enhance,
     setEnhance,
@@ -133,7 +134,9 @@ export function DefaultToolbarContents() {
   const hasMainScreenshotTarget =
     Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
   const hasMainScreenshot = Boolean(screenshot) || hasDeviceFrame
-  const hasScalableContent = selectedSlot ? true : hasMainScreenshotTarget
+  const hasScalableContent = selectedSlot
+    ? true
+    : hasMainScreenshotTarget || Boolean(tweet)
   const hasAnyScreenshotContent =
     Boolean(screenshot) || hasDeviceFrame || screenshotSlots.length > 0
   const screenshotBoxCount =

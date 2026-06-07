@@ -234,6 +234,7 @@ export function useEditor(): EditorContext {
     annotationShapes: canvas.annotationShapes,
     screenshotSlots: canvas.screenshotSlots,
     objectFit: canvas.objectFit,
+    tweet: canvas.tweet,
 
     isPreviewMode,
     isPreviewAutoScroll,
@@ -325,6 +326,10 @@ export function useEditor(): EditorContext {
       store.setObjectFit(fit, canvasId ?? targetId),
     setFrameAddress: (address, canvasId) =>
       store.setFrameAddress(address, canvasId ?? targetId),
+    setTweet: (card, canvasId) => store.setTweet(card, canvasId ?? targetId),
+    updateTweet: (patch, canvasId) =>
+      store.updateTweet(patch, canvasId ?? targetId),
+    clearTweet: (canvasId) => store.clearTweet(canvasId ?? targetId),
     bringScreenshotToFront: (canvasId) =>
       store.bringScreenshotToFront(canvasId ?? targetId),
     sendScreenshotToBack: (canvasId) =>

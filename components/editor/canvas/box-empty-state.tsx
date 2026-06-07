@@ -15,6 +15,7 @@ type BoxEmptyStateProps = {
   isDragOver?: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  onLoadTweet?: (url: string) => Promise<void>
   url?: string
   onUrlChange?: (value: string) => void
   /** Force compact `+` trigger. Otherwise auto-detected by container width. */
@@ -43,6 +44,7 @@ export function BoxEmptyState({
   plainWideCard = false,
   defaultCaptureDevice,
   captureStateKey,
+  onLoadTweet,
 }: BoxEmptyStateProps) {
   const handleCapture = onCapture
     ? (url: string, settings: CaptureSettings) => onCapture(url, settings)
@@ -84,6 +86,7 @@ export function BoxEmptyState({
             isDragOver={isDragOver}
             onBrowse={onBrowse}
             onCapture={handleCapture}
+            onLoadTweet={onLoadTweet}
             showHint
             defaultDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
@@ -104,6 +107,7 @@ export function BoxEmptyState({
               isDragOver={isDragOver}
               onBrowse={onBrowse}
               onCapture={handleCapture}
+              onLoadTweet={onLoadTweet}
               showHint
               defaultDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
@@ -120,6 +124,7 @@ export function BoxEmptyState({
               isDragOver={isDragOver}
               onBrowse={onBrowse}
               onCapture={handleCapture}
+              onLoadTweet={onLoadTweet}
               showHint
               defaultDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}

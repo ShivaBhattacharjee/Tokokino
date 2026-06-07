@@ -377,6 +377,33 @@ export type ScreenshotSlot = {
 
 export type CanvasPosition = { x: number; y: number }
 
+export type TweetAuthor = {
+  name: string
+  handle: string
+  avatarUrl: string
+  verified: boolean
+}
+
+export type TweetData = {
+  id: string
+  url: string
+  text: string
+  author: TweetAuthor
+  createdAt: string
+  // The free syndication endpoint only exposes likes + replies reliably;
+  // reposts/views require the paid X API and are intentionally omitted.
+  metrics: { likes: number; replies: number }
+}
+
+export type TweetTheme = "light" | "dim" | "dark"
+
+export type TweetCard = {
+  data: TweetData
+  theme: TweetTheme
+  showMetrics: boolean
+  showAvatar: boolean
+}
+
 export type CanvasState = {
   id: string
   position: CanvasPosition
@@ -405,6 +432,9 @@ export type CanvasState = {
   annotationShapes: AnnotationShape[]
   screenshotSlots: ScreenshotSlot[]
   frameAddress: string
+  // An X/Twitter post rendered as the canvas's main content. Mutually
+  // exclusive with `screenshot`: setting one clears the other.
+  tweet: TweetCard | null
   objectFit?: "contain" | "cover" | "fill"
   aspect?: AspectState
 }

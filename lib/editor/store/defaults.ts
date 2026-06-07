@@ -103,6 +103,7 @@ export const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   annotationShapes: [],
   screenshotSlots: [],
   frameAddress: "",
+  tweet: null,
 }
 
 export const createCanvas = (

@@ -7,6 +7,7 @@ import {
   RiLink,
   RiLoader4Line,
   RiSettings3Line,
+  RiTwitterXLine,
   RiUploadLine,
 } from "@remixicon/react"
 
@@ -20,6 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { captureUrlSchema } from "@/lib/editor/capture-url"
+import { TweetUrlPopover } from "./tweet-url-popover"
 
 export type CaptureDevice = "desktop" | "mobile"
 export type CaptureDelay = "none" | "2s" | "5s"
@@ -262,6 +264,8 @@ type UploadCardProps = {
   isDragOver?: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  /** When provided, shows an "Embed X post" entry that loads a tweet mockup. */
+  onLoadTweet?: (url: string) => Promise<void>
   showHint?: boolean
   /** Pass custom className overrides for the outer card shell */
   className?: string
@@ -279,6 +283,7 @@ export function UploadCard({
   isDragOver = false,
   onBrowse,
   onCapture,
+  onLoadTweet,
   showHint = false,
   className,
   fluid = false,
@@ -454,6 +459,7 @@ export function UploadCard({
               isDragOver={isDragOver}
               onBrowse={onBrowse}
               onCapture={onCapture}
+              onLoadTweet={onLoadTweet}
               showHint={showHint}
               defaultDevice={defaultDevice}
               captureStateKey={captureStateKey}
@@ -539,6 +545,19 @@ export function UploadCard({
         )}
         {captureLabel}
       </button>
+      {onLoadTweet ? (
+        <TweetUrlPopover onLoad={onLoadTweet} side="bottom" align="center">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(sizing.captureButton)}
+          >
+            <RiTwitterXLine className={sizing.icon} />
+            Embed X post
+          </button>
+        </TweetUrlPopover>
+      ) : null}
       {showHint && (
         <div className={sizing.hintBox}>
           <span className={sizing.hintText}>

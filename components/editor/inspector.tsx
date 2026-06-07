@@ -8,6 +8,7 @@ import {
   RiPaletteLine,
   RiRotateLockLine,
   RiSunLine,
+  RiTwitterXLine,
 } from "@remixicon/react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -21,14 +22,18 @@ import { PaddingSection } from "./inspector/padding-section"
 import { Section } from "./inspector/primitives"
 import { ShadowSection } from "./inspector/shadow-section"
 import { TiltSection } from "./inspector/tilt-section"
+import { TweetSection } from "./inspector/tweet-section"
 
 export function Inspector({ className }: { className?: string }) {
   const frameId = useActiveCanvasField((c) => c.frame.id)
+  const hasTweet = useActiveCanvasField((c) => c.tweet !== null)
   const screenshotBoxCount = useActiveCanvasField(
     (c) => (c.screenshot ? 1 : 0) + c.screenshotSlots.length
   )
   const hasDeviceFrame = frameId !== "none"
-  const showPadding = screenshotBoxCount <= 1
+  // A device frame and screenshot padding are screenshot-only concepts; the
+  // tweet card is styled through its own section instead.
+  const showPadding = !hasTweet && screenshotBoxCount <= 1
 
   return (
     <aside
@@ -43,6 +48,15 @@ export function Inspector({ className }: { className?: string }) {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="px-3 py-3 pb-24 xl:px-4">
+          {hasTweet ? (
+            <>
+              <Section icon={RiTwitterXLine} title="X Post" defaultOpen>
+                <TweetSection />
+              </Section>
+              <div className="my-3 h-px bg-border/50" />
+            </>
+          ) : null}
+
           <Section icon={RiPaletteLine} title="Background" defaultOpen>
             <BackgroundSection />
           </Section>
@@ -53,7 +67,7 @@ export function Inspector({ className }: { className?: string }) {
           </Section>
           <div className="my-3 h-px bg-border/50" />
 
-          {!hasDeviceFrame ? (
+          {!hasDeviceFrame && !hasTweet ? (
             <>
               <Section icon={RiBrushLine} title="Border" defaultOpen>
                 <BorderSection />

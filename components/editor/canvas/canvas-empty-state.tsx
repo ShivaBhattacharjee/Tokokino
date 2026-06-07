@@ -14,6 +14,7 @@ type CanvasEmptyStateProps = {
   isDragOver: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  onLoadTweet?: (url: string) => Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   isActive?: boolean
@@ -45,6 +46,7 @@ export function CanvasEmptyState({
   isDragOver,
   onBrowse,
   onCapture,
+  onLoadTweet,
   defaultCaptureDevice,
   captureStateKey,
   isActive = false,
@@ -148,6 +150,7 @@ export function CanvasEmptyState({
             isDragOver={isDragOver}
             onBrowse={onBrowse}
             onCapture={onCapture}
+            onLoadTweet={onLoadTweet}
             compact={useCompact}
             defaultCaptureDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
@@ -191,6 +194,7 @@ export function CanvasEmptyState({
           isDragOver={isDragOver}
           onBrowse={onBrowse}
           onCapture={onCapture}
+          onLoadTweet={onLoadTweet}
           compact={useCompact}
           defaultCaptureDevice={defaultCaptureDevice}
           captureStateKey={captureStateKey}
