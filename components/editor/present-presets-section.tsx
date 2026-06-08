@@ -143,7 +143,7 @@ export function PresentPresetsSection({
   const handleTabChange = React.useCallback(
     (nextTab: PresetTab) => {
       if (hasTweet && (nextTab === "multi" || nextTab === "triple")) {
-        toast("X posts use one content slot")
+        toast("Social posts use one content slot")
         return
       }
       setTab(nextTab)
@@ -282,7 +282,7 @@ export function PresentPresetsSection({
     (preset: LayoutPreset) => {
       const canvas = canvasRef.current
       if (canvas.tweet) {
-        toast("X posts use one content slot")
+        toast("Social posts use one content slot")
         return
       }
       const aspect = aspectRef.current
@@ -343,7 +343,7 @@ export function PresentPresetsSection({
     (preset: CustomPresetSummary) => {
       const geometry = preset.geometry
       if (canvasRef.current.tweet && geometry.slots.length > 0) {
-        toast("X posts use one content slot")
+        toast("Social posts use one content slot")
         return
       }
       // Geometry includes a snapshot of every styling field on the canvas

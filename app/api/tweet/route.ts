@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server"
 
 import type { TweetData, TweetMedia } from "@/lib/editor/state-types"
-import { syndicationToken, tweetUrlSchema } from "@/lib/editor/tweet-url"
+import {
+  syndicationToken,
+  tweetUrlSchema,
+  type SocialPostRef,
+} from "@/lib/editor/tweet-url"
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit"
 
 const FETCH_TIMEOUT_MS = 10_000
+const PUBLIC_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+}
 
 type SyndicationUser = {
   name?: string
@@ -66,6 +73,74 @@ type SyndicationMediaDetail = {
   >
   ext_alt_text?: string
   alt_text?: string
+}
+
+type BlueskyAuthor = {
+  handle?: string
+  displayName?: string
+  avatar?: string
+  verification?: {
+    verifiedStatus?: string
+  }
+}
+
+type BlueskyPostRecord = {
+  text?: string
+  createdAt?: string
+}
+
+type BlueskyImageView = {
+  thumb?: string
+  fullsize?: string
+  alt?: string
+  aspectRatio?: {
+    width?: number
+    height?: number
+  }
+}
+
+type BlueskyExternalView = {
+  thumb?: string
+  title?: string
+}
+
+type BlueskyEmbedView = {
+  $type?: string
+  images?: BlueskyImageView[]
+  media?: BlueskyEmbedView
+  external?: BlueskyExternalView
+  record?: BlueskyRecordView | { record?: BlueskyRecordView }
+}
+
+type BlueskyPostView = {
+  uri?: string
+  author?: BlueskyAuthor
+  record?: BlueskyPostRecord
+  embed?: BlueskyEmbedView
+  replyCount?: number
+  repostCount?: number
+  likeCount?: number
+  quoteCount?: number
+  indexedAt?: string
+}
+
+type BlueskyRecordView = {
+  $type?: string
+  uri?: string
+  author?: BlueskyAuthor
+  value?: BlueskyPostRecord
+  embeds?: BlueskyEmbedView[]
+  replyCount?: number
+  repostCount?: number
+  likeCount?: number
+  quoteCount?: number
+  indexedAt?: string
+}
+
+type BlueskyThreadResponse = {
+  thread?: {
+    post?: BlueskyPostView
+  }
 }
 
 /** Twitter avatars come back at `_normal` (48px); request the larger crop. */
@@ -143,6 +218,7 @@ function normalize(
       : null
 
   return {
+    source: "x",
     id,
     url: handle
       ? `https://x.com/${handle}/status/${id}`
@@ -174,24 +250,129 @@ function normalize(
   }
 }
 
-export async function GET(request: Request) {
-  const limited = await enforceRateLimit({
-    limiter: "HEAVY_RATE_LIMITER",
-    scope: "tweet-fetch",
-    id: getClientIp(request.headers),
-  })
-  if (limited) return limited
+function blueskyPostUrl(author: BlueskyAuthor, uri: string): string {
+  const handle = author.handle
+  const rkey = uri.split("/").pop() ?? ""
+  return handle && rkey
+    ? `https://bsky.app/profile/${handle}/post/${rkey}`
+    : uri
+}
 
-  const { searchParams } = new URL(request.url)
-  const parsed = tweetUrlSchema.safeParse(searchParams.get("url") ?? "")
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid X post link" },
-      { status: 400 }
-    )
+function normalizeBlueskyMedia(
+  embed: BlueskyEmbedView | undefined
+): TweetMedia[] {
+  if (!embed) return []
+  const type = embed.$type ?? ""
+  if (type.includes("recordWithMedia")) {
+    return normalizeBlueskyMedia(embed.media)
   }
+  if (type.includes("images")) {
+    return (embed.images ?? [])
+      .map((image): TweetMedia | null => {
+        const url = image.fullsize ?? image.thumb
+        if (!url) return null
+        return {
+          type: "photo",
+          url,
+          width: image.aspectRatio?.width,
+          height: image.aspectRatio?.height,
+          alt: image.alt,
+        }
+      })
+      .filter((media): media is TweetMedia => Boolean(media))
+  }
+  if (type.includes("external") && embed.external?.thumb) {
+    return [
+      {
+        type: "photo",
+        url: embed.external.thumb,
+        alt: embed.external.title,
+      },
+    ]
+  }
+  return []
+}
 
-  const id = parsed.data
+function blueskyQuoteRecord(
+  embed: BlueskyEmbedView | undefined
+): BlueskyRecordView | null {
+  if (!embed) return null
+  const type = embed.$type ?? ""
+  if (!type.includes("record")) return null
+  const record = embed.record
+  if (!record) return null
+  if ("record" in record && record.record) return record.record
+  return record as BlueskyRecordView
+}
+
+function normalizeBlueskyRecord(
+  record: BlueskyRecordView | null,
+  depth: number
+): TweetData | null {
+  if (!record?.uri || !record.author) return null
+  const media = (record.embeds ?? []).flatMap(normalizeBlueskyMedia)
+  const quotedRecord =
+    depth === 0
+      ? (record.embeds?.map(blueskyQuoteRecord).find(Boolean) ?? null)
+      : null
+  const quotedTweet = quotedRecord
+    ? normalizeBlueskyRecord(quotedRecord, depth + 1)
+    : null
+
+  return {
+    source: "bluesky",
+    id: record.uri,
+    url: blueskyPostUrl(record.author, record.uri),
+    text: record.value?.text ?? "",
+    author: {
+      name: record.author.displayName ?? record.author.handle ?? "",
+      handle: record.author.handle ?? "",
+      avatarUrl: record.author.avatar ?? "",
+      verified: record.author.verification?.verifiedStatus === "valid",
+    },
+    createdAt: record.value?.createdAt ?? record.indexedAt ?? "",
+    media,
+    ...(quotedTweet ? { quotedTweet } : {}),
+    metrics: {
+      likes: record.likeCount ?? 0,
+      replies: record.replyCount ?? 0,
+      reposts: record.repostCount ?? 0,
+    },
+  }
+}
+
+function normalizeBlueskyPost(
+  post: BlueskyPostView | undefined
+): TweetData | null {
+  if (!post?.uri || !post.author) return null
+  const quotedRecord = blueskyQuoteRecord(post.embed)
+  const quotedTweet = quotedRecord
+    ? normalizeBlueskyRecord(quotedRecord, 1)
+    : null
+
+  return {
+    source: "bluesky",
+    id: post.uri,
+    url: blueskyPostUrl(post.author, post.uri),
+    text: post.record?.text ?? "",
+    author: {
+      name: post.author.displayName ?? post.author.handle ?? "",
+      handle: post.author.handle ?? "",
+      avatarUrl: post.author.avatar ?? "",
+      verified: post.author.verification?.verifiedStatus === "valid",
+    },
+    createdAt: post.record?.createdAt ?? post.indexedAt ?? "",
+    media: normalizeBlueskyMedia(post.embed),
+    ...(quotedTweet ? { quotedTweet } : {}),
+    metrics: {
+      likes: post.likeCount ?? 0,
+      replies: post.replyCount ?? 0,
+      reposts: post.repostCount ?? 0,
+    },
+  }
+}
+
+async function fetchXPost(id: string): Promise<NextResponse> {
   const endpoint = new URL("https://cdn.syndication.twimg.com/tweet-result")
   endpoint.searchParams.set("id", id)
   endpoint.searchParams.set("token", syndicationToken(id))
@@ -251,12 +432,100 @@ export async function GET(request: Request) {
     )
   }
 
-  return NextResponse.json(
-    { tweet },
-    {
-      headers: {
-        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
-      },
-    }
+  return NextResponse.json({ tweet }, { headers: PUBLIC_CACHE_HEADERS })
+}
+
+async function fetchBlueskyPost(
+  ref: Extract<SocialPostRef, { platform: "bluesky" }>
+) {
+  const endpoint = new URL(
+    "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread"
   )
+  endpoint.searchParams.set(
+    "uri",
+    `at://${ref.identifier}/app.bsky.feed.post/${ref.rkey}`
+  )
+  endpoint.searchParams.set("depth", "0")
+  endpoint.searchParams.set("parentHeight", "0")
+
+  let response: Response
+  try {
+    response = await fetch(endpoint, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; Tokokino/1.0; +https://tokokino.com)",
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      return NextResponse.json(
+        { error: "Bluesky took too long to respond" },
+        { status: 504 }
+      )
+    }
+    return NextResponse.json(
+      { error: "Could not load that Bluesky post" },
+      { status: 502 }
+    )
+  }
+
+  if (response.status === 404) {
+    return NextResponse.json(
+      { error: "Bluesky post not found or unavailable" },
+      { status: 404 }
+    )
+  }
+  if (!response.ok) {
+    return NextResponse.json(
+      { error: "Could not load that Bluesky post" },
+      { status: 502 }
+    )
+  }
+
+  let raw: BlueskyThreadResponse
+  try {
+    raw = await response.json()
+  } catch {
+    return NextResponse.json(
+      { error: "Could not read that Bluesky post" },
+      { status: 502 }
+    )
+  }
+
+  const tweet = normalizeBlueskyPost(raw.thread?.post)
+  if (!tweet) {
+    return NextResponse.json(
+      { error: "That Bluesky post is deleted, private, or unavailable" },
+      { status: 404 }
+    )
+  }
+
+  return NextResponse.json({ tweet }, { headers: PUBLIC_CACHE_HEADERS })
+}
+
+export async function GET(request: Request) {
+  const limited = await enforceRateLimit({
+    limiter: "HEAVY_RATE_LIMITER",
+    scope: "tweet-fetch",
+    id: getClientIp(request.headers),
+  })
+  if (limited) return limited
+
+  const { searchParams } = new URL(request.url)
+  const parsed = tweetUrlSchema.safeParse(searchParams.get("url") ?? "")
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        error:
+          parsed.error.issues[0]?.message ?? "Invalid X or Bluesky post link",
+      },
+      { status: 400 }
+    )
+  }
+
+  return parsed.data.platform === "x"
+    ? fetchXPost(parsed.data.id)
+    : fetchBlueskyPost(parsed.data)
 }

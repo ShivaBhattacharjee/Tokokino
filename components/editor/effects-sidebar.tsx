@@ -162,8 +162,8 @@ export function EffectsSidebar({
             previewImage={selectedSlot ? selectedSlot.src : undefined}
             imageFit={selectedSlot?.objectFit ?? objectFit ?? "cover"}
             disabled={Boolean(tweet)}
-            disabledLabel="Disabled for X posts"
-            disabledTooltip="Frames are disabled for X posts because the post card already provides the frame and spacing."
+            disabledLabel="Disabled for social posts"
+            disabledTooltip="Frames are disabled for social posts because the post card already provides the frame and spacing."
             onChange={(nextFrame) => {
               setFrameForMatchingScreenshots(nextFrame)
               showCompatibilityWarning(

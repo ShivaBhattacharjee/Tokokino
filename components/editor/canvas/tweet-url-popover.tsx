@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { RiLoader4Line, RiTwitterXLine } from "@remixicon/react"
+import { RiBlueskyFill, RiLoader4Line, RiTwitterXLine } from "@remixicon/react"
 
 import {
   Popover,
@@ -31,6 +31,7 @@ export function TweetUrlPopover({
   const [error, setError] = React.useState<string | null>(null)
 
   const parsed = React.useMemo(() => tweetUrlSchema.safeParse(url), [url])
+  const source = parsed.success ? parsed.data.platform : null
   const invalid = url.trim().length > 0 && !parsed.success
   const canSubmit = parsed.success && !loading
 
@@ -69,14 +70,18 @@ export function TweetUrlPopover({
       >
         <div className="flex items-center gap-2">
           <span className="grid size-7 shrink-0 place-items-center rounded-md bg-foreground/5 text-foreground">
-            <RiTwitterXLine className="size-4" />
+            {source === "bluesky" ? (
+              <RiBlueskyFill className="size-4" />
+            ) : (
+              <RiTwitterXLine className="size-4" />
+            )}
           </span>
           <div className="min-w-0">
             <p className="text-[13px] leading-tight font-medium">
-              Embed an X post
+              Embed a social post
             </p>
             <p className="text-[11px] leading-tight text-muted-foreground">
-              Paste a link to a public post
+              Paste a public X or Bluesky link
             </p>
           </div>
         </div>
@@ -85,8 +90,8 @@ export function TweetUrlPopover({
           inputMode="url"
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
-          placeholder="https://x.com/…/status/…"
-          aria-label="X post link"
+          placeholder="https://x.com/… or https://bsky.app/…"
+          aria-label="Social post link"
           aria-invalid={invalid}
           value={url}
           onChange={(e) => {

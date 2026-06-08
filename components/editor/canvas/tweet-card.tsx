@@ -1,7 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { RiDeleteBinLine, RiPencilLine, RiTwitterXLine } from "@remixicon/react"
+import {
+  RiBlueskyFill,
+  RiDeleteBinLine,
+  RiPencilLine,
+  RiTwitterXLine,
+} from "@remixicon/react"
 
 import {
   Popover,
@@ -404,6 +409,7 @@ export function TweetCardView({
   const cardRef = React.useRef<HTMLDivElement>(null)
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
   const { data, theme, showMetrics, showAvatar } = tweet
+  const source = data.source ?? "x"
   const t = THEMES[theme] ?? THEMES.dark
   const media = (tweet.showImages ?? true) ? (data.media ?? []).slice(0, 4) : []
   const showTimestamp = tweet.showTimestamp ?? true
@@ -551,10 +557,17 @@ export function TweetCardView({
               </div>
             ) : null}
           </div>
-          <RiTwitterXLine
-            className="size-[28px] shrink-0"
-            style={{ color: t.text }}
-          />
+          {source === "bluesky" ? (
+            <RiBlueskyFill
+              className="size-[28px] shrink-0"
+              style={{ color: t.text }}
+            />
+          ) : (
+            <RiTwitterXLine
+              className="size-[28px] shrink-0"
+              style={{ color: t.text }}
+            />
+          )}
         </div>
 
         {data.text ? (
@@ -634,8 +647,8 @@ export function TweetCardView({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Edit X post"
-                  title="Edit X post"
+                  aria-label="Edit post"
+                  title="Edit post"
                   onPointerDown={(e) => e.stopPropagation()}
                   onPointerUp={(e) => e.stopPropagation()}
                   onClick={(e) => {

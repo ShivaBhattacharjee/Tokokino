@@ -69,7 +69,7 @@ export const DESIGN_CATEGORIES: Category[] = [
 ]
 
 export const TOOLS_CATEGORIES: Category[] = [
-  { id: "tweet", label: "X Post", icon: RiTwitterXLine },
+  { id: "tweet", label: "Post", icon: RiTwitterXLine },
   { id: "background", label: "Background", icon: RiPaletteLine },
   { id: "backdrop", label: "Backdrop", icon: RiSunLine },
   { id: "border", label: "Border", icon: RiBrushLine },

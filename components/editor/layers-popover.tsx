@@ -182,10 +182,10 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
         key: "tweet:main",
         id: "main",
         type: "tweet",
-        name: "X Post",
+        name: tweet.data.source === "bluesky" ? "Bluesky Post" : "X Post",
         meta: tweet.data.author.handle
           ? `@${tweet.data.author.handle}`
-          : "Tweet card",
+          : "Post card",
         zIndex: screenshotLayer.zIndex,
         hidden: screenshotLayer.hidden,
         opacity: screenshotLayer.opacity,

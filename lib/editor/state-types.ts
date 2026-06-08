@@ -393,6 +393,7 @@ export type TweetMedia = {
 }
 
 export type TweetData = {
+  source: "x" | "bluesky"
   id: string
   url: string
   text: string

@@ -293,7 +293,7 @@ export function TabTriggerRow({
                     const disabled = isTabDisabled(t, slotCount, hasTweet)
                     const disabledReason =
                       hasTweet && (t === "multi" || t === "triple")
-                        ? "X posts use one content slot."
+                        ? "Social posts use one content slot."
                         : t === "multi"
                           ? "Multi supports up to 2 screenshot boxes. Delete slots to switch."
                           : "Triple supports up to 3 screenshot boxes. Delete a slot to switch."

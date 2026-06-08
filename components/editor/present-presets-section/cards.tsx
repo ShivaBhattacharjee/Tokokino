@@ -395,7 +395,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const disabledReason =
     canvas.tweet && preset.geometry.slots.length > 0
-      ? "X posts use one content slot."
+      ? "Social posts use one content slot."
       : undefined
 
   return (
@@ -698,7 +698,7 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
     [onApply, preset]
   )
   const disabledReason = canvas.tweet
-    ? "X posts use one content slot."
+    ? "Social posts use one content slot."
     : undefined
 
   return (

@@ -70,7 +70,7 @@ export function ScreenshotMediaPill() {
 
   const slotTooltip = isDisabled
     ? tweet
-      ? "Disabled for X posts"
+      ? "Disabled for social posts"
       : presetTab === "multi" || presetTab === "triple"
         ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
         : `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`

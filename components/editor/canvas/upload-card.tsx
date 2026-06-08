@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   RiAddLine,
+  RiBlueskyFill,
   RiCameraLine,
   RiLink,
   RiLoader4Line,
@@ -467,8 +468,13 @@ export function UploadCard({
 
   const parsedUrl = React.useMemo(() => captureUrlSchema.safeParse(url), [url])
   const parsedTweet = React.useMemo(() => tweetUrlSchema.safeParse(url), [url])
+  const socialPostSource = parsedTweet.success
+    ? parsedTweet.data.platform
+    : null
   const hasUrlInput = url !== PREFIX
   const isTweetUrl = Boolean(onLoadTweet && parsedTweet.success)
+  const hasInvalidUrlInput =
+    hasUrlInput && !parsedUrl.success && !parsedTweet.success
 
   async function handleCapture(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation()
@@ -510,10 +516,12 @@ export function UploadCard({
     : !onCapture || !parsedUrl.success || isCapturing
   const captureLabel = isCapturing
     ? isTweetUrl
-      ? "Loading X post…"
+      ? "Loading post…"
       : "Capturing screenshot…"
     : isTweetUrl
-      ? "Load X post"
+      ? socialPostSource === "bluesky"
+        ? "Load Bluesky post"
+        : "Load X post"
       : "Capture Screenshot"
 
   const [compactOpen, setCompactOpen] = React.useState(false)
@@ -629,8 +637,7 @@ export function UploadCard({
           onPointerDown={(e) => e.stopPropagation()}
           className={cn(
             sizing.urlLabel,
-            hasUrlInput &&
-              !parsedUrl.success &&
+            hasInvalidUrlInput &&
               "border-destructive/60 ring-1 ring-destructive/30"
           )}
         >
@@ -640,7 +647,7 @@ export function UploadCard({
             inputMode="url"
             placeholder="example.com"
             aria-label="Website URL"
-            aria-invalid={hasUrlInput && !parsedUrl.success}
+            aria-invalid={hasInvalidUrlInput}
             value={url}
             onChange={(e) => handleUrlChange(e.target.value)}
             onKeyDown={(e) => {
@@ -676,6 +683,8 @@ export function UploadCard({
       >
         {isCapturing ? (
           <RiLoader4Line className={cn(sizing.icon, "animate-spin")} />
+        ) : socialPostSource === "bluesky" ? (
+          <RiBlueskyFill className={sizing.icon} />
         ) : isTweetUrl ? (
           <RiTwitterXLine className={sizing.icon} />
         ) : (

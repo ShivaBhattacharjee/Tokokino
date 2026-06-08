@@ -313,7 +313,7 @@ export function MobileControls({
 
   const addSlot = React.useCallback(() => {
     if (tweet) {
-      toast.error("X posts use one content slot")
+      toast.error("Social posts use one content slot")
       return
     }
     const id = addScreenshotSlot()

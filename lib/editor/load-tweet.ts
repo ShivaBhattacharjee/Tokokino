@@ -1,7 +1,7 @@
 import type { TweetData } from "./state-types"
 
 /**
- * Fetches and normalizes an X post via our `/api/tweet` proxy. Throws an
+ * Fetches and normalizes an X or Bluesky post via our `/api/tweet` proxy. Throws an
  * `Error` with a user-facing message on failure so callers can surface it.
  */
 export async function fetchTweetData(url: string): Promise<TweetData> {

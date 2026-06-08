@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  RiBlueskyLine,
   RiBrushLine,
   RiLayoutGrid2Line,
   RiMoonClearLine,
@@ -27,6 +28,7 @@ import { TweetSection } from "./inspector/tweet-section"
 export function Inspector({ className }: { className?: string }) {
   const frameId = useActiveCanvasField((c) => c.frame.id)
   const hasTweet = useActiveCanvasField((c) => c.tweet !== null)
+  const tweetSource = useActiveCanvasField((c) => c.tweet?.data.source ?? "x")
   const screenshotBoxCount = useActiveCanvasField(
     (c) => (c.screenshot ? 1 : 0) + c.screenshotSlots.length
   )
@@ -50,7 +52,13 @@ export function Inspector({ className }: { className?: string }) {
         <div className="px-3 py-3 pb-24 xl:px-4">
           {hasTweet ? (
             <>
-              <Section icon={RiTwitterXLine} title="X Post" defaultOpen>
+              <Section
+                icon={
+                  tweetSource === "bluesky" ? RiBlueskyLine : RiTwitterXLine
+                }
+                title={tweetSource === "bluesky" ? "Bluesky Post" : "X Post"}
+                defaultOpen
+              >
                 <TweetSection />
               </Section>
               <div className="my-3 h-px bg-border/50" />
