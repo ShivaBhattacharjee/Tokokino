@@ -426,6 +426,7 @@ export type TweetCard = {
   showTimestamp?: boolean
   showQuote?: boolean
   fontFamily?: string
+  fontSize?: number
 }
 
 export type CanvasState = {

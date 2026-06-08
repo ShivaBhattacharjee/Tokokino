@@ -30,7 +30,10 @@ import type {
   TweetMedia,
   TweetTheme,
 } from "@/lib/editor/store"
-import { DEFAULT_TWEET_FONT_FAMILY } from "@/lib/editor/tweet-settings"
+import {
+  DEFAULT_TWEET_FONT_FAMILY,
+  DEFAULT_TWEET_FONT_SIZE,
+} from "@/lib/editor/tweet-settings"
 import { cn } from "@/lib/utils"
 
 type ThemePalette = {
@@ -399,7 +402,7 @@ function LinkPreviewCard({
         <div
           className={cn(
             "line-clamp-2 leading-tight font-bold",
-            compact ? "text-[16px]" : "text-[18px]"
+            compact ? "text-[0.8em]" : "text-[0.9em]"
           )}
           style={{ color: palette.text }}
         >
@@ -409,7 +412,7 @@ function LinkPreviewCard({
           <div
             className={cn(
               "mt-1 line-clamp-2 leading-snug",
-              compact ? "text-[14px]" : "text-[16px]"
+              compact ? "text-[0.7em]" : "text-[0.8em]"
             )}
             style={{ color: palette.text }}
           >
@@ -420,7 +423,7 @@ function LinkPreviewCard({
           <div
             className={cn(
               "mt-3 flex items-center gap-1.5 truncate border-t pt-3",
-              compact ? "text-[13px]" : "text-[15px]"
+              compact ? "text-[0.65em]" : "text-[0.75em]"
             )}
             style={{ color: palette.sub, borderColor: palette.border }}
           >
@@ -474,7 +477,7 @@ function QuoteTweetPreview({
             />
           )
         ) : null}
-        <div className="flex min-w-0 items-baseline gap-1.5 text-[16px] leading-tight">
+        <div className="flex min-w-0 items-baseline gap-1.5 text-[0.8em] leading-tight">
           <span className="truncate font-bold" style={{ color: palette.text }}>
             {tweet.author.name}
           </span>
@@ -490,7 +493,7 @@ function QuoteTweetPreview({
       </div>
 
       {tweet.text ? (
-        <p className="mt-2 text-[18px] leading-normal break-words whitespace-pre-wrap">
+        <p className="mt-2 text-[0.9em] leading-normal break-words whitespace-pre-wrap">
           {renderTweetText(displayText(tweet.text, tweet.source), palette.link)}
         </p>
       ) : null}
@@ -636,6 +639,7 @@ export function TweetCardView({
     opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
     width: "min(98cqw, 996px)",
     fontFamily: tweet.fontFamily ?? DEFAULT_TWEET_FONT_FAMILY,
+    fontSize: `var(--tweet-font-size-preview, ${tweet.fontSize ?? DEFAULT_TWEET_FONT_SIZE}px)`,
   }
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     cardStyle.mixBlendMode = screenshotLayer.blendMode
@@ -711,14 +715,14 @@ export function TweetCardView({
           ) : null}
           <div className="min-w-0 flex-1 leading-tight">
             <div
-              className="flex items-center text-[20px] font-bold"
+              className="flex items-center text-[1em] font-bold"
               style={{ color: t.text }}
             >
               <span className="truncate">{data.author.name}</span>
               {data.author.verified ? <VerifiedBadge color={t.link} /> : null}
             </div>
             {data.author.handle ? (
-              <div className="truncate text-[18px]" style={{ color: t.sub }}>
+              <div className="truncate text-[0.9em]" style={{ color: t.sub }}>
                 @{data.author.handle}
               </div>
             ) : null}
@@ -737,7 +741,7 @@ export function TweetCardView({
         </div>
 
         {data.text ? (
-          <p className="mt-3 text-[20px] leading-normal break-words whitespace-pre-wrap">
+          <p className="mt-3 text-[1em] leading-normal break-words whitespace-pre-wrap">
             {renderTweetText(displayText(data.text, source), t.link)}
           </p>
         ) : null}
@@ -765,7 +769,7 @@ export function TweetCardView({
 
         {showMetrics || (showTimestamp && date) ? (
           <div
-            className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[18px]"
+            className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.9em]"
             style={{ color: t.sub }}
           >
             {showMetrics ? (
@@ -791,7 +795,7 @@ export function TweetCardView({
               </>
             ) : null}
             {showTimestamp && date ? (
-              <span className="text-[16px]">{date}</span>
+              <span className="text-[0.8em]">{date}</span>
             ) : null}
           </div>
         ) : null}

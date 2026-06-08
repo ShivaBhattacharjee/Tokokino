@@ -8,10 +8,15 @@ export type TweetCardSettings = {
   showTimestamp: boolean
   showQuote: boolean
   fontFamily: string
+  fontSize: number
 }
 
 export const DEFAULT_TWEET_FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+
+export const DEFAULT_TWEET_FONT_SIZE = 20
+export const MIN_TWEET_FONT_SIZE = 14
+export const MAX_TWEET_FONT_SIZE = 32
 
 export const DEFAULT_TWEET_SETTINGS: TweetCardSettings = {
   theme: "dark",
@@ -21,6 +26,7 @@ export const DEFAULT_TWEET_SETTINGS: TweetCardSettings = {
   showTimestamp: true,
   showQuote: true,
   fontFamily: DEFAULT_TWEET_FONT_FAMILY,
+  fontSize: DEFAULT_TWEET_FONT_SIZE,
 }
 
 export const TWEET_THEME_OPTIONS: {
@@ -42,5 +48,6 @@ export function tweetSettingsFromCard(tweet: TweetCard): TweetCardSettings {
     showTimestamp: tweet.showTimestamp ?? true,
     showQuote: tweet.showQuote ?? true,
     fontFamily: tweet.fontFamily ?? DEFAULT_TWEET_FONT_FAMILY,
+    fontSize: tweet.fontSize ?? DEFAULT_TWEET_FONT_SIZE,
   }
 }
