@@ -43,6 +43,10 @@ const faqs = [
     a: "Yes. Each canvas supports up to 3 extra screenshot slots. You can arrange them with built-in layout presets — Side by Side, Depth Duo, Fan Out, Scatter, Perspective, and more — or position them freely.",
   },
   {
+    q: "Can I turn an X (Twitter) or Bluesky post into an image?",
+    a: "Yes. Paste a post link and Tokokino fetches the post and renders a clean mockup — author, avatar, text, images, and stats — that you can style and export like any screenshot. Pick a Light, Dim, or Dark theme, choose a font, and toggle the avatar, images, stats, date, and the quoted (parent) post on or off. Single images fill the card edge to edge and quoted posts render inline.",
+  },
+  {
     q: "What device frames are available?",
     a: "Tokokino includes pixel-accurate mockup frames for iPhone, Pixel phones, MacBook, and browser chrome (Safari, Chrome, Arc). Frames are applied non-destructively and are stripped from exports automatically if needed.",
   },

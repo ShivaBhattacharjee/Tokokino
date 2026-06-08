@@ -8,80 +8,123 @@ import { ease } from "@/components/landing/constants"
 
 const COMPETITOR_COMPARISONS = [
   {
-    competitor: "Figma",
+    competitor: "PostSpark",
     contrast:
-      "Great when you need a full design file. Slow when you only need one polished screenshot.",
-    tokokino: "Drop, frame, annotate, export, and move on.",
+      "The closest match — screenshots plus X and Bluesky posts. Polished, but a paid, closed-source cloud app.",
+    tokokino:
+      "The same screenshot + X/Bluesky workflow, free and open source, edited entirely in your browser.",
   },
   {
-    competitor: "Canva",
+    competitor: "Pika",
     contrast:
-      "Useful for social templates, but screenshot controls get buried inside generic design tools.",
+      "A great beautifier with URL capture and tweet shots — gated behind a $15/mo subscription.",
     tokokino:
-      "Built around device frames, canvas ratios, shadows, and product-shot export.",
+      "The same beautify-and-export flow, plus Bluesky posts, with no subscription to ship.",
   },
   {
-    competitor: "CleanShot / Shottr",
+    competitor: "Shots.so",
     contrast:
-      "Excellent capture tools. Styling usually stops at quick markup and simple backgrounds.",
+      "Beautiful device mockups, layouts, and animations — but no social-post mockups, and it's paid.",
     tokokino:
-      "Turns existing captures into launch-ready visuals with layers and share links.",
+      "Device frames and layouts too, plus X and Bluesky posts, free and local-first.",
   },
 ] as const
 
 const FEATURE_MATRIX = [
   {
-    feature: "Browser-only editing",
+    feature: "Free, no-watermark export",
     tokokino: true,
-    figma: false,
-    canva: false,
-    cleanshot: false,
+    postspark: "paid",
+    pika: "paid",
+    shots: "limited",
   },
   {
-    feature: "No watermark exports",
+    feature: "Edit 100MB+ images lag-free",
     tokokino: true,
-    figma: true,
-    canva: false,
-    cleanshot: true,
+    postspark: "limited",
+    pika: false,
+    shots: false,
   },
   {
-    feature: "Device and browser frames",
+    feature: "Open source",
     tokokino: true,
-    figma: "manual",
-    canva: "limited",
-    cleanshot: "limited",
+    postspark: false,
+    pika: true,
+    shots: false,
   },
   {
-    feature: "Auto-sampled palettes",
+    feature: "Edits stay in your browser",
     tokokino: true,
-    figma: "plugin",
-    canva: false,
-    cleanshot: false,
+    postspark: "cloud",
+    pika: "cloud",
+    shots: "cloud",
+  },
+  {
+    feature: "No account to export",
+    tokokino: true,
+    postspark: false,
+    pika: false,
+    shots: false,
+  },
+  {
+    feature: "X (Twitter) post mockups",
+    tokokino: true,
+    postspark: true,
+    pika: true,
+    shots: false,
+  },
+  {
+    feature: "Bluesky post mockups",
+    tokokino: true,
+    postspark: true,
+    pika: false,
+    shots: false,
+  },
+  {
+    feature: "Quoted-post mockups",
+    tokokino: true,
+    postspark: true,
+    pika: false,
+    shots: false,
+  },
+  {
+    feature: "Capture from URL",
+    tokokino: true,
+    postspark: true,
+    pika: true,
+    shots: false,
+  },
+  {
+    feature: "Auto-sampled backgrounds",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
+    shots: false,
+  },
+  {
+    feature: "4K / 8K export",
+    tokokino: true,
+    postspark: "paid",
+    pika: "paid",
+    shots: "paid",
   },
   {
     feature: "Multi-screenshot layouts",
     tokokino: true,
-    figma: "manual",
-    canva: "manual",
-    cleanshot: true,
+    postspark: true,
+    pika: false,
+    shots: true,
   },
   {
-    feature: "Local-first by default",
+    feature: "Annotations & arrows",
     tokokino: true,
-    figma: false,
-    canva: false,
-    cleanshot: true,
-  },
-  {
-    feature: "No AI training on uploads",
-    tokokino: true,
-    figma: "policy",
-    canva: "policy",
-    cleanshot: true,
+    postspark: true,
+    pika: "limited",
+    shots: "limited",
   },
 ] as const
 
-type MatrixValue = boolean | "manual" | "limited" | "plugin" | "policy"
+type MatrixValue = boolean | "limited" | "paid" | "cloud"
 
 function MatrixCell({
   value,
@@ -131,12 +174,14 @@ export function ComparisonSection() {
           {"// Comparison"}
         </span>
         <h2 className="max-w-3xl text-2xl tracking-tight sm:text-3xl lg:text-4xl">
-          Faster than a design tool, sharper than a capture app.
+          Everything the paid beautifiers do — free and open source.
         </h2>
         <p className="max-w-2xl text-sm leading-7 text-foreground/58">
-          Tokokino sits in the narrow space between screenshot utilities and
-          full design suites: focused enough to be quick, flexible enough to
-          ship polished product visuals.
+          Tokokino covers the same ground as PostSpark, Pika, and Shots — and
+          adds X and Bluesky post mockups — with no subscription, no watermark,
+          and nothing uploaded until you choose to share. It even stays smooth
+          dragging and editing 100MB+ screenshots that other tools won&apos;t
+          load.
         </p>
       </motion.div>
 
@@ -184,9 +229,9 @@ export function ComparisonSection() {
           <div className="bg-primary/[0.07] px-3 py-3 text-primary">
             Tokokino
           </div>
-          <div className="px-3 py-3">Figma</div>
-          <div className="px-3 py-3">Canva</div>
-          <div className="px-3 py-3">CleanShot</div>
+          <div className="px-3 py-3">PostSpark</div>
+          <div className="px-3 py-3">Pika</div>
+          <div className="px-3 py-3">Shots.so</div>
         </div>
 
         {FEATURE_MATRIX.map((row) => (
@@ -201,13 +246,13 @@ export function ComparisonSection() {
               <MatrixCell value={row.tokokino} featured />
             </div>
             <div className="px-3 py-3 text-center">
-              <MatrixCell value={row.figma} />
+              <MatrixCell value={row.postspark} />
             </div>
             <div className="px-3 py-3 text-center">
-              <MatrixCell value={row.canva} />
+              <MatrixCell value={row.pika} />
             </div>
             <div className="px-3 py-3 text-center">
-              <MatrixCell value={row.cleanshot} />
+              <MatrixCell value={row.shots} />
             </div>
           </div>
         ))}

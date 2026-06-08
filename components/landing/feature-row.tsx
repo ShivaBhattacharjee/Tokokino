@@ -1,4 +1,5 @@
 import { motion } from "motion/react"
+import { RiBlueskyFill, RiTwitterXLine } from "@remixicon/react"
 import { FEATURES, ease } from "@/components/landing/constants"
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -122,6 +123,23 @@ const ICONS: Record<string, React.ReactNode> = {
     >
       <rect x="2" y="5" width="10" height="14" rx="2" />
       <rect x="14" y="7" width="8" height="10" rx="2" opacity="0.6" />
+    </svg>
+  ),
+  "10": <RiTwitterXLine className="size-5" />,
+  "11": <RiBlueskyFill className="size-5" />,
+  "12": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <line x1="3" y1="8" x2="21" y2="8" />
+      <circle cx="6" cy="6" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="8.5" cy="6" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="14" r="3" />
     </svg>
   ),
 }
