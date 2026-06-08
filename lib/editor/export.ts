@@ -1,7 +1,10 @@
 import { toJpeg, toBlob } from "html-to-image"
 
+import { shouldProxyAssetUrl } from "./export-assets"
 import { buildExportFilename, getExportFilenameFormat } from "./export-filename"
 import { useEditorStore } from "./store"
+
+export { shouldProxyAssetUrl } from "./export-assets"
 
 export type ExportFormat = "png" | "jpeg" | "webp"
 export type ExportResolution = "hd" | "4k" | "8k"
@@ -126,28 +129,6 @@ type AssetRewrite = {
 const URL_FUNCTION_RE = /url\((['"]?)(.*?)\1\)/g
 const EXPORT_IMAGE_PROXY_PATH = "/api/export/image"
 const EXPORT_ASSET_PRELOAD_TIMEOUT_MS = 12_000
-
-export function shouldProxyAssetUrl(value: string) {
-  const trimmed = value.trim()
-  if (
-    !trimmed ||
-    trimmed.startsWith("#") ||
-    trimmed.startsWith("data:") ||
-    trimmed.startsWith("blob:")
-  ) {
-    return false
-  }
-
-  try {
-    const url = new URL(trimmed, window.location.href)
-    return (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      url.origin !== window.location.origin
-    )
-  } catch {
-    return false
-  }
-}
 
 function proxiedAssetUrl(value: string) {
   const absoluteUrl = new URL(value, window.location.href).toString()

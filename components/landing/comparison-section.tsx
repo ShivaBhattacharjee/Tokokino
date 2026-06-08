@@ -10,40 +10,47 @@ const COMPETITOR_COMPARISONS = [
   {
     competitor: "PostSpark",
     contrast:
-      "The closest match — screenshots plus X and Bluesky posts. Polished, but a paid, closed-source cloud app.",
+      "The closest match — screenshots plus X and Bluesky posts, with video and animation extras. Strong tool, but cloud storage and the no-limits workflow sit behind Pro.",
     tokokino:
-      "The same screenshot + X/Bluesky workflow, free and open source, edited entirely in your browser.",
+      "Tokokino keeps the screenshot/post workflow lean: local editing, free high-res exports, free cloud drafts, and reusable presets without a subscription meter.",
   },
   {
     competitor: "Pika",
     contrast:
-      "A great beautifier with URL capture and tweet shots — gated behind a $15/mo subscription.",
+      "A polished browser editor with URL capture, tweet shots, and templates. The catch: 4K export, presets, annotations, WebP/SVG, and no watermark are Pro features.",
     tokokino:
-      "The same beautify-and-export flow, plus Bluesky posts, with no subscription to ship.",
+      "Tokokino gives the daily launch workflow room to breathe: 4K/8K export, annotations, custom presets, and Bluesky post mockups are part of the free product.",
   },
   {
     competitor: "Shots.so",
     contrast:
-      "Beautiful device mockups, layouts, and animations — but no social-post mockups, and it's paid.",
+      "Beautiful for animated device mockups and zoom videos, but it is built around a cloud rendering/content platform and does not cover social-post mockups.",
     tokokino:
-      "Device frames and layouts too, plus X and Bluesky posts, free and local-first.",
+      "Tokokino is the lighter, faster lane for static product shots: device frames, browser frames, multi-shot layouts, X/Bluesky posts, and local-first editing.",
   },
 ] as const
 
 const FEATURE_MATRIX = [
   {
-    feature: "Free, no-watermark export",
+    feature: "Free no-watermark export",
     tokokino: true,
     postspark: "paid",
     pika: "paid",
     shots: "limited",
   },
   {
-    feature: "Edit 100MB+ images lag-free",
+    feature: "4K / 8K static export",
     tokokino: true,
+    postspark: "paid",
+    pika: "paid",
+    shots: "paid",
+  },
+  {
+    feature: "Heavy screenshot workflow",
+    tokokino: "100mb+",
     postspark: "limited",
-    pika: false,
-    shots: false,
+    pika: "limited",
+    shots: "limited",
   },
   {
     feature: "Open source",
@@ -53,11 +60,25 @@ const FEATURE_MATRIX = [
     shots: false,
   },
   {
-    feature: "Edits stay in your browser",
+    feature: "Local-first editing",
     tokokino: true,
     postspark: "cloud",
-    pika: "cloud",
+    pika: "browser",
     shots: "cloud",
+  },
+  {
+    feature: "Free cloud project drafts",
+    tokokino: "1gb",
+    postspark: "paid",
+    pika: "not listed",
+    shots: "not listed",
+  },
+  {
+    feature: "Unlimited custom presets",
+    tokokino: true,
+    postspark: "not listed",
+    pika: "paid",
+    shots: "not listed",
   },
   {
     feature: "X (Twitter) post mockups",
@@ -95,13 +116,6 @@ const FEATURE_MATRIX = [
     shots: false,
   },
   {
-    feature: "4K / 8K export",
-    tokokino: true,
-    postspark: "paid",
-    pika: "paid",
-    shots: "paid",
-  },
-  {
     feature: "Multi-screenshot layouts",
     tokokino: true,
     postspark: true,
@@ -117,7 +131,15 @@ const FEATURE_MATRIX = [
   },
 ] as const
 
-type MatrixValue = boolean | "limited" | "paid" | "cloud"
+type MatrixValue =
+  | boolean
+  | "100mb+"
+  | "1gb"
+  | "browser"
+  | "cloud"
+  | "limited"
+  | "not listed"
+  | "paid"
 
 function MatrixCell({
   value,
@@ -143,7 +165,13 @@ function MatrixCell({
   }
 
   return (
-    <span className="inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-foreground/45 uppercase">
+    <span
+      className={
+        featured
+          ? "inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-primary uppercase"
+          : "inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-foreground/45 uppercase"
+      }
+    >
       <RiSubtractLine className="size-3.5" />
       {value}
     </span>
@@ -167,14 +195,14 @@ export function ComparisonSection() {
           {"// Comparison"}
         </span>
         <h2 className="max-w-3xl text-2xl tracking-tight sm:text-3xl lg:text-4xl">
-          Everything the paid beautifiers do — free and open source.
+          The screenshot editor that does not turn every useful feature into a
+          plan upgrade.
         </h2>
         <p className="max-w-2xl text-sm leading-7 text-foreground/58">
-          Tokokino covers the same ground as PostSpark, Pika, and Shots — and
-          adds X and Bluesky post mockups — with no subscription, no watermark,
-          and nothing uploaded until you choose to share. It even stays smooth
-          dragging and editing 100MB+ screenshots that other tools won&apos;t
-          load.
+          PostSpark, Pika, and Shots all make good-looking mockups. Tokokino is
+          built for the part that should stay effortless: drag a huge
+          screenshot, tune the layout, save the project, reuse the preset, and
+          export clean 4K or 8K images without a watermark or subscription.
         </p>
       </motion.div>
 

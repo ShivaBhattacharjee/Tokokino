@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { shouldProxyAssetUrl } from "@/lib/editor/export"
+import { shouldProxyAssetUrl } from "@/lib/editor/export-assets"
 
 describe("shouldProxyAssetUrl", () => {
   it("proxies external http and https assets", () => {

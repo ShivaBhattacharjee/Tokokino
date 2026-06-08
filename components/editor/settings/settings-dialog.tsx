@@ -98,7 +98,7 @@ export function SettingsDialog({
                     type="button"
                     onClick={() => setSection(item.id)}
                     className={cn(
-                      "relative flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors",
+                      "relative flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors",
                       active
                         ? "text-primary-foreground"
                         : "text-muted-foreground hover:text-foreground"
@@ -107,7 +107,7 @@ export function SettingsDialog({
                     {active ? (
                       <motion.span
                         layoutId="settings-nav-pill"
-                        className="absolute inset-0 rounded-lg bg-primary shadow-sm"
+                        className="absolute inset-0 rounded-md bg-primary shadow-sm"
                         transition={{
                           type: "spring",
                           stiffness: 420,
