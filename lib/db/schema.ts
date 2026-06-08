@@ -56,6 +56,13 @@ export const customPresets = sqliteTable(
   ]
 )
 
+export const userPreferences = sqliteTable("user_preferences", {
+  userId: text("user_id").primaryKey(),
+  exportFilenameFormat: text("export_filename_format"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+})
+
 export const shares = sqliteTable(
   "shares",
   {

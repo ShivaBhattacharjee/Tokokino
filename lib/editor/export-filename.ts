@@ -2,12 +2,81 @@
  * Export filename templating.
  *
  * Users can define a filename format with variable tokens (e.g.
- * `{TEMPLATE}_{SCALE}_{DATE}`). The chosen format is persisted in
- * localStorage and applied by `lib/editor/export.ts` when downloading.
+ * `{TEMPLATE}_{SCALE}_{DATE}`). Signed-out users get the format persisted
+ * locally in IndexedDB; signed-in users get it synced to their account
+ * (see `app/api/preferences/route.ts`). Either way it's applied by
+ * `lib/editor/export.ts` when downloading.
  */
+
+const PREFERENCES_DB_NAME = "tokokino-preferences"
+const PREFERENCES_STORE_NAME = "preferences"
+const PREFERENCES_DB_VERSION = 1
+
+function openPreferencesDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined" || !("indexedDB" in window)) {
+      reject(new Error("IndexedDB is not available"))
+      return
+    }
+    const request = window.indexedDB.open(
+      PREFERENCES_DB_NAME,
+      PREFERENCES_DB_VERSION
+    )
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(PREFERENCES_STORE_NAME)) {
+        db.createObjectStore(PREFERENCES_STORE_NAME)
+      }
+    }
+    request.onerror = () =>
+      reject(request.error ?? new Error("Failed to open preferences database"))
+    request.onsuccess = () => resolve(request.result)
+  })
+}
+
+async function readStoredPreference(key: string): Promise<string | null> {
+  try {
+    const db = await openPreferencesDb()
+    return await new Promise<string | null>((resolve, reject) => {
+      const tx = db.transaction(PREFERENCES_STORE_NAME, "readonly")
+      const request = tx.objectStore(PREFERENCES_STORE_NAME).get(key)
+      request.onsuccess = () =>
+        resolve((request.result as string | undefined) ?? null)
+      request.onerror = () =>
+        reject(request.error ?? new Error("Failed to read preference"))
+      tx.oncomplete = () => db.close()
+    })
+  } catch {
+    return null
+  }
+}
+
+async function writeStoredPreference(
+  key: string,
+  value: string | null
+): Promise<void> {
+  try {
+    const db = await openPreferencesDb()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PREFERENCES_STORE_NAME, "readwrite")
+      const store = tx.objectStore(PREFERENCES_STORE_NAME)
+      if (value === null) store.delete(key)
+      else store.put(value, key)
+      tx.oncomplete = () => {
+        db.close()
+        resolve()
+      }
+      tx.onerror = () =>
+        reject(tx.error ?? new Error("Failed to write preference"))
+    })
+  } catch {
+    /* ignore quota / privacy-mode errors */
+  }
+}
 
 export const EXPORT_FILENAME_STORAGE_KEY = "tokokino:export-filename-format"
 export const DEFAULT_EXPORT_FILENAME_FORMAT = "screenshot_{SCALE}_{DATE}"
+export const EXPORT_FILENAME_FORMAT_MAX_LENGTH = 200
 
 export type ExportFilenameVariable = {
   token: string
@@ -34,27 +103,19 @@ export type ExportFilenameContext = {
   height: number | string
 }
 
-export function getExportFilenameFormat(): string {
+export async function getExportFilenameFormat(): Promise<string> {
   if (typeof window === "undefined") return DEFAULT_EXPORT_FILENAME_FORMAT
-  try {
-    const stored = window.localStorage.getItem(EXPORT_FILENAME_STORAGE_KEY)
-    return stored && stored.trim() ? stored : DEFAULT_EXPORT_FILENAME_FORMAT
-  } catch {
-    return DEFAULT_EXPORT_FILENAME_FORMAT
-  }
+  const stored = await readStoredPreference(EXPORT_FILENAME_STORAGE_KEY)
+  return stored && stored.trim() ? stored : DEFAULT_EXPORT_FILENAME_FORMAT
 }
 
-export function setExportFilenameFormat(format: string): void {
+export async function setExportFilenameFormat(format: string): Promise<void> {
   if (typeof window === "undefined") return
-  try {
-    const trimmed = format.trim()
-    if (!trimmed || trimmed === DEFAULT_EXPORT_FILENAME_FORMAT) {
-      window.localStorage.removeItem(EXPORT_FILENAME_STORAGE_KEY)
-    } else {
-      window.localStorage.setItem(EXPORT_FILENAME_STORAGE_KEY, trimmed)
-    }
-  } catch {
-    /* ignore quota / privacy-mode errors */
+  const trimmed = format.trim()
+  if (!trimmed || trimmed === DEFAULT_EXPORT_FILENAME_FORMAT) {
+    await writeStoredPreference(EXPORT_FILENAME_STORAGE_KEY, null)
+  } else {
+    await writeStoredPreference(EXPORT_FILENAME_STORAGE_KEY, trimmed)
   }
 }
 

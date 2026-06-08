@@ -5,9 +5,11 @@ import {
   RiCloseLine,
   RiComputerLine,
   RiEyeLine,
+  RiLoader4Line,
   RiMoonLine,
   RiPaletteLine,
   RiResetLeftLine,
+  RiSaveLine,
   RiSunLine,
   RiFunctionLine,
   RiImageLine,
@@ -15,6 +17,7 @@ import {
 } from "@remixicon/react"
 import { LayoutGroup, motion } from "motion/react"
 import { useTheme } from "next-themes"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +27,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import {
   applyExportFilenameFormat,
@@ -216,16 +220,65 @@ const PREVIEW_SAMPLE = {
 }
 
 function ExportSection() {
+  const { data: session } = useSession()
+  const userId = session?.user?.id ?? null
+
   const [format, setFormat] = React.useState(DEFAULT_EXPORT_FILENAME_FORMAT)
+  const [savedFormat, setSavedFormat] = React.useState(
+    DEFAULT_EXPORT_FILENAME_FORMAT
+  )
+  const [saveState, setSaveState] = React.useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle")
   const [sampleRandom] = React.useState(() => randomFilenameToken())
   const inputRef = React.useRef<HTMLInputElement>(null)
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  React.useEffect(() => setFormat(getExportFilenameFormat()), [])
+  // Signed-in users get their preference from the account (D1); signed-out
+  // users fall back to the locally cached IndexedDB copy.
+  React.useEffect(() => {
+    let cancelled = false
 
-  const commit = React.useCallback((next: string) => {
+    async function load() {
+      if (userId) {
+        try {
+          const res = await fetch("/api/preferences", {
+            credentials: "include",
+          })
+          const body: { exportFilenameFormat: string | null } | null = res.ok
+            ? await res.json()
+            : null
+          const remote = body?.exportFilenameFormat
+          if (!cancelled) {
+            const next =
+              remote && remote.trim() ? remote : DEFAULT_EXPORT_FILENAME_FORMAT
+            setFormat(next)
+            setSavedFormat(next)
+          }
+          return
+        } catch {
+          /* fall through to the local cache */
+        }
+      }
+
+      const local = await getExportFilenameFormat()
+      if (!cancelled) {
+        setFormat(local)
+        setSavedFormat(local)
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  const isDirty = format !== savedFormat
+
+  const handleChange = React.useCallback((next: string) => {
     setFormat(next)
-    setExportFilenameFormat(next)
+    setSaveState("idle")
   }, [])
 
   const insertToken = React.useCallback(
@@ -234,7 +287,7 @@ function ExportSection() {
       const start = input?.selectionStart ?? format.length
       const end = input?.selectionEnd ?? format.length
       const next = format.slice(0, start) + token + format.slice(end)
-      commit(next)
+      handleChange(next)
       requestAnimationFrame(() => {
         if (!input) return
         input.focus()
@@ -242,8 +295,35 @@ function ExportSection() {
         input.setSelectionRange(caret, caret)
       })
     },
-    [format, commit]
+    [format, handleChange]
   )
+
+  const handleSave = React.useCallback(async () => {
+    const next = format.trim() || DEFAULT_EXPORT_FILENAME_FORMAT
+    setSaveState("saving")
+
+    if (userId) {
+      try {
+        const res = await fetch("/api/preferences", {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exportFilenameFormat: next }),
+        })
+        if (!res.ok) throw new Error("Request failed")
+      } catch {
+        setSaveState("error")
+        toast.error("Couldn't save export preference")
+        return
+      }
+    } else {
+      await setExportFilenameFormat(next)
+    }
+
+    setFormat(next)
+    setSavedFormat(next)
+    setSaveState("saved")
+  }, [format, userId])
 
   const preview =
     applyExportFilenameFormat(format, {
@@ -271,7 +351,7 @@ function ExportSection() {
           </p>
           <button
             type="button"
-            onClick={() => commit(DEFAULT_EXPORT_FILENAME_FORMAT)}
+            onClick={() => handleChange(DEFAULT_EXPORT_FILENAME_FORMAT)}
             disabled={isDefault}
             className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-40"
             title="Reset to default"
@@ -284,11 +364,39 @@ function ExportSection() {
         <input
           ref={inputRef}
           value={format}
-          onChange={(e) => commit(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           spellCheck={false}
           autoComplete="off"
           className="w-full rounded-md border border-border/60 bg-secondary/40 px-3.5 py-2.5 font-mono text-[13px] text-foreground transition-colors outline-none focus:border-foreground/30 focus:bg-secondary/60"
         />
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] text-muted-foreground">
+            {saveState === "saved" && !isDirty
+              ? "Saved"
+              : saveState === "error"
+                ? "Couldn't save — try again"
+                : isDirty
+                  ? "Unsaved changes"
+                  : userId
+                    ? "Synced to your account"
+                    : "Saved on this device"}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void handleSave()}
+            disabled={!isDirty || saveState === "saving"}
+            className="h-8 px-3 text-[12px]"
+          >
+            {saveState === "saving" ? (
+              <RiLoader4Line className="size-3.5 animate-spin" />
+            ) : (
+              <RiSaveLine className="size-3.5" />
+            )}
+            Save
+          </Button>
+        </div>
 
         {/* Preview */}
         <div className="space-y-1.5">

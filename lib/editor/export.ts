@@ -511,7 +511,7 @@ export async function exportCanvas(
   } as const
 
   const filename = buildExportFilename({
-    format: getExportFilenameFormat(),
+    format: await getExportFilenameFormat(),
     scale: resolution,
     template: getTemplateLabel(canvasId),
     width: outputWidth,
