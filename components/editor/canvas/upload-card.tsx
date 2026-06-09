@@ -40,9 +40,9 @@ import {
   type TweetCardSettings,
 } from "@/lib/editor/tweet-settings"
 
-export type CaptureDevice = "desktop" | "mobile"
+export type CaptureDevice = "desktop" | "tablet" | "mobile"
 export type CaptureDelay = "none" | "2s" | "5s"
-export type AspectRatio = "4:3" | "16:9" | "1:1" | "9:16" | "9:19.5"
+export type AspectRatio = "4:3" | "3:4" | "16:9" | "1:1" | "9:16" | "9:19.5"
 
 export type CaptureSettings = {
   device: CaptureDevice
@@ -58,6 +58,22 @@ export const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
   delay: "none",
 }
 
+// Portrait is the default tablet preset; an iPad frame rotated to landscape
+// seeds the landscape preset instead (see initialCaptureSettings).
+const TABLET_CAPTURE_DEFAULTS: CaptureSettings = {
+  device: "tablet",
+  aspectRatio: "3:4",
+  width: 834,
+  delay: "none",
+}
+
+const TABLET_LANDSCAPE_CAPTURE_DEFAULTS: CaptureSettings = {
+  device: "tablet",
+  aspectRatio: "4:3",
+  width: 1024,
+  delay: "none",
+}
+
 const MOBILE_CAPTURE_DEFAULTS: CaptureSettings = {
   device: "mobile",
   aspectRatio: "9:19.5",
@@ -66,17 +82,42 @@ const MOBILE_CAPTURE_DEFAULTS: CaptureSettings = {
 }
 
 function initialCaptureSettings(
-  defaultDevice: CaptureDevice | undefined
+  defaultDevice: CaptureDevice | undefined,
+  defaultOrientation?: "vertical" | "horizontal"
 ): CaptureSettings {
-  return defaultDevice === "mobile"
-    ? MOBILE_CAPTURE_DEFAULTS
-    : DEFAULT_CAPTURE_SETTINGS
+  if (defaultDevice === "mobile") return MOBILE_CAPTURE_DEFAULTS
+  if (defaultDevice === "tablet") {
+    return defaultOrientation === "horizontal"
+      ? TABLET_LANDSCAPE_CAPTURE_DEFAULTS
+      : TABLET_CAPTURE_DEFAULTS
+  }
+  return DEFAULT_CAPTURE_SETTINGS
+}
+
+const DEVICE_CAPTURE_DEFAULTS: Record<CaptureDevice, CaptureSettings> = {
+  desktop: DEFAULT_CAPTURE_SETTINGS,
+  tablet: TABLET_CAPTURE_DEFAULTS,
+  mobile: MOBILE_CAPTURE_DEFAULTS,
 }
 
 const DESKTOP_ASPECT_RATIOS: AspectRatio[] = ["4:3", "16:9", "1:1"]
+const TABLET_ASPECT_RATIOS: AspectRatio[] = ["4:3", "3:4", "1:1"]
 const MOBILE_ASPECT_RATIOS: AspectRatio[] = ["9:19.5", "9:16", "1:1"]
 const DESKTOP_WIDTHS = [1280, 1440, 1920]
+const TABLET_WIDTHS = [768, 834, 1024]
 const MOBILE_WIDTHS = [390, 414, 430]
+
+function aspectRatiosForDevice(device: CaptureDevice): AspectRatio[] {
+  if (device === "mobile") return MOBILE_ASPECT_RATIOS
+  if (device === "tablet") return TABLET_ASPECT_RATIOS
+  return DESKTOP_ASPECT_RATIOS
+}
+
+function widthsForDevice(device: CaptureDevice): number[] {
+  if (device === "mobile") return MOBILE_WIDTHS
+  if (device === "tablet") return TABLET_WIDTHS
+  return DESKTOP_WIDTHS
+}
 
 type CaptureSession = {
   url: string
@@ -245,19 +286,23 @@ function CaptureSettingsPopover({
         </span>
         <LayoutGroup id="capture-device">
           <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
-            {(["desktop", "mobile"] as CaptureDevice[]).map((d) => (
+            {(["desktop", "tablet", "mobile"] as CaptureDevice[]).map((d) => (
               <ToggleChip
                 key={d}
                 active={settings.device === d}
                 layoutId="capture-device-pill"
                 onClick={() => {
-                  const isMobile = d === "mobile"
+                  const defaults = DEVICE_CAPTURE_DEFAULTS[d]
                   onChange("device", d)
-                  onChange("aspectRatio", isMobile ? "9:19.5" : "16:9")
-                  onChange("width", isMobile ? 390 : 1280)
+                  onChange("aspectRatio", defaults.aspectRatio)
+                  onChange("width", defaults.width)
                 }}
               >
-                {d === "desktop" ? "Desktop" : "Mobile"}
+                {d === "desktop"
+                  ? "Desktop"
+                  : d === "tablet"
+                    ? "Tablet"
+                    : "Mobile"}
               </ToggleChip>
             ))}
           </div>
@@ -269,10 +314,7 @@ function CaptureSettingsPopover({
         </span>
         <LayoutGroup id="capture-aspect">
           <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
-            {(settings.device === "mobile"
-              ? MOBILE_ASPECT_RATIOS
-              : DESKTOP_ASPECT_RATIOS
-            ).map((r) => (
+            {aspectRatiosForDevice(settings.device).map((r) => (
               <ToggleChip
                 key={r}
                 active={settings.aspectRatio === r}
@@ -291,10 +333,7 @@ function CaptureSettingsPopover({
         </span>
         <LayoutGroup id="capture-width">
           <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
-            {(settings.device === "mobile"
-              ? MOBILE_WIDTHS
-              : DESKTOP_WIDTHS
-            ).map((w) => (
+            {widthsForDevice(settings.device).map((w) => (
               <ToggleChip
                 key={w}
                 active={settings.width === w}
@@ -373,6 +412,8 @@ type UploadCardProps = {
   compact?: boolean
   /** Seed capture settings for the active frame (e.g. "mobile" when the canvas has a phone frame). */
   defaultDevice?: CaptureDevice
+  /** Frame orientation, used to seed a tablet capture as portrait (3:4) vs landscape (4:3). */
+  defaultOrientation?: "vertical" | "horizontal"
   /** Keeps URL/loading state alive while a popover closes during capture. */
   captureStateKey?: string
 }
@@ -387,6 +428,7 @@ export function UploadCard({
   fluid = false,
   compact = false,
   defaultDevice,
+  defaultOrientation,
   captureStateKey,
 }: UploadCardProps) {
   const PREFIX = "https://"
@@ -396,7 +438,7 @@ export function UploadCard({
   const [settings, setSettings] = React.useState<CaptureSettings>(
     () =>
       captureSessions.get(captureStateKey ?? "")?.settings ??
-      initialCaptureSettings(defaultDevice)
+      initialCaptureSettings(defaultDevice, defaultOrientation)
   )
   const [tweetSettings, setTweetSettings] = React.useState<TweetCardSettings>(
     DEFAULT_TWEET_SETTINGS
@@ -412,15 +454,15 @@ export function UploadCard({
   React.useEffect(() => {
     if (persistedCaptureRef.current) return
     if (userTouchedDeviceRef.current) return
-    setSettings(initialCaptureSettings(defaultDevice))
-  }, [defaultDevice])
+    setSettings(initialCaptureSettings(defaultDevice, defaultOrientation))
+  }, [defaultDevice, defaultOrientation])
 
   const resetCaptureForm = React.useCallback(() => {
     userTouchedDeviceRef.current = false
     setUrl(PREFIX)
-    setSettings(initialCaptureSettings(defaultDevice))
+    setSettings(initialCaptureSettings(defaultDevice, defaultOrientation))
     setIsCapturing(false)
-  }, [defaultDevice])
+  }, [defaultDevice, defaultOrientation])
 
   React.useEffect(
     () =>
@@ -536,6 +578,15 @@ export function UploadCard({
     function handleCapture(e: PointerEvent) {
       if (compactContentRef.current?.contains(e.target as Node)) return
       if (compactTriggerRef.current?.contains(e.target as Node)) return
+      // The capture-settings popover is portaled outside compactContentRef, so
+      // clicks on its chips would otherwise read as "outside" and close us.
+      // Ignore any pointerdown that lands inside a Radix popper content.
+      if (
+        e.target instanceof Element &&
+        e.target.closest("[data-radix-popper-content-wrapper]")
+      ) {
+        return
+      }
       // Stamp the trigger DOM node synchronously so handleAreaClick (which
       // fires on the subsequent click event, after React has already flushed
       // this close) knows not to reopen the popover.
@@ -603,6 +654,7 @@ export function UploadCard({
               onLoadTweet={onLoadTweet}
               showHint={showHint}
               defaultDevice={defaultDevice}
+              defaultOrientation={defaultOrientation}
               captureStateKey={captureStateKey}
             />
           </div>

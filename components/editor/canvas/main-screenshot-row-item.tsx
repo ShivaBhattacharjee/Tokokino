@@ -239,6 +239,7 @@ export function MainScreenshotRender({
                 onDelete={onDelete}
                 onCaptureWebsite={onCapture}
                 captureDefaultDevice={captureDefaultDevice}
+                captureDefaultOrientation={frame.orientation}
                 captureStateKey={captureStateKey}
               />
             </div>

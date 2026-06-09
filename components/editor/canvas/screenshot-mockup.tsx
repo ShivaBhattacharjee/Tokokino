@@ -62,6 +62,7 @@ type ScreenshotMockupProps = {
   ) => void | Promise<void>
   onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureDefaultOrientation?: "vertical" | "horizontal"
   captureStateKey?: string
   showHoverActions?: boolean
   /** Cap the frame to min(cqw, cqh) so it doesn't fill tall canvases. */
@@ -98,6 +99,7 @@ export function ScreenshotMockup({
   onCaptureWebsite,
   onLoadTweet,
   captureDefaultDevice,
+  captureDefaultOrientation,
   captureStateKey,
   showHoverActions = true,
   scopeToMinSide = false,
@@ -256,6 +258,7 @@ export function ScreenshotMockup({
                   onCaptureWebsite={onCaptureWebsite}
                   onLoadTweet={onLoadTweet}
                   captureDefaultDevice={captureDefaultDevice}
+                  captureDefaultOrientation={captureDefaultOrientation}
                   captureStateKey={captureStateKey}
                 />
               </div>
@@ -282,6 +285,7 @@ export function ScreenshotMockup({
               onCaptureWebsite={onCaptureWebsite}
               onLoadTweet={onLoadTweet}
               captureDefaultDevice={captureDefaultDevice}
+              captureDefaultOrientation={captureDefaultOrientation}
               captureStateKey={captureStateKey}
             />
           </div>

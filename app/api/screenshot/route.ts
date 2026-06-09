@@ -5,11 +5,11 @@ import { captureUrlSchema } from "@/lib/editor/capture-url"
 import { env } from "@/lib/env"
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit"
 
-const ASPECT_RATIOS = ["4:3", "16:9", "1:1", "9:16", "9:19.5"] as const
+const ASPECT_RATIOS = ["4:3", "3:4", "16:9", "1:1", "9:16", "9:19.5"] as const
 
 const requestSchema = z.object({
   url: captureUrlSchema,
-  device: z.enum(["desktop", "mobile"]).default("desktop"),
+  device: z.enum(["desktop", "tablet", "mobile"]).default("desktop"),
   width: z.number().int().min(320).max(3840),
   aspectRatio: z.enum(ASPECT_RATIOS),
   delay: z.enum(["none", "2s", "5s"]).default("none"),
@@ -17,6 +17,8 @@ const requestSchema = z.object({
 
 const MOBILE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+const TABLET_UA =
+  "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 const DESKTOP_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 const SCREENSHOT_CACHE_TTL_SECONDS = 300
@@ -91,6 +93,9 @@ export async function POST(request: Request) {
 
   const { url, device, width, aspectRatio, delay } = payload
   const isMobile = device === "mobile"
+  const isTablet = device === "tablet"
+  const hasTouch = isMobile || isTablet
+  const userAgent = isMobile ? MOBILE_UA : isTablet ? TABLET_UA : DESKTOP_UA
   const waitForTimeout = delayMsFromSetting(delay)
   const cacheKey = screenshotCacheKey(payload)
   const cached = getCachedScreenshot(cacheKey)
@@ -105,9 +110,9 @@ export async function POST(request: Request) {
       height: heightFromAspect(width, aspectRatio),
       deviceScaleFactor: 2,
       isMobile,
-      hasTouch: isMobile,
+      hasTouch,
     },
-    userAgent: isMobile ? MOBILE_UA : DESKTOP_UA,
+    userAgent,
     screenshotOptions: { type: "png", captureBeyondViewport: false },
     gotoOptions: {
       waitUntil: "load",

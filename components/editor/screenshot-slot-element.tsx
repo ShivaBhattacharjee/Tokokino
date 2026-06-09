@@ -346,6 +346,7 @@ export function ScreenshotSlotRender({
                   onDelete={onDeleteFromMenu}
                   onCaptureWebsite={onCapture}
                   captureDefaultDevice={captureDefaultDevice}
+                  captureDefaultOrientation={shared.frame.orientation}
                   captureStateKey={captureStateKey}
                 />
               </div>

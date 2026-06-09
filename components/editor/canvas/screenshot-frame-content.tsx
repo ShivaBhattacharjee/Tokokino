@@ -207,6 +207,7 @@ export function ScreenshotFrameContent({
           onDelete={onDelete}
           onCaptureWebsite={onCapture}
           captureDefaultDevice={captureDefaultDevice}
+          captureDefaultOrientation={frame.orientation}
           captureStateKey={captureStateKey}
           showHoverActions={false}
           scopeToMinSide={mockupScopeToMinSide}
@@ -302,6 +303,7 @@ export function ScreenshotFrameContent({
         onBrowse={onBrowse}
         onCapture={onCapture}
         defaultCaptureDevice={captureDefaultDevice}
+        defaultCaptureOrientation={frame.orientation}
         captureStateKey={captureStateKey}
         transform={contentTransform}
         shadowFilter={shadowFilter}

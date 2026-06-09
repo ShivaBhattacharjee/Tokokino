@@ -41,6 +41,7 @@ type MockupEmptyStateProps = {
   innerLightingStyle?: React.CSSProperties | null
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
+  defaultCaptureOrientation?: "vertical" | "horizontal"
   captureStateKey?: string
 }
 
@@ -65,6 +66,7 @@ export function MockupEmptyState({
   innerLightingStyle,
   onCapture,
   defaultCaptureDevice,
+  defaultCaptureOrientation,
   captureStateKey,
 }: MockupEmptyStateProps) {
   const screenRef = React.useRef<HTMLDivElement | null>(null)
@@ -130,6 +132,7 @@ export function MockupEmptyState({
               onBrowse={onBrowse}
               onCapture={onCapture}
               defaultCaptureDevice={defaultCaptureDevice}
+              defaultCaptureOrientation={defaultCaptureOrientation}
               captureStateKey={captureStateKey}
               contentRotation={mockupRotation ? -mockupRotation : 0}
               compact={compact || !desktopFrame}

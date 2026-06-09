@@ -46,6 +46,7 @@ type ScreenshotEditMenuProps = {
   ) => void | Promise<void>
   onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   captureDefaultDevice?: CaptureDevice
+  captureDefaultOrientation?: "vertical" | "horizontal"
   captureStateKey?: string
 }
 
@@ -59,6 +60,7 @@ export function ScreenshotEditMenu({
   onCaptureWebsite,
   onLoadTweet,
   captureDefaultDevice,
+  captureDefaultOrientation,
   captureStateKey,
 }: ScreenshotEditMenuProps) {
   const replaceInputRef = React.useRef<HTMLInputElement>(null)
@@ -138,6 +140,7 @@ export function ScreenshotEditMenu({
             <UploadCard
               onBrowse={() => replaceInputRef.current?.click()}
               defaultDevice={captureDefaultDevice}
+              defaultOrientation={captureDefaultOrientation}
               captureStateKey={resolvedCaptureStateKey}
               onCapture={onCaptureWebsite}
               onLoadTweet={onLoadTweet}

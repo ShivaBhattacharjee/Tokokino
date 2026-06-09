@@ -102,13 +102,6 @@ const FEATURE_MATRIX = [
     shots: false,
   },
   {
-    feature: "Capture from URL",
-    tokokino: true,
-    postspark: true,
-    pika: true,
-    shots: false,
-  },
-  {
     feature: "Auto-sampled backgrounds",
     tokokino: true,
     postspark: "paid",
@@ -121,6 +114,13 @@ const FEATURE_MATRIX = [
     postspark: true,
     pika: false,
     shots: true,
+  },
+  {
+    feature: "Bulk edit multiple shots",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
+    shots: false,
   },
   {
     feature: "Annotations & arrows",

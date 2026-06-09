@@ -31,6 +31,8 @@ type BoxEmptyStateProps = {
   plainWideCard?: boolean
   /** Default capture device for the inner UploadCard (e.g. "mobile" when the canvas frame is a phone). */
   defaultCaptureDevice?: CaptureDevice
+  /** Frame orientation, used to seed a tablet capture as portrait vs landscape. */
+  defaultCaptureOrientation?: "vertical" | "horizontal"
   captureStateKey?: string
 }
 
@@ -44,6 +46,7 @@ export function BoxEmptyState({
   presentational = false,
   plainWideCard = false,
   defaultCaptureDevice,
+  defaultCaptureOrientation,
   captureStateKey,
   onLoadTweet,
 }: BoxEmptyStateProps) {
@@ -90,6 +93,7 @@ export function BoxEmptyState({
             onLoadTweet={onLoadTweet}
             showHint
             defaultDevice={defaultCaptureDevice}
+            defaultOrientation={defaultCaptureOrientation}
             captureStateKey={captureStateKey}
           />
         </div>
@@ -111,6 +115,7 @@ export function BoxEmptyState({
               onLoadTweet={onLoadTweet}
               showHint
               defaultDevice={defaultCaptureDevice}
+              defaultOrientation={defaultCaptureOrientation}
               captureStateKey={captureStateKey}
               className="w-full"
             />
@@ -128,6 +133,7 @@ export function BoxEmptyState({
               onLoadTweet={onLoadTweet}
               showHint
               defaultDevice={defaultCaptureDevice}
+              defaultOrientation={defaultCaptureOrientation}
               captureStateKey={captureStateKey}
             />
           </div>

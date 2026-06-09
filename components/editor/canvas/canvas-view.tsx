@@ -848,6 +848,7 @@ function CanvasViewInner({
                     onCaptureWebsite={handleCaptureWebsite}
                     onLoadTweet={handleLoadTweet}
                     captureDefaultDevice={captureDefaultDevice}
+                    captureDefaultOrientation={frame.orientation}
                     captureStateKey={mainCaptureStateKey}
                     onSelect={handleScreenshotClickSelect}
                     onPointerDown={(e) => {
@@ -960,6 +961,7 @@ function CanvasViewInner({
                   onBrowse={() => fileInputRef.current?.click()}
                   onCapture={handleCaptureWebsite}
                   defaultCaptureDevice={captureDefaultDevice}
+                  defaultCaptureOrientation={frame.orientation}
                   captureStateKey={mainCaptureStateKey}
                   transform={transform}
                   shadowFilter={computedShadowFilter}

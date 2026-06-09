@@ -160,17 +160,21 @@ export function getDeviceMockupSrc(file: DeviceMockupFile) {
 /**
  * Decide the default "device" for the website-capture popover based on which
  * frame the user is currently using. Phones (iPhone/Galaxy/Pixel/Nothing Phone)
- * and any other portrait-oriented device mockup default to "mobile"; browser
- * frames and desktop/laptop devices default to "desktop".
+ * default to "mobile", iPads to "tablet", and laptops/desktops/displays/browser
+ * frames to "desktop".
+ *
+ * Note: we intentionally do NOT key off `frame.orientation` — that is the
+ * vertical/horizontal display toggle (and defaults to "vertical"), so using it
+ * would misclassify a MacBook or iPad as a phone capture.
  */
 export function defaultCaptureDeviceForFrame(frame: {
   id: string
   orientation: "vertical" | "horizontal"
-}): "desktop" | "mobile" {
+}): "desktop" | "tablet" | "mobile" {
   const device = getDeviceMockup(frame.id)
   if (!device) return "desktop"
   if (/^(iphone|galaxy|pixel|nothing_phone)/i.test(device.id)) return "mobile"
-  if (frame.orientation === "vertical") return "mobile"
+  if (/^ipad/i.test(device.id)) return "tablet"
   return "desktop"
 }
 
