@@ -31,7 +31,7 @@ describe("GET /api/export/image", () => {
     const { GET } = await loadRoute()
 
     const response = await GET(
-      request("https://app.tokokino.test/api/export/image")
+      request("http://localhost:3000/api/export/image")
     )
 
     expect(response.status).toBe(400)
@@ -47,7 +47,7 @@ describe("GET /api/export/image", () => {
 
     const response = await GET(
       request(
-        "https://app.tokokino.test/api/export/image?url=http://127.0.0.1/a.png"
+        "http://localhost:3000/api/export/image?url=http://127.0.0.1/a.png"
       )
     )
 
@@ -76,7 +76,7 @@ describe("GET /api/export/image", () => {
 
     const response = await GET(
       request(
-        "https://app.tokokino.test/api/export/image?url=https://cdn.example.com/a.png"
+        "http://localhost:3000/api/export/image?url=https://cdn.example.com/a.png"
       )
     )
 
@@ -100,7 +100,7 @@ describe("GET /api/export/image", () => {
 
     const response = await GET(
       request(
-        "https://app.tokokino.test/api/export/image?url=https://cdn.example.com/readme.txt"
+        "http://localhost:3000/api/export/image?url=https://cdn.example.com/readme.txt"
       )
     )
 
@@ -125,7 +125,7 @@ describe("GET /api/export/image", () => {
 
     const response = await GET(
       request(
-        "https://app.tokokino.test/api/export/image?url=https://cdn.example.com/a.png"
+        "http://localhost:3000/api/export/image?url=https://cdn.example.com/a.png"
       )
     )
 

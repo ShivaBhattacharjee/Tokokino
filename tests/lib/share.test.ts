@@ -24,8 +24,8 @@ describe("share helpers", () => {
       `/api/share/${VALID_SHARE_ID}/image`
     )
     expect(
-      getShareImageUrl(VALID_SHARE_ID, "https://app.tokokino.test/editor")
-    ).toBe(`https://app.tokokino.test/api/share/${VALID_SHARE_ID}/image`)
+      getShareImageUrl(VALID_SHARE_ID, "http://localhost:3000/editor")
+    ).toBe(`http://localhost:3000/api/share/${VALID_SHARE_ID}/image`)
     expect(getPublicShareImageUrl(VALID_SHARE_ID)).toBe(
       `https://assets.tokokino.com/shares/${VALID_SHARE_ID}.png`
     )

@@ -36,7 +36,7 @@ describe("GET /api/share/[id]/image", () => {
     const { GET } = await loadRoute()
 
     const response = await GET(
-      new Request("https://app.tokokino.test"),
+      new Request("http://localhost:3000"),
       params("bad-id")
     )
 
@@ -56,7 +56,7 @@ describe("GET /api/share/[id]/image", () => {
     const { GET } = await loadRoute()
 
     const response = await GET(
-      new Request("https://app.tokokino.test"),
+      new Request("http://localhost:3000"),
       params(VALID_SHARE_ID)
     )
 
@@ -73,7 +73,7 @@ describe("GET /api/share/[id]/image", () => {
     const { GET } = await loadRoute()
 
     const response = await GET(
-      new Request("https://app.tokokino.test"),
+      new Request("http://localhost:3000"),
       params(VALID_SHARE_ID)
     )
 

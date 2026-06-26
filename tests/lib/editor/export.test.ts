@@ -9,12 +9,10 @@ describe("shouldProxyAssetUrl", () => {
   })
 
   it("does not proxy same-origin or local asset values", () => {
-    expect(shouldProxyAssetUrl("https://app.tokokino.test/logo.png")).toBe(
-      false
-    )
+    expect(shouldProxyAssetUrl("http://localhost:3000/logo.png")).toBe(false)
     expect(shouldProxyAssetUrl("/logo.png")).toBe(false)
     expect(shouldProxyAssetUrl("#mask")).toBe(false)
     expect(shouldProxyAssetUrl("data:image/png;base64,abc")).toBe(false)
-    expect(shouldProxyAssetUrl("blob:https://app.tokokino.test/id")).toBe(false)
+    expect(shouldProxyAssetUrl("blob:http://localhost:3000/id")).toBe(false)
   })
 })

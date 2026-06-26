@@ -18,7 +18,7 @@ export default defineConfig({
     exclude: ["node_modules", ".next", ".open-next"],
     environmentOptions: {
       jsdom: {
-        url: "https://app.tokokino.test/editor",
+        url: "http://localhost:3000/editor",
       },
     },
   },

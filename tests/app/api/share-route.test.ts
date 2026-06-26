@@ -57,7 +57,7 @@ function imageRequest(body: Uint8Array, contentType = "image/png") {
   const requestBody = new ArrayBuffer(body.byteLength)
   new Uint8Array(requestBody).set(body)
 
-  return new Request("https://app.tokokino.test/api/share", {
+  return new Request("http://localhost:3000/api/share", {
     method: "POST",
     headers: {
       "content-type": contentType,
@@ -130,8 +130,8 @@ describe("/api/share", () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
       id: VALID_SHARE_ID,
-      url: `https://app.tokokino.test/share/${VALID_SHARE_ID}`,
-      imageUrl: `https://app.tokokino.test/api/share/${VALID_SHARE_ID}/image`,
+      url: `http://localhost:3000/share/${VALID_SHARE_ID}`,
+      imageUrl: `http://localhost:3000/api/share/${VALID_SHARE_ID}/image`,
       views: 0,
       reused: false,
     })
@@ -173,9 +173,7 @@ describe("/api/share", () => {
     mocks.getUserStorageUsage.mockResolvedValue(64)
     const { GET } = await loadRoute()
 
-    const response = await GET(
-      new Request("https://app.tokokino.test/api/share")
-    )
+    const response = await GET(new Request("http://localhost:3000/api/share"))
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
