@@ -145,7 +145,7 @@ describe("/api/share", () => {
       expect.objectContaining({
         id: VALID_SHARE_ID,
         key: `shares/${VALID_SHARE_ID}.png`,
-        imageHash: expect.any(String),
+        imageHash: expect.any(String) as string,
         sizeBytes: PNG_BYTES.byteLength,
         user: SESSION.user,
       })

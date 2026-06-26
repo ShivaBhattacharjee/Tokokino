@@ -147,12 +147,7 @@ export function BackdropSection({
         () => setBackdropLighting(nextLighting)
       )
     },
-    [
-      applyStyle,
-      lighting,
-      setBackdropLighting,
-      setMainScreenshotBackdropLighting,
-    ]
+    [applyStyle, setBackdropLighting, setMainScreenshotBackdropLighting]
   )
   const setLighting = React.useCallback(
     (patch: Partial<typeof lighting>) =>

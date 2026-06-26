@@ -672,7 +672,15 @@ export function TweetCardView({
         data-editor-shadow-box-target
         data-tweet-card
         data-selection-border={isSelected ? "true" : undefined}
+        role="button"
+        tabIndex={0}
         onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            onSelect?.(e as unknown as React.MouseEvent<HTMLDivElement>)
+          }
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
