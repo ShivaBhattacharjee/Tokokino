@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit"
+import { proxyImageUrlSchema } from "@/lib/schemas/image-proxy"
 
 export const runtime = "nodejs"
 
@@ -22,25 +23,14 @@ export async function GET(request: Request) {
   if (limited) return limited
 
   const { searchParams } = new URL(request.url)
-  const rawUrl = searchParams.get("url")
-
-  if (!rawUrl) {
-    return NextResponse.json({ error: "Missing image URL" }, { status: 400 })
-  }
-
-  let imageUrl: URL
-  try {
-    imageUrl = new URL(rawUrl)
-  } catch {
-    return NextResponse.json({ error: "Invalid image URL" }, { status: 400 })
-  }
-
-  if (!["http:", "https:"].includes(imageUrl.protocol)) {
+  const parsedUrl = proxyImageUrlSchema.safeParse(searchParams.get("url") ?? "")
+  if (!parsedUrl.success) {
     return NextResponse.json(
-      { error: "Unsupported image URL protocol" },
+      { error: parsedUrl.error.issues[0]?.message ?? "Invalid image URL" },
       { status: 400 }
     )
   }
+  const imageUrl = parsedUrl.data
 
   if (isBlockedHost(imageUrl.hostname)) {
     return NextResponse.json({ error: "Blocked image host" }, { status: 400 })

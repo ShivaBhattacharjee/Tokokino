@@ -12,6 +12,7 @@ import {
 import {
   MAX_DRAFT_BYTES,
   countCanvasesInDraftState,
+  draftListQuerySchema,
   parseDraftSaveBody,
 } from "@/lib/schemas/draft"
 
@@ -22,12 +23,11 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response
 
   const url = new URL(request.url)
-  const limit = Math.min(
-    Math.max(Number(url.searchParams.get("limit") ?? "9"), 1),
-    50
-  )
-  const offset = Math.max(Number(url.searchParams.get("offset") ?? "0"), 0)
-  const sort = url.searchParams.get("sort") === "oldest" ? "oldest" : "latest"
+  const { limit, offset, sort } = draftListQuerySchema.parse({
+    limit: url.searchParams.get("limit") ?? undefined,
+    offset: url.searchParams.get("offset") ?? undefined,
+    sort: url.searchParams.get("sort") ?? undefined,
+  })
 
   const [draftRows, total, storageUsed] = await Promise.all([
     listDrafts(auth.session.user.id, { limit, offset, sort }),

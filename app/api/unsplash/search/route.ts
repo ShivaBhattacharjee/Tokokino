@@ -2,32 +2,12 @@ import { NextResponse } from "next/server"
 
 import { env } from "@/lib/env"
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit"
+import {
+  unsplashSearchQuerySchema,
+  unsplashSearchResponseSchema,
+} from "@/lib/schemas/unsplash"
 
 const UNSPLASH_ACCESS_KEY = env.UNSPLASH_ACCESS_KEY
-
-type UnsplashSearchPhoto = {
-  id: string
-  alt_description: string | null
-  urls: {
-    small: string
-    regular: string
-    full: string
-  }
-  user: {
-    name: string
-    links: {
-      html: string
-    }
-  }
-  links: {
-    download_location: string
-  }
-}
-
-type UnsplashSearchResponse = {
-  results: UnsplashSearchPhoto[]
-  total_pages: number
-}
 
 export async function GET(request: Request) {
   if (!UNSPLASH_ACCESS_KEY) {
@@ -45,13 +25,19 @@ export async function GET(request: Request) {
   if (limited) return limited
 
   const { searchParams } = new URL(request.url)
-  const query = searchParams.get("q")?.trim()
-  const pageParam = searchParams.get("page")
-  const parsedPage = pageParam ? Number.parseInt(pageParam, 10) : 1
-  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
-  if (!query) {
-    return NextResponse.json({ error: "Missing search query" }, { status: 400 })
+  const parsedQuery = unsplashSearchQuerySchema.safeParse({
+    q: searchParams.get("q") ?? "",
+    page: searchParams.get("page"),
+  })
+  if (!parsedQuery.success) {
+    return NextResponse.json(
+      {
+        error: parsedQuery.error.issues[0]?.message ?? "Missing search query",
+      },
+      { status: 400 }
+    )
   }
+  const { q: query, page } = parsedQuery.data
 
   const params = new URLSearchParams({
     query,
@@ -79,7 +65,16 @@ export async function GET(request: Request) {
     )
   }
 
-  const data: UnsplashSearchResponse = await response.json()
+  const parsedData = unsplashSearchResponseSchema.safeParse(
+    await response.json()
+  )
+  if (!parsedData.success) {
+    return NextResponse.json(
+      { error: "Unexpected Unsplash response" },
+      { status: 502 }
+    )
+  }
+  const data = parsedData.data
   return NextResponse.json({
     page,
     hasMore: page < data.total_pages,

@@ -93,6 +93,26 @@ export const draftStateSchema = z.union([
 
 export type ParsedDraftState = z.infer<typeof draftStateSchema>
 
+/**
+ * Query params for `GET /api/drafts` (the paginated list).
+ *
+ * A junk/non-integer value (`?limit=abc`, `?limit=2.5`) falls back to the
+ * default via `catch`; an in-range-but-out-of-bounds integer (`?limit=999`)
+ * is clamped into range. Either way the DB never sees `NaN`.
+ */
+const clampedIntParam = (fallback: number, min: number, max: number) =>
+  z.coerce
+    .number()
+    .int()
+    .catch(fallback)
+    .transform((n) => Math.min(Math.max(n, min), max))
+
+export const draftListQuerySchema = z.object({
+  limit: clampedIntParam(9, 1, 50),
+  offset: clampedIntParam(0, 0, Number.MAX_SAFE_INTEGER),
+  sort: z.enum(["latest", "oldest"]).catch("latest"),
+})
+
 /** Request body for `POST /api/drafts`. */
 export const createDraftBodySchema = z.object({
   name: z.string().trim().min(1).max(DRAFT_NAME_MAX_LENGTH),

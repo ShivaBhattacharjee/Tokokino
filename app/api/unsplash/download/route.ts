@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { env } from "@/lib/env"
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit"
+import { unsplashDownloadQuerySchema } from "@/lib/schemas/unsplash"
 
 const UNSPLASH_ACCESS_KEY = env.UNSPLASH_ACCESS_KEY
 
@@ -21,13 +22,20 @@ export async function GET(request: Request) {
   if (limited) return limited
 
   const { searchParams } = new URL(request.url)
-  const url = searchParams.get("url")
-  if (!url || !url.startsWith("https://api.unsplash.com/")) {
+  const parsedQuery = unsplashDownloadQuerySchema.safeParse({
+    url: searchParams.get("url") ?? "",
+  })
+  if (!parsedQuery.success) {
     return NextResponse.json(
-      { error: "Missing Unsplash download location" },
+      {
+        error:
+          parsedQuery.error.issues[0]?.message ??
+          "Missing Unsplash download location",
+      },
       { status: 400 }
     )
   }
+  const { url } = parsedQuery.data
 
   const response = await fetch(url, {
     headers: {
