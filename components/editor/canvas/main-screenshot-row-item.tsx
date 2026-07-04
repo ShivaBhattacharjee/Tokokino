@@ -175,38 +175,50 @@ export function MainScreenshotRender({
               }}
             />
           ) : null}
-          <ScreenshotFrameContent
-            src={screenshot}
-            frame={frame}
-            isDragOver={isDragOver}
-            onBrowse={onBrowse}
-            imageFilter={filterChain}
-            shadowFilter={shadowFilter}
-            contentTransform={transform}
-            bareStyle={imgStyle}
-            applyTransformWhenEmpty
-            suppressEmptyTransition
-            emptyCompact={emptyCompact}
-            objectFit={objectFit}
-            activeTool={activeTool}
-            isDragging={isScreenshotDragging}
-            stageRef={stageRef}
-            imageRef={imageRef}
-            addressValue={addressValue}
-            onAddressChange={onAddressChange}
-            onSelect={onSelect}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onImageLoad={onImageLoad}
-            onCrop={onCropClick}
-            onReplaceFile={onReplaceFile}
-            onDelete={onDelete}
-            innerLightingStyle={innerLightingStyle}
-            onCapture={onCapture}
-            captureDefaultDevice={captureDefaultDevice}
-            captureStateKey={captureStateKey}
-          />
+          {/* Animate-mode wrapper. Driven by CSS vars set on the canvas node by
+              AnimationLayer; defaults make it a visual no-op everywhere else. */}
+          <div
+            className="relative h-full w-full"
+            style={{
+              transform: "var(--anim-transform, none)",
+              opacity: "var(--anim-opacity, 1)" as unknown as number,
+              filter: "var(--anim-filter, none)",
+              transformOrigin: "center",
+            }}
+          >
+            <ScreenshotFrameContent
+              src={screenshot}
+              frame={frame}
+              isDragOver={isDragOver}
+              onBrowse={onBrowse}
+              imageFilter={filterChain}
+              shadowFilter={shadowFilter}
+              contentTransform={transform}
+              bareStyle={imgStyle}
+              applyTransformWhenEmpty
+              suppressEmptyTransition
+              emptyCompact={emptyCompact}
+              objectFit={objectFit}
+              activeTool={activeTool}
+              isDragging={isScreenshotDragging}
+              stageRef={stageRef}
+              imageRef={imageRef}
+              addressValue={addressValue}
+              onAddressChange={onAddressChange}
+              onSelect={onSelect}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onImageLoad={onImageLoad}
+              onCrop={onCropClick}
+              onReplaceFile={onReplaceFile}
+              onDelete={onDelete}
+              innerLightingStyle={innerLightingStyle}
+              onCapture={onCapture}
+              captureDefaultDevice={captureDefaultDevice}
+              captureStateKey={captureStateKey}
+            />
+          </div>
 
           {showEditMenu ? (
             <div

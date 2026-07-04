@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   RiBlueskyLine,
   RiBrushLine,
+  RiDragMove2Line,
   RiLayoutGrid2Line,
   RiMoonClearLine,
   RiPaletteLine,
@@ -20,12 +21,19 @@ import { BackdropSection } from "./inspector/backdrop-section"
 import { BackgroundSection } from "./inspector/background-section"
 import { BorderSection } from "./inspector/border-section"
 import { PaddingSection } from "./inspector/padding-section"
+import { PositionSection } from "./inspector/position-section"
 import { Section } from "./inspector/primitives"
 import { ShadowSection } from "./inspector/shadow-section"
 import { TiltSection } from "./inspector/tilt-section"
 import { TweetSection } from "./inspector/tweet-section"
 
-export function Inspector({ className }: { className?: string }) {
+export function Inspector({
+  className,
+  animateMode = false,
+}: {
+  className?: string
+  animateMode?: boolean
+}) {
   const frameId = useActiveCanvasField((c) => c.frame.id)
   const hasTweet = useActiveCanvasField((c) => c.tweet !== null)
   const tweetSource = useActiveCanvasField((c) => c.tweet?.data.source ?? "x")
@@ -50,6 +58,15 @@ export function Inspector({ className }: { className?: string }) {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="px-3 py-3 pb-24 xl:px-4">
+          {animateMode ? (
+            <>
+              <Section icon={RiDragMove2Line} title="Position" defaultOpen>
+                <PositionSection />
+              </Section>
+              <div className="my-3 h-px bg-border/50" />
+            </>
+          ) : null}
+
           {hasTweet ? (
             <>
               <Section

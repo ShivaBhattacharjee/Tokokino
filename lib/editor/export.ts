@@ -1,4 +1,4 @@
-import { toJpeg, toBlob } from "html-to-image"
+import { toJpeg, toBlob, toCanvas } from "html-to-image"
 
 import { shouldProxyAssetUrl } from "./export-assets"
 import { buildExportFilename, getExportFilenameFormat } from "./export-filename"
@@ -627,6 +627,58 @@ export async function copyCanvasAsFormat(
   )
 
   await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })])
+}
+
+/**
+ * Prepare an offscreen clone of the canvas for repeated frame capture (used by
+ * Animate-mode video/GIF export). The clone is set up once (assets rewritten,
+ * fonts/images embedded); the caller then mutates it per frame — typically by
+ * writing the `--anim-*` CSS vars the screenshot wrapper reads — and calls
+ * `captureFrame()` to snapshot the current state. Call `cleanup()` when done.
+ */
+export async function prepareAnimationCapture(
+  canvasId: string,
+  targetWidth = 1280
+): Promise<{
+  node: HTMLElement
+  width: number
+  height: number
+  captureFrame: () => Promise<HTMLCanvasElement>
+  cleanup: () => void
+}> {
+  const node = findCanvasElement(canvasId)
+  if (!node) throw new Error("Canvas not found")
+
+  const layoutDims = getCanvasLayoutDims(node)
+  if (!layoutDims) throw new Error("Canvas has zero width")
+  const { width: renderedWidth, height: renderedHeight } = layoutDims
+
+  const pixelRatio = targetWidth / renderedWidth
+  const outputWidth = Math.round(renderedWidth * pixelRatio)
+  const outputHeight = Math.round(renderedHeight * pixelRatio)
+
+  const exportTarget = prepareExportNode(node, renderedWidth, renderedHeight)
+  const { rewrites, preloadUrls } = rewriteExportAssets(exportTarget.node)
+
+  await waitForExportAssets(preloadUrls)
+  await embedCloneImages(exportTarget.node)
+
+  const captureOptions = {
+    pixelRatio,
+    cacheBust: false,
+    filter: filterExportHidden,
+  } as const
+
+  return {
+    node: exportTarget.node,
+    width: outputWidth,
+    height: outputHeight,
+    captureFrame: () => toCanvas(exportTarget.node, captureOptions),
+    cleanup: () => {
+      for (const rewrite of rewrites.reverse()) rewrite.restore()
+      exportTarget.cleanup()
+    },
+  }
 }
 
 export async function captureCanvasAsPngBlob(

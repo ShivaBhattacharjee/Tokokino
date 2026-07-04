@@ -384,6 +384,21 @@ export function useEditor(): EditorContext {
     setSelectedAnnotationShapeId: store.setSelectedAnnotationShapeId,
     setSelectedScreenshotSlotId: store.setSelectedScreenshotSlotId,
     setIsScreenshotSelected: store.setIsScreenshotSelected,
+    setIsAnimateMode: store.setIsAnimateMode,
+    setAnimationDuration: (ms, canvasId) =>
+      store.setAnimationDuration(ms, canvasId ?? targetId),
+    addAnimationClip: (presetId, canvasId) =>
+      store.addAnimationClip(presetId, canvasId ?? targetId),
+    updateAnimationClip: (id, patch, canvasId) =>
+      store.updateAnimationClip(id, patch, canvasId ?? targetId),
+    removeAnimationClip: (id, canvasId) =>
+      store.removeAnimationClip(id, canvasId ?? targetId),
+    clearAnimationClips: (canvasId) =>
+      store.clearAnimationClips(canvasId ?? targetId),
+    setAnimationAudio: (audio, canvasId) =>
+      store.setAnimationAudio(audio, canvasId ?? targetId),
+    updateAnimationAudio: (patch, canvasId) =>
+      store.updateAnimationAudio(patch, canvasId ?? targetId),
     setIsPreviewMode: store.setIsPreviewMode,
     setIsPreviewAutoScroll: store.setIsPreviewAutoScroll,
     setPreviewAutoScrollDelay: store.setPreviewAutoScrollDelay,

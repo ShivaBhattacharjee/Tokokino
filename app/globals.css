@@ -226,6 +226,18 @@
   .screenshot-edit-popover[data-state="open"] {
     animation: screenshot-edit-popover-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
   }
+  /* Animate-mode trigger: spin the conic rainbow ring while cycling its hue so
+     the border both moves and continuously shifts colour (a flowing "shader"
+     look). Applied to an oversized gradient behind an overflow-clipped button. */
+  @keyframes animate-ring {
+    to {
+      transform: rotate(360deg);
+      filter: hue-rotate(360deg);
+    }
+  }
+  .animate-ring {
+    animation: animate-ring 4s linear infinite;
+  }
   @media (prefers-reduced-motion: reduce) {
     [aria-hidden="true"] * {
       animation: none !important;

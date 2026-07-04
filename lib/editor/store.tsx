@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 
+import { getAnimationPreset } from "./animation-presets"
 import {
   LAYOUT_PRESETS,
   PRESENT_PRESETS,
@@ -56,6 +57,9 @@ import type {
   AnnotationPoint,
   AnnotationShape,
   AnnotationStroke,
+  AnimationAudio,
+  AnimationClip,
+  CanvasAnimation,
   AspectState,
   AssetElement,
   AssetFilter,
@@ -83,6 +87,10 @@ import type {
 } from "./state-types"
 
 const TWEET_POST_ASPECT: AspectState = { id: "x-post", w: 1080, h: 1080 }
+
+/** Canvas.animation is optional (older drafts) — always read through this. */
+const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
+  canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
 
 export * from "./state-types"
 export {
@@ -356,6 +364,21 @@ export type EditorActions = {
   setSelectedAnnotationShapeId: (id: string | null) => void
   setSelectedScreenshotSlotId: (id: string | null) => void
   setIsScreenshotSelected: (selected: boolean) => void
+  setIsAnimateMode: (a: boolean) => void
+  setAnimationDuration: (ms: number, canvasId?: string) => void
+  addAnimationClip: (presetId: string, canvasId?: string) => string
+  updateAnimationClip: (
+    id: string,
+    patch: Partial<Omit<AnimationClip, "id">>,
+    canvasId?: string
+  ) => void
+  removeAnimationClip: (id: string, canvasId?: string) => void
+  clearAnimationClips: (canvasId?: string) => void
+  setAnimationAudio: (audio: AnimationAudio | null, canvasId?: string) => void
+  updateAnimationAudio: (
+    patch: Partial<AnimationAudio>,
+    canvasId?: string
+  ) => void
   setIsPreviewMode: (p: boolean) => void
   setIsPreviewAutoScroll: (a: boolean) => void
   setPreviewAutoScrollDelay: (d: number) => void
@@ -411,6 +434,7 @@ export type EditorStore = {
   _lastGroup: string | null
   _lastTs: number
   topBarPopoverOpen: boolean
+  isAnimateMode: boolean
   isPreviewMode: boolean
   isPreviewAutoScroll: boolean
   previewAutoScrollDelay: number
@@ -507,6 +531,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     _lastGroup: null,
     _lastTs: 0,
     topBarPopoverOpen: false,
+    isAnimateMode: false,
     isPreviewMode: false,
     isPreviewAutoScroll: false,
     previewAutoScrollDelay: 3000,
@@ -1435,6 +1460,105 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           : { isScreenshotSelected: false }
       ),
     setTopBarPopoverOpen: (open) => set({ topBarPopoverOpen: open }),
+    setIsAnimateMode: (a) => set({ isAnimateMode: a }),
+    setAnimationDuration: (ms, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          animation: { ...getCanvasAnimation(canvas), durationMs: ms },
+        }),
+        "animation-duration"
+      ),
+    addAnimationClip: (presetId, canvasId) => {
+      const id = makeId()
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          const preset = getAnimationPreset(presetId)
+          const durationMs = Math.min(
+            preset?.defaultDurationMs ?? 1000,
+            animation.durationMs
+          )
+          // Append after the last clip's end, clamped to the timeline.
+          const lastEnd = animation.clips.reduce(
+            (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
+            0
+          )
+          const startMs = Math.min(
+            lastEnd,
+            Math.max(0, animation.durationMs - durationMs)
+          )
+          const clip: AnimationClip = { id, presetId, startMs, durationMs }
+          return {
+            animation: { ...animation, clips: [...animation.clips, clip] },
+          }
+        },
+        null
+      )
+      return id
+    },
+    updateAnimationClip: (id, patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          return {
+            animation: {
+              ...animation,
+              clips: animation.clips.map((clip) =>
+                clip.id === id ? { ...clip, ...patch } : clip
+              ),
+            },
+          }
+        },
+        `animation-clip:${id}`
+      ),
+    removeAnimationClip: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          return {
+            animation: {
+              ...animation,
+              clips: animation.clips.filter((clip) => clip.id !== id),
+            },
+          }
+        },
+        null
+      ),
+    clearAnimationClips: (canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          animation: { ...getCanvasAnimation(canvas), clips: [] },
+        }),
+        null
+      ),
+    setAnimationAudio: (audio, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          animation: { ...getCanvasAnimation(canvas), audio },
+        }),
+        null
+      ),
+    updateAnimationAudio: (patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          if (!animation.audio) return {}
+          return {
+            animation: {
+              ...animation,
+              audio: { ...animation.audio, ...patch },
+            },
+          }
+        },
+        "animation-audio"
+      ),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
     setIsPreviewAutoScroll: (a) => set({ isPreviewAutoScroll: a }),
     setPreviewAnimation: (a) => set({ previewAnimation: a }),

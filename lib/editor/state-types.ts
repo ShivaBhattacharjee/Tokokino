@@ -377,6 +377,39 @@ export type ScreenshotSlot = {
 
 export type CanvasPosition = { x: number; y: number }
 
+// ---------------------------------------------------------------------------
+// Animate mode — motion clips on a per-canvas timeline
+// ---------------------------------------------------------------------------
+
+/** A single motion layer placed on the animation timeline. */
+export type AnimationClip = {
+  id: string
+  /** References an AnimationPreset id in lib/editor/animation-presets.ts */
+  presetId: string
+  startMs: number
+  durationMs: number
+}
+
+/**
+ * Background audio attached to the animation. `src` is an in-session object URL
+ * and is intentionally NOT persisted (dropped on serialize); the rest of the
+ * metadata survives so the UI can show the track name after reload.
+ */
+export type AnimationAudio = {
+  src: string
+  name: string
+  /** 0..1 */
+  volume: number
+  muted: boolean
+}
+
+export type CanvasAnimation = {
+  /** Total timeline length in ms. */
+  durationMs: number
+  clips: AnimationClip[]
+  audio: AnimationAudio | null
+}
+
 export type TweetAuthor = {
   name: string
   handle: string
@@ -462,6 +495,9 @@ export type CanvasState = {
   tweet: TweetCard | null
   objectFit?: "contain" | "cover" | "fill"
   aspect?: AspectState
+  // Animate-mode motion timeline. Optional so drafts saved before this feature
+  // hydrate cleanly (normalized to a default on load).
+  animation?: CanvasAnimation
 }
 
 export type EditorState = {

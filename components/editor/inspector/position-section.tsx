@@ -1,0 +1,218 @@
+"use client"
+
+import * as React from "react"
+
+import {
+  PositionSwipeField,
+  type PositionSwipePoint,
+} from "@/components/editor/position-swipe-field"
+import {
+  clearPositionPreviewVarsAfterPaint,
+  setMainScreenshotBarePreviewPx,
+  setMainScreenshotPositionPreview,
+} from "@/components/editor/position-preview-vars"
+import { EffectSlider } from "@/components/editor/inspector/effect-slider"
+import { useEditor, useEditorStore } from "@/lib/editor/store"
+
+import {
+  bareScreenshotPositionPct,
+  bareScreenshotTargetLeftTop,
+  clampPercent,
+  mainScreenshotOffsetForPoint,
+  mainScreenshotPositionPct,
+  positionIdFromPercent,
+  resolveBareScreenshotPlacement,
+  type StagePlacementDims,
+} from "@/components/editor/mobile-controls/position-math"
+
+/**
+ * Placement + zoom shown in the inspector while in Animate mode. Reuses the
+ * canvas-wide `PositionSwipeField` (the same drag pad used by the move tool)
+ * and the shared main-screenshot placement math, so behaviour matches the rest
+ * of the editor instead of introducing a bespoke grid.
+ */
+export function PositionSection() {
+  const editor = useEditor()
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const setScale = useEditorStore((s) => s.setScale)
+
+  const hasDeviceFrame = editor.frame.id !== "none"
+  const hasTweet = Boolean(editor.tweet)
+  const hasMainTarget = Boolean(editor.screenshot) || hasTweet || hasDeviceFrame
+  const isBareMainTarget =
+    !hasTweet &&
+    hasMainTarget &&
+    !hasDeviceFrame &&
+    editor.screenshotSlots.length === 0
+  const scaleFactor = editor.scale / 100
+
+  const getActiveCanvasElement = React.useCallback(() => {
+    if (typeof document === "undefined" || !activeCanvasId) return null
+    return document.querySelector<HTMLElement>(
+      `[data-canvas-id="${CSS.escape(activeCanvasId)}"]`
+    )
+  }, [activeCanvasId])
+
+  const measureMainStageDims =
+    React.useCallback((): StagePlacementDims | null => {
+      const image = getActiveCanvasElement()?.querySelector<HTMLElement>(
+        "[data-editor-shadow-box-target]"
+      )
+      const stage = image?.parentElement
+      if (!image || !stage) return null
+      const computed = getComputedStyle(stage)
+      const dims = {
+        stageW: parseFloat(computed.width) || stage.clientWidth,
+        stageH: parseFloat(computed.height) || stage.clientHeight,
+        imgW: image.offsetWidth,
+        imgH: image.offsetHeight,
+      }
+      if (!dims.stageW || !dims.stageH || !dims.imgW || !dims.imgH) return null
+      return dims
+    }, [getActiveCanvasElement])
+
+  const [mainStageDims, setMainStageDims] =
+    React.useState<StagePlacementDims | null>(null)
+
+  React.useLayoutEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      setMainStageDims(isBareMainTarget ? measureMainStageDims() : null)
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [
+    isBareMainTarget,
+    measureMainStageDims,
+    editor.scale,
+    editor.aspect,
+    editor.screenshot,
+  ])
+
+  const currentPosition = React.useMemo<PositionSwipePoint | null>(() => {
+    if (isBareMainTarget && mainStageDims) {
+      return bareScreenshotPositionPct({
+        dims: mainStageDims,
+        scaleFactor,
+        position: editor.screenshotPosition,
+        offset: editor.screenshotOffset,
+      })
+    }
+    if (hasMainTarget) {
+      const point = mainScreenshotPositionPct({
+        aspect: editor.aspect,
+        frame: editor.frame,
+        position: editor.screenshotPosition,
+        offset: editor.screenshotOffset,
+        slots: editor.screenshotSlots,
+      })
+      return { xPct: clampPercent(point.xPct), yPct: clampPercent(point.yPct) }
+    }
+    return null
+  }, [
+    editor.aspect,
+    editor.frame,
+    editor.screenshotOffset,
+    editor.screenshotPosition,
+    editor.screenshotSlots,
+    hasMainTarget,
+    isBareMainTarget,
+    mainStageDims,
+    scaleFactor,
+  ])
+
+  const previewMoveTo = React.useCallback(
+    (point: PositionSwipePoint) => {
+      const safePoint = {
+        xPct: clampPercent(point.xPct),
+        yPct: clampPercent(point.yPct),
+      }
+      const canvasElement = getActiveCanvasElement()
+      if (!canvasElement) return
+
+      if (isBareMainTarget) {
+        const dims = measureMainStageDims()
+        if (dims) {
+          const target = bareScreenshotTargetLeftTop(dims, safePoint)
+          setMainScreenshotBarePreviewPx(canvasElement, target.left, target.top)
+          return
+        }
+      }
+      if (hasMainTarget) {
+        setMainScreenshotPositionPreview(canvasElement, safePoint)
+      }
+    },
+    [
+      getActiveCanvasElement,
+      hasMainTarget,
+      isBareMainTarget,
+      measureMainStageDims,
+    ]
+  )
+
+  const moveTo = React.useCallback(
+    (point: PositionSwipePoint) => {
+      const safePoint = {
+        xPct: clampPercent(point.xPct),
+        yPct: clampPercent(point.yPct),
+      }
+      const position = positionIdFromPercent(safePoint.xPct, safePoint.yPct)
+      const canvasElement = getActiveCanvasElement()
+
+      try {
+        if (isBareMainTarget) {
+          const dims = measureMainStageDims()
+          if (dims) {
+            const placement = resolveBareScreenshotPlacement({
+              dims,
+              scaleFactor,
+              point: safePoint,
+            })
+            editor.setScreenshotPlacement(placement.position, placement.offset)
+            return
+          }
+        }
+        if (hasMainTarget) {
+          editor.setScreenshotPlacement(
+            position,
+            mainScreenshotOffsetForPoint({
+              aspect: editor.aspect,
+              frame: editor.frame,
+              position,
+              slots: editor.screenshotSlots,
+              point: safePoint,
+            })
+          )
+        }
+      } finally {
+        clearPositionPreviewVarsAfterPaint([canvasElement])
+      }
+    },
+    [
+      editor,
+      getActiveCanvasElement,
+      hasMainTarget,
+      isBareMainTarget,
+      measureMainStageDims,
+      scaleFactor,
+    ]
+  )
+
+  return (
+    <div className="space-y-3">
+      <PositionSwipeField
+        ariaLabel="Position screenshot"
+        disabled={!hasMainTarget}
+        value={currentPosition}
+        onPreview={previewMoveTo}
+        onChange={moveTo}
+      />
+      <EffectSlider
+        label="Zoom"
+        value={editor.scale}
+        onChange={setScale}
+        min={10}
+        max={300}
+        suffix="%"
+      />
+    </div>
+  )
+}
