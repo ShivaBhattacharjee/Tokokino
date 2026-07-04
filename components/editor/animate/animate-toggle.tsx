@@ -22,16 +22,16 @@ export function AnimateToggle() {
         onClick={() => setIsAnimateMode(true)}
         className="group pointer-events-auto relative cursor-pointer overflow-hidden rounded-[10px] bg-foreground/15 p-[2px] shadow-lg transition-transform active:scale-95"
       >
-        {/* Oversized conic rainbow behind the button; the button's rounded
-            overflow-clip turns it into a 2px border. Hidden by default (the
-            button's own bg-foreground/15 shows as a subtle light/dark border)
-            and faded in on hover. `animate-ring` spins + hue-cycles it. */}
+        {/* A comet rides the border path at constant speed (see `.animate-beam`
+            in globals.css). The button's own bg-foreground/15 shows as a subtle
+            light/dark border underneath; the inner pill clips the comet to a
+            thin travelling glow along the edge. Hidden until hover. */}
         <span
           aria-hidden
-          className="animate-ring pointer-events-none absolute inset-[-150%] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          className="animate-beam pointer-events-none absolute top-0 left-0 aspect-square w-14 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           style={{
             background:
-              "conic-gradient(from 0deg,#f87171,#fb923c,#fbbf24,#a3e635,#34d399,#22d3ee,#60a5fa,#a78bfa,#f472b6,#f87171)",
+              "linear-gradient(to right,transparent,rgba(167,139,250,0.6) 45%,#22d3ee 75%,#ecfeff 100%)",
           }}
         />
         {/* Inner pill */}
