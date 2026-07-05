@@ -88,6 +88,10 @@ import type {
 
 const TWEET_POST_ASPECT: AspectState = { id: "x-post", w: 1080, h: 1080 }
 
+/** Smallest an animation clip may be trimmed/fitted to (keep in sync with the
+ * timeline UI's MIN_CLIP_MS). */
+const MIN_ANIMATION_CLIP_MS = 200
+
 /** Canvas.animation is optional (older drafts) — always read through this. */
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
@@ -366,13 +370,18 @@ export type EditorActions = {
   setIsScreenshotSelected: (selected: boolean) => void
   setIsAnimateMode: (a: boolean) => void
   setAnimationDuration: (ms: number, canvasId?: string) => void
-  addAnimationClip: (presetId: string, canvasId?: string) => string
+  addAnimationClip: (
+    presetId: string,
+    canvasId?: string,
+    atMs?: number
+  ) => string
   updateAnimationClip: (
     id: string,
     patch: Partial<Omit<AnimationClip, "id">>,
     canvasId?: string
   ) => void
   removeAnimationClip: (id: string, canvasId?: string) => void
+  duplicateAnimationClip: (id: string, canvasId?: string) => string | null
   clearAnimationClips: (canvasId?: string) => void
   setAnimationAudio: (audio: AnimationAudio | null, canvasId?: string) => void
   updateAnimationAudio: (
@@ -1469,7 +1478,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }),
         "animation-duration"
       ),
-    addAnimationClip: (presetId, canvasId) => {
+    addAnimationClip: (presetId, canvasId, atMs) => {
       const id = makeId()
       commitCanvas(
         canvasId,
@@ -1480,16 +1489,41 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             preset?.defaultDurationMs ?? 1000,
             animation.durationMs
           )
-          // Append after the last clip's end, clamped to the timeline.
-          const lastEnd = animation.clips.reduce(
-            (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
-            0
+          const maxStart = Math.max(0, animation.durationMs - durationMs)
+          let startMs: number
+          if (atMs != null) {
+            // Drop the clip where the pointer released, clamped so it fits.
+            startMs = Math.max(0, Math.min(maxStart, atMs))
+          } else {
+            // Append after the last clip's end, clamped to the timeline.
+            const lastEnd = animation.clips.reduce(
+              (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
+              0
+            )
+            startMs = Math.min(lastEnd, maxStart)
+          }
+          // Never overlap a neighbouring clip: keep the start past the previous
+          // clip's end, and shrink the duration so it stops at the next clip.
+          const sorted = [...animation.clips].sort(
+            (a, b) => a.startMs - b.startMs
           )
-          const startMs = Math.min(
-            lastEnd,
-            Math.max(0, animation.durationMs - durationMs)
+          const prevEnd = sorted
+            .filter((c) => c.startMs <= startMs)
+            .reduce((max, c) => Math.max(max, c.startMs + c.durationMs), 0)
+          startMs = Math.max(startMs, prevEnd)
+          const nextStart = sorted
+            .filter((c) => c.startMs >= startMs)
+            .reduce((min, c) => Math.min(min, c.startMs), animation.durationMs)
+          const fittedDuration = Math.max(
+            MIN_ANIMATION_CLIP_MS,
+            Math.min(durationMs, nextStart - startMs)
           )
-          const clip: AnimationClip = { id, presetId, startMs, durationMs }
+          const clip: AnimationClip = {
+            id,
+            presetId,
+            startMs,
+            durationMs: fittedDuration,
+          }
           return {
             animation: { ...animation, clips: [...animation.clips, clip] },
           }
@@ -1528,6 +1562,35 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         },
         null
       ),
+    duplicateAnimationClip: (id, canvasId) => {
+      const state = get().present
+      const resolvedId = canvasId ?? state.activeCanvasId
+      const canvas = state.canvases.find((c) => c.id === resolvedId)
+      const source = canvas
+        ? getCanvasAnimation(canvas).clips.find((clip) => clip.id === id)
+        : undefined
+      if (!source) return null
+      const newId = makeId()
+      commitCanvas(
+        canvasId,
+        (c) => {
+          const animation = getCanvasAnimation(c)
+          const maxStart = Math.max(0, animation.durationMs - source.durationMs)
+          // Drop the copy right after the original, clamped to the timeline.
+          const startMs = Math.min(maxStart, source.startMs + source.durationMs)
+          const clip: AnimationClip = {
+            ...source,
+            id: newId,
+            startMs,
+          }
+          return {
+            animation: { ...animation, clips: [...animation.clips, clip] },
+          }
+        },
+        null
+      )
+      return newId
+    },
     clearAnimationClips: (canvasId) =>
       commitCanvas(
         canvasId,

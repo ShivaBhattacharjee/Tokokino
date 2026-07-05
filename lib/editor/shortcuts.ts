@@ -42,6 +42,13 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Export",
     items: [{ label: "Copy canvas", keys: ["mod", "C"] }],
   },
+  {
+    title: "Animate",
+    items: [
+      { label: "Duplicate clip", keys: ["mod", "D"] },
+      { label: "Delete clip", keys: ["Delete"] },
+    ],
+  },
 ]
 
 export function isApplePlatform(): boolean {

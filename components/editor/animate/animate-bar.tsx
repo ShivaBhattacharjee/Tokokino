@@ -3,9 +3,11 @@
 import * as React from "react"
 import { motion } from "motion/react"
 import {
+  RiAddCircleLine,
   RiAddLine,
   RiArrowLeftLine,
-  RiCloseLine,
+  RiDeleteBinLine,
+  RiFileCopyLine,
   RiPauseFill,
   RiPlayFill,
   RiResetLeftLine,
@@ -24,12 +26,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { useAnimationPlayer } from "@/hooks/use-animation-player"
-import { getAnimationPreset } from "@/lib/editor/animation-presets"
+import { isApplePlatform } from "@/lib/editor/shortcuts"
 import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
 const MIN_CLIP_MS = 200
+// The hover-to-add affordance previews a fixed one-second slot, snapped to
+// whole-second grid lines (e.g. 2s→3s), like Shots/Postspark.
+const GHOST_SLOT_MS = 1000
 // Default timeline scale in pixels per second. Zoom (trackpad pinch / ctrl+
 // wheel) scales this between the bounds below; the track scrolls horizontally
 // instead of compressing to fit the viewport.
@@ -71,6 +84,7 @@ export function AnimateBar() {
   const addAnimationClip = useEditorStore((s) => s.addAnimationClip)
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
   const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
+  const duplicateAnimationClip = useEditorStore((s) => s.duplicateAnimationClip)
   const clearAnimationClips = useEditorStore((s) => s.clearAnimationClips)
   const setAnimationAudio = useEditorStore((s) => s.setAnimationAudio)
   const updateAnimationAudio = useEditorStore((s) => s.updateAnimationAudio)
@@ -79,6 +93,12 @@ export function AnimateBar() {
   const [selectedClipId, setSelectedClipId] = React.useState<string | null>(
     null
   )
+  // Platform-aware label for the duplicate shortcut shown in the context menu.
+  const [dupShortcut, setDupShortcut] = React.useState("⌘D")
+   
+  React.useEffect(() => {
+    setDupShortcut(isApplePlatform() ? "⌘D" : "Ctrl+D")
+  }, [])
   const [confirmExitOpen, setConfirmExitOpen] = React.useState(false)
   const trackRef = React.useRef<HTMLDivElement | null>(null)
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
@@ -99,9 +119,10 @@ export function AnimateBar() {
     return (ms / 1000) * pxPerSecond
   }
 
-  // Show a few seconds of empty track past the end so there's room to drag the
-  // duration handle rightward (and ticks that hint you can extend).
-  const rulerEndMs = Math.min(MAX_DURATION_MS, durationMs + 3000)
+  // The ruler always spans the full extendable range (up to the 60s max) so the
+  // whole timeline is visible/scrollable and the duration handle can be dragged
+  // anywhere in one motion. Ticks past the current duration are dimmed.
+  const rulerEndMs = MAX_DURATION_MS
   const contentWidth = pxFor(rulerEndMs) + RULER_TRAILING_PX
 
   // Raw pointer position in ms (unclamped), relative to the track's left edge.
@@ -210,30 +231,67 @@ export function AnimateBar() {
     if (playheadMs > durationMs) seek(durationMs)
   }, [playheadMs, durationMs, seek])
 
-  // ---- clip drag (move body / trim right edge) --------------------------
+  // ---- clip drag (move body / trim either edge) -------------------------
+  type ClipDragMode = "move" | "trim" | "trim-start"
   const dragRef = React.useRef<{
     id: string
-    mode: "move" | "trim"
+    mode: ClipDragMode
     grabOffsetMs: number
     startMs: number
     durationMs: number
   } | null>(null)
+  // Which clip is actively being moved — drives the little "picked up" lift.
+  const [draggingClipId, setDraggingClipId] = React.useState<string | null>(
+    null
+  )
+  // Live clip list for the drag math (kept out of the drag callback's deps).
+  const clipsRef = React.useRef(clips)
+  React.useEffect(() => {
+    clipsRef.current = clips
+  }, [clips])
 
   const applyClipDrag = React.useCallback(
     (clientX: number) => {
       const drag = dragRef.current
       if (!drag) return
       const pointerMs = msFromClientX(clientX)
+      // Neighbouring clips (everything but the one being dragged), sorted.
+      const others = clipsRef.current
+        .filter((c) => c.id !== drag.id)
+        .sort((a, b) => a.startMs - b.startMs)
+
       if (drag.mode === "move") {
+        // Free movement across the whole timeline so the clip can be dropped
+        // before or after its neighbours. Overlap is validated on drop (see
+        // onClipPointerUp) — if the release spot collides, it snaps back.
         const nextStart = Math.max(
           0,
           Math.min(durationMs - drag.durationMs, pointerMs - drag.grabOffsetMs)
         )
         updateAnimationClip(drag.id, { startMs: nextStart })
+      } else if (drag.mode === "trim-start") {
+        // Drag the left edge; the right edge (end) stays pinned. Can't cross
+        // into the previous clip.
+        const end = drag.startMs + drag.durationMs
+        const prevEnd = others
+          .filter((o) => o.startMs + o.durationMs <= end)
+          .reduce((max, o) => Math.max(max, o.startMs + o.durationMs), 0)
+        const nextStart = Math.max(
+          prevEnd,
+          Math.min(end - MIN_CLIP_MS, pointerMs)
+        )
+        updateAnimationClip(drag.id, {
+          startMs: nextStart,
+          durationMs: end - nextStart,
+        })
       } else {
+        // Trim the right edge; can't cross into the next clip.
+        const nextClipStart = others
+          .filter((o) => o.startMs >= drag.startMs)
+          .reduce((min, o) => Math.min(min, o.startMs), durationMs)
         const nextDuration = Math.max(
           MIN_CLIP_MS,
-          Math.min(durationMs - drag.startMs, pointerMs - drag.startMs)
+          Math.min(nextClipStart - drag.startMs, pointerMs - drag.startMs)
         )
         updateAnimationClip(drag.id, { durationMs: nextDuration })
       }
@@ -244,8 +302,10 @@ export function AnimateBar() {
   const onClipPointerDown = (
     e: React.PointerEvent,
     clip: (typeof clips)[number],
-    mode: "move" | "trim"
+    mode: ClipDragMode
   ) => {
+    // Let right-click through so the context menu can open instead of dragging.
+    if (e.button !== 0) return
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     setSelectedClipId(clip.id)
@@ -256,6 +316,7 @@ export function AnimateBar() {
       startMs: clip.startMs,
       durationMs: clip.durationMs,
     }
+    if (mode === "move") setDraggingClipId(clip.id)
     pointerXRef.current = e.clientX
     startAutoScroll(applyClipDrag)
   }
@@ -267,9 +328,43 @@ export function AnimateBar() {
   }
 
   const onClipPointerUp = (e: React.PointerEvent) => {
-    if (dragRef.current) {
+    const drag = dragRef.current
+    if (drag) {
       e.currentTarget.releasePointerCapture?.(e.pointerId)
+      // On a move, if the drop overlaps a neighbour, snap to the nearest free
+      // spot (butt up against it) rather than bouncing all the way back — only
+      // fall back to the start if nothing fits.
+      if (drag.mode === "move") {
+        const dur = drag.durationMs
+        const maxStart = durationMs - dur
+        const others = clipsRef.current.filter((c) => c.id !== drag.id)
+        const dropped =
+          clipsRef.current.find((c) => c.id === drag.id)?.startMs ??
+          drag.startMs
+        const fits = (s: number) =>
+          s >= 0 &&
+          s <= maxStart &&
+          !others.some(
+            (o) => s < o.startMs + o.durationMs && s + dur > o.startMs
+          )
+        if (!fits(dropped)) {
+          // Candidate free positions: flush against each neighbour's edges,
+          // the timeline ends, and the original spot as a last resort.
+          const candidates = [drag.startMs, 0, maxStart]
+          for (const o of others) {
+            candidates.push(o.startMs + o.durationMs, o.startMs - dur)
+          }
+          const resolved =
+            candidates
+              .filter(fits)
+              .sort(
+                (a, b) => Math.abs(a - dropped) - Math.abs(b - dropped)
+              )[0] ?? drag.startMs
+          updateAnimationClip(drag.id, { startMs: resolved })
+        }
+      }
       dragRef.current = null
+      setDraggingClipId(null)
       stopAutoScroll()
     }
   }
@@ -369,6 +464,148 @@ export function AnimateBar() {
     updateAnimationAudio({ muted: !audio.muted })
   }
 
+  // ---- hover-to-add ghost on the motion lane -----------------------------
+  // Cursor-following "add here" affordance, like dropping a clip in Shots or
+  // Postspark. Position is written straight to the DOM node (no React re-render
+  // per pointer move) so it never lags; it snaps to whole-second slots and a
+  // short transform transition makes the slot-to-slot jump feel magnetic.
+  const clipsRowRef = React.useRef<HTMLDivElement | null>(null)
+  const ghostRef = React.useRef<HTMLDivElement | null>(null)
+  const ghostStartMsRef = React.useRef(0)
+  const [ghostVisible, setGhostVisible] = React.useState(false)
+
+  const ghostWidthPx = pxFor(GHOST_SLOT_MS)
+
+  // Continuous, cursor-following placement — the 1s slot is centered under the
+  // pointer and tracks it 1:1 (no snapping, no transform easing) so it glides
+  // infinitely like Shots/Postspark instead of hopping between grid cells.
+  // rAF coalesces bursts of pointermove into one DOM write per frame.
+  const ghostRafRef = React.useRef<number | null>(null)
+  const ghostClientXRef = React.useRef(0)
+  const ghostHoveringRef = React.useRef(false)
+  // While a clip's right-click menu is open, suppress the add affordance so it
+  // doesn't peek out from behind the menu.
+  const menuOpenRef = React.useRef(false)
+
+  const writeGhost = React.useCallback(() => {
+    ghostRafRef.current = null
+    const el = clipsRowRef.current
+    const node = ghostRef.current
+    if (!el || !node) return
+    if (
+      !ghostHoveringRef.current ||
+      menuOpenRef.current ||
+      dragRef.current ||
+      scrubbingRef.current
+    ) {
+      setGhostVisible(false)
+      return
+    }
+    const rect = el.getBoundingClientRect()
+    const pps = pxPerSecondRef.current
+    const width = (GHOST_SLOT_MS / 1000) * pps
+    if (rect.width - width < 0) {
+      setGhostVisible(false)
+      return
+    }
+    const cursorMs = Math.max(
+      0,
+      Math.min(durationMs, ((ghostClientXRef.current - rect.left) / pps) * 1000)
+    )
+    // Find the free gap the cursor sits in (between clips / timeline edges).
+    // Hovering over a clip → no gap → hidden.
+    const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+    let gapStart = 0
+    let gapEnd = durationMs
+    let inGap = true
+    let prevEnd = 0
+    for (const c of sorted) {
+      if (cursorMs < c.startMs) {
+        gapStart = prevEnd
+        gapEnd = c.startMs
+        break
+      }
+      if (cursorMs <= c.startMs + c.durationMs) {
+        inGap = false
+        break
+      }
+      prevEnd = Math.max(prevEnd, c.startMs + c.durationMs)
+      gapStart = prevEnd
+      gapEnd = durationMs
+    }
+    // The 1s slot must fit in the gap; otherwise there's nowhere to drop it.
+    if (!inGap || gapEnd - gapStart < GHOST_SLOT_MS) {
+      setGhostVisible(false)
+      return
+    }
+    // Center on the cursor, then clamp into the gap so it butts up against a
+    // neighbouring clip instead of vanishing.
+    const start = Math.max(
+      gapStart,
+      Math.min(gapEnd - GHOST_SLOT_MS, cursorMs - GHOST_SLOT_MS / 2)
+    )
+    ghostStartMsRef.current = start
+    node.style.transform = `translate3d(${(start / 1000) * pps}px,0,0)`
+    setGhostVisible(true)
+  }, [clips, durationMs])
+
+  const scheduleGhost = React.useCallback(() => {
+    if (ghostRafRef.current == null) {
+      ghostRafRef.current = requestAnimationFrame(writeGhost)
+    }
+  }, [writeGhost])
+
+  const positionGhost = React.useCallback(
+    (clientX: number) => {
+      if (menuOpenRef.current) return
+      ghostHoveringRef.current = true
+      ghostClientXRef.current = clientX
+      scheduleGhost()
+    },
+    [scheduleGhost]
+  )
+
+  // Re-place the ghost when the timeline is zoomed (pinch / ctrl+wheel): the
+  // pointer may be stationary, so no move event fires, but pxPerSecond and the
+  // lane width change — recompute from the last cursor position so it doesn't
+  // drift out of the lane or overlap a clip.
+  React.useEffect(() => {
+    if (ghostHoveringRef.current) scheduleGhost()
+  }, [pxPerSecond, scheduleGhost])
+
+  React.useEffect(
+    () => () => {
+      if (ghostRafRef.current != null) cancelAnimationFrame(ghostRafRef.current)
+    },
+    []
+  )
+
+  const onClipsRowMove = (e: React.PointerEvent) => positionGhost(e.clientX)
+  const onClipsRowLeave = () => {
+    ghostHoveringRef.current = false
+    setGhostVisible(false)
+  }
+
+  const onClipsRowClick = () => {
+    if (!ghostVisible) return
+    const newId = addAnimationClip(
+      "hero-landing",
+      undefined,
+      ghostStartMsRef.current
+    )
+    setSelectedClipId(newId)
+  }
+
+  const duplicateClip = (id: string) => {
+    const newId = duplicateAnimationClip(id)
+    if (newId) setSelectedClipId(newId)
+  }
+
+  const deleteClip = (id: string) => {
+    removeAnimationClip(id)
+    if (selectedClipId === id) setSelectedClipId(null)
+  }
+
   const deleteSelectedClip = () => {
     if (!selectedClipId) return
     removeAnimationClip(selectedClipId)
@@ -401,6 +638,39 @@ export function AnimateBar() {
     window.addEventListener("keydown", onKeyDown, true)
     return () => window.removeEventListener("keydown", onKeyDown, true)
   }, [confirmExitOpen, requestExit])
+
+  // Clip shortcuts: Delete/Backspace removes the selected clip, ⌘/Ctrl+D
+  // duplicates it (no copy/paste yet, so duplicate stands in for it).
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!selectedClipId) return
+      const t = e.target as HTMLElement | null
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) {
+        return
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        removeAnimationClip(selectedClipId)
+        setSelectedClipId(null)
+      } else if (
+        (e.key === "d" || e.key === "D") &&
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
+        e.preventDefault()
+        const newId = duplicateAnimationClip(selectedClipId)
+        if (newId) setSelectedClipId(newId)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [selectedClipId, removeAnimationClip, duplicateAnimationClip])
 
   // Ruler ticks — the interval widens as you zoom out so labels never crowd.
   // Values are in seconds; ticks past the current duration are dimmed to show
@@ -574,7 +844,7 @@ export function AnimateBar() {
                 doesn't block clip interactions underneath. Position is clamped
                 to the duration so it never renders past the timeline end. */}
             <div
-              className="pointer-events-none absolute -top-2 z-20 h-[calc(100%+0.5rem)] w-[2px] -translate-x-1/2 bg-primary"
+              className="pointer-events-none absolute -top-2 bottom-0 z-40 w-[2px] -translate-x-1/2 bg-primary"
               style={{ left: pxFor(Math.min(playheadMs, durationMs)) }}
             >
               <div className="pointer-events-auto absolute -top-2 left-1/2 flex h-4 w-3 -translate-x-1/2 cursor-ew-resize items-center justify-center rounded-[3px] bg-primary shadow-sm">
@@ -597,7 +867,7 @@ export function AnimateBar() {
               )}
               aria-valuemax={MAX_DURATION_MS / 1000}
               aria-valuenow={Math.round(durationMs / 1000)}
-              className="group absolute -top-2 z-30 flex h-[calc(100%+1rem)] w-6 -translate-x-1/2 cursor-ew-resize touch-none items-center justify-center"
+              className="group absolute -top-2 bottom-0 z-30 flex w-6 -translate-x-1/2 cursor-ew-resize touch-none items-center justify-center"
               style={{ left: pxFor(durationMs) }}
             >
               <div
@@ -613,53 +883,131 @@ export function AnimateBar() {
             {/* Motion clips row — spans the current duration so the end handle
                 sits right at its edge. */}
             <div
-              className="relative h-11 overflow-hidden rounded-lg border border-border/50 bg-background/40"
+              ref={clipsRowRef}
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerMove={onClipsRowMove}
+              onPointerLeave={onClipsRowLeave}
+              onClick={onClipsRowClick}
+              className={cn(
+                "relative h-11 overflow-hidden rounded-lg border border-border/50 bg-background/40",
+                ghostVisible && "cursor-copy"
+              )}
               style={{ width: pxFor(durationMs) }}
             >
+              {/* Cursor-following add affordance. Purely visual (the lane owns
+                  the click). Position is written to `transform` directly in the
+                  move handler — no React re-render, so it can't lag — and snaps
+                  to whole-second slots with a magnetic transition. */}
+              <div
+                ref={ghostRef}
+                aria-hidden
+                className={cn(
+                  "pointer-events-none absolute top-1 bottom-1 left-0 z-10 box-border flex items-center justify-center gap-1.5 overflow-hidden rounded-md border border-dashed border-primary/60 bg-primary/10 px-1 text-[11px] font-medium text-primary backdrop-blur-sm transition-opacity duration-150 ease-out will-change-transform",
+                  ghostVisible ? "opacity-100" : "opacity-0"
+                )}
+                style={{ width: ghostWidthPx }}
+              >
+                <RiAddCircleLine className="size-4 shrink-0" />
+                {ghostWidthPx >= 92 && (
+                  <span className="truncate">Animation</span>
+                )}
+              </div>
               {clips.map((clip) => {
-                const preset = getAnimationPreset(clip.presetId)
                 const selected = clip.id === selectedClipId
+                const dragging = clip.id === draggingClipId
                 return (
-                  <div
+                  <ContextMenu
                     key={clip.id}
-                    onPointerDown={(e) => onClipPointerDown(e, clip, "move")}
-                    onPointerMove={onClipPointerMove}
-                    onPointerUp={onClipPointerUp}
-                    className={cn(
-                      "absolute top-1 bottom-1 flex cursor-grab touch-none items-center overflow-hidden rounded-md border px-2 text-[11px] font-medium text-white active:cursor-grabbing",
-                      selected
-                        ? "border-primary ring-1 ring-primary"
-                        : "border-white/10"
-                    )}
-                    style={{
-                      left: pxFor(clip.startMs),
-                      width: pxFor(clip.durationMs),
-                      background:
-                        "linear-gradient(135deg,#2a1620 0%,#c4364a 120%)",
+                    onOpenChange={(open) => {
+                      menuOpenRef.current = open
+                      if (open) {
+                        ghostHoveringRef.current = false
+                        setGhostVisible(false)
+                      }
                     }}
                   >
-                    <span className="truncate">{preset?.name ?? "Clip"}</span>
-                    <button
-                      type="button"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeAnimationClip(clip.id)
-                        if (selectedClipId === clip.id) setSelectedClipId(null)
-                      }}
-                      aria-label="Delete clip"
-                      className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-md bg-black/30 text-white/80 hover:bg-black/50"
-                    >
-                      <RiCloseLine className="size-3" />
-                    </button>
-                    {/* Trim handle (right edge) */}
-                    <div
-                      onPointerDown={(e) => onClipPointerDown(e, clip, "trim")}
-                      onPointerMove={onClipPointerMove}
-                      onPointerUp={onClipPointerUp}
-                      className="absolute top-0 right-0 h-full w-2 cursor-ew-resize touch-none bg-white/20"
-                    />
-                  </div>
+                    <ContextMenuTrigger asChild>
+                      <div
+                        onPointerDown={(e) =>
+                          onClipPointerDown(e, clip, "move")
+                        }
+                        onPointerMove={onClipPointerMove}
+                        onPointerUp={onClipPointerUp}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedClipId(clip.id)
+                        }}
+                        className={cn(
+                          "group/clip absolute top-1 bottom-1 z-20 cursor-grab touch-none overflow-hidden rounded-md border bg-linear-to-b from-neutral-700/70 to-neutral-800 transition-[transform,border-color] duration-150 ease-out active:cursor-grabbing",
+                          selected
+                            ? "border-primary/50"
+                            : "border-white/10 hover:border-white/20",
+                          dragging && "z-30 border-white/25"
+                        )}
+                        style={{
+                          left: pxFor(clip.startMs),
+                          width: pxFor(clip.durationMs),
+                          transform: dragging ? "translateY(-3px)" : undefined,
+                        }}
+                      >
+                        {/* Centered mockup preview — the thing being animated. */}
+                        <div className="pointer-events-none flex h-full items-center justify-center px-3">
+                          {screenshot ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={screenshot}
+                              alt=""
+                              className="h-7 max-w-[64px] rounded-[5px] object-cover ring-1 ring-white/10"
+                            />
+                          ) : (
+                            <span className="h-7 w-12 rounded-[5px] bg-white/10 ring-1 ring-white/10" />
+                          )}
+                        </div>
+
+                        {/* Trim handles — a grip pill on each edge, revealed on
+                            hover (image reference). Left trims the start, right
+                            trims the end. */}
+                        <div
+                          onPointerDown={(e) =>
+                            onClipPointerDown(e, clip, "trim-start")
+                          }
+                          onPointerMove={onClipPointerMove}
+                          onPointerUp={onClipPointerUp}
+                          className="absolute inset-y-0 left-0 flex w-3 cursor-ew-resize touch-none items-center justify-center"
+                        >
+                          <span className="h-4 w-1 rounded-full bg-white/70 opacity-0 shadow transition-opacity duration-150 group-hover/clip:opacity-100" />
+                        </div>
+                        <div
+                          onPointerDown={(e) =>
+                            onClipPointerDown(e, clip, "trim")
+                          }
+                          onPointerMove={onClipPointerMove}
+                          onPointerUp={onClipPointerUp}
+                          className="absolute inset-y-0 right-0 flex w-3 cursor-ew-resize touch-none items-center justify-center"
+                        >
+                          <span className="h-4 w-1 rounded-full bg-white/70 opacity-0 shadow transition-opacity duration-150 group-hover/clip:opacity-100" />
+                        </div>
+                      </div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-44">
+                      <ContextMenuItem onSelect={() => duplicateClip(clip.id)}>
+                        <RiFileCopyLine />
+                        Duplicate
+                        <ContextMenuShortcut>{dupShortcut}</ContextMenuShortcut>
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        variant="destructive"
+                        onSelect={() => deleteClip(clip.id)}
+                      >
+                        <RiDeleteBinLine />
+                        Delete
+                        <ContextMenuShortcut className="text-destructive/70">
+                          Del
+                        </ContextMenuShortcut>
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 )
               })}
             </div>
