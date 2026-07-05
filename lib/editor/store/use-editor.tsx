@@ -387,8 +387,8 @@ export function useEditor(): EditorContext {
     setIsAnimateMode: store.setIsAnimateMode,
     setAnimationDuration: (ms, canvasId) =>
       store.setAnimationDuration(ms, canvasId ?? targetId),
-    addAnimationClip: (presetId, canvasId, atMs) =>
-      store.addAnimationClip(presetId, canvasId ?? targetId, atMs),
+    addAnimationClip: (canvasId, atMs) =>
+      store.addAnimationClip(canvasId ?? targetId, atMs),
     updateAnimationClip: (id, patch, canvasId) =>
       store.updateAnimationClip(id, patch, canvasId ?? targetId),
     removeAnimationClip: (id, canvasId) =>

@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 
-import { getAnimationPreset } from "./animation-presets"
+import { DEFAULT_CLIP_DURATION_MS } from "./animation-motion"
 import {
   LAYOUT_PRESETS,
   PRESENT_PRESETS,
@@ -370,11 +370,7 @@ export type EditorActions = {
   setIsScreenshotSelected: (selected: boolean) => void
   setIsAnimateMode: (a: boolean) => void
   setAnimationDuration: (ms: number, canvasId?: string) => void
-  addAnimationClip: (
-    presetId: string,
-    canvasId?: string,
-    atMs?: number
-  ) => string
+  addAnimationClip: (canvasId?: string, atMs?: number) => string
   updateAnimationClip: (
     id: string,
     patch: Partial<Omit<AnimationClip, "id">>,
@@ -1478,15 +1474,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }),
         "animation-duration"
       ),
-    addAnimationClip: (presetId, canvasId, atMs) => {
+    addAnimationClip: (canvasId, atMs) => {
       const id = makeId()
       commitCanvas(
         canvasId,
         (canvas) => {
           const animation = getCanvasAnimation(canvas)
-          const preset = getAnimationPreset(presetId)
           const durationMs = Math.min(
-            preset?.defaultDurationMs ?? 1000,
+            DEFAULT_CLIP_DURATION_MS,
             animation.durationMs
           )
           const maxStart = Math.max(0, animation.durationMs - durationMs)
@@ -1520,7 +1515,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           )
           const clip: AnimationClip = {
             id,
-            presetId,
             startMs,
             durationMs: fittedDuration,
           }

@@ -6,7 +6,7 @@ import { useAnimationPlayer } from "@/hooks/use-animation-player"
 import {
   composeTransformAtTime,
   transformToCss,
-} from "@/lib/editor/animation-presets"
+} from "@/lib/editor/animation-motion"
 import { useActiveCanvasField, useActiveCanvasId } from "@/lib/editor/store"
 
 const VARS = ["--anim-transform", "--anim-opacity", "--anim-filter"] as const

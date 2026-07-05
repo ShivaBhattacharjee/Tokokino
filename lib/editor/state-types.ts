@@ -384,8 +384,6 @@ export type CanvasPosition = { x: number; y: number }
 /** A single motion layer placed on the animation timeline. */
 export type AnimationClip = {
   id: string
-  /** References an AnimationPreset id in lib/editor/animation-presets.ts */
-  presetId: string
   startMs: number
   durationMs: number
 }

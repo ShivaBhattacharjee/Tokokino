@@ -1,6 +1,6 @@
 import { GIFEncoder, quantize, applyPalette } from "gifenc"
 
-import { composeTransformAtTime, transformToCss } from "./animation-presets"
+import { composeTransformAtTime, transformToCss } from "./animation-motion"
 import { prepareAnimationCapture } from "./export"
 import { useEditorStore } from "./store"
 import type { AnimationClip } from "./state-types"
