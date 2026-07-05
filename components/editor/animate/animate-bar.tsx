@@ -181,6 +181,9 @@ export function AnimateBar() {
                   width={pxFor(clip.durationMs)}
                   selected={clip.id === t.selectedClipId}
                   dragging={clip.id === t.draggingClipId}
+                  interacting={
+                    clip.id === t.interactingClipId || !t.clipsAnimated
+                  }
                   screenshot={t.screenshot}
                   dupShortcut={t.dupShortcut}
                   onPointerDownClip={(e, mode) =>

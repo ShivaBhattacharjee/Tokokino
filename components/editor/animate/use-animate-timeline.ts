@@ -72,6 +72,10 @@ export function useAnimateTimeline() {
   // Scroll offset to apply after a zoom so the point under the cursor stays put
   // (contentWidth only reflects the new scale after the re-render).
   const pendingScrollRef = React.useRef<number | null>(null)
+  // Clip slide-animations are disabled while zooming so they don't rubber-band
+  // behind the scale change; re-enabled shortly after the last wheel event.
+  const [clipsAnimated, setClipsAnimated] = React.useState(true)
+  const zoomIdleRef = React.useRef<number | null>(null)
 
   const pxFor = React.useCallback(
     (ms: number) => (ms / 1000) * pxPerSecond,
@@ -150,6 +154,12 @@ export function useAnimateTimeline() {
       if (e.ctrlKey || e.metaKey) {
         // Pinch / ctrl+wheel → zoom around the cursor.
         e.preventDefault()
+        setClipsAnimated(false)
+        if (zoomIdleRef.current) window.clearTimeout(zoomIdleRef.current)
+        zoomIdleRef.current = window.setTimeout(
+          () => setClipsAnimated(true),
+          140
+        )
         const rect = el.getBoundingClientRect()
         const pointerOffset = e.clientX - rect.left
         setPxPerSecond((prev) => {
@@ -169,7 +179,10 @@ export function useAnimateTimeline() {
       }
     }
     el.addEventListener("wheel", onWheel, { passive: false })
-    return () => el.removeEventListener("wheel", onWheel)
+    return () => {
+      el.removeEventListener("wheel", onWheel)
+      if (zoomIdleRef.current) window.clearTimeout(zoomIdleRef.current)
+    }
   }, [])
 
   // Restore the anchored scroll offset once the zoomed content width is live.
@@ -198,6 +211,11 @@ export function useAnimateTimeline() {
   const [draggingClipId, setDraggingClipId] = React.useState<string | null>(
     null
   )
+  // Which clip is under any direct interaction (move OR trim). Its position/size
+  // must track the pointer instantly, so we skip the slide animation for it.
+  const [interactingClipId, setInteractingClipId] = React.useState<
+    string | null
+  >(null)
   // Live clip list for the drag math (kept out of the drag callback's deps).
   const clipsRef = React.useRef(clips)
   React.useEffect(() => {
@@ -268,6 +286,7 @@ export function useAnimateTimeline() {
         startMs: clip.startMs,
         durationMs: clip.durationMs,
       }
+      setInteractingClipId(clip.id)
       if (mode === "move") setDraggingClipId(clip.id)
       pointerXRef.current = e.clientX
       startAutoScroll(applyClipDrag)
@@ -308,6 +327,7 @@ export function useAnimateTimeline() {
       }
       dragRef.current = null
       setDraggingClipId(null)
+      setInteractingClipId(null)
       stopAutoScroll()
     },
     [durationMs, stopAutoScroll, updateAnimationClip]
@@ -667,6 +687,8 @@ export function useAnimateTimeline() {
     // selection / labels
     selectedClipId,
     draggingClipId,
+    interactingClipId,
+    clipsAnimated,
     dupShortcut,
 
     // refs

@@ -17,6 +17,8 @@ import {
   Doto,
 } from "next/font/google"
 
+import NextTopLoader from "nextjs-toploader"
+
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
@@ -173,6 +175,15 @@ export default function RootLayout({
       )}
     >
       <body>
+        <NextTopLoader
+          color="#ff5b6e"
+          height={2.5}
+          shadow="0 0 10px #ff5b6e, 0 0 5px #ff5b6e"
+          showSpinner={false}
+          crawlSpeed={200}
+          speed={300}
+          easing="ease"
+        />
         <div className="mx-auto max-w-[1800px]">
           <ThemeProvider defaultTheme="dark">
             <TooltipProvider delayDuration={150}>

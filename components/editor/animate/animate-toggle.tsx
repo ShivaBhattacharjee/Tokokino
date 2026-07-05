@@ -2,7 +2,7 @@
 
 import { RiMagicLine } from "@remixicon/react"
 
-import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
+import { useEditorStore } from "@/lib/editor/store"
 
 /**
  * Floating, bottom-center trigger that enters Animate mode. The animated
@@ -11,9 +11,6 @@ import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
  */
 export function AnimateToggle() {
   const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
-  const hasScreenshot = useActiveCanvasField((c) => Boolean(c.screenshot))
-
-  if (!hasScreenshot) return null
 
   return (
     <div className="pointer-events-none absolute bottom-20 left-1/2 z-30 -translate-x-1/2 max-md:bottom-[210px]">

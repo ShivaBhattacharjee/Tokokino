@@ -3,6 +3,7 @@
 import { create } from "zustand"
 
 import { DEFAULT_CLIP_DURATION_MS } from "./animation-motion"
+import { MAX_DURATION_MS } from "./animation-timeline"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import type { TweetCardSettings } from "./tweet-settings"
 import {
@@ -1556,16 +1557,49 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         (c) => {
           const animation = getCanvasAnimation(c)
-          const maxStart = Math.max(0, animation.durationMs - source.durationMs)
-          // Drop the copy right after the original, clamped to the timeline.
-          const startMs = Math.min(maxStart, source.startMs + source.durationMs)
+          const dur = source.durationMs
+          // The copy sits immediately after the original.
+          const insertStart = source.startMs + dur
+          // Push clips at/after the insertion point to the right, but only far
+          // enough to open a gap for the copy — this preserves the spacing
+          // between the shifted clips instead of scattering them.
+          const nextStart = animation.clips
+            .filter(
+              (clip) => clip.id !== source.id && clip.startMs >= insertStart
+            )
+            .reduce((min, clip) => Math.min(min, clip.startMs), Infinity)
+          const shift = Number.isFinite(nextStart)
+            ? Math.max(0, insertStart + dur - nextStart)
+            : 0
+          const shifted = animation.clips.map((clip) =>
+            clip.id !== source.id && clip.startMs >= insertStart
+              ? { ...clip, startMs: clip.startMs + shift }
+              : clip
+          )
           const clip: AnimationClip = {
             ...source,
             id: newId,
-            startMs,
+            startMs: insertStart,
           }
+          // Insert the copy right after the original in the array so it renders
+          // between the two, not appended at the end.
+          const sourceIndex = shifted.findIndex((cl) => cl.id === source.id)
+          const clips = [
+            ...shifted.slice(0, sourceIndex + 1),
+            clip,
+            ...shifted.slice(sourceIndex + 1),
+          ]
+          // Grow the timeline so the shifted clips still fit (capped at the max).
+          const end = clips.reduce(
+            (m, cl) => Math.max(m, cl.startMs + cl.durationMs),
+            0
+          )
+          const nextDuration = Math.min(
+            MAX_DURATION_MS,
+            Math.max(animation.durationMs, end)
+          )
           return {
-            animation: { ...animation, clips: [...animation.clips, clip] },
+            animation: { ...animation, durationMs: nextDuration, clips },
           }
         },
         null

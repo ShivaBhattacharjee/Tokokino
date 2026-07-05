@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { motion } from "motion/react"
 import { RiDeleteBinLine, RiFileCopyLine } from "@remixicon/react"
 
 import {
@@ -22,6 +23,7 @@ type TimelineClipProps = {
   width: number
   selected: boolean
   dragging: boolean
+  interacting: boolean
   screenshot: string | null
   dupShortcut: string
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
@@ -44,6 +46,7 @@ export function TimelineClip({
   width,
   selected,
   dragging,
+  interacting,
   screenshot,
   dupShortcut,
   onPointerDownClip,
@@ -57,7 +60,7 @@ export function TimelineClip({
   return (
     <ContextMenu onOpenChange={onMenuOpenChange}>
       <ContextMenuTrigger asChild>
-        <div
+        <motion.div
           onPointerDown={(e) => onPointerDownClip(e, "move")}
           onPointerMove={onPointerMoveClip}
           onPointerUp={onPointerUpClip}
@@ -66,17 +69,22 @@ export function TimelineClip({
             onSelect()
           }}
           className={cn(
-            "group/clip absolute top-1 bottom-1 z-20 cursor-grab touch-none overflow-hidden rounded-md border bg-linear-to-b from-neutral-100 to-neutral-200 transition-[transform,border-color] duration-150 ease-out active:cursor-grabbing dark:from-neutral-700/70 dark:to-neutral-800",
+            "group/clip absolute top-1 bottom-1 z-20 cursor-grab touch-none overflow-hidden rounded-md border bg-linear-to-b from-neutral-100 to-neutral-200 transition-[border-color] duration-150 ease-out active:cursor-grabbing dark:from-neutral-700/70 dark:to-neutral-800",
             selected
               ? "border-primary/60"
               : "border-black/10 hover:border-black/20 dark:border-white/10 dark:hover:border-white/20",
             dragging && "z-30 border-foreground/25"
           )}
-          style={{
-            left,
-            width,
-            transform: dragging ? "translateY(-3px)" : undefined,
-          }}
+          // Slide to new left/width when clips shift (e.g. duplicate ripples the
+          // neighbours over). The clip you're actively dragging/trimming updates
+          // instantly so it never lags behind the pointer.
+          initial={false}
+          animate={{ left, width, y: dragging ? -3 : 0 }}
+          transition={
+            interacting
+              ? { duration: 0 }
+              : { duration: 0.22, ease: [0.4, 0, 0.2, 1] }
+          }
         >
           {/* Centered mockup preview — the thing being animated. */}
           <div className="pointer-events-none flex h-full items-center justify-center px-3">
@@ -109,7 +117,7 @@ export function TimelineClip({
           >
             <span className={gripPill} />
           </div>
-        </div>
+        </motion.div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-44">
         <ContextMenuItem onSelect={onDuplicate}>
