@@ -64,6 +64,14 @@ function EditorLayout() {
   const previewAnimation = useEditorStore((s) => s.previewAnimation)
   const setPreviewAnimation = useEditorStore((s) => s.setPreviewAnimation)
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  // Extra screenshot slots on the active canvas → each adds a base-layer row to
+  // the animate timeline, making it taller. Used to shift the canvas further up.
+  const extraSlotCount = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas?.screenshotSlots?.length ?? 0
+  })
 
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [mobilePanelOpen, setMobilePanelOpen] = React.useState(false)
@@ -256,11 +264,17 @@ function EditorLayout() {
           )}
           <div
             className={cn(
-              "relative isolate flex min-h-0 flex-1 overflow-hidden",
-              // Reserve room for the bottom timeline so the canvas shifts up into
-              // the empty top space instead of sitting behind the timeline.
-              isAnimateMode && "pb-[100px]"
+              "relative isolate flex min-h-0 flex-1 overflow-hidden"
             )}
+            // Reserve room for the bottom timeline so the canvas shifts up into
+            // the empty top space instead of sitting behind it. The timeline
+            // grows by one 48px row per extra screenshot layer, so grow the
+            // reserved space to match.
+            style={
+              isAnimateMode
+                ? { paddingBottom: 120 + extraSlotCount * 48 }
+                : undefined
+            }
           >
             {!isAnimateMode && <BulkBar />}
             <EditorErrorBoundary
@@ -273,13 +287,11 @@ function EditorLayout() {
             </EditorErrorBoundary>
             {/* Enter-animate trigger (still image only) */}
             {!hideBottomToolbar && <AnimateToggle />}
-            {/* Animate mode: drives on-canvas motion + bottom timeline */}
-            {isAnimateMode && (
-              <>
-                <AnimationLayer />
-                <AnimateBar />
-              </>
-            )}
+            {/* Animate mode: drives on-canvas motion + bottom timeline.
+                AnimatePresence lets the timeline bar slide/fade out on exit
+                (it defines its own enter/exit motion). */}
+            {isAnimateMode && <AnimationLayer />}
+            <AnimatePresence>{isAnimateMode && <AnimateBar />}</AnimatePresence>
           </div>
           {!hideBottomToolbar && (
             <div

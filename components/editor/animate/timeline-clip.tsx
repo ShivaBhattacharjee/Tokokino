@@ -77,9 +77,19 @@ export function TimelineClip({
           )}
           // Slide to new left/width when clips shift (e.g. duplicate ripples the
           // neighbours over). The clip you're actively dragging/trimming updates
-          // instantly so it never lags behind the pointer.
-          initial={false}
-          animate={{ left, width, y: dragging ? -3 : 0 }}
+          // instantly so it never lags behind the pointer. `left`/`width` start
+          // at their real value in `initial` so a fresh clip pops in place (no
+          // slide from 0) while only opacity/scale animate — that gives the
+          // duplicated clip a visible fade+scale-in even when it lands in a gap
+          // and no neighbours move.
+          initial={{ opacity: 0, scale: 0.8, left, width }}
+          animate={{ left, width, y: dragging ? -3 : 0, opacity: 1, scale: 1 }}
+          // On delete, fade + shrink out while the neighbours slide in to fill.
+          exit={{
+            opacity: 0,
+            scale: 0.8,
+            transition: { duration: 0.18, ease: [0.4, 0, 1, 1] },
+          }}
           transition={
             interacting
               ? { duration: 0 }

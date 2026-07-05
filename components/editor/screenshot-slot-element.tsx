@@ -285,37 +285,52 @@ export function ScreenshotSlotRender({
                 }}
               />
             ) : null}
-            <ScreenshotFrameContent
-              src={slot.src}
-              frame={shared.frame}
-              isDragOver={isDragOver}
-              onBrowse={onBrowse}
-              imageFilter={filterChain || undefined}
-              shadowFilter={computedShadowFilter}
-              contentTransform={contentTransform}
-              bareStyle={bareImgStyle}
-              applyTransformWhenEmpty
-              suppressEmptyTransition
-              emptyCompact={Boolean(rowLayout)}
-              objectFit={slot.objectFit ?? "contain"}
-              activeTool={activeTool}
-              isDragging={false}
-              stageRef={stageRef}
-              imageRef={imageRef}
-              addressValue={shared.frameAddress}
-              onAddressChange={onAddressChange}
-              onSelect={onSelect}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onCrop={onCropClick}
-              onReplaceFile={onReplaceFile}
-              onDelete={onDeleteFromMenu}
-              innerLightingStyle={innerLightingStyle}
-              onCapture={onCapture}
-              captureDefaultDevice={captureDefaultDevice}
-              captureStateKey={captureStateKey}
-            />
+            {/* Animate-mode wrapper. Reads the same CSS vars AnimationLayer sets
+                on the canvas node as the main screenshot, so every image in a
+                multi-screenshot canvas animates together instead of only the
+                main one moving (which made it look like the first image
+                disappeared). Defaults make it a no-op outside animate mode. */}
+            <div
+              className="relative h-full w-full"
+              style={{
+                transform: "var(--anim-transform, none)",
+                opacity: "var(--anim-opacity, 1)" as unknown as number,
+                filter: "var(--anim-filter, none)",
+                transformOrigin: "center",
+              }}
+            >
+              <ScreenshotFrameContent
+                src={slot.src}
+                frame={shared.frame}
+                isDragOver={isDragOver}
+                onBrowse={onBrowse}
+                imageFilter={filterChain || undefined}
+                shadowFilter={computedShadowFilter}
+                contentTransform={contentTransform}
+                bareStyle={bareImgStyle}
+                applyTransformWhenEmpty
+                suppressEmptyTransition
+                emptyCompact={Boolean(rowLayout)}
+                objectFit={slot.objectFit ?? "contain"}
+                activeTool={activeTool}
+                isDragging={false}
+                stageRef={stageRef}
+                imageRef={imageRef}
+                addressValue={shared.frameAddress}
+                onAddressChange={onAddressChange}
+                onSelect={onSelect}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onCrop={onCropClick}
+                onReplaceFile={onReplaceFile}
+                onDelete={onDeleteFromMenu}
+                innerLightingStyle={innerLightingStyle}
+                onCapture={onCapture}
+                captureDefaultDevice={captureDefaultDevice}
+                captureStateKey={captureStateKey}
+              />
+            </div>
 
             {showEditMenu ? (
               <div

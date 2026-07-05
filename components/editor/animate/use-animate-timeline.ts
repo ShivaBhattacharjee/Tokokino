@@ -34,11 +34,23 @@ export function useAnimateTimeline() {
     useAnimationPlayer()
 
   const screenshot = useActiveCanvasField((c) => c.screenshot) ?? null
+  const screenshotSlots = useActiveCanvasField((c) => c.screenshotSlots ?? [])
   const clips = useActiveCanvasField((c) => c.animation?.clips ?? [])
   const audio = useActiveCanvasField((c) => c.animation?.audio ?? null)
 
+  // One base-layer row per image on the canvas: the main screenshot plus each
+  // extra screenshot slot. Drives the stacked rows under the motion lane.
+  const layers = React.useMemo(
+    () => [
+      { id: "main" as const, src: screenshot },
+      ...screenshotSlots.map((slot) => ({ id: slot.id, src: slot.src })),
+    ],
+    [screenshot, screenshotSlots]
+  )
+
   const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
   const setScreenshot = useEditorStore((s) => s.setScreenshot)
+  const setScreenshotSlotImage = useEditorStore((s) => s.setScreenshotSlotImage)
   const addAnimationClip = useEditorStore((s) => s.addAnimationClip)
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
   const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
@@ -441,8 +453,12 @@ export function useAnimateTimeline() {
     [setAnimationAudio]
   )
 
-  // ---- base screenshot layer (click to replace) --------------------------
-  const onBaseLayerClick = React.useCallback(() => {
+  // ---- base image layers (click a row to set/replace its image) ----------
+  // Which layer the shared file input targets: "main" or a slot id.
+  const pickTargetRef = React.useRef<string>("main")
+
+  const onLayerClick = React.useCallback((target: string) => {
+    pickTargetRef.current = target
     screenshotInputRef.current?.click()
   }, [])
 
@@ -455,14 +471,18 @@ export function useAnimateTimeline() {
         toast.error("Please select an image file")
         return
       }
+      const target = pickTargetRef.current
       void readImageFileAsDataUrl(file, {
         downscaleAbove: 10 * 1024 * 1024,
         maxDimension: 2400,
       })
-        .then((src) => setScreenshot(src))
+        .then((src) => {
+          if (target === "main") setScreenshot(src)
+          else setScreenshotSlotImage(target, src)
+        })
         .catch(() => toast.error("Could not read image"))
     },
-    [setScreenshot]
+    [setScreenshot, setScreenshotSlotImage]
   )
 
   const onAudioButton = React.useCallback(() => {
@@ -665,6 +685,28 @@ export function useAnimateTimeline() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [selectedClipId, removeAnimationClip, duplicateAnimationClip])
 
+  // Spacebar toggles playback (like a video editor). Ignored while typing in a
+  // field; preventDefault stops page scroll and a focused button from also
+  // firing, so it's always a single play/pause.
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return
+      const t = e.target as HTMLElement | null
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      toggle()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [toggle])
+
   const ticks = computeTicks(MAX_DURATION_MS, pxPerSecond)
 
   return {
@@ -675,6 +717,7 @@ export function useAnimateTimeline() {
     toggle,
     reset,
     screenshot,
+    layers,
     clips,
     audio,
 
@@ -732,8 +775,8 @@ export function useAnimateTimeline() {
     onAudioButton,
     onPickAudio,
 
-    // base screenshot layer
-    onBaseLayerClick,
+    // base image layers
+    onLayerClick,
     onPickScreenshot,
 
     // exit

@@ -1535,6 +1535,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         (canvas) => {
           const animation = getCanvasAnimation(canvas)
+          // Just drop the clip — the others keep their positions. The removed
+          // clip fades out via AnimatePresence in the timeline view.
           return {
             animation: {
               ...animation,

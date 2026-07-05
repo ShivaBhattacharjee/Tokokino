@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import { RiAddCircleLine, RiImageAddLine } from "@remixicon/react"
 
 import {
@@ -30,10 +30,12 @@ export function AnimateBar() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+      // Slide up + fade + settle in on enter; reverse on exit (played via the
+      // AnimatePresence wrapping this in the editor page).
+      initial={{ opacity: 0, y: 40, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 40, scale: 0.98 }}
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
       className="pointer-events-auto absolute right-3 bottom-3 left-3 z-30 rounded-2xl border border-border/70 bg-popover/95 p-3 shadow-2xl backdrop-blur-xl"
     >
       <AlertDialog open={t.confirmExitOpen} onOpenChange={t.setConfirmExitOpen}>
@@ -173,79 +175,87 @@ export function AnimateBar() {
                 )}
               </div>
 
-              {t.clips.map((clip) => (
-                <TimelineClip
-                  key={clip.id}
-                  clip={clip}
-                  left={pxFor(clip.startMs)}
-                  width={pxFor(clip.durationMs)}
-                  selected={clip.id === t.selectedClipId}
-                  dragging={clip.id === t.draggingClipId}
-                  interacting={
-                    clip.id === t.interactingClipId || !t.clipsAnimated
-                  }
-                  screenshot={t.screenshot}
-                  dupShortcut={t.dupShortcut}
-                  onPointerDownClip={(e, mode) =>
-                    t.onClipPointerDown(e, clip, mode)
-                  }
-                  onPointerMoveClip={t.onClipPointerMove}
-                  onPointerUpClip={t.onClipPointerUp}
-                  onSelect={() => t.selectClip(clip.id)}
-                  onDuplicate={() => t.duplicateClip(clip.id)}
-                  onDelete={() => t.deleteClip(clip.id)}
-                  onMenuOpenChange={t.onClipMenuOpenChange}
-                />
-              ))}
+              <AnimatePresence>
+                {t.clips.map((clip) => (
+                  <TimelineClip
+                    key={clip.id}
+                    clip={clip}
+                    left={pxFor(clip.startMs)}
+                    width={pxFor(clip.durationMs)}
+                    selected={clip.id === t.selectedClipId}
+                    dragging={clip.id === t.draggingClipId}
+                    interacting={
+                      clip.id === t.interactingClipId || !t.clipsAnimated
+                    }
+                    screenshot={t.screenshot}
+                    dupShortcut={t.dupShortcut}
+                    onPointerDownClip={(e, mode) =>
+                      t.onClipPointerDown(e, clip, mode)
+                    }
+                    onPointerMoveClip={t.onClipPointerMove}
+                    onPointerUpClip={t.onClipPointerUp}
+                    onSelect={() => t.selectClip(clip.id)}
+                    onDuplicate={() => t.duplicateClip(clip.id)}
+                    onDelete={() => t.deleteClip(clip.id)}
+                    onMenuOpenChange={t.onClipMenuOpenChange}
+                  />
+                ))}
+              </AnimatePresence>
             </div>
 
-            {/* Base image row — the track background spans the full duration,
-                but the label/thumbnail is sticky so it stays pinned to the left
-                while the timeline scrolls. Only the thumbnail image is clickable
-                (click it to replace the screenshot). */}
-            <div
-              onPointerDown={(e) => e.stopPropagation()}
-              className="relative mt-1 flex h-11 items-center rounded-lg border border-border/50 bg-background/40"
-              style={{ width: pxFor(durationMs) }}
-            >
-              <input
-                ref={t.screenshotInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={t.onPickScreenshot}
-              />
-              {/* Sticky label — follows the horizontal scroll's left edge. */}
-              <div className="sticky left-0 z-10 flex items-center gap-2 px-2">
-                <button
-                  type="button"
-                  aria-label="Change screenshot"
-                  onClick={t.onBaseLayerClick}
-                  className="relative h-8 w-12 shrink-0 cursor-pointer overflow-hidden rounded outline-none"
+            {/* Base image rows — one per image on the canvas (the main
+                screenshot plus each extra slot). The track background spans the
+                full duration; the label/thumbnail is sticky so it stays pinned
+                to the left while the timeline scrolls. Click a thumbnail to
+                set/replace that layer's image. */}
+            <input
+              ref={t.screenshotInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={t.onPickScreenshot}
+            />
+            {t.layers.map((layer, i) => {
+              return (
+                <div
+                  key={layer.id}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="relative mt-1 flex h-11 items-center rounded-lg border border-border/50 bg-background/40"
+                  style={{ width: pxFor(durationMs) }}
                 >
-                  {t.screenshot ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={t.screenshot}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-foreground/10">
-                      <RiImageAddLine className="size-4 text-muted-foreground" />
-                    </span>
-                  )}
-                </button>
-                <div className="flex min-w-0 flex-col leading-tight">
-                  <span className="truncate text-[11px] text-muted-foreground">
-                    Mockup
-                  </span>
-                  <span className="truncate text-[13px] font-medium text-foreground">
-                    Screenshot
-                  </span>
+                  {/* Sticky label — follows the horizontal scroll's left edge. */}
+                  <div className="sticky left-0 z-10 flex items-center gap-2 px-2">
+                    <button
+                      type="button"
+                      aria-label={`Change screenshot ${i + 1}`}
+                      onClick={() => t.onLayerClick(layer.id)}
+                      className="relative h-8 w-12 shrink-0 cursor-pointer overflow-hidden rounded outline-none"
+                    >
+                      {layer.src ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={layer.src}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center bg-foreground/10">
+                          <RiImageAddLine className="size-4 text-muted-foreground" />
+                        </span>
+                      )}
+                    </button>
+                    <div className="flex min-w-0 flex-col leading-tight">
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        Mockup
+                      </span>
+                      <span className="truncate text-[13px] font-medium text-foreground">
+                        {`Screenshot ${i + 1}`}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              )
+            })}
           </div>
         </div>
       </div>
