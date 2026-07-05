@@ -3,11 +3,7 @@
 import { create } from "zustand"
 
 import { DEFAULT_CLIP_DURATION_MS } from "./animation-motion"
-import {
-  LAYOUT_PRESETS,
-  PRESENT_PRESETS,
-  resolvePresentPresetScale,
-} from "./present-presets"
+import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import type { TweetCardSettings } from "./tweet-settings"
 import {
   resolveActivePresetGeometry,
@@ -781,16 +777,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 }
               })
             } else if (activeSinglePreset) {
-              const scale = resolvePresentPresetScale(
-                activeSinglePreset,
-                canvas.frame
-              )
+              // Single presets track the canvas' current zoom (tilt-only).
               screenshotSlots = screenshotSlots.map((slot) => ({
                 ...slot,
                 yPct: 50,
                 rotation: 0,
                 tilt: activeSinglePreset.tilt,
-                scale,
+                scale: canvas.scale,
               }))
             }
 
@@ -815,10 +808,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 shouldReapply && activeGeometry
                   ? activeGeometry.canvasScale
                   : activeSinglePreset
-                    ? resolvePresentPresetScale(
-                        activeSinglePreset,
-                        canvas.frame
-                      )
+                    ? canvas.scale
                     : canvas.scale,
               screenshotOffset,
               screenshotSlots,
@@ -882,16 +872,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               }
             })
           } else if (activeSinglePreset) {
-            const scale = resolvePresentPresetScale(
-              activeSinglePreset,
-              canvas.frame
-            )
+            // Single presets track the canvas' current zoom (tilt-only).
             screenshotSlots = screenshotSlots.map((slot) => ({
               ...slot,
               yPct: 50,
               rotation: 0,
               tilt: activeSinglePreset.tilt,
-              scale,
+              scale: canvas.scale,
             }))
           }
 
@@ -907,7 +894,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               shouldReapply && activeGeometry
                 ? activeGeometry.canvasScale
                 : activeSinglePreset
-                  ? resolvePresentPresetScale(activeSinglePreset, canvas.frame)
+                  ? canvas.scale
                   : canvas.scale,
             screenshotOffset:
               shouldReapply && activeGeometry

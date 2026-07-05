@@ -36,6 +36,8 @@ export function PositionSection() {
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const setScale = useEditorStore((s) => s.setScale)
 
+  const CANVAS_SCALE_VAR = "--canvas-ts-scale"
+
   const hasDeviceFrame = editor.frame.id !== "none"
   const hasTweet = Boolean(editor.tweet)
   const hasMainTarget = Boolean(editor.screenshot) || hasTweet || hasDeviceFrame
@@ -196,6 +198,37 @@ export function PositionSection() {
     ]
   )
 
+  // Live-preview the zoom by driving the canvas' `--canvas-ts-scale` CSS var
+  // (the same override the canvas transform reads for Tilt & Scale) so the
+  // canvas updates during the drag without touching the store. State is only
+  // committed on release; the var is cleared next frame so the committed
+  // `scale` fallback takes over without a transition flash.
+  const previewScale = React.useCallback(
+    (next: number) => {
+      getActiveCanvasElement()?.style.setProperty(
+        CANVAS_SCALE_VAR,
+        String(next / 100)
+      )
+    },
+    [getActiveCanvasElement]
+  )
+
+  const commitScale = React.useCallback(
+    (next: number) => {
+      setScale(next)
+      const canvasElement = getActiveCanvasElement()
+      if (!canvasElement) return
+      if (typeof requestAnimationFrame === "undefined") {
+        canvasElement.style.removeProperty(CANVAS_SCALE_VAR)
+        return
+      }
+      requestAnimationFrame(() => {
+        canvasElement.style.removeProperty(CANVAS_SCALE_VAR)
+      })
+    },
+    [getActiveCanvasElement, setScale]
+  )
+
   return (
     <div className="space-y-3">
       <PositionSwipeField
@@ -208,7 +241,8 @@ export function PositionSection() {
       <EffectSlider
         label="Zoom"
         value={editor.scale}
-        onChange={setScale}
+        onChange={commitScale}
+        onPreview={previewScale}
         min={10}
         max={300}
         suffix="%"
