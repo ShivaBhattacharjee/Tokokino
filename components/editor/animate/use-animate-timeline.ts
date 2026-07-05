@@ -14,7 +14,6 @@ import {
   MIN_DURATION_MS,
   MIN_PX_PER_SECOND,
   PX_PER_SECOND,
-  resolveDropStart,
   RULER_TRAILING_PX,
 } from "@/lib/editor/animation-timeline"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
@@ -53,6 +52,7 @@ export function useAnimateTimeline() {
   const setScreenshotSlotImage = useEditorStore((s) => s.setScreenshotSlotImage)
   const addAnimationClip = useEditorStore((s) => s.addAnimationClip)
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
+  const moveAnimationClip = useEditorStore((s) => s.moveAnimationClip)
   const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
   const duplicateAnimationClip = useEditorStore((s) => s.duplicateAnimationClip)
   const clearAnimationClips = useEditorStore((s) => s.clearAnimationClips)
@@ -111,6 +111,14 @@ export function useAnimateTimeline() {
     (clientX: number) =>
       Math.max(0, Math.min(durationMs, rawMsFromClientX(clientX))),
     [durationMs, rawMsFromClientX]
+  )
+
+  // Clip drags (move/trim) may extend past the set duration into the max range —
+  // the boundary only marks playback length, not where clips can live.
+  const clipMsFromClientX = React.useCallback(
+    (clientX: number) =>
+      Math.max(0, Math.min(MAX_DURATION_MS, rawMsFromClientX(clientX))),
+    [rawMsFromClientX]
   )
 
   // ---- edge auto-scroll (shared by every horizontal drag) ---------------
@@ -238,16 +246,19 @@ export function useAnimateTimeline() {
     (clientX: number) => {
       const drag = dragRef.current
       if (!drag) return
-      const pointerMs = msFromClientX(clientX)
+      const pointerMs = clipMsFromClientX(clientX)
       const others = clipsRef.current
         .filter((c) => c.id !== drag.id)
         .sort((a, b) => a.startMs - b.startMs)
 
       if (drag.mode === "move") {
-        // Free movement; overlap is validated on drop (see onClipPointerUp).
+        // Free movement (may go past the duration); overlap is validated on drop.
         const nextStart = Math.max(
           0,
-          Math.min(durationMs - drag.durationMs, pointerMs - drag.grabOffsetMs)
+          Math.min(
+            MAX_DURATION_MS - drag.durationMs,
+            pointerMs - drag.grabOffsetMs
+          )
         )
         updateAnimationClip(drag.id, { startMs: nextStart })
       } else if (drag.mode === "trim-start") {
@@ -266,10 +277,11 @@ export function useAnimateTimeline() {
           durationMs: end - nextStart,
         })
       } else {
-        // Trim the right edge; can't cross into the next clip.
+        // Trim the right edge; can grow past the duration, but not into the next
+        // clip or beyond the max range.
         const nextClipStart = others
           .filter((o) => o.startMs >= drag.startMs)
-          .reduce((min, o) => Math.min(min, o.startMs), durationMs)
+          .reduce((min, o) => Math.min(min, o.startMs), MAX_DURATION_MS)
         const nextDuration = Math.max(
           MIN_CLIP_MS,
           Math.min(nextClipStart - drag.startMs, pointerMs - drag.startMs)
@@ -277,7 +289,7 @@ export function useAnimateTimeline() {
         updateAnimationClip(drag.id, { durationMs: nextDuration })
       }
     },
-    [durationMs, msFromClientX, updateAnimationClip]
+    [clipMsFromClientX, updateAnimationClip]
   )
 
   const onClipPointerDown = React.useCallback(
@@ -294,7 +306,7 @@ export function useAnimateTimeline() {
       dragRef.current = {
         id: clip.id,
         mode,
-        grabOffsetMs: msFromClientX(e.clientX) - clip.startMs,
+        grabOffsetMs: clipMsFromClientX(e.clientX) - clip.startMs,
         startMs: clip.startMs,
         durationMs: clip.durationMs,
       }
@@ -303,7 +315,7 @@ export function useAnimateTimeline() {
       pointerXRef.current = e.clientX
       startAutoScroll(applyClipDrag)
     },
-    [applyClipDrag, msFromClientX, startAutoScroll]
+    [applyClipDrag, clipMsFromClientX, startAutoScroll]
   )
 
   const onClipPointerMove = React.useCallback(
@@ -320,29 +332,21 @@ export function useAnimateTimeline() {
       const drag = dragRef.current
       if (!drag) return
       e.currentTarget.releasePointerCapture?.(e.pointerId)
-      // On a move, snap an overlapping drop to the nearest free spot.
+      // On a move, ripple-insert the clip at the drop point: clips after it slide
+      // right to open a gap, so dropping between two clips lands it there instead
+      // of snapping it to the end.
       if (drag.mode === "move") {
         const dropped =
           clipsRef.current.find((c) => c.id === drag.id)?.startMs ??
           drag.startMs
-        const others = clipsRef.current.filter((c) => c.id !== drag.id)
-        const resolved = resolveDropStart(
-          dropped,
-          drag.durationMs,
-          others,
-          durationMs,
-          drag.startMs
-        )
-        if (resolved !== dropped) {
-          updateAnimationClip(drag.id, { startMs: resolved })
-        }
+        moveAnimationClip(drag.id, dropped)
       }
       dragRef.current = null
       setDraggingClipId(null)
       setInteractingClipId(null)
       stopAutoScroll()
     },
-    [durationMs, stopAutoScroll, updateAnimationClip]
+    [moveAnimationClip, stopAutoScroll]
   )
 
   // ---- playhead scrubbing (click + drag anywhere on the track) -----------
@@ -388,22 +392,19 @@ export function useAnimateTimeline() {
   const durationDraggingRef = React.useRef(false)
   const [isDurationDragging, setIsDurationDragging] = React.useState(false)
 
-  // Never shrink the timeline shorter than the last clip's end.
+  // The furthest clip end — informational (shown as the slider's aria min).
+  // The duration is NOT forced to cover it: clips can sit past the set duration
+  // (rendered faded), so the handle is free to move down to MIN_DURATION_MS.
   const lastClipEnd = clips.reduce(
     (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
     0
   )
-  const lastClipEndRef = React.useRef(lastClipEnd)
-  React.useEffect(() => {
-    lastClipEndRef.current = lastClipEnd
-  }, [lastClipEnd])
 
   const applyDurationDrag = React.useCallback(
     (clientX: number) => {
-      const min = Math.max(MIN_DURATION_MS, lastClipEndRef.current)
       // Snap to 100ms so the readout stays tidy while dragging.
       const snapped = Math.round(rawMsFromClientX(clientX) / 100) * 100
-      const next = Math.max(min, Math.min(MAX_DURATION_MS, snapped))
+      const next = Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, snapped))
       setAnimationDuration(next)
     },
     [rawMsFromClientX, setAnimationDuration]
@@ -532,7 +533,10 @@ export function useAnimateTimeline() {
       0,
       Math.min(durationMs, ((ghostClientXRef.current - rect.left) / pps) * 1000)
     )
-    const start = findGhostSlot(cursorMs, clipsRef.current, durationMs)
+    // Use the max range as the bound so the gap after the last clip extends past
+    // the set duration — a slot can be added near the end even if it spills into
+    // the dimmed region.
+    const start = findGhostSlot(cursorMs, clipsRef.current, MAX_DURATION_MS)
     if (start == null) {
       setGhostVisible(false)
       return

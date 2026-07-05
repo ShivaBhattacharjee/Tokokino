@@ -24,6 +24,8 @@ type TimelineClipProps = {
   selected: boolean
   dragging: boolean
   interacting: boolean
+  /** Clip sits past the set timeline duration — rendered faded + blurred. */
+  beyond: boolean
   screenshot: string | null
   dupShortcut: string
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
@@ -47,6 +49,7 @@ export function TimelineClip({
   selected,
   dragging,
   interacting,
+  beyond,
   screenshot,
   dupShortcut,
   onPointerDownClip,
@@ -73,7 +76,9 @@ export function TimelineClip({
             selected
               ? "border-primary/60"
               : "border-black/10 hover:border-black/20 dark:border-white/10 dark:hover:border-white/20",
-            dragging && "z-30 border-foreground/25"
+            dragging && "z-30 border-foreground/25",
+            // Past the set duration → blurred + desaturated to read as "beyond".
+            beyond && "blur-[1.5px] saturate-50"
           )}
           // Slide to new left/width when clips shift (e.g. duplicate ripples the
           // neighbours over). The clip you're actively dragging/trimming updates
@@ -83,7 +88,13 @@ export function TimelineClip({
           // duplicated clip a visible fade+scale-in even when it lands in a gap
           // and no neighbours move.
           initial={{ opacity: 0, scale: 0.8, left, width }}
-          animate={{ left, width, y: dragging ? -3 : 0, opacity: 1, scale: 1 }}
+          animate={{
+            left,
+            width,
+            y: dragging ? -3 : 0,
+            opacity: beyond ? 0.5 : 1,
+            scale: 1,
+          }}
           // On delete, fade + shrink out while the neighbours slide in to fill.
           exit={{
             opacity: 0,

@@ -374,6 +374,7 @@ export type EditorActions = {
     canvasId?: string
   ) => void
   removeAnimationClip: (id: string, canvasId?: string) => void
+  moveAnimationClip: (id: string, startMs: number, canvasId?: string) => void
   duplicateAnimationClip: (id: string, canvasId?: string) => string | null
   clearAnimationClips: (canvasId?: string) => void
   setAnimationAudio: (audio: AnimationAudio | null, canvasId?: string) => void
@@ -1468,38 +1469,39 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         (canvas) => {
           const animation = getCanvasAnimation(canvas)
-          const durationMs = Math.min(
-            DEFAULT_CLIP_DURATION_MS,
-            animation.durationMs
-          )
-          const maxStart = Math.max(0, animation.durationMs - durationMs)
-          let startMs: number
-          if (atMs != null) {
-            // Drop the clip where the pointer released, clamped so it fits.
-            startMs = Math.max(0, Math.min(maxStart, atMs))
-          } else {
-            // Append after the last clip's end, clamped to the timeline.
-            const lastEnd = animation.clips.reduce(
-              (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
-              0
-            )
-            startMs = Math.min(lastEnd, maxStart)
-          }
-          // Never overlap a neighbouring clip: keep the start past the previous
-          // clip's end, and shrink the duration so it stops at the next clip.
+          const clipLen = Math.min(DEFAULT_CLIP_DURATION_MS, MAX_DURATION_MS)
           const sorted = [...animation.clips].sort(
             (a, b) => a.startMs - b.startMs
           )
+          let startMs: number
+          if (atMs != null) {
+            // Drop the clip where the pointer released — allowed past the set
+            // duration (clamped only to the absolute max range).
+            const maxStart = Math.max(0, MAX_DURATION_MS - clipLen)
+            startMs = Math.max(0, Math.min(maxStart, atMs))
+          } else {
+            // Append right after the last clip — allowed to run PAST the set
+            // duration (clamped only to the absolute max range). Clips beyond the
+            // duration are shown faded in the timeline to signal they won't play
+            // until the duration is extended.
+            const lastEnd = sorted.reduce(
+              (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
+              0
+            )
+            startMs = Math.min(lastEnd, Math.max(0, MAX_DURATION_MS - clipLen))
+          }
+          // Never overlap a neighbouring clip: keep the start past the previous
+          // clip's end, and shrink the duration so it stops at the next clip.
           const prevEnd = sorted
             .filter((c) => c.startMs <= startMs)
             .reduce((max, c) => Math.max(max, c.startMs + c.durationMs), 0)
           startMs = Math.max(startMs, prevEnd)
           const nextStart = sorted
             .filter((c) => c.startMs >= startMs)
-            .reduce((min, c) => Math.min(min, c.startMs), animation.durationMs)
+            .reduce((min, c) => Math.min(min, c.startMs), MAX_DURATION_MS)
           const fittedDuration = Math.max(
             MIN_ANIMATION_CLIP_MS,
-            Math.min(durationMs, nextStart - startMs)
+            Math.min(clipLen, nextStart - startMs)
           )
           const clip: AnimationClip = {
             id,
@@ -1546,6 +1548,57 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         },
         null
       ),
+    moveAnimationClip: (id, startMs, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          const moving = animation.clips.find((clip) => clip.id === id)
+          if (!moving) return {}
+          const dur = moving.durationMs
+          const others = animation.clips.filter((clip) => clip.id !== id)
+          // Where the clip was dropped, clamped to the absolute max range (it may
+          // land past the set duration — that's fine, it just renders faded).
+          const desired = Math.max(0, startMs)
+          // Clips that stay before the drop point keep their spot; snap the drop
+          // past the nearest one so we never overlap it.
+          const prevEnd = others
+            .filter((clip) => clip.startMs < desired)
+            .reduce(
+              (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
+              0
+            )
+          const start = Math.min(
+            Math.max(desired, prevEnd),
+            Math.max(0, MAX_DURATION_MS - dur)
+          )
+          // Clips at/after the drop point ripple right just enough to open a gap
+          // for the moved clip (preserving the spacing between them) — so
+          // dropping between two clips inserts there instead of snapping away.
+          const nextStart = others
+            .filter((clip) => clip.startMs >= desired)
+            .reduce((min, clip) => Math.min(min, clip.startMs), Infinity)
+          const shift = Number.isFinite(nextStart)
+            ? Math.max(0, start + dur - nextStart)
+            : 0
+          const clips = animation.clips.map((clip) => {
+            if (clip.id === id) return { ...clip, startMs: start }
+            if (clip.startMs < desired) return clip
+            return {
+              ...clip,
+              startMs: Math.min(
+                clip.startMs + shift,
+                Math.max(0, MAX_DURATION_MS - clip.durationMs)
+              ),
+            }
+          })
+          // Duration is user-controlled via the end handle — moving a clip never
+          // grows it; clips past the duration are just shown faded.
+          return { animation: { ...animation, clips } }
+        },
+        // Merge with the drag's history entries so the whole gesture undoes once.
+        `animation-clip:${id}`
+      ),
     duplicateAnimationClip: (id, canvasId) => {
       const state = get().present
       const resolvedId = canvasId ?? state.activeCanvasId
@@ -1560,8 +1613,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         (c) => {
           const animation = getCanvasAnimation(c)
           const dur = source.durationMs
-          // The copy sits immediately after the original.
-          const insertStart = source.startMs + dur
+          // The copy sits immediately after the original (clamped to the max
+          // range; it may land past the set duration and render faded).
+          const insertStart = Math.min(
+            source.startMs + dur,
+            Math.max(0, MAX_DURATION_MS - dur)
+          )
           // Push clips at/after the insertion point to the right, but only far
           // enough to open a gap for the copy — this preserves the spacing
           // between the shifted clips instead of scattering them.
@@ -1575,7 +1632,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             : 0
           const shifted = animation.clips.map((clip) =>
             clip.id !== source.id && clip.startMs >= insertStart
-              ? { ...clip, startMs: clip.startMs + shift }
+              ? {
+                  ...clip,
+                  startMs: Math.min(
+                    clip.startMs + shift,
+                    Math.max(0, MAX_DURATION_MS - clip.durationMs)
+                  ),
+                }
               : clip
           )
           const clip: AnimationClip = {
@@ -1591,18 +1654,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             clip,
             ...shifted.slice(sourceIndex + 1),
           ]
-          // Grow the timeline so the shifted clips still fit (capped at the max).
-          const end = clips.reduce(
-            (m, cl) => Math.max(m, cl.startMs + cl.durationMs),
-            0
-          )
-          const nextDuration = Math.min(
-            MAX_DURATION_MS,
-            Math.max(animation.durationMs, end)
-          )
-          return {
-            animation: { ...animation, durationMs: nextDuration, clips },
-          }
+          // Duration is user-controlled — the copy never grows it; a copy past
+          // the duration is just shown faded.
+          return { animation: { ...animation, clips } }
         },
         null
       )

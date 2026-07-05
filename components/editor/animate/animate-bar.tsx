@@ -26,7 +26,7 @@ import { useAnimateTimeline } from "./use-animate-timeline"
 
 export function AnimateBar() {
   const t = useAnimateTimeline()
-  const { pxFor, durationMs, playheadMs, lastClipEnd } = t
+  const { pxFor, durationMs, playheadMs } = t
 
   return (
     <motion.div
@@ -107,6 +107,20 @@ export function AnimateBar() {
             onPointerUp={t.onScrubUp}
             onPointerCancel={t.onScrubUp}
           >
+            {/* Inactive region — everything past the current duration is dimmed
+                with a diagonal hatch so it reads as "outside" the timeline. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-2 bottom-0 z-10 rounded-r-lg"
+              style={{
+                left: pxFor(durationMs),
+                right: 0,
+                backgroundColor: "rgba(0,0,0,0.28)",
+                backgroundImage:
+                  "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 9px)",
+              }}
+            />
+
             {/* Playhead — the knob is grabbable; the thin line isn't so it
                 doesn't block clip interactions underneath. */}
             <div
@@ -126,9 +140,7 @@ export function AnimateBar() {
               onPointerCancel={t.onDurationHandleUp}
               role="slider"
               aria-label="Timeline duration"
-              aria-valuemin={Math.round(
-                Math.max(MIN_DURATION_MS, lastClipEnd) / 1000
-              )}
+              aria-valuemin={Math.round(MIN_DURATION_MS / 1000)}
               aria-valuemax={MAX_DURATION_MS / 1000}
               aria-valuenow={Math.round(durationMs / 1000)}
               className="group absolute -top-2 bottom-0 z-30 flex w-6 -translate-x-1/2 cursor-ew-resize touch-none items-center justify-center"
@@ -153,7 +165,9 @@ export function AnimateBar() {
               onPointerLeave={t.onClipsRowLeave}
               onClick={t.onClipsRowClick}
               className={cn(
-                "relative h-11 overflow-hidden rounded-lg border border-border/50 bg-background/40",
+                // overflow-visible so clips appended past the set duration can
+                // render out into the dimmed region to the right.
+                "relative h-11 overflow-visible rounded-lg border border-border/50 bg-background/40",
                 t.ghostVisible && "cursor-copy"
               )}
               style={{ width: pxFor(durationMs) }}
@@ -184,6 +198,7 @@ export function AnimateBar() {
                     width={pxFor(clip.durationMs)}
                     selected={clip.id === t.selectedClipId}
                     dragging={clip.id === t.draggingClipId}
+                    beyond={clip.startMs >= durationMs}
                     interacting={
                       clip.id === t.interactingClipId || !t.clipsAnimated
                     }
