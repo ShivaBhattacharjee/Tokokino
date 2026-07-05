@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "motion/react"
-import { RiAddCircleLine } from "@remixicon/react"
+import { RiAddCircleLine, RiImageAddLine } from "@remixicon/react"
 
 import {
   AlertDialog,
@@ -80,11 +80,21 @@ export function AnimateBar() {
         className="mt-3 [scrollbar-width:none] overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="relative" style={{ width: t.contentWidth }}>
-          <TimelineRuler
-            ticks={t.ticks}
-            durationMs={durationMs}
-            pxFor={pxFor}
-          />
+          {/* Click / drag anywhere on the ruler to move the playhead. Shares
+              the same scrub handlers as the track (both start at left 0). */}
+          <div
+            className="cursor-pointer touch-none select-none"
+            onPointerDown={t.onScrubDown}
+            onPointerMove={t.onScrubMove}
+            onPointerUp={t.onScrubUp}
+            onPointerCancel={t.onScrubUp}
+          >
+            <TimelineRuler
+              ticks={t.ticks}
+              durationMs={durationMs}
+              pxFor={pxFor}
+            />
+          </div>
 
           {/* Tracks + playhead */}
           <div
@@ -186,28 +196,51 @@ export function AnimateBar() {
               ))}
             </div>
 
-            {/* Locked base image row */}
+            {/* Base image row — the track background spans the full duration,
+                but the label/thumbnail is sticky so it stays pinned to the left
+                while the timeline scrolls. Only the thumbnail image is clickable
+                (click it to replace the screenshot). */}
             <div
-              className="relative mt-1 flex h-11 items-center gap-2 overflow-hidden rounded-lg border border-border/50 bg-background/40 px-2"
+              onPointerDown={(e) => e.stopPropagation()}
+              className="relative mt-1 flex h-11 items-center rounded-lg border border-border/50 bg-background/40"
               style={{ width: pxFor(durationMs) }}
             >
-              {t.screenshot ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={t.screenshot}
-                  alt=""
-                  className="h-8 w-12 rounded object-cover"
-                />
-              ) : (
-                <div className="h-8 w-12 rounded bg-foreground/10" />
-              )}
-              <div className="flex min-w-0 flex-col leading-tight">
-                <span className="truncate text-[11px] text-muted-foreground">
-                  Mockup
-                </span>
-                <span className="truncate text-[13px] font-medium text-foreground">
-                  Screenshot
-                </span>
+              <input
+                ref={t.screenshotInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={t.onPickScreenshot}
+              />
+              {/* Sticky label — follows the horizontal scroll's left edge. */}
+              <div className="sticky left-0 z-10 flex items-center gap-2 px-2">
+                <button
+                  type="button"
+                  aria-label="Change screenshot"
+                  onClick={t.onBaseLayerClick}
+                  className="relative h-8 w-12 shrink-0 cursor-pointer overflow-hidden rounded outline-none"
+                >
+                  {t.screenshot ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={t.screenshot}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center bg-foreground/10">
+                      <RiImageAddLine className="size-4 text-muted-foreground" />
+                    </span>
+                  )}
+                </button>
+                <div className="flex min-w-0 flex-col leading-tight">
+                  <span className="truncate text-[11px] text-muted-foreground">
+                    Mockup
+                  </span>
+                  <span className="truncate text-[13px] font-medium text-foreground">
+                    Screenshot
+                  </span>
+                </div>
               </div>
             </div>
           </div>

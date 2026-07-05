@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { useAnimationPlayer } from "@/hooks/use-animation-player"
 import {
@@ -16,6 +17,7 @@ import {
   resolveDropStart,
   RULER_TRAILING_PX,
 } from "@/lib/editor/animation-timeline"
+import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { isApplePlatform } from "@/lib/editor/shortcuts"
 import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
 
@@ -36,6 +38,7 @@ export function useAnimateTimeline() {
   const audio = useActiveCanvasField((c) => c.animation?.audio ?? null)
 
   const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
+  const setScreenshot = useEditorStore((s) => s.setScreenshot)
   const addAnimationClip = useEditorStore((s) => s.addAnimationClip)
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
   const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
@@ -57,6 +60,7 @@ export function useAnimateTimeline() {
   const trackRef = React.useRef<HTMLDivElement | null>(null)
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
   const audioInputRef = React.useRef<HTMLInputElement | null>(null)
+  const screenshotInputRef = React.useRef<HTMLInputElement | null>(null)
 
   // Timeline zoom in pixels per second. Trackpad pinch / ctrl+wheel changes it,
   // like the zoom in a real video editor. The track always scrolls horizontally.
@@ -417,6 +421,30 @@ export function useAnimateTimeline() {
     [setAnimationAudio]
   )
 
+  // ---- base screenshot layer (click to replace) --------------------------
+  const onBaseLayerClick = React.useCallback(() => {
+    screenshotInputRef.current?.click()
+  }, [])
+
+  const onPickScreenshot = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      e.target.value = ""
+      if (!file) return
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file")
+        return
+      }
+      void readImageFileAsDataUrl(file, {
+        downscaleAbove: 10 * 1024 * 1024,
+        maxDimension: 2400,
+      })
+        .then((src) => setScreenshot(src))
+        .catch(() => toast.error("Could not read image"))
+    },
+    [setScreenshot]
+  )
+
   const onAudioButton = React.useCallback(() => {
     if (!audio || !audio.src) {
       audioInputRef.current?.click()
@@ -647,6 +675,7 @@ export function useAnimateTimeline() {
     clipsRowRef,
     ghostRef,
     audioInputRef,
+    screenshotInputRef,
 
     // ghost
     ghostVisible,
@@ -680,6 +709,10 @@ export function useAnimateTimeline() {
     deleteSelectedClip,
     onAudioButton,
     onPickAudio,
+
+    // base screenshot layer
+    onBaseLayerClick,
+    onPickScreenshot,
 
     // exit
     confirmExitOpen,
