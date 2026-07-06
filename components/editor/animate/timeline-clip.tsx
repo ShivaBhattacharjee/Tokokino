@@ -26,7 +26,11 @@ type TimelineClipProps = {
   interacting: boolean
   /** Clip sits past the set timeline duration — rendered faded + blurred. */
   beyond: boolean
-  screenshot: string | null
+  /**
+   * Thumbnail(s) of the screenshot(s) this clip animates. One image renders as a
+   * single preview; multiple (an "all" clip) render as a small grid.
+   */
+  images: string[]
   dupShortcut: string
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
   onPointerMoveClip: (e: React.PointerEvent) => void
@@ -50,7 +54,7 @@ export function TimelineClip({
   dragging,
   interacting,
   beyond,
-  screenshot,
+  images,
   dupShortcut,
   onPointerDownClip,
   onPointerMoveClip,
@@ -107,17 +111,41 @@ export function TimelineClip({
               : { duration: 0.22, ease: [0.4, 0, 0.2, 1] }
           }
         >
-          {/* Centered mockup preview — the thing being animated. */}
+          {/* Centered mockup preview — the screenshot(s) this clip animates.
+              A single target shows one thumbnail; an "all" clip shows every
+              image as a compact grid so it reads as spanning all of them. */}
           <div className="pointer-events-none flex h-full items-center justify-center px-3">
-            {screenshot ? (
+            {images.length === 0 ? (
+              <span className="h-7 w-12 rounded-[5px] bg-foreground/10 ring-1 ring-foreground/10" />
+            ) : images.length === 1 ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={screenshot}
+                src={images[0]}
                 alt=""
                 className="h-7 max-w-[64px] rounded-[5px] object-cover ring-1 ring-foreground/10"
               />
             ) : (
-              <span className="h-7 w-12 rounded-[5px] bg-foreground/10 ring-1 ring-foreground/10" />
+              // Up to 4 thumbnails in a 2-col grid; a "+N" chip if there are more.
+              <div className="grid max-w-[68px] grid-cols-2 gap-[2px]">
+                {images.slice(0, 4).map((src, i) => (
+                  <div
+                    key={i}
+                    className="relative h-3.5 w-[22px] overflow-hidden rounded-[3px] ring-1 ring-foreground/10"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                    {i === 3 && images.length > 4 && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[9px] font-semibold text-white">
+                        +{images.length - 3}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

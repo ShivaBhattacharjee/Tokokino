@@ -713,6 +713,31 @@ export function useAnimateTimeline() {
 
   const ticks = computeTicks(MAX_DURATION_MS, pxPerSecond)
 
+  // Resolve a clip's bound screenshot(s) into the thumbnail(s) shown on the clip
+  // — the preview alone tells the user which screenshot(s) it animates (no text
+  // label). A "slot" clip shows that slot's image; "main" the main image; "all"
+  // shows every image on the canvas as a small grid so it reads as "all of them".
+  const resolveClipImages = React.useCallback(
+    (clip: (typeof clips)[number]): string[] => {
+      const target = clip.target ?? { scope: "all" as const }
+      if (target.scope === "slot") {
+        const slot = screenshotSlots.find((s) => s.id === target.slotId)
+        // Slot deleted after the clip was made → fall back to the main image.
+        const src = slot?.src ?? screenshot
+        return src ? [src] : []
+      }
+      if (target.scope === "main") {
+        return screenshot ? [screenshot] : []
+      }
+      // "all" → main + every slot image (skip empties). One image renders as a
+      // single thumbnail; multiple render as a grid.
+      return [screenshot, ...screenshotSlots.map((s) => s.src)].filter(
+        (src): src is string => Boolean(src)
+      )
+    },
+    [screenshot, screenshotSlots]
+  )
+
   return {
     // playback + data
     playheadMs,
@@ -745,6 +770,9 @@ export function useAnimateTimeline() {
     ghostRef,
     audioInputRef,
     screenshotInputRef,
+
+    // clip target resolution (thumbnail images)
+    resolveClipImages,
 
     // ghost
     ghostVisible,

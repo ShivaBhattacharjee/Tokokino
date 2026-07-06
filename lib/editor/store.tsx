@@ -56,6 +56,7 @@ import type {
   AnnotationStroke,
   AnimationAudio,
   AnimationClip,
+  AnimationClipTarget,
   CanvasAnimation,
   AspectState,
   AssetElement,
@@ -92,6 +93,30 @@ const MIN_ANIMATION_CLIP_MS = 200
 /** Canvas.animation is optional (older drafts) — always read through this. */
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
+
+/** Back-compat: clips saved before per-clip targeting animate every screenshot. */
+export const getClipTarget = (clip: AnimationClip): AnimationClipTarget =>
+  clip.target ?? { scope: "all" }
+
+/**
+ * Which screenshot a newly-added clip should bind to, mirroring the inspector's
+ * ScreenshotStyleTarget: a selected slot → that slot, else the main screenshot
+ * if it's selected, else "all". Validates the slot still exists on `canvas`.
+ */
+const resolveSelectionTarget = (
+  canvas: CanvasState,
+  selectedScreenshotSlotId: string | null,
+  isScreenshotSelected: boolean
+): AnimationClipTarget => {
+  if (
+    selectedScreenshotSlotId &&
+    canvas.screenshotSlots.some((s) => s.id === selectedScreenshotSlotId)
+  ) {
+    return { scope: "slot", slotId: selectedScreenshotSlotId }
+  }
+  if (isScreenshotSelected) return { scope: "main" }
+  return { scope: "all" }
+}
 
 export * from "./state-types"
 export {
@@ -1507,6 +1532,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             id,
             startMs,
             durationMs: fittedDuration,
+            target: resolveSelectionTarget(
+              canvas,
+              get().selectedScreenshotSlotId,
+              get().isScreenshotSelected
+            ),
           }
           return {
             animation: { ...animation, clips: [...animation.clips, clip] },

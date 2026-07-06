@@ -381,11 +381,29 @@ export type CanvasPosition = { x: number; y: number }
 // Animate mode — motion clips on a per-canvas timeline
 // ---------------------------------------------------------------------------
 
+/**
+ * Which screenshot on the canvas a clip animates.
+ *  - "all": every screenshot (main + all slots) — used when nothing is selected.
+ *  - "main": just the primary screenshot.
+ *  - "slot": one extra screenshot slot, identified by id.
+ * Mirrors ScreenshotStyleTarget (screenshot-style-target.ts) so a clip binds to
+ * whatever screenshot was selected when it was added.
+ */
+export type AnimationClipTarget =
+  | { scope: "all" }
+  | { scope: "main" }
+  | { scope: "slot"; slotId: string }
+
 /** A single motion layer placed on the animation timeline. */
 export type AnimationClip = {
   id: string
   startMs: number
   durationMs: number
+  /**
+   * The screenshot this clip animates. Optional so drafts saved before per-clip
+   * targeting hydrate cleanly — read through a helper that defaults to "all".
+   */
+  target?: AnimationClipTarget
 }
 
 /**

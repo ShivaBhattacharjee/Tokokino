@@ -202,7 +202,7 @@ export function AnimateBar() {
                     interacting={
                       clip.id === t.interactingClipId || !t.clipsAnimated
                     }
-                    screenshot={t.screenshot}
+                    images={t.resolveClipImages(clip)}
                     dupShortcut={t.dupShortcut}
                     onPointerDownClip={(e, mode) =>
                       t.onClipPointerDown(e, clip, mode)
