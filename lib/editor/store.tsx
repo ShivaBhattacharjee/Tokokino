@@ -94,10 +94,6 @@ const MIN_ANIMATION_CLIP_MS = 200
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
 
-/** Back-compat: clips saved before per-clip targeting animate every screenshot. */
-export const getClipTarget = (clip: AnimationClip): AnimationClipTarget =>
-  clip.target ?? { scope: "all" }
-
 /**
  * Which screenshot a newly-added clip should bind to, mirroring the inspector's
  * ScreenshotStyleTarget: a selected slot → that slot, else the main screenshot

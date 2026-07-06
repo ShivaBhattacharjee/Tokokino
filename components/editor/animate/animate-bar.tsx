@@ -203,6 +203,7 @@ export function AnimateBar() {
                       clip.id === t.interactingClipId || !t.clipsAnimated
                     }
                     images={t.resolveClipImages(clip)}
+                    iconKeys={t.resolveClipIcons(clip)}
                     dupShortcut={t.dupShortcut}
                     onPointerDownClip={(e, mode) =>
                       t.onClipPointerDown(e, clip, mode)

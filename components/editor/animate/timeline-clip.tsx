@@ -2,7 +2,13 @@
 
 import * as React from "react"
 import { motion } from "motion/react"
-import { RiDeleteBinLine, RiFileCopyLine } from "@remixicon/react"
+import {
+  RiDeleteBinLine,
+  RiDragMove2Line,
+  RiFileCopyLine,
+  RiRotateLockLine,
+  RiZoomInLine,
+} from "@remixicon/react"
 
 import {
   ContextMenu,
@@ -31,6 +37,8 @@ type TimelineClipProps = {
    * single preview; multiple (an "all" clip) render as a small grid.
    */
   images: string[]
+  /** Which inspector properties this clip animates — rendered as small icons. */
+  iconKeys: Array<"position" | "zoom" | "tilt">
   dupShortcut: string
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
   onPointerMoveClip: (e: React.PointerEvent) => void
@@ -46,6 +54,13 @@ const gripHandle =
 const gripPill =
   "h-4 w-1 rounded-full bg-foreground/50 opacity-0 shadow transition-opacity duration-150 group-hover/clip:opacity-100"
 
+// Inspector-matching icons for the properties a clip animates.
+const ICON_FOR = {
+  position: RiDragMove2Line,
+  zoom: RiZoomInLine,
+  tilt: RiRotateLockLine,
+} as const
+
 export function TimelineClip({
   clip,
   left,
@@ -55,6 +70,7 @@ export function TimelineClip({
   interacting,
   beyond,
   images,
+  iconKeys,
   dupShortcut,
   onPointerDownClip,
   onPointerMoveClip,
@@ -148,6 +164,23 @@ export function TimelineClip({
               </div>
             )}
           </div>
+
+          {/* Animated-property icons (position / zoom / tilt) — mirrors the
+              inspector's section icons so the clip shows what it animates. Plain
+              muted glyphs, no chrome; only shown when the clip is wide enough. */}
+          {iconKeys.length > 0 && width >= 78 && (
+            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1.5">
+              {iconKeys.map((key) => {
+                const Icon = ICON_FOR[key]
+                return (
+                  <Icon
+                    key={key}
+                    className="size-3.5 text-foreground/55 dark:text-foreground/60"
+                  />
+                )
+              })}
+            </div>
+          )}
 
           {/* Trim handles — a grip pill on each edge, revealed on hover. */}
           <div

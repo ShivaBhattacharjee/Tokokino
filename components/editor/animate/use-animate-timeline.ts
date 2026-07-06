@@ -36,6 +36,11 @@ export function useAnimateTimeline() {
   const screenshotSlots = useActiveCanvasField((c) => c.screenshotSlots ?? [])
   const clips = useActiveCanvasField((c) => c.animation?.clips ?? [])
   const audio = useActiveCanvasField((c) => c.animation?.audio ?? null)
+  // Main-screenshot pose fields — drive the "what's animated" icons on a clip.
+  const tilt = useActiveCanvasField((c) => c.tilt)
+  const scale = useActiveCanvasField((c) => c.scale)
+  const screenshotPosition = useActiveCanvasField((c) => c.screenshotPosition)
+  const screenshotOffset = useActiveCanvasField((c) => c.screenshotOffset)
 
   // One base-layer row per image on the canvas: the main screenshot plus each
   // extra screenshot slot. Drives the stacked rows under the motion lane.
@@ -738,6 +743,40 @@ export function useAnimateTimeline() {
     [screenshot, screenshotSlots]
   )
 
+  // Which inspector properties a clip actually animates (non-neutral pose),
+  // surfaced as icon keys on the clip — mirrors the inspector's section icons so
+  // the clip reads like "this animates position + tilt". A slot clip reflects
+  // that slot's pose; main/all reflect the main screenshot's pose.
+  const resolveClipIcons = React.useCallback(
+    (clip: (typeof clips)[number]): Array<"position" | "zoom" | "tilt"> => {
+      const target = clip.target ?? { scope: "all" as const }
+      const keys: Array<"position" | "zoom" | "tilt"> = []
+      if (target.scope === "slot") {
+        const slot = screenshotSlots.find((s) => s.id === target.slotId)
+        if (!slot) return keys
+        if (slot.scale !== 100) keys.push("zoom")
+        if (
+          slot.tilt.rx !== 0 ||
+          slot.tilt.ry !== 0 ||
+          slot.tilt.rz !== 0 ||
+          slot.rotation !== 0
+        )
+          keys.push("tilt")
+        return keys
+      }
+      if (
+        screenshotPosition !== "center" ||
+        screenshotOffset.x !== 0 ||
+        screenshotOffset.y !== 0
+      )
+        keys.push("position")
+      if (scale !== 100) keys.push("zoom")
+      if (tilt.rx !== 0 || tilt.ry !== 0 || tilt.rz !== 0) keys.push("tilt")
+      return keys
+    },
+    [screenshotSlots, tilt, scale, screenshotPosition, screenshotOffset]
+  )
+
   return {
     // playback + data
     playheadMs,
@@ -771,8 +810,9 @@ export function useAnimateTimeline() {
     audioInputRef,
     screenshotInputRef,
 
-    // clip target resolution (thumbnail images)
+    // clip target resolution (thumbnail images + animated-property icons)
     resolveClipImages,
+    resolveClipIcons,
 
     // ghost
     ghostVisible,
