@@ -57,6 +57,7 @@ import type {
   AnimationAudio,
   AnimationClip,
   AnimationClipTarget,
+  ClipBaseline,
   CanvasAnimation,
   AspectState,
   AssetElement,
@@ -93,6 +94,24 @@ const MIN_ANIMATION_CLIP_MS = 200
 /** Canvas.animation is optional (older drafts) — always read through this. */
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
+
+/** Snapshot the canvas's animatable state as a new clip's baseline. */
+const captureClipBaseline = (canvas: CanvasState): ClipBaseline => ({
+  tilt: canvas.tilt,
+  scale: canvas.scale,
+  screenshotPosition: canvas.screenshotPosition,
+  screenshotOffset: canvas.screenshotOffset,
+  padding: canvas.padding,
+  shadow: canvas.shadow,
+  backdropEffects: canvas.backdrop.effects,
+  background: canvas.background,
+  slots: Object.fromEntries(
+    canvas.screenshotSlots.map((s) => [
+      s.id,
+      { tilt: s.tilt, scale: s.scale, rotation: s.rotation },
+    ])
+  ),
+})
 
 /**
  * Which screenshot a newly-added clip should bind to, mirroring the inspector's
@@ -1533,6 +1552,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               get().selectedScreenshotSlotId,
               get().isScreenshotSelected
             ),
+            baseline: captureClipBaseline(canvas),
           }
           return {
             animation: { ...animation, clips: [...animation.clips, clip] },

@@ -394,6 +394,32 @@ export type AnimationClipTarget =
   | { scope: "main" }
   | { scope: "slot"; slotId: string }
 
+/** A screenshot's animatable transform, captured for a clip's baseline. */
+export type ClipSlotPose = {
+  tilt: Tilt
+  scale: number
+  rotation: number
+}
+
+/**
+ * Snapshot of the canvas's animatable state at the moment a clip was created.
+ * A clip animates each property from this baseline → its current committed value
+ * — and animates it ONLY if the two differ. So only what you change *after*
+ * adding the clip becomes part of that clip's motion (untouched defaults don't).
+ */
+export type ClipBaseline = {
+  tilt: Tilt
+  scale: number
+  screenshotPosition: ScreenshotPosition
+  screenshotOffset: { x: number; y: number }
+  padding: number
+  shadow: Shadow
+  backdropEffects: BackdropEffects
+  background: Background
+  /** Per-slot poses keyed by slot id. */
+  slots: Record<string, ClipSlotPose>
+}
+
 /** A single motion layer placed on the animation timeline. */
 export type AnimationClip = {
   id: string
@@ -404,6 +430,11 @@ export type AnimationClip = {
    * targeting hydrate cleanly — read through a helper that defaults to "all".
    */
   target?: AnimationClipTarget
+  /**
+   * State captured when the clip was added. Optional so older clips hydrate
+   * cleanly (they fall back to the canvas defaults as their baseline).
+   */
+  baseline?: ClipBaseline
 }
 
 /**

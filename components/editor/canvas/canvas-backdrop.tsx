@@ -105,6 +105,9 @@ function CanvasBackdropImpl({
           style={{
             ...backgroundCss(effectiveBackground),
             ...(filterValue ? { filter: filterValue } : {}),
+            // Animate-mode crossfade: AnimationLayer ramps this 0 → 1 so the
+            // background softly fades in with the clip. Default 1 everywhere else.
+            opacity: "var(--canvas-bg-opacity, 1)" as unknown as number,
           }}
         />
 

@@ -3,18 +3,17 @@
 /**
  * On-canvas Animate-mode playback.
  *
- * Drives the screenshots' live-preview override vars from the animation timeline:
- * every targeted screenshot animates from a neutral rest pose (progress 0) to its
- * current inspector pose (progress 1) over its clip window. The same vars the
- * inspector uses for slider/pad live-preview are written here, so the animated
- * result always lands exactly on the inspector look at rest.
+ * Drives the screenshots' live-preview override vars from the animation timeline.
+ * Each clip carries a baseline (the canvas state captured when it was added); at
+ * a given playhead the active clip interpolates every property from its own
+ * baseline → the NEXT clip's baseline, so clips chain continuously (clip 2 starts
+ * where clip 1 ended). The last clip animates → the current committed value. Only
+ * properties that differ between from → to animate (untouched defaults never
+ * move). The same vars the inspector uses for slider/pad live-preview are written
+ * here, so the final clip always lands exactly on the committed look.
  *
- * Neutral rest pose:
- *  - tilt 0, scale 1
- *  - placement centered (the Position pad's centre dot, 50/50)
- *
- * Vars are cleared on unmount (leaving animate mode) and for any screenshot with
- * no clips, so the static inspector values show through untouched.
+ * Motion is applied only while playing; at rest (and on unmount) every override
+ * is cleared so the static committed pose shows through untouched.
  */
 
 import * as React from "react"
@@ -32,20 +31,50 @@ import {
 } from "@/components/editor/position-preview-vars"
 import { useAnimationPlayerOptional } from "@/hooks/use-animation-player"
 import {
+  BACKDROP_FX_PREVIEW_VAR,
+  BACKDROP_NOISE_PREVIEW_VAR,
+} from "@/components/editor/inspector/backdrop-section-parts/constants"
+import {
+  activeClipAt,
+  backdropEffectsBetween,
+  backdropEffectsDiffer,
+  backgroundsDiffer,
   clipAffectsMain,
   clipAffectsSlot,
-  clipsProgressAt,
+  clipBaseline,
   lerp,
+  shadowBetween,
+  shadowsDiffer,
 } from "@/lib/editor/animation-playback"
+import {
+  effectsFilterCss,
+  shadowCss,
+  shadowDropFilterCss,
+  SHADOW_FILTER_PREVIEW_VAR,
+  SHADOW_PREVIEW_VAR,
+} from "@/lib/editor/css-utils"
 import { useEditorStore } from "@/lib/editor/store"
+import type { ClipBaseline, ScreenshotPosition } from "@/lib/editor/state-types"
 
 function setVar(el: HTMLElement, name: string, value: string | null) {
   if (value === null) el.style.removeProperty(name)
   else el.style.setProperty(name, value)
 }
 
-// The neutral placement the animation starts from: the Position pad's centre.
-const CENTER = { xPct: 50, yPct: 50 }
+const PADDING_PREVIEW_VAR = "--editor-padding-preview"
+const BG_OPACITY_VAR = "--canvas-bg-opacity"
+// Per-target padding/shadow overrides live on the screenshot's preview scope,
+// canvas-wide background/backdrop overrides on the canvas node.
+const SCOPE_VARS = [
+  PADDING_PREVIEW_VAR,
+  SHADOW_PREVIEW_VAR,
+  SHADOW_FILTER_PREVIEW_VAR,
+]
+const CANVAS_FX_VARS = [
+  BG_OPACITY_VAR,
+  BACKDROP_FX_PREVIEW_VAR,
+  BACKDROP_NOISE_PREVIEW_VAR,
+]
 
 const TILT_SCALE_VARS = [
   "--canvas-ts-rx",
@@ -75,6 +104,10 @@ export function AnimationLayer() {
   const tilt = canvas?.tilt
   const scale = canvas?.scale ?? 100
   const slots = canvas?.screenshotSlots ?? []
+  const shadow = canvas?.shadow
+  const padding = canvas?.padding ?? 0
+  const backdrop = canvas?.backdrop
+  const background = canvas?.background
 
   // Frame-less single screenshots position by stage pixels (not %), so we need a
   // one-time stage measurement per playback; cache it and re-measure only when a
@@ -144,9 +177,19 @@ export function AnimationLayer() {
     )
     if (!canvasEl) return
 
+    // The main screenshot's padding/shadow overrides live on its preview scope
+    // (a descendant), falling back to the canvas node. Slots scope by their own
+    // element.
+    const mainScopeEl =
+      canvasEl.querySelector<HTMLElement>(
+        '[data-editor-shadow-preview-scope="canvas"]'
+      ) ?? canvasEl
+
     const clearAll = () => {
       for (const v of TILT_SCALE_VARS) setVar(canvasEl, v, null)
       clearPositionPreviewVars(canvasEl)
+      for (const v of CANVAS_FX_VARS) setVar(canvasEl, v, null)
+      for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
       canvasEl
         .querySelectorAll<HTMLElement>("[data-screenshot-slot-id]")
         .forEach((slotEl) => {
@@ -164,44 +207,83 @@ export function AnimationLayer() {
     }
 
     // ---- main screenshot: tilt, scale, placement ------------------------
+    // Each clip animates from its own baseline → the NEXT clip's baseline (or
+    // the current committed value for the last clip). This chains clips so the
+    // second clip continues from where the first ended instead of snapping back.
+    // Only properties that differ between from → to animate.
     const mainClips = clips.filter(clipAffectsMain)
-    if (mainClips.length > 0 && tilt) {
-      const p = clipsProgressAt(mainClips, playheadMs)
-      setVar(canvasEl, "--canvas-ts-rx", `${lerp(0, tilt.rx, p)}deg`)
-      setVar(canvasEl, "--canvas-ts-ry", `${lerp(0, tilt.ry, p)}deg`)
-      setVar(canvasEl, "--canvas-ts-rz", `${lerp(0, tilt.rz, p)}deg`)
-      setVar(canvasEl, "--canvas-ts-scale", String(lerp(1, scale / 100, p)))
+    const mainActive = activeClipAt(mainClips, playheadMs)
+    if (mainActive && tilt) {
+      const p = mainActive.progress
+      const from = clipBaseline(mainActive.clip)
+      const current: ClipBaseline = {
+        tilt,
+        scale,
+        screenshotPosition:
+          canvas?.screenshotPosition ?? from.screenshotPosition,
+        screenshotOffset: canvas?.screenshotOffset ?? from.screenshotOffset,
+        padding,
+        shadow: shadow ?? from.shadow,
+        backdropEffects: backdrop?.effects ?? from.backdropEffects,
+        background: background ?? from.background,
+        slots: {},
+      }
+      const to = mainActive.next ? clipBaseline(mainActive.next) : current
 
-      // Placement: interpolate the target centre point from the centre dot, then
-      // drive it through the same preview vars the Position pad uses. Only when
-      // the placement is actually off-centre — otherwise leave placement alone so
-      // a tilt/scale-only clip doesn't pick up a spurious drift from the
-      // centre-point rounding.
-      const offset = canvas?.screenshotOffset ?? { x: 0, y: 0 }
-      const position = canvas?.screenshotPosition ?? "center"
-      const placementIsNeutral =
-        position === "center" && offset.x === 0 && offset.y === 0
-      if (hasMainTarget && frame && !placementIsNeutral) {
+      // tilt + scale — from → to (a no-op when unchanged).
+      setVar(
+        canvasEl,
+        "--canvas-ts-rx",
+        `${lerp(from.tilt.rx, to.tilt.rx, p)}deg`
+      )
+      setVar(
+        canvasEl,
+        "--canvas-ts-ry",
+        `${lerp(from.tilt.ry, to.tilt.ry, p)}deg`
+      )
+      setVar(
+        canvasEl,
+        "--canvas-ts-rz",
+        `${lerp(from.tilt.rz, to.tilt.rz, p)}deg`
+      )
+      setVar(
+        canvasEl,
+        "--canvas-ts-scale",
+        String(lerp(from.scale / 100, to.scale / 100, p))
+      )
+
+      // Placement — from point → to point, only if it changed. Driven through
+      // the same preview vars the Position pad uses.
+      const placementChanged =
+        to.screenshotPosition !== from.screenshotPosition ||
+        to.screenshotOffset.x !== from.screenshotOffset.x ||
+        to.screenshotOffset.y !== from.screenshotOffset.y
+      if (hasMainTarget && frame && placementChanged) {
         const dims = isBareMainTarget ? measureDims(canvasEl) : null
         const aspect = canvas?.aspect ?? globalAspect
-        const target =
+        const pointFor = (
+          pos: ScreenshotPosition,
+          off: { x: number; y: number }
+        ) =>
           dims != null
             ? bareScreenshotPositionPct({
                 dims,
                 scaleFactor: scale / 100,
-                position,
-                offset,
+                position: pos,
+                offset: off,
               })
             : mainScreenshotPositionPct({
                 aspect,
                 frame,
-                position,
-                offset,
+                position: pos,
+                offset: off,
                 slots,
               })
+        const fromPt = pointFor(from.screenshotPosition, from.screenshotOffset)
+        const toPt = pointFor(to.screenshotPosition, to.screenshotOffset)
         const point = {
-          xPct: lerp(CENTER.xPct, target.xPct, p),
-          yPct: lerp(CENTER.yPct, target.yPct, p),
+          xPct: lerp(fromPt.xPct, toPt.xPct, p),
+          yPct: lerp(fromPt.yPct, toPt.yPct, p),
         }
         if (dims != null) {
           const { left, top } = bareScreenshotTargetLeftTop(dims, point)
@@ -210,12 +292,74 @@ export function AnimationLayer() {
           setMainScreenshotPositionPreview(canvasEl, point)
         }
       } else {
-        // Placement is neutral (or no main target) — don't touch placement vars.
         clearPositionPreviewVars(canvasEl)
       }
+
+      // ---- padding (main only) — from → to, only if changed ------------
+      if (slots.length === 0 && from.padding !== to.padding) {
+        const raw = Math.max(
+          0,
+          Math.min(240, lerp(from.padding, to.padding, p))
+        )
+        setVar(mainScopeEl, PADDING_PREVIEW_VAR, `${(raw / 12).toFixed(3)}%`)
+      } else {
+        setVar(mainScopeEl, PADDING_PREVIEW_VAR, null)
+      }
+
+      // ---- shadow — from → to, only if changed -------------------------
+      if (shadowsDiffer(from.shadow, to.shadow)) {
+        const s = shadowBetween(from.shadow, to.shadow, p)
+        setVar(mainScopeEl, SHADOW_PREVIEW_VAR, shadowCss(s) ?? "none")
+        setVar(
+          mainScopeEl,
+          SHADOW_FILTER_PREVIEW_VAR,
+          shadowDropFilterCss(s) ?? "none"
+        )
+      } else {
+        setVar(mainScopeEl, SHADOW_PREVIEW_VAR, null)
+        setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, null)
+      }
+
+      // ---- background — soft fade in, only if changed ------------------
+      if (backgroundsDiffer(from.background, to.background)) {
+        setVar(canvasEl, BG_OPACITY_VAR, String(lerp(0, 1, p)))
+      } else {
+        setVar(canvasEl, BG_OPACITY_VAR, null)
+      }
+
+      // ---- backdrop effects — from → to, only if changed ---------------
+      if (backdropEffectsDiffer(from.backdropEffects, to.backdropEffects)) {
+        const fx = backdropEffectsBetween(
+          from.backdropEffects,
+          to.backdropEffects,
+          p
+        )
+        setVar(
+          canvasEl,
+          BACKDROP_FX_PREVIEW_VAR,
+          effectsFilterCss(fx) ?? "none"
+        )
+        setVar(
+          canvasEl,
+          BACKDROP_NOISE_PREVIEW_VAR,
+          String(
+            lerp(
+              from.backdropEffects.noise / 100,
+              to.backdropEffects.noise / 100,
+              p
+            )
+          )
+        )
+      } else {
+        setVar(canvasEl, BACKDROP_FX_PREVIEW_VAR, null)
+        setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, null)
+      }
     } else {
+      // No clip animates the main screenshot — leave its committed pose alone.
       for (const v of TILT_SCALE_VARS) setVar(canvasEl, v, null)
       clearPositionPreviewVars(canvasEl)
+      for (const v of CANVAS_FX_VARS) setVar(canvasEl, v, null)
+      for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
     }
 
     // ---- extra screenshot slots: tilt, scale, rotation ------------------
@@ -225,16 +369,53 @@ export function AnimationLayer() {
       )
       if (!slotEl) continue
       const slotClips = clips.filter((c) => clipAffectsSlot(c, slot.id))
-      if (slotClips.length === 0) {
+      const slotActive = activeClipAt(slotClips, playheadMs)
+      if (!slotActive) {
         for (const v of SLOT_VARS) setVar(slotEl, v, null)
         continue
       }
-      const p = clipsProgressAt(slotClips, playheadMs)
-      setVar(slotEl, "--slot-ts-rx", `${lerp(0, slot.tilt.rx, p)}deg`)
-      setVar(slotEl, "--slot-ts-ry", `${lerp(0, slot.tilt.ry, p)}deg`)
-      setVar(slotEl, "--slot-ts-rz", `${lerp(0, slot.tilt.rz, p)}deg`)
-      setVar(slotEl, "--slot-ts-scale", String(lerp(1, slot.scale / 100, p)))
-      setVar(slotEl, "--slot-ts-rot", `${lerp(0, slot.rotation, p)}deg`)
+      const p = slotActive.progress
+      const NEUTRAL_SLOT = {
+        tilt: { rx: 0, ry: 0, rz: 0 },
+        scale: 100,
+        rotation: 0,
+      }
+      const fromSlot =
+        clipBaseline(slotActive.clip).slots[slot.id] ?? NEUTRAL_SLOT
+      // Chain to the next clip's baseline; the last clip targets the current pose.
+      const currentSlot = {
+        tilt: slot.tilt,
+        scale: slot.scale,
+        rotation: slot.rotation,
+      }
+      const toSlot = slotActive.next
+        ? (clipBaseline(slotActive.next).slots[slot.id] ?? currentSlot)
+        : currentSlot
+      setVar(
+        slotEl,
+        "--slot-ts-rx",
+        `${lerp(fromSlot.tilt.rx, toSlot.tilt.rx, p)}deg`
+      )
+      setVar(
+        slotEl,
+        "--slot-ts-ry",
+        `${lerp(fromSlot.tilt.ry, toSlot.tilt.ry, p)}deg`
+      )
+      setVar(
+        slotEl,
+        "--slot-ts-rz",
+        `${lerp(fromSlot.tilt.rz, toSlot.tilt.rz, p)}deg`
+      )
+      setVar(
+        slotEl,
+        "--slot-ts-scale",
+        String(lerp(fromSlot.scale / 100, toSlot.scale / 100, p))
+      )
+      setVar(
+        slotEl,
+        "--slot-ts-rot",
+        `${lerp(fromSlot.rotation, toSlot.rotation, p)}deg`
+      )
     }
 
     // Clear everything when playback stops or animate mode exits so the static
@@ -248,6 +429,10 @@ export function AnimationLayer() {
     tilt,
     scale,
     slots,
+    shadow,
+    padding,
+    backdrop,
+    background,
     frame,
     hasMainTarget,
     isBareMainTarget,

@@ -6,7 +6,11 @@ import {
   RiDeleteBinLine,
   RiDragMove2Line,
   RiFileCopyLine,
+  RiLayoutGrid2Line,
+  RiMoonClearLine,
+  RiPaletteLine,
   RiRotateLockLine,
+  RiSunLine,
   RiZoomInLine,
 } from "@remixicon/react"
 
@@ -38,7 +42,7 @@ type TimelineClipProps = {
    */
   images: string[]
   /** Which inspector properties this clip animates — rendered as small icons. */
-  iconKeys: Array<"position" | "zoom" | "tilt">
+  iconKeys: ClipIconKey[]
   dupShortcut: string
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
   onPointerMoveClip: (e: React.PointerEvent) => void
@@ -54,12 +58,26 @@ const gripHandle =
 const gripPill =
   "h-4 w-1 rounded-full bg-foreground/50 opacity-0 shadow transition-opacity duration-150 group-hover/clip:opacity-100"
 
+// Which inspector properties a clip animates, surfaced as icons on the clip.
+export type ClipIconKey =
+  | "position"
+  | "zoom"
+  | "tilt"
+  | "padding"
+  | "shadow"
+  | "backdrop"
+  | "background"
+
 // Inspector-matching icons for the properties a clip animates.
-const ICON_FOR = {
+const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   position: RiDragMove2Line,
   zoom: RiZoomInLine,
   tilt: RiRotateLockLine,
-} as const
+  padding: RiLayoutGrid2Line,
+  shadow: RiMoonClearLine,
+  backdrop: RiSunLine,
+  background: RiPaletteLine,
+}
 
 export function TimelineClip({
   clip,
@@ -169,13 +187,13 @@ export function TimelineClip({
               inspector's section icons so the clip shows what it animates. Plain
               muted glyphs, no chrome; only shown when the clip is wide enough. */}
           {iconKeys.length > 0 && width >= 78 && (
-            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1.5">
+            <div className="pointer-events-none absolute inset-y-0 right-2 flex max-w-[70%] items-center justify-end gap-1 overflow-hidden">
               {iconKeys.map((key) => {
                 const Icon = ICON_FOR[key]
                 return (
                   <Icon
                     key={key}
-                    className="size-3.5 text-foreground/55 dark:text-foreground/60"
+                    className="size-3 shrink-0 text-foreground/55 dark:text-foreground/60"
                   />
                 )
               })}

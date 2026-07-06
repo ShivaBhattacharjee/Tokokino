@@ -5,6 +5,12 @@ import { toast } from "sonner"
 
 import { useAnimationPlayer } from "@/hooks/use-animation-player"
 import {
+  backdropEffectsDiffer,
+  backgroundsDiffer,
+  clipBaseline,
+  shadowsDiffer,
+} from "@/lib/editor/animation-playback"
+import {
   computeTicks,
   findGhostSlot,
   GHOST_SLOT_MS,
@@ -20,7 +26,7 @@ import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { isApplePlatform } from "@/lib/editor/shortcuts"
 import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
 
-import type { ClipDragMode } from "./timeline-clip"
+import type { ClipDragMode, ClipIconKey } from "./timeline-clip"
 
 /**
  * All Animate-mode timeline interaction: zoom/scroll, clip drag + trim,
@@ -41,6 +47,10 @@ export function useAnimateTimeline() {
   const scale = useActiveCanvasField((c) => c.scale)
   const screenshotPosition = useActiveCanvasField((c) => c.screenshotPosition)
   const screenshotOffset = useActiveCanvasField((c) => c.screenshotOffset)
+  const padding = useActiveCanvasField((c) => c.padding)
+  const shadow = useActiveCanvasField((c) => c.shadow)
+  const backdropEffects = useActiveCanvasField((c) => c.backdrop.effects)
+  const background = useActiveCanvasField((c) => c.background)
 
   // One base-layer row per image on the canvas: the main screenshot plus each
   // extra screenshot slot. Drives the stacked rows under the motion lane.
@@ -748,33 +758,59 @@ export function useAnimateTimeline() {
   // the clip reads like "this animates position + tilt". A slot clip reflects
   // that slot's pose; main/all reflect the main screenshot's pose.
   const resolveClipIcons = React.useCallback(
-    (clip: (typeof clips)[number]): Array<"position" | "zoom" | "tilt"> => {
+    (clip: (typeof clips)[number]): ClipIconKey[] => {
+      // Only surface icons for properties changed since the clip was added — the
+      // exact same baseline diff the on-canvas animation uses.
+      const base = clipBaseline(clip)
       const target = clip.target ?? { scope: "all" as const }
-      const keys: Array<"position" | "zoom" | "tilt"> = []
+      const keys: ClipIconKey[] = []
       if (target.scope === "slot") {
         const slot = screenshotSlots.find((s) => s.id === target.slotId)
         if (!slot) return keys
-        if (slot.scale !== 100) keys.push("zoom")
+        const bs = base.slots[slot.id]
+        if (!bs || slot.scale !== bs.scale) keys.push("zoom")
         if (
-          slot.tilt.rx !== 0 ||
-          slot.tilt.ry !== 0 ||
-          slot.tilt.rz !== 0 ||
-          slot.rotation !== 0
+          !bs ||
+          slot.tilt.rx !== bs.tilt.rx ||
+          slot.tilt.ry !== bs.tilt.ry ||
+          slot.tilt.rz !== bs.tilt.rz ||
+          slot.rotation !== bs.rotation
         )
           keys.push("tilt")
         return keys
       }
       if (
-        screenshotPosition !== "center" ||
-        screenshotOffset.x !== 0 ||
-        screenshotOffset.y !== 0
+        screenshotPosition !== base.screenshotPosition ||
+        screenshotOffset.x !== base.screenshotOffset.x ||
+        screenshotOffset.y !== base.screenshotOffset.y
       )
         keys.push("position")
-      if (scale !== 100) keys.push("zoom")
-      if (tilt.rx !== 0 || tilt.ry !== 0 || tilt.rz !== 0) keys.push("tilt")
+      if (scale !== base.scale) keys.push("zoom")
+      if (
+        tilt.rx !== base.tilt.rx ||
+        tilt.ry !== base.tilt.ry ||
+        tilt.rz !== base.tilt.rz
+      )
+        keys.push("tilt")
+      if (padding !== base.padding) keys.push("padding")
+      if (shadowsDiffer(base.shadow, shadow)) keys.push("shadow")
+      if (backgroundsDiffer(base.background, background))
+        keys.push("background")
+      if (backdropEffectsDiffer(base.backdropEffects, backdropEffects))
+        keys.push("backdrop")
       return keys
     },
-    [screenshotSlots, tilt, scale, screenshotPosition, screenshotOffset]
+    [
+      screenshotSlots,
+      tilt,
+      scale,
+      screenshotPosition,
+      screenshotOffset,
+      padding,
+      shadow,
+      background,
+      backdropEffects,
+    ]
   )
 
   return {
