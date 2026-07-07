@@ -37,6 +37,10 @@ import {
   getDeviceMockupAsset,
 } from "@/lib/mockups"
 
+import {
+  EMPTY_BG_STACK,
+  resolveAnimateBgStack,
+} from "@/lib/editor/animation-playback"
 import { AnnotationLayer } from "./annotation-layer"
 import { CanvasBackdrop } from "./canvas-backdrop"
 import { CanvasEmptyState } from "./canvas-empty-state"
@@ -165,6 +169,27 @@ function CanvasViewInner({
   const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
   const bulkViewportZoom = useEditorStore((s) => s.bulkViewportZoom)
   const presetTab = useEditorStore((s) => s.presetTab)
+  // In Animate mode, the stacked background layers (one per background keyframe)
+  // so multiple background swaps chain bg1 → bg2 → bg3. Empty (→ committed
+  // background only) at rest or with no background keyframe.
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  const selectedAnimationClipId = useEditorStore(
+    (s) => s.selectedAnimationClipId
+  )
+  const canvasAnimation = useEditorStore(
+    (s) => s.present.canvases.find((c) => c.id === scopeId)?.animation
+  )
+  const animateBgStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimateBgStack(
+            canvasAnimation.clips,
+            background,
+            selectedAnimationClipId
+          )
+        : EMPTY_BG_STACK,
+    [isAnimateMode, canvasAnimation, background, selectedAnimationClipId]
+  )
   // Downscale whenever the background sourceUrl changes (on mount/hydration,
   // and also when a custom preset applies a new image background mid-session).
   React.useEffect(() => {
@@ -668,6 +693,7 @@ function CanvasViewInner({
             noiseOpacity={noiseOpacity}
             portrait={portrait}
             overlay={overlay}
+            animateBgStack={animateBgStack}
           />
 
           {mainScreenshotRowStyle ? (

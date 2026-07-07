@@ -38,12 +38,13 @@ import {
   BACKDROP_NOISE_PREVIEW_VAR,
 } from "@/components/editor/inspector/backdrop-section-parts/constants"
 import {
-  activeClipAt,
   backdropEffectsBetween,
+  backgroundLayerOpacityVar,
   clipAffectsMain,
   clipAffectsSlot,
   clipOwns,
   clipPose,
+  clipsProgressAt,
   DEFAULT_BASELINE,
   lerp,
   NEUTRAL_SLOT_POSE,
@@ -233,11 +234,16 @@ export function AnimationLayer() {
       for (const v of TILT_SCALE_VARS) setVar(canvasEl, v, null)
       clearPositionPreviewVars(canvasEl)
       for (const v of CANVAS_FX_VARS) setVar(canvasEl, v, null)
+      // Per-keyframe background layer opacities → back to their rest fallback.
+      for (const c of clips)
+        setVar(canvasEl, backgroundLayerOpacityVar(c.id), null)
       for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
       canvasEl
         .querySelectorAll<HTMLElement>("[data-screenshot-slot-id]")
         .forEach((slotEl) => {
           for (const v of SLOT_VARS) setVar(slotEl, v, null)
+          setVar(slotEl, SHADOW_PREVIEW_VAR, null)
+          setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
         })
     }
 
@@ -269,7 +275,12 @@ export function AnimationLayer() {
           slots: Object.fromEntries(
             canvas.screenshotSlots.map((s) => [
               s.id,
-              { tilt: s.tilt, scale: s.scale, rotation: s.rotation },
+              {
+                tilt: s.tilt,
+                scale: s.scale,
+                rotation: s.rotation,
+                shadow: s.shadow ?? canvas.shadow,
+              },
             ])
           ),
         }
@@ -419,16 +430,16 @@ export function AnimationLayer() {
         setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, null)
       }
 
-      // --- background — soft fade in over each owning keyframe ---
-      const bgActive = activeClipAt(
-        mainClips.filter((c) => clipOwns(c, "background")),
-        playheadMs
-      )
-      setVar(
-        canvasEl,
-        BG_OPACITY_VAR,
-        bgActive ? String(bgActive.progress) : null
-      )
+      // --- background — each background keyframe owns its own layer and fades in
+      // over its window, so multiple swaps chain (bg1 → bg2 → bg3). Drive every
+      // background layer's opacity var to its reveal progress. ---
+      for (const c of mainClips.filter((c) => clipOwns(c, "background"))) {
+        setVar(
+          canvasEl,
+          backgroundLayerOpacityVar(c.id),
+          String(clipsProgressAt([c], playheadMs))
+        )
+      }
 
       // --- backdrop effects — reveals from neutral ---
       const bdVal = sampleKeyframes<BackdropEffects>(
@@ -468,6 +479,8 @@ export function AnimationLayer() {
       const slotClips = clips.filter((c) => clipAffectsSlot(c, slot.id))
       if (slotClips.length === 0) {
         for (const v of SLOT_VARS) setVar(slotEl, v, null)
+        setVar(slotEl, SHADOW_PREVIEW_VAR, null)
+        setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
         continue
       }
       const slotPoseOf = (c: AnimationClip) =>
@@ -522,6 +535,37 @@ export function AnimationLayer() {
         "--slot-ts-scale",
         slotZoom != null ? String(slotZoom / 100) : null
       )
+
+      // shadow — reveals from invisible; different shadow types cross-blend
+      // between owners, exactly like the main screenshot. Vars are set on the
+      // slot's own preview scope (this element carries data-editor-shadow-
+      // preview-scope), so they only affect this slot's shadow.
+      const slotShadowLayers = sampleShadowLayers(
+        slotClips
+          .filter((c) => clipOwns(c, "shadow"))
+          .map((c) => ({
+            startMs: c.startMs,
+            durationMs: c.durationMs,
+            value: slotPoseOf(c).shadow ?? INVISIBLE_SHADOW,
+          })),
+        playheadMs,
+        INVISIBLE_SHADOW
+      )
+      if (slotShadowLayers) {
+        const box = slotShadowLayers
+          .map(shadowCss)
+          .filter((v): v is string => Boolean(v))
+          .join(", ")
+        const filter = slotShadowLayers
+          .map(shadowDropFilterCss)
+          .filter((v): v is string => Boolean(v))
+          .join(" ")
+        setVar(slotEl, SHADOW_PREVIEW_VAR, box || "none")
+        setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, filter || "none")
+      } else {
+        setVar(slotEl, SHADOW_PREVIEW_VAR, null)
+        setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
+      }
     }
 
     // Clear everything when playback stops or animate mode exits so the static

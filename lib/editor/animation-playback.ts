@@ -40,11 +40,18 @@ export function clipBaseline(clip: AnimationClip): ClipBaseline {
   return clip.baseline ?? DEFAULT_BASELINE
 }
 
-/** Neutral rest pose for an extra screenshot slot (flat, full-size, no spin). */
+/** Neutral rest pose for an extra screenshot slot (flat, full-size, no spin,
+ * no shadow — so shadow reveals in like the main screenshot's does). */
 export const NEUTRAL_SLOT_POSE: ClipSlotPose = {
   tilt: { rx: 0, ry: 0, rz: 0 },
   scale: 100,
   rotation: 0,
+  shadow: {
+    type: "none",
+    intensity: 0,
+    color: "#000000",
+    lightSource: "center",
+  },
 }
 
 /** A clip's target keyframe (`pose`), falling back to the legacy baseline. */
@@ -248,6 +255,71 @@ export function clipOwns(
   effect: AnimationEffect
 ): boolean {
   return (clip.effects ?? []).includes(effect)
+}
+
+/** CSS var carrying a background keyframe layer's opacity (its reveal progress
+ * during playback; falls back to a rest opacity when unset). */
+export const backgroundLayerOpacityVar = (clipId: string) =>
+  `--canvas-bg-op-${clipId}`
+
+export type AnimateBgLayer = {
+  id: string
+  background: Background
+  /** Opacity at REST (not playing): true (1) when this keyframe is at/before the
+   * selected one, false (0) otherwise — so at rest the selected keyframe's
+   * background shows through the stack. */
+  restOpaque: boolean
+}
+
+export type AnimateBgStack = {
+  /** Background shown before the first background keyframe (null → reveal from
+   * black, i.e. the first background keyframe is the very first clip). */
+  base: Background | null
+  /** One layer per background keyframe, chronological (bottom → top). */
+  layers: AnimateBgLayer[]
+}
+
+export const EMPTY_BG_STACK: AnimateBgStack = { base: null, layers: [] }
+
+/**
+ * Build the stacked background layers for Animate mode. Each background keyframe
+ * gets its OWN layer; AnimationLayer fades them in one after another so multiple
+ * background swaps CHAIN (bg1 → bg2 → bg3) — each cross-fading from the previous
+ * one — instead of every swap cross-fading from the same initial background. The
+ * selected keyframe's layer uses the live committed background so its edits
+ * preview; the others read their captured pose. Empty stack when the background
+ * isn't animated (the caller renders the committed background as usual).
+ */
+export function resolveAnimateBgStack(
+  clips: readonly AnimationClip[],
+  committedBackground: Background,
+  selectedClipId: string | null
+): AnimateBgStack {
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const isBgKeyframe = (c: AnimationClip) =>
+    clipAffectsMain(c) && clipOwns(c, "background")
+  const bgClips = sorted.filter(isBgKeyframe)
+  if (bgClips.length === 0) return EMPTY_BG_STACK
+
+  // Base = the background just before the first background keyframe. When that
+  // keyframe is the very first clip there's nothing before it → reveal from black.
+  const firstBgIndex = sorted.findIndex(isBgKeyframe)
+  const base =
+    firstBgIndex <= 0 ? null : clipPose(sorted[firstBgIndex - 1]).background
+
+  // At rest, show the selected keyframe's background (or the final one when the
+  // selection isn't a background keyframe): everything up to that index opaque.
+  const selectedBgIndex = bgClips.findIndex((c) => c.id === selectedClipId)
+  const restCutoff =
+    selectedBgIndex === -1 ? bgClips.length - 1 : selectedBgIndex
+
+  const layers: AnimateBgLayer[] = bgClips.map((c, i) => ({
+    id: c.id,
+    background:
+      c.id === selectedClipId ? committedBackground : clipPose(c).background,
+    restOpaque: i <= restCutoff,
+  }))
+  return { base, layers }
 }
 
 /**

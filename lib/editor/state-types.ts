@@ -413,6 +413,8 @@ export type ClipSlotPose = {
   tilt: Tilt
   scale: number
   rotation: number
+  /** Optional so older drafts (transform-only slot poses) still load. */
+  shadow?: Shadow
 }
 
 /**

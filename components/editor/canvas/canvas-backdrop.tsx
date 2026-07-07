@@ -4,6 +4,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import {
+  backgroundLayerOpacityVar,
+  type AnimateBgStack,
+} from "@/lib/editor/animation-playback"
+import {
   assetFilterCss,
   backgroundCss,
   overlayUrl,
@@ -14,6 +18,9 @@ import {
   type Portrait,
 } from "@/lib/editor/store"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
+
+/** Stable empty layer list so the memo deps don't change every render. */
+const EMPTY_BG_LAYERS: AnimateBgStack["layers"] = []
 
 import {
   lightingOverlayCss,
@@ -29,6 +36,12 @@ type CanvasBackdropProps = {
   noiseOpacity: number
   portrait: Portrait
   overlay: Overlay
+  /**
+   * Animate mode only: one stacked background layer per background keyframe (plus
+   * the pre-first-keyframe base) so multiple background swaps chain bg1 → bg2 →
+   * bg3. Empty stack → just the committed background renders (default).
+   */
+  animateBgStack?: AnimateBgStack
 }
 
 function CanvasBackdropImpl({
@@ -39,21 +52,44 @@ function CanvasBackdropImpl({
   noiseOpacity,
   portrait,
   overlay,
+  animateBgStack,
 }: CanvasBackdropProps) {
-  const effectiveBackground: Background = React.useMemo(() => {
-    if (background.type !== "image") return background
-    // Already a downscaled data URL — use it directly (fast GPU texture)
-    if (background.value.startsWith("data:")) return background
-    // sourceUrl is set: show thumb while the client downscale is in-flight
-    if (background.sourceUrl) {
-      if (background.thumbUrl && !background.thumbUrl.startsWith("data:")) {
-        return { ...background, value: background.thumbUrl }
+  const resolveEffectiveBackground = React.useCallback(
+    (bg: Background): Background => {
+      if (bg.type !== "image") return bg
+      // Already a downscaled data URL — use it directly (fast GPU texture)
+      if (bg.value.startsWith("data:")) return bg
+      // sourceUrl is set: show thumb while the client downscale is in-flight
+      if (bg.sourceUrl) {
+        if (bg.thumbUrl && !bg.thumbUrl.startsWith("data:")) {
+          return { ...bg, value: bg.thumbUrl }
+        }
+        return bg
       }
-      return background
-    }
-    const previewUrl = remoteImagePreviewUrl(background.value)
-    return previewUrl ? { ...background, value: previewUrl } : background
-  }, [background])
+      const previewUrl = remoteImagePreviewUrl(bg.value)
+      return previewUrl ? { ...bg, value: previewUrl } : bg
+    },
+    []
+  )
+  const effectiveBackground = React.useMemo(
+    () => resolveEffectiveBackground(background),
+    [resolveEffectiveBackground, background]
+  )
+  const bgStackBase = animateBgStack?.base ?? null
+  const bgLayers = animateBgStack?.layers ?? EMPTY_BG_LAYERS
+  const hasBgStack = bgLayers.length > 0
+  const effectiveBgBase = React.useMemo(
+    () => (bgStackBase ? resolveEffectiveBackground(bgStackBase) : null),
+    [resolveEffectiveBackground, bgStackBase]
+  )
+  const effectiveBgLayers = React.useMemo(
+    () =>
+      bgLayers.map((layer) => ({
+        ...layer,
+        background: resolveEffectiveBackground(layer.background),
+      })),
+    [resolveEffectiveBackground, bgLayers]
+  )
 
   const portraitStyle = portraitOverlayCss(
     portrait.mode,
@@ -90,26 +126,78 @@ function CanvasBackdropImpl({
         className="absolute inset-0"
         style={{ isolation: "isolate" }}
       >
-        <div
-          className={cn(
-            "absolute inset-0",
-            background.type === "none" && "bg-transparency-checker"
-          )}
-          data-bg-source-url={
-            background.type === "image" &&
-            background.sourceUrl &&
-            background.sourceUrl !== background.value
-              ? background.sourceUrl
-              : undefined
-          }
-          style={{
-            ...backgroundCss(effectiveBackground),
-            ...(filterValue ? { filter: filterValue } : {}),
-            // Animate-mode crossfade: AnimationLayer ramps this 0 → 1 so the
-            // background softly fades in with the clip. Default 1 everywhere else.
-            opacity: "var(--canvas-bg-opacity, 1)" as unknown as number,
-          }}
-        />
+        {hasBgStack ? (
+          // Animate mode with animated background(s): a stack of layers, one per
+          // background keyframe (chronological, bottom → top), over an optional
+          // base (the background before the first keyframe). AnimationLayer fades
+          // each layer in at its keyframe so multiple swaps chain, each
+          // cross-fading over the one beneath. At rest each layer falls back to
+          // its rest opacity so the selected keyframe's background shows.
+          <>
+            {effectiveBgBase ? (
+              <div
+                aria-hidden
+                className={cn(
+                  "absolute inset-0",
+                  effectiveBgBase.type === "none" && "bg-transparency-checker"
+                )}
+                data-bg-source-url={
+                  effectiveBgBase.type === "image" &&
+                  effectiveBgBase.sourceUrl &&
+                  effectiveBgBase.sourceUrl !== effectiveBgBase.value
+                    ? effectiveBgBase.sourceUrl
+                    : undefined
+                }
+                style={{
+                  ...backgroundCss(effectiveBgBase),
+                  ...(filterValue ? { filter: filterValue } : {}),
+                }}
+              />
+            ) : null}
+            {effectiveBgLayers.map((layer) => (
+              <div
+                key={layer.id}
+                aria-hidden
+                className={cn(
+                  "absolute inset-0",
+                  layer.background.type === "none" && "bg-transparency-checker"
+                )}
+                data-bg-source-url={
+                  layer.background.type === "image" &&
+                  layer.background.sourceUrl &&
+                  layer.background.sourceUrl !== layer.background.value
+                    ? layer.background.sourceUrl
+                    : undefined
+                }
+                style={{
+                  ...backgroundCss(layer.background),
+                  ...(filterValue ? { filter: filterValue } : {}),
+                  opacity: `var(${backgroundLayerOpacityVar(layer.id)}, ${
+                    layer.restOpaque ? 1 : 0
+                  })` as unknown as number,
+                }}
+              />
+            ))}
+          </>
+        ) : (
+          <div
+            className={cn(
+              "absolute inset-0",
+              background.type === "none" && "bg-transparency-checker"
+            )}
+            data-bg-source-url={
+              background.type === "image" &&
+              background.sourceUrl &&
+              background.sourceUrl !== background.value
+                ? background.sourceUrl
+                : undefined
+            }
+            style={{
+              ...backgroundCss(effectiveBackground),
+              ...(filterValue ? { filter: filterValue } : {}),
+            }}
+          />
+        )}
 
         {backdrop.pattern.ids.map((id) => (
           <div

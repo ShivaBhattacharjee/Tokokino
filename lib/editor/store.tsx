@@ -99,6 +99,11 @@ const TWEET_POST_ASPECT: AspectState = { id: "x-post", w: 1080, h: 1080 }
  * timeline UI's MIN_CLIP_MS). */
 const MIN_ANIMATION_CLIP_MS = 200
 
+/** Effects an extra screenshot slot can actually animate (its keyframe pose only
+ * carries transform + shadow). Used to decide when editing an effect may auto-
+ * bind an unbound keyframe to a slot. */
+const SLOT_ANIMATABLE_EFFECTS: AnimationEffect[] = ["tilt", "zoom", "shadow"]
+
 /** Canvas.animation is optional (older drafts) — always read through this. */
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
@@ -116,7 +121,13 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
-      { tilt: s.tilt, scale: s.scale, rotation: s.rotation },
+      {
+        tilt: s.tilt,
+        scale: s.scale,
+        rotation: s.rotation,
+        // Slots fall back to the canvas shadow when they have none of their own.
+        shadow: s.shadow ?? canvas.shadow,
+      },
     ])
   ),
 })
@@ -140,9 +151,16 @@ const applyPoseToCanvas = (
   backdrop: { ...canvas.backdrop, effects: pose.backdropEffects },
   screenshotSlots: canvas.screenshotSlots.map((s) => {
     const sp = pose.slots[s.id]
-    return sp
-      ? { ...s, tilt: sp.tilt, scale: sp.scale, rotation: sp.rotation }
-      : s
+    if (!sp) return s
+    return {
+      ...s,
+      tilt: sp.tilt,
+      scale: sp.scale,
+      rotation: sp.rotation,
+      // Only overwrite the slot's shadow when the pose captured one (older poses
+      // are transform-only, so leave the committed shadow untouched there).
+      ...(sp.shadow ? { shadow: sp.shadow } : {}),
+    }
   }),
 })
 
@@ -228,6 +246,7 @@ const resolveKeyframePose = (
           tilt: s.tilt,
           scale: s.scale,
           rotation: s.rotation,
+          shadow: s.shadow ?? canvas.shadow,
         }
         const slot = (effect: AnimationEffect, rest: ClipSlotPose) => {
           const { at, any } = latestOwner(ownsSlot(s.id, effect))
@@ -240,7 +259,16 @@ const resolveKeyframePose = (
           rotation: 0,
         })
         const z = slot("zoom", { ...committed, scale: 100 })
-        return [s.id, { tilt: t.tilt, rotation: t.rotation, scale: z.scale }]
+        const sh = slot("shadow", { ...committed, shadow: REST_SHADOW })
+        return [
+          s.id,
+          {
+            tilt: t.tilt,
+            rotation: t.rotation,
+            scale: z.scale,
+            shadow: sh.shadow ?? committed.shadow,
+          },
+        ]
       })
     ),
   }
@@ -709,14 +737,36 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const clip = anim.clips.find((c) => c.id === selId)
         if (!clip) return base
         const owned = clip.effects ?? []
-        if (list.every((e) => owned.includes(e))) return base
         const merged = Array.from(new Set([...owned, ...list]))
+        // Auto-bind: an as-yet-unbound ("all") keyframe binds to the SLOT this
+        // edit targets, so selecting it later re-selects that slot and further
+        // edits scope to it. Only for the effects a slot can actually animate
+        // (transform + shadow) — main-only effects like position always edit the
+        // main even when a slot is selected, so they must not re-bind the clip.
+        // A keyframe already bound keeps its binding.
+        const currentTarget = clip.target ?? { scope: "all" as const }
+        const nextTarget = resolveSelectionTarget(
+          canvas,
+          full.selectedScreenshotSlotId,
+          full.isScreenshotSelected
+        )
+        const retarget =
+          currentTarget.scope === "all" &&
+          nextTarget.scope === "slot" &&
+          list.every((e) => SLOT_ANIMATABLE_EFFECTS.includes(e))
+        if (list.every((e) => owned.includes(e)) && !retarget) return base
         return {
           ...base,
           animation: {
             ...anim,
             clips: anim.clips.map((c) =>
-              c.id === selId ? { ...c, effects: merged } : c
+              c.id === selId
+                ? {
+                    ...c,
+                    effects: merged,
+                    ...(retarget ? { target: nextTarget } : {}),
+                  }
+                : c
             ),
           },
         }
@@ -2275,12 +2325,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           slot.id === id ? { ...slot, ...patch } : slot
         ),
       })
-      // A slot's transform edits (tilt/rotation/scale) become owned effects on
-      // the open keyframe; other slot changes (position, fit, filter…) don't
-      // animate, so they commit normally.
+      // A slot's transform + shadow edits become owned effects on the open
+      // keyframe; other slot changes (position, fit, filter…) don't animate, so
+      // they commit normally.
       const effects: AnimationEffect[] = []
       if ("tilt" in patch || "rotation" in patch) effects.push("tilt")
       if ("scale" in patch) effects.push("zoom")
+      if ("shadow" in patch) effects.push("shadow")
       if (effects.length === 0) {
         commitCanvas(canvasId, apply, `screenshot-slot-${id}`)
       } else {
