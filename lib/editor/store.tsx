@@ -3,6 +3,12 @@
 import { create } from "zustand"
 
 import { DEFAULT_CLIP_DURATION_MS } from "./animation-motion"
+import {
+  clipAffectsMain,
+  clipAffectsSlot,
+  clipPose,
+  DEFAULT_BASELINE,
+} from "./animation-playback"
 import { MAX_DURATION_MS } from "./animation-timeline"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import type { TweetCardSettings } from "./tweet-settings"
@@ -57,7 +63,9 @@ import type {
   AnimationAudio,
   AnimationClip,
   AnimationClipTarget,
+  AnimationEffect,
   ClipBaseline,
+  ClipSlotPose,
   CanvasAnimation,
   AspectState,
   AssetElement,
@@ -95,8 +103,8 @@ const MIN_ANIMATION_CLIP_MS = 200
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
 
-/** Snapshot the canvas's animatable state as a new clip's baseline. */
-const captureClipBaseline = (canvas: CanvasState): ClipBaseline => ({
+/** Snapshot the canvas's animatable state as a clip's target keyframe (pose). */
+const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   tilt: canvas.tilt,
   scale: canvas.scale,
   screenshotPosition: canvas.screenshotPosition,
@@ -112,6 +120,131 @@ const captureClipBaseline = (canvas: CanvasState): ClipBaseline => ({
     ])
   ),
 })
+
+/**
+ * Load a clip's pose onto the canvas's live/committed style so the inspector and
+ * canvas show that clip's keyframe. Slots not present in the pose keep their
+ * current transform.
+ */
+const applyPoseToCanvas = (
+  canvas: CanvasState,
+  pose: ClipBaseline
+): Partial<CanvasState> => ({
+  tilt: pose.tilt,
+  scale: pose.scale,
+  screenshotPosition: pose.screenshotPosition,
+  screenshotOffset: pose.screenshotOffset,
+  padding: pose.padding,
+  shadow: pose.shadow,
+  background: pose.background,
+  backdrop: { ...canvas.backdrop, effects: pose.backdropEffects },
+  screenshotSlots: canvas.screenshotSlots.map((s) => {
+    const sp = pose.slots[s.id]
+    return sp
+      ? { ...s, tilt: sp.tilt, scale: sp.scale, rotation: sp.rotation }
+      : s
+  }),
+})
+
+/**
+ * The resolved look AT a keyframe: for each effect, the value from the latest
+ * keyframe that owns it at/before `target` (so held effects from earlier
+ * keyframes show through), falling back to the final look for effects no
+ * keyframe animates. Loading THIS onto the canvas makes selecting a keyframe show
+ * its true accumulated state — which is what you edit.
+ */
+const REST_SHADOW: Shadow = {
+  type: "none",
+  intensity: 0,
+  color: "#000000",
+  lightSource: "center",
+}
+
+const resolveKeyframePose = (
+  canvas: CanvasState,
+  clips: AnimationClip[],
+  target: AnimationClip
+): ClipBaseline => {
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const last = sorted[sorted.length - 1]
+  const fallback = last ? clipPose(last) : captureClipPose(canvas)
+
+  // Latest keyframe that owns an effect at/before `target`, plus whether ANY
+  // keyframe owns it — so we can tell "held from an earlier keyframe" apart from
+  // "revealed by a later keyframe" (→ neutral rest) apart from "never animated"
+  // (→ the constant final value).
+  const latestOwner = (
+    owns: (c: AnimationClip) => boolean
+  ): { at: AnimationClip | null; any: boolean } => {
+    let at: AnimationClip | null = null
+    let any = false
+    for (const c of clips) {
+      if (!owns(c)) continue
+      any = true
+      if (c.startMs <= target.startMs && (!at || c.startMs >= at.startMs))
+        at = c
+    }
+    return { at, any }
+  }
+  const ownsMain = (effect: AnimationEffect) => (c: AnimationClip) =>
+    clipAffectsMain(c) && (c.effects ?? []).includes(effect)
+  const ownsSlot =
+    (slotId: string, effect: AnimationEffect) => (c: AnimationClip) =>
+      clipAffectsSlot(c, slotId) && (c.effects ?? []).includes(effect)
+
+  const main = <V,>(
+    effect: AnimationEffect,
+    extract: (p: ClipBaseline) => V,
+    rest: V
+  ): V => {
+    const { at, any } = latestOwner(ownsMain(effect))
+    if (at) return extract(clipPose(at))
+    return any ? rest : extract(fallback)
+  }
+
+  return {
+    tilt: main("tilt", (p) => p.tilt, { rx: 0, ry: 0, rz: 0 }),
+    scale: main("zoom", (p) => p.scale, 100),
+    screenshotPosition: main("position", (p) => p.screenshotPosition, "center"),
+    screenshotOffset: main("position", (p) => p.screenshotOffset, {
+      x: 0,
+      y: 0,
+    }),
+    padding: main("padding", (p) => p.padding, 0),
+    shadow: main("shadow", (p) => p.shadow, REST_SHADOW),
+    // Background is a single layer (no true crossfade), so always show the final.
+    background: (() => {
+      const { at } = latestOwner(ownsMain("background"))
+      return at ? clipPose(at).background : fallback.background
+    })(),
+    backdropEffects: main(
+      "backdrop",
+      (p) => p.backdropEffects,
+      DEFAULT_BASELINE.backdropEffects
+    ),
+    slots: Object.fromEntries(
+      canvas.screenshotSlots.map((s) => {
+        const committed: ClipSlotPose = {
+          tilt: s.tilt,
+          scale: s.scale,
+          rotation: s.rotation,
+        }
+        const slot = (effect: AnimationEffect, rest: ClipSlotPose) => {
+          const { at, any } = latestOwner(ownsSlot(s.id, effect))
+          if (at) return clipPose(at).slots[s.id] ?? rest
+          return any ? rest : committed
+        }
+        const t = slot("tilt", {
+          ...committed,
+          tilt: { rx: 0, ry: 0, rz: 0 },
+          rotation: 0,
+        })
+        const z = slot("zoom", { ...committed, scale: 100 })
+        return [s.id, { tilt: t.tilt, rotation: t.rotation, scale: z.scale }]
+      })
+    ),
+  }
+}
 
 /**
  * Which screenshot a newly-added clip should bind to, mirroring the inspector's
@@ -406,6 +539,12 @@ export type EditorActions = {
   setSelectedScreenshotSlotId: (id: string | null) => void
   setIsScreenshotSelected: (selected: boolean) => void
   setIsAnimateMode: (a: boolean) => void
+  /**
+   * Open a clip for editing: saves the currently-open clip's pose from the live
+   * canvas, then loads the newly-selected clip's pose onto the canvas so the
+   * inspector edits that clip's keyframe. Pass null to deselect.
+   */
+  selectAnimationClip: (id: string | null, canvasId?: string) => void
   setAnimationDuration: (ms: number, canvasId?: string) => void
   addAnimationClip: (canvasId?: string, atMs?: number) => string
   updateAnimationClip: (
@@ -492,6 +631,8 @@ export type EditorStore = {
   selectedAnnotationShapeId: string | null
   selectedScreenshotSlotId: string | null
   isScreenshotSelected: boolean
+  /** Timeline clip currently open for editing in Animate mode (its keyframe). */
+  selectedAnimationClipId: string | null
   presetTab: PresetTab
   activeLayoutPresetId: string | null
   activeCustomPresetId: string | null
@@ -544,6 +685,46 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     }, group)
   }
 
+  /**
+   * Like `commitCanvas`, but while a keyframe is open in Animate mode it also
+   * records `effects` as owned by that keyframe. This is how "changing an effect
+   * while a clip is selected makes that clip own it" — the ONLY thing a keyframe
+   * animates is the effect set recorded here.
+   */
+  const commitCanvasEffect = (
+    targetId: string | undefined,
+    patch: CanvasPatch,
+    group: string | null,
+    effects: AnimationEffect | AnimationEffect[]
+  ) => {
+    const list = Array.isArray(effects) ? effects : [effects]
+    commitCanvas(
+      targetId,
+      (canvas, state) => {
+        const base = typeof patch === "function" ? patch(canvas, state) : patch
+        const full = get()
+        const selId = full.selectedAnimationClipId
+        if (!full.isAnimateMode || !selId) return base
+        const anim = getCanvasAnimation(canvas)
+        const clip = anim.clips.find((c) => c.id === selId)
+        if (!clip) return base
+        const owned = clip.effects ?? []
+        if (list.every((e) => owned.includes(e))) return base
+        const merged = Array.from(new Set([...owned, ...list]))
+        return {
+          ...base,
+          animation: {
+            ...anim,
+            clips: anim.clips.map((c) =>
+              c.id === selId ? { ...c, effects: merged } : c
+            ),
+          },
+        }
+      },
+      group
+    )
+  }
+
   const makeLayerOps = (
     prefix: string,
     getGroup?: (id: string) => string | null
@@ -589,6 +770,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     selectedAnnotationShapeId: null,
     selectedScreenshotSlotId: null,
     isScreenshotSelected: false,
+    selectedAnimationClipId: null,
     presetTab: "single",
     activeLayoutPresetId: null,
     activeCustomPresetId: null,
@@ -958,9 +1140,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       )
     },
     setBackground: (b, canvasId) =>
-      commitCanvas(canvasId, { background: b }, "background"),
+      commitCanvasEffect(
+        canvasId,
+        { background: b },
+        "background",
+        "background"
+      ),
     setPadding: (n, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           padding: n,
@@ -968,6 +1155,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             padding: n,
           }),
         }),
+        "padding",
         "padding"
       ),
     setBorderRadius: (n, canvasId) =>
@@ -995,16 +1183,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "border"
       ),
     setMainScreenshotPadding: (n, canvasId) =>
-      commitCanvas(canvasId, { padding: n }, "padding"),
+      commitCanvasEffect(canvasId, { padding: n }, "padding", "padding"),
     setMainScreenshotBorderRadius: (n, canvasId) =>
       commitCanvas(canvasId, { borderRadius: n }, "borderRadius"),
     setMainScreenshotBorder: (b, canvasId) =>
       commitCanvas(canvasId, { border: b }, "border"),
     setBackdropEffects: (e, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({ backdrop: { ...canvas.backdrop, effects: e } }),
-        "backdrop-effects"
+        "backdrop-effects",
+        "backdrop"
       ),
     setBackdropPattern: (p, canvasId) =>
       commitCanvas(
@@ -1035,12 +1224,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         (canvas) => ({ backdrop: { ...canvas.backdrop, filter: f } }),
         "backdrop-filter"
       ),
-    setTilt: (t, canvasId) => commitCanvas(canvasId, { tilt: t }, "tilt"),
-    setScale: (n, canvasId) => commitCanvas(canvasId, { scale: n }, "scale"),
+    setTilt: (t, canvasId) =>
+      commitCanvasEffect(canvasId, { tilt: t }, "tilt", "tilt"),
+    setScale: (n, canvasId) =>
+      commitCanvasEffect(canvasId, { scale: n }, "scale", "zoom"),
     setTiltAndScale: (t, scale, canvasId) =>
-      commitCanvas(canvasId, { tilt: t, scale }, "tilt-scale"),
+      commitCanvasEffect(canvasId, { tilt: t, scale }, "tilt-scale", [
+        "tilt",
+        "zoom",
+      ]),
     setScreenshotTilt: (t, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           tilt: t,
@@ -1048,19 +1242,21 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             tilt: { ...t },
           })),
         }),
+        "tilt",
         "tilt"
       ),
     setScreenshotScale: (n, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           scale: n,
           screenshotSlots: mirrorToSlots(canvas.screenshotSlots, { scale: n }),
         }),
-        "scale"
+        "scale",
+        "zoom"
       ),
     setScreenshotRotation: (n, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           tilt: { ...canvas.tilt, rz: n },
@@ -1068,22 +1264,30 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             rotation: n,
           }),
         }),
+        "tilt",
         "tilt"
       ),
     setCanvasZoom: (n) => commit({ canvasZoom: n }, "canvasZoom"),
     setScreenshotPosition: (p, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         { screenshotPosition: p, screenshotOffset: { x: 0, y: 0 } },
-        "screenshotPosition"
+        "screenshotPosition",
+        "position"
       ),
     setScreenshotOffset: (o, canvasId) =>
-      commitCanvas(canvasId, { screenshotOffset: o }, "screenshotOffset"),
+      commitCanvasEffect(
+        canvasId,
+        { screenshotOffset: o },
+        "screenshotOffset",
+        "position"
+      ),
     setScreenshotPlacement: (p, o, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         { screenshotPosition: p, screenshotOffset: o },
-        "screenshotPlacement"
+        "screenshotPlacement",
+        "position"
       ),
     updateScreenshotLayer: (patch, canvasId) =>
       commitCanvas(
@@ -1094,7 +1298,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "screenshotLayer"
       ),
     setShadow: (s, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           shadow: s,
@@ -1102,10 +1306,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             shadow: cloneShadow(s),
           })),
         }),
+        "shadow",
         "shadow"
       ),
     setMainScreenshotShadow: (s, canvasId) =>
-      commitCanvas(canvasId, { shadow: s }, "shadow"),
+      commitCanvasEffect(canvasId, { shadow: s }, "shadow", "shadow"),
     setOverlay: (o, canvasId) =>
       commitCanvas(canvasId, { overlay: o }, "overlay"),
     setFrame: (f, canvasId) =>
@@ -1494,7 +1699,134 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           : { isScreenshotSelected: false }
       ),
     setTopBarPopoverOpen: (open) => set({ topBarPopoverOpen: open }),
-    setIsAnimateMode: (a) => set({ isAnimateMode: a }),
+    setIsAnimateMode: (a) => {
+      const state = get()
+      const canvas = state.present.canvases.find(
+        (c) => c.id === state.present.activeCanvasId
+      )
+      if (!canvas) {
+        set({ isAnimateMode: a, selectedAnimationClipId: null })
+        return
+      }
+      const animation = getCanvasAnimation(canvas)
+      const sorted = [...animation.clips].sort((x, y) => x.startMs - y.startMs)
+      const last = sorted[sorted.length - 1]
+      if (a) {
+        // Entering: the committed canvas IS the final frame, so fold any edits
+        // made outside Animate mode into the last clip's pose and open it for
+        // editing. (No pose is loaded — the canvas already shows the end state.)
+        if (!last) {
+          set({ isAnimateMode: true, selectedAnimationClipId: null })
+          return
+        }
+        const pose = captureClipPose(canvas)
+        const nextClips = animation.clips.map((c) =>
+          c.id === last.id ? { ...c, pose } : c
+        )
+        const canvases = state.present.canvases.map((c) =>
+          c.id === canvas.id
+            ? { ...c, animation: { ...animation, clips: nextClips } }
+            : c
+        )
+        set({
+          present: { ...state.present, canvases },
+          isAnimateMode: true,
+          selectedAnimationClipId: last.id,
+        })
+        return
+      }
+      // Exiting: persist the open clip's edits, then restore the committed canvas
+      // to the last clip's pose (the animation's final frame) so the static
+      // editor and exports show the end state. Clear the clip selection.
+      const openId = state.selectedAnimationClipId
+      let nextClips = animation.clips
+      if (openId && nextClips.some((c) => c.id === openId)) {
+        const pose = captureClipPose(canvas)
+        nextClips = nextClips.map((c) => (c.id === openId ? { ...c, pose } : c))
+      }
+      const nextSorted = [...nextClips].sort((x, y) => x.startMs - y.startMs)
+      const nextLast = nextSorted[nextSorted.length - 1]
+      const canvasPatch = nextLast
+        ? applyPoseToCanvas(canvas, clipPose(nextLast))
+        : {}
+      const canvases = state.present.canvases.map((c) =>
+        c.id === canvas.id
+          ? {
+              ...c,
+              ...canvasPatch,
+              animation: { ...animation, clips: nextClips },
+            }
+          : c
+      )
+      set({
+        present: { ...state.present, canvases },
+        isAnimateMode: false,
+        selectedAnimationClipId: null,
+      })
+    },
+    selectAnimationClip: (id, canvasId) => {
+      const state = get()
+      // Re-selecting the already-open clip is a no-op: its live edits are in the
+      // committed canvas; reloading its (not-yet-saved) stored pose would wipe
+      // them. onClipPointerDown re-selects on every click, so this matters.
+      if (id === state.selectedAnimationClipId) return
+      const targetCanvasId = canvasId ?? state.present.activeCanvasId
+      const canvas = state.present.canvases.find((c) => c.id === targetCanvasId)
+      if (!canvas) {
+        set({ selectedAnimationClipId: id })
+        return
+      }
+      const animation = getCanvasAnimation(canvas)
+      const openId = state.selectedAnimationClipId
+      let nextClips = animation.clips
+      // Persist the previously-open clip's edits from the live canvas.
+      if (openId && openId !== id && nextClips.some((c) => c.id === openId)) {
+        const pose = captureClipPose(canvas)
+        nextClips = nextClips.map((c) => (c.id === openId ? { ...c, pose } : c))
+      }
+      // Load the resolved look AT this keyframe (its owned effects + those held
+      // from earlier keyframes) so the inspector/canvas show what it really looks
+      // like there and you can edit from that state.
+      const opened = id ? nextClips.find((c) => c.id === id) : undefined
+      const canvasPatch = opened
+        ? applyPoseToCanvas(
+            canvas,
+            resolveKeyframePose(canvas, nextClips, opened)
+          )
+        : {}
+      const canvases = state.present.canvases.map((c) =>
+        c.id === canvas.id
+          ? {
+              ...c,
+              ...canvasPatch,
+              animation: { ...animation, clips: nextClips },
+            }
+          : c
+      )
+      // Point the inspector at the screenshot this clip targets, so edits route
+      // to the right screenshot (main vs a slot) and get recorded as this clip's
+      // effects. A slot target that no longer exists falls back to the main.
+      const targetSelection = (() => {
+        const t = opened?.target ?? { scope: "all" as const }
+        if (
+          t.scope === "slot" &&
+          canvas.screenshotSlots.some((s) => s.id === t.slotId)
+        ) {
+          return { ...CLEAR_SELECTION, selectedScreenshotSlotId: t.slotId }
+        }
+        if (t.scope === "main") {
+          return { ...CLEAR_SELECTION, isScreenshotSelected: true }
+        }
+        return { ...CLEAR_SELECTION }
+      })()
+      // Route through raw `set` (not commit) so navigating between clips does not
+      // pile up undo history; property edits still commit normally.
+      set({
+        present: { ...state.present, canvases },
+        selectedAnimationClipId: id,
+        ...(opened ? targetSelection : {}),
+      })
+    },
     setAnimationDuration: (ms, canvasId) =>
       commitCanvas(
         canvasId,
@@ -1552,7 +1884,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               get().selectedScreenshotSlotId,
               get().isScreenshotSelected
             ),
-            baseline: captureClipBaseline(canvas),
+            pose: captureClipPose(canvas),
+            // A fresh keyframe owns nothing until you edit an effect on it.
+            effects: [],
           }
           return {
             animation: { ...animation, clips: [...animation.clips, clip] },
@@ -1935,16 +2269,24 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       )
       return id
     },
-    updateScreenshotSlot: (id, patch, canvasId) =>
-      commitCanvas(
-        canvasId,
-        (canvas) => ({
-          screenshotSlots: canvas.screenshotSlots.map((slot) =>
-            slot.id === id ? { ...slot, ...patch } : slot
-          ),
-        }),
-        `screenshot-slot-${id}`
-      ),
+    updateScreenshotSlot: (id, patch, canvasId) => {
+      const apply = (canvas: CanvasState) => ({
+        screenshotSlots: canvas.screenshotSlots.map((slot) =>
+          slot.id === id ? { ...slot, ...patch } : slot
+        ),
+      })
+      // A slot's transform edits (tilt/rotation/scale) become owned effects on
+      // the open keyframe; other slot changes (position, fit, filter…) don't
+      // animate, so they commit normally.
+      const effects: AnimationEffect[] = []
+      if ("tilt" in patch || "rotation" in patch) effects.push("tilt")
+      if ("scale" in patch) effects.push("zoom")
+      if (effects.length === 0) {
+        commitCanvas(canvasId, apply, `screenshot-slot-${id}`)
+      } else {
+        commitCanvasEffect(canvasId, apply, `screenshot-slot-${id}`, effects)
+      }
+    },
     setScreenshotSlotImage: (id, src, canvasId) => {
       if (src === null) {
         commitCanvas(

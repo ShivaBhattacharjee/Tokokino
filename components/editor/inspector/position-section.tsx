@@ -233,7 +233,6 @@ export function PositionSection() {
     <div className="space-y-3">
       <PositionSwipeField
         ariaLabel="Position screenshot"
-        disabled={!hasMainTarget}
         value={currentPosition}
         onPreview={previewMoveTo}
         onChange={moveTo}

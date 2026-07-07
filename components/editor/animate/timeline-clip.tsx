@@ -22,7 +22,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import type { AnimationClip } from "@/lib/editor/state-types"
+import type { AnimationClip, AnimationEffect } from "@/lib/editor/state-types"
 import { cn } from "@/lib/utils"
 
 export type ClipDragMode = "move" | "trim" | "trim-start"
@@ -59,14 +59,8 @@ const gripPill =
   "h-4 w-1 rounded-full bg-foreground/50 opacity-0 shadow transition-opacity duration-150 group-hover/clip:opacity-100"
 
 // Which inspector properties a clip animates, surfaced as icons on the clip.
-export type ClipIconKey =
-  | "position"
-  | "zoom"
-  | "tilt"
-  | "padding"
-  | "shadow"
-  | "backdrop"
-  | "background"
+// The timeline clip's icon keys are exactly the animatable effects.
+export type ClipIconKey = AnimationEffect
 
 // Inspector-matching icons for the properties a clip animates.
 const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {

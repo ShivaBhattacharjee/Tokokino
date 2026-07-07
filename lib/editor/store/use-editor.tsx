@@ -385,6 +385,8 @@ export function useEditor(): EditorContext {
     setSelectedScreenshotSlotId: store.setSelectedScreenshotSlotId,
     setIsScreenshotSelected: store.setIsScreenshotSelected,
     setIsAnimateMode: store.setIsAnimateMode,
+    selectAnimationClip: (id, canvasId) =>
+      store.selectAnimationClip(id, canvasId ?? targetId),
     setAnimationDuration: (ms, canvasId) =>
       store.setAnimationDuration(ms, canvasId ?? targetId),
     addAnimationClip: (canvasId, atMs) =>

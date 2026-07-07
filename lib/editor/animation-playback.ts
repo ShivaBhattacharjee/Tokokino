@@ -11,9 +11,11 @@ import { DEFAULT_CANVAS_BASE } from "./store/defaults"
 import type {
   AnimationClip,
   AnimationClipTarget,
+  AnimationEffect,
   Background,
   BackdropEffects,
   ClipBaseline,
+  ClipSlotPose,
   Shadow,
 } from "./state-types"
 
@@ -36,6 +38,39 @@ export const DEFAULT_BASELINE: ClipBaseline = {
 /** A clip's captured baseline, falling back to the canvas defaults. */
 export function clipBaseline(clip: AnimationClip): ClipBaseline {
   return clip.baseline ?? DEFAULT_BASELINE
+}
+
+/** Neutral rest pose for an extra screenshot slot (flat, full-size, no spin). */
+export const NEUTRAL_SLOT_POSE: ClipSlotPose = {
+  tilt: { rx: 0, ry: 0, rz: 0 },
+  scale: 100,
+  rotation: 0,
+}
+
+/** A clip's target keyframe (`pose`), falling back to the legacy baseline. */
+export function clipPose(clip: AnimationClip): ClipBaseline {
+  return clip.pose ?? clip.baseline ?? DEFAULT_BASELINE
+}
+
+/**
+ * The rest pose the very first clip reveals FROM. "Intro" properties start
+ * neutral so they animate in — the screenshot tilts up from flat, scales up from
+ * full size, the shadow grows from invisible, and placement slides from center.
+ * The remaining properties (padding, background, backdrop) HOLD at the first
+ * clip's own values so they don't animate unless a later clip changes them.
+ */
+export function restPoseFor(firstPose: ClipBaseline): ClipBaseline {
+  return {
+    tilt: { rx: 0, ry: 0, rz: 0 },
+    scale: 100,
+    screenshotPosition: "center",
+    screenshotOffset: { x: 0, y: 0 },
+    shadow: { ...firstPose.shadow, intensity: 0 },
+    padding: firstPose.padding,
+    background: firstPose.background,
+    backdropEffects: firstPose.backdropEffects,
+    slots: {},
+  }
 }
 
 /** True when two backgrounds are different selections (robust to preview URLs). */
@@ -68,7 +103,16 @@ export function clipTargetOf(clip: AnimationClip): AnimationClipTarget {
   return clip.target ?? { scope: "all" }
 }
 
+/** A shadow that renders nothing — `type: "none"` or zero intensity. */
+function shadowInvisible(s: Shadow): boolean {
+  return s.type === "none" || s.intensity <= 0
+}
+
 export function shadowsDiffer(a: Shadow, b: Shadow): boolean {
+  // Two shadows that both render nothing are equal, even if their inert
+  // intensity/color differ (the default shadow is type "none" with a nonzero
+  // intensity, so this avoids a phantom "shadow animates" on every clip).
+  if (shadowInvisible(a) && shadowInvisible(b)) return false
   return (
     a.type !== b.type ||
     a.intensity !== b.intensity ||
@@ -77,14 +121,31 @@ export function shadowsDiffer(a: Shadow, b: Shadow): boolean {
   )
 }
 
+/** Light source as grid coords (row/col 0..4); "center" is the 2,2 middle. */
+function parseLightSource(ls: string): { r: number; c: number } {
+  if (ls === "center") return { r: 2, c: 2 }
+  const [r, c] = ls.split("-").map(Number)
+  return { r: Number.isFinite(r) ? r : 2, c: Number.isFinite(c) ? c : 2 }
+}
+
 /**
- * Shadow at progress p, animating `from` → `to`. When the type is unchanged the
- * intensity eases between the two; when the type changed (e.g. none → drop) the
- * target shadow simply grows in from intensity 0.
+ * Shadow at progress p, animating `from` → `to`. When the shadow type is
+ * unchanged the intensity AND light direction ease between the two (so a shadow
+ * cast in one direction rotates smoothly to another). When the type changed
+ * (e.g. none → drop) the target shadow simply grows in from intensity 0 at its
+ * own direction. `shadowCss` parses fractional grid coords, so the interpolated
+ * "r-c" light source renders a smooth intermediate offset.
  */
 export function shadowBetween(from: Shadow, to: Shadow, p: number): Shadow {
-  const fromIntensity = from.type === to.type ? from.intensity : 0
-  return { ...to, intensity: lerp(fromIntensity, to.intensity, p) }
+  const sameType = from.type === to.type
+  const fromIntensity = sameType ? from.intensity : 0
+  const toLs = parseLightSource(to.lightSource)
+  const fromLs = sameType ? parseLightSource(from.lightSource) : toLs
+  return {
+    ...to,
+    intensity: lerp(fromIntensity, to.intensity, p),
+    lightSource: `${lerp(fromLs.r, toLs.r, p)}-${lerp(fromLs.c, toLs.c, p)}`,
+  }
 }
 
 export function backdropEffectsDiffer(
@@ -125,6 +186,48 @@ export function backdropEffectsBetween(
   }
 }
 
+/** True when this keyframe explicitly owns (animates) the given effect. */
+export function clipOwns(
+  clip: AnimationClip,
+  effect: AnimationEffect
+): boolean {
+  return (clip.effects ?? []).includes(effect)
+}
+
+/**
+ * Sample a per-effect keyframe track at time `timeMs`. Each frame is one
+ * keyframe's window + the target value the effect reaches by the end of it.
+ *  - no frames → null (the effect isn't animated; leave the committed value),
+ *  - before the first frame → the neutral `rest` value (reveal origin),
+ *  - inside a frame → eased interpolation from the PREVIOUS frame's value (or
+ *    `rest` for the first) → this frame's value,
+ *  - in a gap after a frame, or past the last → hold that frame's value.
+ * This is the single source of truth for continuity + hold across the timeline.
+ */
+export function sampleKeyframes<V>(
+  frames: readonly { startMs: number; durationMs: number; value: V }[],
+  timeMs: number,
+  rest: V,
+  lerpValue: (from: V, to: V, p: number) => V
+): V | null {
+  if (frames.length === 0) return null
+  const sorted = [...frames].sort((a, b) => a.startMs - b.startMs)
+  if (timeMs < sorted[0].startMs) return rest
+  for (let i = 0; i < sorted.length; i++) {
+    const f = sorted[i]
+    if (timeMs < f.startMs) return sorted[i - 1].value // gap → hold previous
+    if (timeMs <= f.startMs + f.durationMs) {
+      const from = i > 0 ? sorted[i - 1].value : rest
+      return lerpValue(
+        from,
+        f.value,
+        easeOut(clamp01((timeMs - f.startMs) / f.durationMs))
+      )
+    }
+  }
+  return sorted[sorted.length - 1].value // past the end → hold last
+}
+
 /** True when `clip` animates the main screenshot (its own target or "all"). */
 export function clipAffectsMain(clip: AnimationClip): boolean {
   const t = clipTargetOf(clip)
@@ -161,29 +264,36 @@ export function clipsProgressAt(
 }
 
 /**
- * The clip whose baseline governs the pose at `timeMs`, with its eased progress
- * and the next clip in time (its animation target, for continuity):
+ * The clip whose baseline governs the pose at `timeMs`, with its eased progress,
+ * the next clip in time (its animation target, for continuity), and whether it's
+ * the first clip in the chain:
  *  - before the first clip → that clip at progress 0 (its baseline),
  *  - inside a clip → that clip at eased progress,
  *  - in a gap / past the end → the preceding clip held at progress 1.
  * Each clip animates from its own baseline → the NEXT clip's baseline, and the
  * last clip → the current committed value, so clips chain continuously instead
- * of each snapping back to the start.
+ * of each snapping back to the start. The FIRST clip is flagged so "reveal"
+ * properties (shadow, position) can originate from a neutral rest state rather
+ * than the captured baseline, then chain from there.
  */
 export function activeClipAt(
   clips: readonly AnimationClip[],
   timeMs: number
 ): {
   clip: AnimationClip
+  prev: AnimationClip | null
   next: AnimationClip | null
   progress: number
+  isFirst: boolean
 } | null {
   if (clips.length === 0) return null
   const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
   const at = (i: number, progress: number) => ({
     clip: sorted[i],
+    prev: sorted[i - 1] ?? null,
     next: sorted[i + 1] ?? null,
     progress,
+    isFirst: i === 0,
   })
   if (timeMs < sorted[0].startMs) return at(0, 0)
   for (let i = 0; i < sorted.length; i++) {

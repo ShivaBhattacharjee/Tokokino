@@ -5,12 +5,6 @@ import { toast } from "sonner"
 
 import { useAnimationPlayer } from "@/hooks/use-animation-player"
 import {
-  backdropEffectsDiffer,
-  backgroundsDiffer,
-  clipBaseline,
-  shadowsDiffer,
-} from "@/lib/editor/animation-playback"
-import {
   computeTicks,
   findGhostSlot,
   GHOST_SLOT_MS,
@@ -42,16 +36,6 @@ export function useAnimateTimeline() {
   const screenshotSlots = useActiveCanvasField((c) => c.screenshotSlots ?? [])
   const clips = useActiveCanvasField((c) => c.animation?.clips ?? [])
   const audio = useActiveCanvasField((c) => c.animation?.audio ?? null)
-  // Main-screenshot pose fields — drive the "what's animated" icons on a clip.
-  const tilt = useActiveCanvasField((c) => c.tilt)
-  const scale = useActiveCanvasField((c) => c.scale)
-  const screenshotPosition = useActiveCanvasField((c) => c.screenshotPosition)
-  const screenshotOffset = useActiveCanvasField((c) => c.screenshotOffset)
-  const padding = useActiveCanvasField((c) => c.padding)
-  const shadow = useActiveCanvasField((c) => c.shadow)
-  const backdropEffects = useActiveCanvasField((c) => c.backdrop.effects)
-  const background = useActiveCanvasField((c) => c.background)
-
   // One base-layer row per image on the canvas: the main screenshot plus each
   // extra screenshot slot. Drives the stacked rows under the motion lane.
   const layers = React.useMemo(
@@ -75,9 +59,10 @@ export function useAnimateTimeline() {
   const updateAnimationAudio = useEditorStore((s) => s.updateAnimationAudio)
   const setAnimationDuration = useEditorStore((s) => s.setAnimationDuration)
 
-  const [selectedClipId, setSelectedClipId] = React.useState<string | null>(
-    null
-  )
+  // Clip selection lives in the store so selecting a clip can load its keyframe
+  // pose onto the canvas (and save the previously-open clip's edits).
+  const selectedClipId = useEditorStore((s) => s.selectedAnimationClipId)
+  const selectAnimationClip = useEditorStore((s) => s.selectAnimationClip)
   // Platform-aware label for the duplicate shortcut shown in the context menu.
   const [dupShortcut, setDupShortcut] = React.useState("⌘D")
   React.useEffect(() => {
@@ -317,7 +302,7 @@ export function useAnimateTimeline() {
       if (e.button !== 0) return
       e.stopPropagation()
       e.currentTarget.setPointerCapture(e.pointerId)
-      setSelectedClipId(clip.id)
+      selectAnimationClip(clip.id)
       dragRef.current = {
         id: clip.id,
         mode,
@@ -330,7 +315,7 @@ export function useAnimateTimeline() {
       pointerXRef.current = e.clientX
       startAutoScroll(applyClipDrag)
     },
-    [applyClipDrag, clipMsFromClientX, startAutoScroll]
+    [applyClipDrag, clipMsFromClientX, startAutoScroll, selectAnimationClip]
   )
 
   const onClipPointerMove = React.useCallback(
@@ -601,8 +586,8 @@ export function useAnimateTimeline() {
 
   const onClipsRowClick = React.useCallback(() => {
     if (!ghostVisible) return
-    setSelectedClipId(addAnimationClip(undefined, ghostStartMsRef.current))
-  }, [addAnimationClip, ghostVisible])
+    selectAnimationClip(addAnimationClip(undefined, ghostStartMsRef.current))
+  }, [addAnimationClip, ghostVisible, selectAnimationClip])
 
   const onClipMenuOpenChange = React.useCallback((open: boolean) => {
     menuOpenRef.current = open
@@ -613,35 +598,49 @@ export function useAnimateTimeline() {
   }, [])
 
   const addClip = React.useCallback(
-    () => setSelectedClipId(addAnimationClip()),
-    [addAnimationClip]
+    () => selectAnimationClip(addAnimationClip()),
+    [addAnimationClip, selectAnimationClip]
   )
 
   const duplicateClip = React.useCallback(
     (id: string) => {
       const newId = duplicateAnimationClip(id)
-      if (newId) setSelectedClipId(newId)
+      if (newId) selectAnimationClip(newId)
     },
-    [duplicateAnimationClip]
+    [duplicateAnimationClip, selectAnimationClip]
+  )
+
+  // After deleting the open clip, open the last remaining clip so the canvas
+  // falls back to a valid keyframe (or deselect when none are left).
+  const fallbackAfterDelete = React.useCallback(
+    (deletedId: string) => {
+      const remaining = clips
+        .filter((c) => c.id !== deletedId)
+        .sort((a, b) => a.startMs - b.startMs)
+      selectAnimationClip(
+        remaining.length ? remaining[remaining.length - 1].id : null
+      )
+    },
+    [clips, selectAnimationClip]
   )
 
   const deleteClip = React.useCallback(
     (id: string) => {
       removeAnimationClip(id)
-      setSelectedClipId((cur) => (cur === id ? null : cur))
+      if (selectedClipId === id) fallbackAfterDelete(id)
     },
-    [removeAnimationClip]
+    [removeAnimationClip, selectedClipId, fallbackAfterDelete]
   )
 
   const deleteSelectedClip = React.useCallback(() => {
     if (!selectedClipId) return
     removeAnimationClip(selectedClipId)
-    setSelectedClipId(null)
-  }, [removeAnimationClip, selectedClipId])
+    fallbackAfterDelete(selectedClipId)
+  }, [removeAnimationClip, selectedClipId, fallbackAfterDelete])
 
   const selectClip = React.useCallback(
-    (id: string) => setSelectedClipId(id),
-    []
+    (id: string) => selectAnimationClip(id),
+    [selectAnimationClip]
   )
 
   // ---- exit (guarded) ----------------------------------------------------
@@ -688,7 +687,7 @@ export function useAnimateTimeline() {
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault()
         removeAnimationClip(selectedClipId)
-        setSelectedClipId(null)
+        fallbackAfterDelete(selectedClipId)
       } else if (
         (e.key === "d" || e.key === "D") &&
         (e.metaKey || e.ctrlKey) &&
@@ -697,12 +696,18 @@ export function useAnimateTimeline() {
       ) {
         e.preventDefault()
         const newId = duplicateAnimationClip(selectedClipId)
-        if (newId) setSelectedClipId(newId)
+        if (newId) selectAnimationClip(newId)
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [selectedClipId, removeAnimationClip, duplicateAnimationClip])
+  }, [
+    selectedClipId,
+    removeAnimationClip,
+    duplicateAnimationClip,
+    selectAnimationClip,
+    fallbackAfterDelete,
+  ])
 
   // Spacebar toggles playback (like a video editor). Ignored while typing in a
   // field; preventDefault stops page scroll and a focused button from also
@@ -753,64 +758,13 @@ export function useAnimateTimeline() {
     [screenshot, screenshotSlots]
   )
 
-  // Which inspector properties a clip actually animates (non-neutral pose),
-  // surfaced as icon keys on the clip — mirrors the inspector's section icons so
-  // the clip reads like "this animates position + tilt". A slot clip reflects
-  // that slot's pose; main/all reflect the main screenshot's pose.
+  // Icons a clip shows = exactly the effects that keyframe OWNS (the ones you
+  // changed while it was selected) — for the main screenshot AND slots alike.
+  // This is the same owned set the on-canvas animation reads, so icons and motion
+  // always agree.
   const resolveClipIcons = React.useCallback(
-    (clip: (typeof clips)[number]): ClipIconKey[] => {
-      // Only surface icons for properties changed since the clip was added — the
-      // exact same baseline diff the on-canvas animation uses.
-      const base = clipBaseline(clip)
-      const target = clip.target ?? { scope: "all" as const }
-      const keys: ClipIconKey[] = []
-      if (target.scope === "slot") {
-        const slot = screenshotSlots.find((s) => s.id === target.slotId)
-        if (!slot) return keys
-        const bs = base.slots[slot.id]
-        if (!bs || slot.scale !== bs.scale) keys.push("zoom")
-        if (
-          !bs ||
-          slot.tilt.rx !== bs.tilt.rx ||
-          slot.tilt.ry !== bs.tilt.ry ||
-          slot.tilt.rz !== bs.tilt.rz ||
-          slot.rotation !== bs.rotation
-        )
-          keys.push("tilt")
-        return keys
-      }
-      if (
-        screenshotPosition !== base.screenshotPosition ||
-        screenshotOffset.x !== base.screenshotOffset.x ||
-        screenshotOffset.y !== base.screenshotOffset.y
-      )
-        keys.push("position")
-      if (scale !== base.scale) keys.push("zoom")
-      if (
-        tilt.rx !== base.tilt.rx ||
-        tilt.ry !== base.tilt.ry ||
-        tilt.rz !== base.tilt.rz
-      )
-        keys.push("tilt")
-      if (padding !== base.padding) keys.push("padding")
-      if (shadowsDiffer(base.shadow, shadow)) keys.push("shadow")
-      if (backgroundsDiffer(base.background, background))
-        keys.push("background")
-      if (backdropEffectsDiffer(base.backdropEffects, backdropEffects))
-        keys.push("backdrop")
-      return keys
-    },
-    [
-      screenshotSlots,
-      tilt,
-      scale,
-      screenshotPosition,
-      screenshotOffset,
-      padding,
-      shadow,
-      background,
-      backdropEffects,
-    ]
+    (clip: (typeof clips)[number]): ClipIconKey[] => clip.effects ?? [],
+    []
   )
 
   return {

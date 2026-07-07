@@ -394,6 +394,20 @@ export type AnimationClipTarget =
   | { scope: "main" }
   | { scope: "slot"; slotId: string }
 
+/**
+ * An animatable effect a keyframe can "own". A keyframe animates (and shows an
+ * icon for) exactly the effects in its `effects` set — the ones you changed while
+ * it was selected. These strings double as the timeline clip's icon keys.
+ */
+export type AnimationEffect =
+  | "position"
+  | "zoom"
+  | "tilt"
+  | "padding"
+  | "shadow"
+  | "background"
+  | "backdrop"
+
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
   tilt: Tilt
@@ -402,10 +416,10 @@ export type ClipSlotPose = {
 }
 
 /**
- * Snapshot of the canvas's animatable state at the moment a clip was created.
- * A clip animates each property from this baseline → its current committed value
- * — and animates it ONLY if the two differ. So only what you change *after*
- * adding the clip becomes part of that clip's motion (untouched defaults don't).
+ * A full snapshot of the canvas's animatable state — used as a clip's target
+ * keyframe (`pose`). Playback interpolates the previous keyframe's pose → this
+ * clip's pose; the first clip reveals from a neutral rest pose. Editing the
+ * canvas while a clip is selected updates that clip's pose only.
  */
 export type ClipBaseline = {
   tilt: Tilt
@@ -431,8 +445,21 @@ export type AnimationClip = {
    */
   target?: AnimationClipTarget
   /**
-   * State captured when the clip was added. Optional so older clips hydrate
-   * cleanly (they fall back to the canvas defaults as their baseline).
+   * This clip's target keyframe — the look the screenshot animates TO by the end
+   * of the clip. Set when the clip is added (snapshot of the current canvas) and
+   * updated as you edit the canvas while the clip is selected.
+   */
+  pose?: ClipBaseline
+  /**
+   * The effects this keyframe explicitly owns — the properties you changed while
+   * it was selected. ONLY these animate and show icons; everything else holds the
+   * value from the previous keyframe. Empty/undefined = a passive keyframe that
+   * animates nothing yet.
+   */
+  effects?: AnimationEffect[]
+  /**
+   * Legacy add-time snapshot from the pre-keyframe model. Kept optional so older
+   * drafts hydrate cleanly; read through `clipPose`, which prefers `pose`.
    */
   baseline?: ClipBaseline
 }
