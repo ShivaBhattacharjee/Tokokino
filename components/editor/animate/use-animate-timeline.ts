@@ -66,10 +66,12 @@ export function useAnimateTimeline() {
   // Platform-aware label for the duplicate shortcut shown in the context menu.
   const [dupShortcut, setDupShortcut] = React.useState("⌘D")
   const [clearEffectsShortcut, setClearEffectsShortcut] = React.useState("⌘⇧⌫")
+  const [deselectShortcut, setDeselectShortcut] = React.useState("⌘⇧A")
   React.useEffect(() => {
     const apple = isApplePlatform()
     setDupShortcut(apple ? "⌘D" : "Ctrl+D")
     setClearEffectsShortcut(apple ? "⌘⇧⌫" : "Ctrl+Shift+Del")
+    setDeselectShortcut(apple ? "⌘⇧A" : "Ctrl+Shift+A")
   }, [])
   const [confirmExitOpen, setConfirmExitOpen] = React.useState(false)
   const trackRef = React.useRef<HTMLDivElement | null>(null)
@@ -229,6 +231,12 @@ export function useAnimateTimeline() {
     grabOffsetMs: number
     startMs: number
     durationMs: number
+    // Was this clip already selected when the gesture began? A plain click
+    // (no drag) on an already-selected clip deselects it.
+    wasSelected: boolean
+    // Pointer x at press + whether it has moved past the click threshold.
+    downX: number
+    moved: boolean
   } | null>(null)
   // Which clip is actively being moved — drives the little "picked up" lift.
   const [draggingClipId, setDraggingClipId] = React.useState<string | null>(
@@ -305,6 +313,7 @@ export function useAnimateTimeline() {
       if (e.button !== 0) return
       e.stopPropagation()
       e.currentTarget.setPointerCapture(e.pointerId)
+      const wasSelected = selectedClipId === clip.id
       selectAnimationClip(clip.id)
       dragRef.current = {
         id: clip.id,
@@ -312,18 +321,31 @@ export function useAnimateTimeline() {
         grabOffsetMs: clipMsFromClientX(e.clientX) - clip.startMs,
         startMs: clip.startMs,
         durationMs: clip.durationMs,
+        wasSelected,
+        downX: e.clientX,
+        moved: false,
       }
       setInteractingClipId(clip.id)
       if (mode === "move") setDraggingClipId(clip.id)
       pointerXRef.current = e.clientX
       startAutoScroll(applyClipDrag)
     },
-    [applyClipDrag, clipMsFromClientX, startAutoScroll, selectAnimationClip]
+    [
+      applyClipDrag,
+      clipMsFromClientX,
+      startAutoScroll,
+      selectAnimationClip,
+      selectedClipId,
+    ]
   )
 
   const onClipPointerMove = React.useCallback(
     (e: React.PointerEvent) => {
       if (!dragRef.current) return
+      // Past the click threshold this is a drag, not a click — so pointer-up
+      // won't treat it as a deselect tap.
+      if (Math.abs(e.clientX - dragRef.current.downX) > 4)
+        dragRef.current.moved = true
       pointerXRef.current = e.clientX
       applyClipDrag(e.clientX)
     },
@@ -344,12 +366,15 @@ export function useAnimateTimeline() {
           drag.startMs
         moveAnimationClip(drag.id, dropped)
       }
+      // A plain click (no drag) on a clip that was already selected toggles it
+      // off — clicking it again deselects.
+      if (!drag.moved && drag.wasSelected) selectAnimationClip(null)
       dragRef.current = null
       setDraggingClipId(null)
       setInteractingClipId(null)
       stopAutoScroll()
     },
-    [moveAnimationClip, stopAutoScroll]
+    [moveAnimationClip, stopAutoScroll, selectAnimationClip]
   )
 
   // ---- playhead scrubbing (click + drag anywhere on the track) -----------
@@ -650,8 +675,8 @@ export function useAnimateTimeline() {
     fallbackAfterDelete(selectedClipId)
   }, [removeAnimationClip, selectedClipId, fallbackAfterDelete])
 
-  const selectClip = React.useCallback(
-    (id: string) => selectAnimationClip(id),
+  const deselectClip = React.useCallback(
+    () => selectAnimationClip(null),
     [selectAnimationClip]
   )
 
@@ -717,6 +742,15 @@ export function useAnimateTimeline() {
         e.preventDefault()
         const newId = duplicateAnimationClip(selectedClipId)
         if (newId) selectAnimationClip(newId)
+      } else if (
+        (e.key === "a" || e.key === "A") &&
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        !e.altKey
+      ) {
+        // ⌘/Ctrl+Shift+A — deselect the clip (mirrors design-tool convention).
+        e.preventDefault()
+        selectAnimationClip(null)
       }
     }
     window.addEventListener("keydown", onKeyDown)
@@ -813,6 +847,7 @@ export function useAnimateTimeline() {
     clipsAnimated,
     dupShortcut,
     clearEffectsShortcut,
+    deselectShortcut,
 
     // refs
     scrollRef,
@@ -849,7 +884,7 @@ export function useAnimateTimeline() {
     onClipPointerMove,
     onClipPointerUp,
     onClipMenuOpenChange,
-    selectClip,
+    deselectClip,
     duplicateClip,
     clearClipEffects,
     deleteClip,

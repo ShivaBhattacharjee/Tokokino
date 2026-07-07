@@ -3,6 +3,7 @@
 import * as React from "react"
 import { motion } from "motion/react"
 import {
+  RiCheckboxBlankLine,
   RiDeleteBinLine,
   RiDragMove2Line,
   RiEraserLine,
@@ -46,12 +47,13 @@ type TimelineClipProps = {
   iconKeys: ClipIconKey[]
   dupShortcut: string
   clearEffectsShortcut: string
+  deselectShortcut: string
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
   onPointerMoveClip: (e: React.PointerEvent) => void
   onPointerUpClip: (e: React.PointerEvent) => void
-  onSelect: () => void
   onDuplicate: () => void
   onClearEffects: () => void
+  onDeselect: () => void
   onDelete: () => void
   onMenuOpenChange: (open: boolean) => void
 }
@@ -88,12 +90,13 @@ export function TimelineClip({
   iconKeys,
   dupShortcut,
   clearEffectsShortcut,
+  deselectShortcut,
   onPointerDownClip,
   onPointerMoveClip,
   onPointerUpClip,
-  onSelect,
   onDuplicate,
   onClearEffects,
+  onDeselect,
   onDelete,
   onMenuOpenChange,
 }: TimelineClipProps) {
@@ -104,10 +107,9 @@ export function TimelineClip({
           onPointerDown={(e) => onPointerDownClip(e, "move")}
           onPointerMove={onPointerMoveClip}
           onPointerUp={onPointerUpClip}
-          onClick={(e) => {
-            e.stopPropagation()
-            onSelect()
-          }}
+          // Selection (and click-to-deselect) is handled in the pointer
+          // down/up cycle; this just stops the click from reaching the track.
+          onClick={(e) => e.stopPropagation()}
           className={cn(
             "group/clip absolute top-1 bottom-1 z-20 cursor-grab touch-none overflow-hidden rounded-md border bg-linear-to-b from-neutral-100 to-neutral-200 transition-[border-color] duration-150 ease-out active:cursor-grabbing dark:from-neutral-700/70 dark:to-neutral-800",
             selected
@@ -234,6 +236,11 @@ export function TimelineClip({
           <RiEraserLine />
           Remove effects
           <ContextMenuShortcut>{clearEffectsShortcut}</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={onDeselect}>
+          <RiCheckboxBlankLine />
+          Deselect
+          <ContextMenuShortcut>{deselectShortcut}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onSelect={onDelete}>
