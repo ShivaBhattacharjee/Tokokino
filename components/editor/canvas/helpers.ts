@@ -84,11 +84,15 @@ export function portraitOverlayCss(
 
 function lightSourcePoint(direction: string) {
   if (direction === "center") return { x: 50, y: 50 }
-  const [row, col] = direction.split("-").map(Number)
+  const match = direction.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/)
+  const row = Number(match?.[1])
+  const col = Number(match?.[2])
   if (!Number.isFinite(row) || !Number.isFinite(col)) return { x: 50, y: 50 }
   return {
-    x: clamp(col, 0, 4) * 25,
-    y: clamp(row, 0, 4) * 25,
+    // Animate-mode lighting uses temporary off-canvas grid points so the glow can
+    // enter from the selected side instead of being clamped onto the edge.
+    x: clamp(col, -4, 8) * 25,
+    y: clamp(row, -4, 8) * 25,
   }
 }
 

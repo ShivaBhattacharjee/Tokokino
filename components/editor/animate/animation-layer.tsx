@@ -50,6 +50,7 @@ import {
   clipsProgressAt,
   DEFAULT_BASELINE,
   lerp,
+  lightingEntranceRest,
   lightingBetween,
   NEUTRAL_SLOT_POSE,
   REST_LIGHTING,
@@ -491,16 +492,17 @@ export function AnimationLayer() {
         setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, null)
       }
 
-      // --- backdrop lighting — chains between keyframes: the light eases from the
-      // previous keyframe's lighting (or dark, for its first appearance) → this
-      // keyframe's, gliding its position/strength/colour so two lightings don't
-      // both show at once. We push the interpolated overlay image + opacity into
-      // the overlay's vars (outer + inner variants) each frame; at rest they clear
-      // and the committed overlay values show through. ---
+      // --- backdrop lighting — chains between keyframes. The first lighting
+      // keyframe starts just outside its target side/corner, so a top light
+      // travels downward into place instead of coming from a fixed default edge.
+      const lightingFrames = framesFor(
+        "lighting",
+        (pz) => pz.lighting ?? REST_LIGHTING
+      )
       const lightVal = sampleKeyframes<BackdropLighting>(
-        framesFor("lighting", (pz) => pz.lighting ?? REST_LIGHTING),
+        lightingFrames,
         playheadMs,
-        REST_LIGHTING,
+        lightingEntranceRest(lightingFrames[0]?.value),
         lightingBetween
       )
       if (lightVal) {

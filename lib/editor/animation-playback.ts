@@ -45,6 +45,33 @@ export const REST_LIGHTING: BackdropLighting = {
   intensity: 0,
 }
 
+/**
+ * Dark entrance pose for the first lighting keyframe. The glow starts just
+ * outside the same edge/corner as the target direction, then travels into place.
+ */
+export function lightingEntranceRest(
+  lighting?: BackdropLighting
+): BackdropLighting {
+  const base = lighting ?? REST_LIGHTING
+  const point = lightingGridPoint(base.direction)
+  const fromCenter = { r: point.r - 2, c: point.c - 2 }
+
+  if (fromCenter.r === 0 && fromCenter.c === 0) {
+    return { ...base, intensity: 0 }
+  }
+
+  const entrance = {
+    r: point.r + Math.sign(fromCenter.r) * 2,
+    c: point.c + Math.sign(fromCenter.c) * 2,
+  }
+
+  return {
+    ...base,
+    intensity: 0,
+    direction: `${entrance.r}-${entrance.c}`,
+  }
+}
+
 /** A clip's captured baseline, falling back to the canvas defaults. */
 export function clipBaseline(clip: AnimationClip): ClipBaseline {
   return clip.baseline ?? DEFAULT_BASELINE
@@ -87,9 +114,9 @@ export function restPoseFor(firstPose: ClipBaseline): ClipBaseline {
     canvasBorderRadius: firstPose.canvasBorderRadius,
     background: firstPose.background,
     backdropEffects: firstPose.backdropEffects,
-    // Lighting is an "intro" property: it flows in from dark so the backdrop
-    // lights up over the reveal rather than starting fully lit.
-    lighting: { ...(firstPose.lighting ?? REST_LIGHTING), intensity: 0 },
+    // Lighting is an "intro" property: it enters from the target side/corner so
+    // a top light travels top → target instead of coming from a fixed default.
+    lighting: lightingEntranceRest(firstPose.lighting),
     slots: {},
   }
 }
@@ -110,7 +137,9 @@ export function lightingsDiffer(
 /** Lighting direction as grid coords (row/col 0..4); "center" is the 2,2 middle. */
 function lightingGridPoint(direction: string): { r: number; c: number } {
   if (direction === "center") return { r: 2, c: 2 }
-  const [r, c] = direction.split("-").map(Number)
+  const match = direction.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/)
+  const r = Number(match?.[1])
+  const c = Number(match?.[2])
   return { r: Number.isFinite(r) ? r : 2, c: Number.isFinite(c) ? c : 2 }
 }
 
