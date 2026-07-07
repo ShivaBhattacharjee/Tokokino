@@ -5,6 +5,7 @@ import { motion } from "motion/react"
 import {
   RiDeleteBinLine,
   RiDragMove2Line,
+  RiEraserLine,
   RiFileCopyLine,
   RiLayoutGrid2Line,
   RiMoonClearLine,
@@ -44,11 +45,13 @@ type TimelineClipProps = {
   /** Which inspector properties this clip animates — rendered as small icons. */
   iconKeys: ClipIconKey[]
   dupShortcut: string
+  clearEffectsShortcut: string
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
   onPointerMoveClip: (e: React.PointerEvent) => void
   onPointerUpClip: (e: React.PointerEvent) => void
   onSelect: () => void
   onDuplicate: () => void
+  onClearEffects: () => void
   onDelete: () => void
   onMenuOpenChange: (open: boolean) => void
 }
@@ -84,11 +87,13 @@ export function TimelineClip({
   images,
   iconKeys,
   dupShortcut,
+  clearEffectsShortcut,
   onPointerDownClip,
   onPointerMoveClip,
   onPointerUpClip,
   onSelect,
   onDuplicate,
+  onClearEffects,
   onDelete,
   onMenuOpenChange,
 }: TimelineClipProps) {
@@ -213,11 +218,19 @@ export function TimelineClip({
           </div>
         </motion.div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-44">
+      <ContextMenuContent className="w-52">
         <ContextMenuItem onSelect={onDuplicate}>
           <RiFileCopyLine />
           Duplicate
           <ContextMenuShortcut>{dupShortcut}</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem
+          onSelect={onClearEffects}
+          disabled={iconKeys.length === 0}
+        >
+          <RiEraserLine />
+          Remove effects
+          <ContextMenuShortcut>{clearEffectsShortcut}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onSelect={onDelete}>

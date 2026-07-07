@@ -95,6 +95,7 @@ export function TopBar() {
   const removeCanvas = useEditorStore((s) => s.removeCanvas)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const setBulkEditMode = useEditorStore((s) => s.setBulkEditMode)
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
   const canvasCount = useEditorStore((s) => s.present.canvases.length)
   const [showDisableDialog, setShowDisableDialog] = React.useState(false)
   const [authDialog, setAuthDialog] = React.useState<{
@@ -802,10 +803,13 @@ export function TopBar() {
             icon={RiLayoutGridLine}
             variant={bulkEditMode ? "default" : "outline"}
             tooltip={
-              bulkEditMode
-                ? "Disable bulk edit"
-                : "Enable bulk edit & add canvas"
+              isAnimateMode
+                ? "Not available in animate mode"
+                : bulkEditMode
+                  ? "Disable bulk edit"
+                  : "Enable bulk edit & add canvas"
             }
+            disabled={isAnimateMode}
             onClick={handleBulkEditClick}
             className="hidden xl:inline-flex"
           />

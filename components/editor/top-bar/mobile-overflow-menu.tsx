@@ -65,6 +65,7 @@ export function MobileOverflowMenu({
   onOpenClick: () => void
   onOpenProjectClick: () => void
 }) {
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
   const canUndo = useEditorStore((s) => s.past.length > 0)
@@ -158,7 +159,7 @@ export function MobileOverflowMenu({
           <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
             Workspace
           </DropdownMenuLabel>
-          <DropdownMenuItem onClick={onBulkEditClick}>
+          <DropdownMenuItem onClick={onBulkEditClick} disabled={isAnimateMode}>
             <RiLayoutGridLine />
             {bulkEditMode ? "Exit bulk edit" : "Bulk edit"}
           </DropdownMenuItem>

@@ -301,11 +301,11 @@ export function resolveAnimateBgStack(
   const bgClips = sorted.filter(isBgKeyframe)
   if (bgClips.length === 0) return EMPTY_BG_STACK
 
-  // Base = the background just before the first background keyframe. When that
-  // keyframe is the very first clip there's nothing before it → reveal from black.
-  const firstBgIndex = sorted.findIndex(isBgKeyframe)
-  const base =
-    firstBgIndex <= 0 ? null : clipPose(sorted[firstBgIndex - 1]).background
+  // Base = the background shown BEFORE the first background keyframe. A canvas
+  // always has a background, so this is that keyframe's captured baseline (the
+  // background it was changed FROM). The first swap cross-fades from it — never
+  // from black — even when the keyframe is the very first clip.
+  const base = clipBaseline(bgClips[0]).background
 
   // At rest, show the selected keyframe's background (or the final one when the
   // selection isn't a background keyframe): everything up to that index opaque.

@@ -1925,6 +1925,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             MIN_ANIMATION_CLIP_MS,
             Math.min(clipLen, nextStart - startMs)
           )
+          const snapshot = captureClipPose(canvas)
           const clip: AnimationClip = {
             id,
             startMs,
@@ -1934,7 +1935,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               get().selectedScreenshotSlotId,
               get().isScreenshotSelected
             ),
-            pose: captureClipPose(canvas),
+            pose: snapshot,
+            // The state BEFORE this keyframe's edits — captured at creation so an
+            // effect (e.g. background) can cross-fade FROM the pre-edit value
+            // rather than from a neutral/black origin. The canvas always has a
+            // background, so the first background swap starts from this one.
+            baseline: snapshot,
             // A fresh keyframe owns nothing until you edit an effect on it.
             effects: [],
           }

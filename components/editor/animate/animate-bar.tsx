@@ -205,6 +205,7 @@ export function AnimateBar() {
                     images={t.resolveClipImages(clip)}
                     iconKeys={t.resolveClipIcons(clip)}
                     dupShortcut={t.dupShortcut}
+                    clearEffectsShortcut={t.clearEffectsShortcut}
                     onPointerDownClip={(e, mode) =>
                       t.onClipPointerDown(e, clip, mode)
                     }
@@ -212,6 +213,7 @@ export function AnimateBar() {
                     onPointerUpClip={t.onClipPointerUp}
                     onSelect={() => t.selectClip(clip.id)}
                     onDuplicate={() => t.duplicateClip(clip.id)}
+                    onClearEffects={() => t.clearClipEffects(clip.id)}
                     onDelete={() => t.deleteClip(clip.id)}
                     onMenuOpenChange={t.onClipMenuOpenChange}
                   />

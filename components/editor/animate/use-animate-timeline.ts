@@ -65,8 +65,11 @@ export function useAnimateTimeline() {
   const selectAnimationClip = useEditorStore((s) => s.selectAnimationClip)
   // Platform-aware label for the duplicate shortcut shown in the context menu.
   const [dupShortcut, setDupShortcut] = React.useState("⌘D")
+  const [clearEffectsShortcut, setClearEffectsShortcut] = React.useState("⌘⇧⌫")
   React.useEffect(() => {
-    setDupShortcut(isApplePlatform() ? "⌘D" : "Ctrl+D")
+    const apple = isApplePlatform()
+    setDupShortcut(apple ? "⌘D" : "Ctrl+D")
+    setClearEffectsShortcut(apple ? "⌘⇧⌫" : "Ctrl+Shift+Del")
   }, [])
   const [confirmExitOpen, setConfirmExitOpen] = React.useState(false)
   const trackRef = React.useRef<HTMLDivElement | null>(null)
@@ -610,6 +613,15 @@ export function useAnimateTimeline() {
     [duplicateAnimationClip, selectAnimationClip]
   )
 
+  // Strips the effects a keyframe owns, turning it back into a passive clip
+  // that holds the previous keyframe's values — only this clip is affected.
+  const clearClipEffects = React.useCallback(
+    (id: string) => {
+      updateAnimationClip(id, { effects: [] })
+    },
+    [updateAnimationClip]
+  )
+
   // After deleting the open clip, open the last remaining clip so the canvas
   // falls back to a valid keyframe (or deselect when none are left).
   const fallbackAfterDelete = React.useCallback(
@@ -684,7 +696,15 @@ export function useAnimateTimeline() {
       ) {
         return
       }
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey
+      ) {
+        // ⌘/Ctrl+Shift+Delete — clear this clip's effects (this clip only).
+        e.preventDefault()
+        updateAnimationClip(selectedClipId, { effects: [] })
+      } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault()
         removeAnimationClip(selectedClipId)
         fallbackAfterDelete(selectedClipId)
@@ -705,6 +725,7 @@ export function useAnimateTimeline() {
     selectedClipId,
     removeAnimationClip,
     duplicateAnimationClip,
+    updateAnimationClip,
     selectAnimationClip,
     fallbackAfterDelete,
   ])
@@ -791,6 +812,7 @@ export function useAnimateTimeline() {
     interactingClipId,
     clipsAnimated,
     dupShortcut,
+    clearEffectsShortcut,
 
     // refs
     scrollRef,
@@ -829,6 +851,7 @@ export function useAnimateTimeline() {
     onClipMenuOpenChange,
     selectClip,
     duplicateClip,
+    clearClipEffects,
     deleteClip,
 
     // controls

@@ -46,6 +46,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Animate",
     items: [
       { label: "Duplicate clip", keys: ["mod", "D"] },
+      { label: "Remove clip effects", keys: ["mod", "shift", "Delete"] },
       { label: "Delete clip", keys: ["Delete"] },
     ],
   },
