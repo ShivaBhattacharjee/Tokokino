@@ -108,16 +108,22 @@ export function AnimateBar() {
             onPointerCancel={t.onScrubUp}
           >
             {/* Inactive region — everything past the current duration is dimmed
-                with a diagonal hatch so it reads as "outside" the timeline. */}
+                with a diagonal hatch AND blurred so it reads as "outside" the
+                timeline (it won't play). Sits ABOVE the clips (below the playhead
+                z-40 and duration handle z-30) and blurs them via backdrop-filter,
+                so a clip that STRADDLES the duration has just its overflow portion
+                blurred while its playable portion stays sharp. */}
             <div
               aria-hidden
-              className="pointer-events-none absolute -top-2 bottom-0 z-10 rounded-r-lg"
+              className="pointer-events-none absolute -top-2 bottom-0 z-25 rounded-r-lg"
               style={{
                 left: pxFor(durationMs),
                 right: 0,
                 backgroundColor: "rgba(0,0,0,0.28)",
                 backgroundImage:
                   "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 9px)",
+                backdropFilter: "blur(2px) saturate(0.6)",
+                WebkitBackdropFilter: "blur(2px) saturate(0.6)",
               }}
             />
 

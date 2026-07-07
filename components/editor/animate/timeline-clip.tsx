@@ -114,8 +114,11 @@ export function TimelineClip({
               ? "border-primary/60"
               : "border-black/10 hover:border-black/20 dark:border-white/10 dark:hover:border-white/20",
             dragging && "z-30 border-foreground/25",
-            // Past the set duration → blurred + desaturated to read as "beyond".
-            beyond && "blur-[1.5px] saturate-50"
+            // Past the set duration → desaturated to read as "beyond". The blur
+            // is applied by the inactive-region overlay (which sits above the
+            // clips) so a clip straddling the duration only blurs its overflow
+            // portion, not the whole clip.
+            beyond && "saturate-50"
           )}
           // Slide to new left/width when clips shift (e.g. duplicate ripples the
           // neighbours over). The clip you're actively dragging/trimming updates
