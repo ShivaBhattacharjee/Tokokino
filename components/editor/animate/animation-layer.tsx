@@ -93,6 +93,7 @@ function setVar(el: HTMLElement, name: string, value: string | null) {
 }
 
 const PADDING_PREVIEW_VAR = "--editor-padding-preview"
+const CANVAS_RADIUS_PREVIEW_VAR = "--canvas-bd-radius"
 const BG_OPACITY_VAR = "--canvas-bg-opacity"
 // Per-target padding/shadow overrides live on the screenshot's preview scope,
 // canvas-wide background/backdrop overrides on the canvas node.
@@ -105,6 +106,7 @@ const CANVAS_FX_VARS = [
   BG_OPACITY_VAR,
   BACKDROP_FX_PREVIEW_VAR,
   BACKDROP_NOISE_PREVIEW_VAR,
+  CANVAS_RADIUS_PREVIEW_VAR,
 ]
 
 const TILT_SCALE_VARS = [
@@ -269,6 +271,7 @@ export function AnimationLayer() {
           screenshotPosition: canvas.screenshotPosition,
           screenshotOffset: canvas.screenshotOffset,
           padding: canvas.padding,
+          canvasBorderRadius: canvas.canvasBorderRadius,
           shadow: canvas.shadow,
           backdropEffects: canvas.backdrop.effects,
           background: canvas.background,
@@ -403,6 +406,23 @@ export function AnimationLayer() {
         PADDING_PREVIEW_VAR,
         padVal != null
           ? `${(Math.max(0, Math.min(240, padVal)) / 12).toFixed(3)}%`
+          : null
+      )
+
+      // --- canvas corner radius — eases from the previous owner's value (0 for
+      // its first appearance) → this keyframe's value, and holds between/after,
+      // exactly like padding. Drives the same var the inspector slider previews.
+      const radiusVal = sampleKeyframes<number>(
+        framesFor("canvasRadius", (pz) => pz.canvasBorderRadius),
+        playheadMs,
+        DEFAULT_BASELINE.canvasBorderRadius,
+        lerp
+      )
+      setVar(
+        canvasEl,
+        CANVAS_RADIUS_PREVIEW_VAR,
+        radiusVal != null
+          ? `${Math.max(0, Math.min(80, radiusVal)).toFixed(3)}px`
           : null
       )
 

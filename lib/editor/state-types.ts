@@ -407,6 +407,7 @@ export type AnimationEffect =
   | "shadow"
   | "background"
   | "backdrop"
+  | "canvasRadius"
 
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
@@ -429,6 +430,8 @@ export type ClipBaseline = {
   screenshotPosition: ScreenshotPosition
   screenshotOffset: { x: number; y: number }
   padding: number
+  /** Outer canvas corner radius (0–80). */
+  canvasBorderRadius: number
   shadow: Shadow
   backdropEffects: BackdropEffects
   background: Background

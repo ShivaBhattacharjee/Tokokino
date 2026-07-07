@@ -115,6 +115,7 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   screenshotPosition: canvas.screenshotPosition,
   screenshotOffset: canvas.screenshotOffset,
   padding: canvas.padding,
+  canvasBorderRadius: canvas.canvasBorderRadius,
   shadow: canvas.shadow,
   backdropEffects: canvas.backdrop.effects,
   background: canvas.background,
@@ -146,6 +147,8 @@ const applyPoseToCanvas = (
   screenshotPosition: pose.screenshotPosition,
   screenshotOffset: pose.screenshotOffset,
   padding: pose.padding,
+  // Fall back to the live value for poses captured before this field existed.
+  canvasBorderRadius: pose.canvasBorderRadius ?? canvas.canvasBorderRadius,
   shadow: pose.shadow,
   background: pose.background,
   backdrop: { ...canvas.backdrop, effects: pose.backdropEffects },
@@ -229,6 +232,11 @@ const resolveKeyframePose = (
       y: 0,
     }),
     padding: main("padding", (p) => p.padding, 0),
+    canvasBorderRadius: main(
+      "canvasRadius",
+      (p) => p.canvasBorderRadius ?? canvas.canvasBorderRadius,
+      DEFAULT_BASELINE.canvasBorderRadius
+    ),
     shadow: main("shadow", (p) => p.shadow, REST_SHADOW),
     // Background is a single layer (no true crossfade), so always show the final.
     background: (() => {
@@ -1220,7 +1228,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "borderRadius"
       ),
     setCanvasBorderRadius: (n, canvasId) =>
-      commitCanvas(canvasId, { canvasBorderRadius: n }, "canvasBorderRadius"),
+      commitCanvasEffect(
+        canvasId,
+        { canvasBorderRadius: n },
+        "canvasBorderRadius",
+        "canvasRadius"
+      ),
     setBorder: (b, canvasId) =>
       commitCanvas(
         canvasId,
