@@ -9,6 +9,10 @@ import { ArrowRight } from "@/components/landing/landing-svgs"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ease } from "@/components/landing/constants"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
+import {
+  scrollToHash,
+  landingSectionHref,
+} from "@/components/landing/section-link"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const links = [
@@ -17,20 +21,7 @@ const links = [
   { label: "Use cases", href: "#use-cases" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Contact", href: "#contact" },
-  { label: "Privacy", href: "/privacy" },
-  { label: "Terms", href: "/terms" },
 ]
-
-function scrollToHash(href: string) {
-  const id = href.slice(1)
-  document
-    .getElementById(id)
-    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-}
-
-function landingSectionHref(hash: string, pathname: string) {
-  return pathname === "/" ? hash : `/${hash}`
-}
 
 export function Nav() {
   const pathname = usePathname()

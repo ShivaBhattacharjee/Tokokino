@@ -2,7 +2,9 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import type { CSSProperties, ReactNode } from "react"
 
+import { Footer } from "@/components/landing/footer"
 import { Nav } from "@/components/landing/nav"
+import { ScrollToTop } from "@/components/landing/scroll-to-top"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -273,6 +275,11 @@ export default function TermsPage() {
           ))}
         </article>
       </section>
+
+      <div className={CONTENT_WIDTH}>
+        <Footer showRail={false} />
+      </div>
+      <ScrollToTop />
     </main>
   )
 }

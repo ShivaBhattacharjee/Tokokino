@@ -97,8 +97,8 @@ export default function Page() {
         <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
           <Footer />
         </div>
-        <ScrollToTop />
       </motion.div>
+      <ScrollToTop />
     </main>
   )
 }
