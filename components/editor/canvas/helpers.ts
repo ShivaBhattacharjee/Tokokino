@@ -8,6 +8,10 @@ import {
 } from "@/lib/browser-frame"
 import { hexToRgb } from "@/lib/editor/color-utils"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
+import {
+  LIGHTING_IMAGE_VAR,
+  LIGHTING_OPACITY_VAR,
+} from "@/components/editor/inspector/backdrop-section-parts/constants"
 import { DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
 import type {
   BackdropLighting,
@@ -100,10 +104,16 @@ function lightGradientDirection(x: number, y: number) {
   return `to ${vertical} ${horizontal}`
 }
 
-export function lightingOverlayCss(
+/**
+ * The raw gradient image + opacity for a lighting overlay. Returns null when the
+ * light is off (zero intensity). Kept separate from `lightingOverlayCss` so the
+ * Animate-mode player can compute the SAME values for an interpolated lighting
+ * and push them into the overlay's vars each frame.
+ */
+export function lightingOverlayValues(
   lighting: BackdropLighting | undefined,
   options: { inner?: boolean } = {}
-): React.CSSProperties | null {
+): { image: string; opacity: number } | null {
   if (!lighting || lighting.intensity <= 0) return null
 
   const intensity = clamp(lighting.intensity, 0, 100) / 100
@@ -113,11 +123,30 @@ export function lightingOverlayCss(
   const soft = lightRgba(lighting.color, options.inner ? 0.22 : 0.26)
 
   return {
-    backgroundImage: [
+    image: [
       `radial-gradient(circle at ${x}% ${y}%, ${strong} 0%, ${mid} 22%, transparent 58%)`,
       `linear-gradient(${lightGradientDirection(x, y)}, ${soft} 0%, transparent 62%)`,
     ].join(", "),
     opacity: 0.15 + intensity * 0.85,
+  }
+}
+
+export function lightingOverlayCss(
+  lighting: BackdropLighting | undefined,
+  options: { inner?: boolean } = {}
+): React.CSSProperties | null {
+  const values = lightingOverlayValues(lighting, options)
+  if (!values) return null
+
+  // In Animate mode the player overrides the image + opacity per frame (so the
+  // light chains between keyframes — its position, strength and colour easing
+  // from one to the next). At rest the vars are unset and fall back to the
+  // committed values, so the static look is untouched.
+  const suffix = options.inner ? "-in" : ""
+  return {
+    backgroundImage: `var(${LIGHTING_IMAGE_VAR}${suffix}, ${values.image})`,
+    opacity:
+      `var(${LIGHTING_OPACITY_VAR}${suffix}, ${values.opacity.toFixed(3)})` as unknown as number,
   }
 }
 

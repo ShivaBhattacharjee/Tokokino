@@ -36,7 +36,10 @@ import { useAnimationPlayerOptional } from "@/hooks/use-animation-player"
 import {
   BACKDROP_FX_PREVIEW_VAR,
   BACKDROP_NOISE_PREVIEW_VAR,
+  LIGHTING_IMAGE_VAR,
+  LIGHTING_OPACITY_VAR,
 } from "@/components/editor/inspector/backdrop-section-parts/constants"
+import { lightingOverlayValues } from "@/components/editor/canvas/helpers"
 import {
   backdropEffectsBetween,
   backgroundLayerOpacityVar,
@@ -47,7 +50,9 @@ import {
   clipsProgressAt,
   DEFAULT_BASELINE,
   lerp,
+  lightingBetween,
   NEUTRAL_SLOT_POSE,
+  REST_LIGHTING,
   sampleKeyframes,
   sampleShadowLayers,
 } from "@/lib/editor/animation-playback"
@@ -62,6 +67,7 @@ import { useEditorStore } from "@/lib/editor/store"
 import type {
   AnimationClip,
   BackdropEffects,
+  BackdropLighting,
   ClipBaseline,
   ScreenshotPosition,
   Shadow,
@@ -106,6 +112,10 @@ const CANVAS_FX_VARS = [
   BG_OPACITY_VAR,
   BACKDROP_FX_PREVIEW_VAR,
   BACKDROP_NOISE_PREVIEW_VAR,
+  LIGHTING_IMAGE_VAR,
+  LIGHTING_OPACITY_VAR,
+  `${LIGHTING_IMAGE_VAR}-in`,
+  `${LIGHTING_OPACITY_VAR}-in`,
   CANVAS_RADIUS_PREVIEW_VAR,
 ]
 
@@ -274,6 +284,7 @@ export function AnimationLayer() {
           canvasBorderRadius: canvas.canvasBorderRadius,
           shadow: canvas.shadow,
           backdropEffects: canvas.backdrop.effects,
+          lighting: canvas.backdrop.lighting,
           background: canvas.background,
           slots: Object.fromEntries(
             canvas.screenshotSlots.map((s) => [
@@ -478,6 +489,44 @@ export function AnimationLayer() {
       } else {
         setVar(canvasEl, BACKDROP_FX_PREVIEW_VAR, null)
         setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, null)
+      }
+
+      // --- backdrop lighting — chains between keyframes: the light eases from the
+      // previous keyframe's lighting (or dark, for its first appearance) → this
+      // keyframe's, gliding its position/strength/colour so two lightings don't
+      // both show at once. We push the interpolated overlay image + opacity into
+      // the overlay's vars (outer + inner variants) each frame; at rest they clear
+      // and the committed overlay values show through. ---
+      const lightVal = sampleKeyframes<BackdropLighting>(
+        framesFor("lighting", (pz) => pz.lighting ?? REST_LIGHTING),
+        playheadMs,
+        REST_LIGHTING,
+        lightingBetween
+      )
+      if (lightVal) {
+        const outer = lightingOverlayValues(lightVal)
+        const inner = lightingOverlayValues(lightVal, { inner: true })
+        setVar(canvasEl, LIGHTING_IMAGE_VAR, outer ? outer.image : "none")
+        setVar(
+          canvasEl,
+          LIGHTING_OPACITY_VAR,
+          outer ? outer.opacity.toFixed(3) : "0"
+        )
+        setVar(
+          canvasEl,
+          `${LIGHTING_IMAGE_VAR}-in`,
+          inner ? inner.image : "none"
+        )
+        setVar(
+          canvasEl,
+          `${LIGHTING_OPACITY_VAR}-in`,
+          inner ? inner.opacity.toFixed(3) : "0"
+        )
+      } else {
+        setVar(canvasEl, LIGHTING_IMAGE_VAR, null)
+        setVar(canvasEl, LIGHTING_OPACITY_VAR, null)
+        setVar(canvasEl, `${LIGHTING_IMAGE_VAR}-in`, null)
+        setVar(canvasEl, `${LIGHTING_OPACITY_VAR}-in`, null)
       }
     } else {
       // No keyframes touch the main screenshot — leave its committed pose alone.

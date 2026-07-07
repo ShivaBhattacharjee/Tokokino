@@ -8,6 +8,7 @@ import {
   clipAffectsSlot,
   clipPose,
   DEFAULT_BASELINE,
+  REST_LIGHTING,
 } from "./animation-playback"
 import { MAX_DURATION_MS } from "./animation-timeline"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
@@ -118,6 +119,7 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   canvasBorderRadius: canvas.canvasBorderRadius,
   shadow: canvas.shadow,
   backdropEffects: canvas.backdrop.effects,
+  lighting: canvas.backdrop.lighting,
   background: canvas.background,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
@@ -151,7 +153,12 @@ const applyPoseToCanvas = (
   canvasBorderRadius: pose.canvasBorderRadius ?? canvas.canvasBorderRadius,
   shadow: pose.shadow,
   background: pose.background,
-  backdrop: { ...canvas.backdrop, effects: pose.backdropEffects },
+  backdrop: {
+    ...canvas.backdrop,
+    effects: pose.backdropEffects,
+    // Fall back to the live value for poses captured before lighting animated.
+    lighting: pose.lighting ?? canvas.backdrop.lighting,
+  },
   screenshotSlots: canvas.screenshotSlots.map((s) => {
     const sp = pose.slots[s.id]
     if (!sp) return s
@@ -247,6 +254,11 @@ const resolveKeyframePose = (
       "backdrop",
       (p) => p.backdropEffects,
       DEFAULT_BASELINE.backdropEffects
+    ),
+    lighting: main(
+      "lighting",
+      (p) => p.lighting ?? canvas.backdrop.lighting,
+      REST_LIGHTING
     ),
     slots: Object.fromEntries(
       canvas.screenshotSlots.map((s) => {
@@ -1265,7 +1277,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "backdrop-pattern"
       ),
     setBackdropLighting: (l, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           backdrop: { ...canvas.backdrop, lighting: l },
@@ -1273,13 +1285,15 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             lighting: cloneLighting(l),
           })),
         }),
-        "backdrop-lighting"
+        "backdrop-lighting",
+        "lighting"
       ),
     setMainScreenshotBackdropLighting: (l, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({ backdrop: { ...canvas.backdrop, lighting: l } }),
-        "backdrop-lighting"
+        "backdrop-lighting",
+        "lighting"
       ),
     setBackdropFilter: (f, canvasId) =>
       commitCanvas(

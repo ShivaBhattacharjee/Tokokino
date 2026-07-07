@@ -408,6 +408,7 @@ export type AnimationEffect =
   | "background"
   | "backdrop"
   | "canvasRadius"
+  | "lighting"
 
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
@@ -434,6 +435,11 @@ export type ClipBaseline = {
   canvasBorderRadius: number
   shadow: Shadow
   backdropEffects: BackdropEffects
+  /**
+   * Backdrop lighting at this keyframe. Optional so drafts saved before lighting
+   * was animatable hydrate cleanly (read through a fallback to the live value).
+   */
+  lighting?: BackdropLighting
   background: Background
   /** Per-slot poses keyed by slot id. */
   slots: Record<string, ClipSlotPose>

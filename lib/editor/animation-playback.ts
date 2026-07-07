@@ -7,6 +7,7 @@
 // turns that progress into concrete CSS override vars. Kept React-free so it's
 // testable and shared between live playback and (later) the exporter.
 
+import { hexToRgb } from "./color-utils"
 import { DEFAULT_CANVAS_BASE } from "./store/defaults"
 import type {
   AnimationClip,
@@ -14,6 +15,7 @@ import type {
   AnimationEffect,
   Background,
   BackdropEffects,
+  BackdropLighting,
   ClipBaseline,
   ClipSlotPose,
   Shadow,
@@ -32,8 +34,15 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   canvasBorderRadius: DEFAULT_CANVAS_BASE.canvasBorderRadius,
   shadow: DEFAULT_CANVAS_BASE.shadow,
   backdropEffects: DEFAULT_CANVAS_BASE.backdrop.effects,
+  lighting: DEFAULT_CANVAS_BASE.backdrop.lighting,
   background: DEFAULT_CANVAS_BASE.background,
   slots: {},
+}
+
+/** Neutral lighting the reveal flows FROM — dark (zero intensity). */
+export const REST_LIGHTING: BackdropLighting = {
+  ...DEFAULT_CANVAS_BASE.backdrop.lighting,
+  intensity: 0,
 }
 
 /** A clip's captured baseline, falling back to the canvas defaults. */
@@ -78,7 +87,67 @@ export function restPoseFor(firstPose: ClipBaseline): ClipBaseline {
     canvasBorderRadius: firstPose.canvasBorderRadius,
     background: firstPose.background,
     backdropEffects: firstPose.backdropEffects,
+    // Lighting is an "intro" property: it flows in from dark so the backdrop
+    // lights up over the reveal rather than starting fully lit.
+    lighting: { ...(firstPose.lighting ?? REST_LIGHTING), intensity: 0 },
     slots: {},
+  }
+}
+
+/** True when two lightings are a different selection (drives keyframe icons). */
+export function lightingsDiffer(
+  a: BackdropLighting,
+  b: BackdropLighting
+): boolean {
+  return (
+    a.target !== b.target ||
+    a.intensity !== b.intensity ||
+    a.direction !== b.direction ||
+    a.color !== b.color
+  )
+}
+
+/** Lighting direction as grid coords (row/col 0..4); "center" is the 2,2 middle. */
+function lightingGridPoint(direction: string): { r: number; c: number } {
+  if (direction === "center") return { r: 2, c: 2 }
+  const [r, c] = direction.split("-").map(Number)
+  return { r: Number.isFinite(r) ? r : 2, c: Number.isFinite(c) ? c : 2 }
+}
+
+/** Interpolate two "#rrggbb" colours in RGB space. */
+function lerpHexColor(from: string, to: string, p: number): string {
+  const a = hexToRgb(from || "#ffffff")
+  const b = hexToRgb(to || "#ffffff")
+  const ch = (x: number, y: number) =>
+    Math.round(clampChannel(lerp(x, y, p)))
+      .toString(16)
+      .padStart(2, "0")
+  return `#${ch(a.r, b.r)}${ch(a.g, b.g)}${ch(a.b, b.b)}`
+}
+
+function clampChannel(n: number) {
+  return n < 0 ? 0 : n > 255 ? 255 : n
+}
+
+/**
+ * Lighting at progress p, easing `from` → `to`. Intensity, direction (as
+ * fractional grid coords, so the light MOVES smoothly across the backdrop) and
+ * colour all ease, letting two lighting keyframes chain — the light glides from
+ * one position/strength/colour to the next instead of both showing at once.
+ * `target` (inner/outer) snaps to the destination keyframe.
+ */
+export function lightingBetween(
+  from: BackdropLighting,
+  to: BackdropLighting,
+  p: number
+): BackdropLighting {
+  const a = lightingGridPoint(from.direction)
+  const b = lightingGridPoint(to.direction)
+  return {
+    target: to.target,
+    intensity: lerp(from.intensity, to.intensity, p),
+    direction: `${lerp(a.r, b.r, p)}-${lerp(a.c, b.c, p)}`,
+    color: lerpHexColor(from.color, to.color, p),
   }
 }
 

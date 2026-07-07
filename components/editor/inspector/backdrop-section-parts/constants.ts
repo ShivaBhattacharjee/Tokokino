@@ -39,6 +39,16 @@ export const LIGHTING_DIRECTIONS = [
 
 export const BACKDROP_FX_PREVIEW_VAR = "--bd-fx-preview"
 export const BACKDROP_NOISE_PREVIEW_VAR = "--bd-noise-opacity"
+/**
+ * Animate-mode overrides for the backdrop lighting overlay. The player sets these
+ * on the canvas node each frame to the interpolated lighting so the light chains
+ * between keyframes (position, strength and colour easing from one to the next).
+ * `-in` variants target the inner (on-screenshot) overlays. Unset at rest, so the
+ * overlays fall back to their committed values. The `-in` variants inherit down
+ * to slot overlays too, keeping mirrored slot lighting in sync.
+ */
+export const LIGHTING_IMAGE_VAR = "--bd-light-img"
+export const LIGHTING_OPACITY_VAR = "--bd-light-op"
 export const ACTIVE_COLOR_SWATCH_CLASS =
   "border-primary shadow-[0_0_0_2px_hsl(var(--background)),0_0_0_4px_hsl(var(--primary)/0.9)]"
 

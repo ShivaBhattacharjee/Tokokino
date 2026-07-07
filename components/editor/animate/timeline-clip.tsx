@@ -78,6 +78,8 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   background: RiPaletteLine,
   // Canvas Radius lives in the Backdrop section, so it shares its icon.
   canvasRadius: RiSunLine,
+  // Lighting also lives in the Backdrop section — share the sun icon.
+  lighting: RiSunLine,
 }
 
 export function TimelineClip({
