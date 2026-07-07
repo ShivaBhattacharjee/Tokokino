@@ -48,7 +48,7 @@ import {
   lerp,
   NEUTRAL_SLOT_POSE,
   sampleKeyframes,
-  shadowBetween,
+  sampleShadowLayers,
 } from "@/lib/editor/animation-playback"
 import {
   effectsFilterCss,
@@ -146,10 +146,19 @@ export function AnimationLayer() {
   const frame = canvas?.frame
   const hasTweet = Boolean(canvas?.tweet)
   const hasDeviceFrame = (frame?.id ?? "none") !== "none"
-  const hasMainTarget =
-    Boolean(canvas?.screenshot) || hasTweet || hasDeviceFrame
+  const hasMainScreenshot = Boolean(canvas?.screenshot)
+  // A main-target box is ALWAYS on the canvas: a real screenshot, a tweet card,
+  // a device frame, or — when none of those exist yet — an empty-state
+  // placeholder box. Every one of them is positioned by the same preview vars,
+  // so position (like zoom and tilt) must animate on all of them, including an
+  // otherwise-empty canvas. Previously this gate excluded the empty box, so
+  // position was the one effect that silently refused to animate there.
+  //
+  // "Bare" means specifically a frame-less REAL screenshot: it renders without
+  // the centering translate, so it's placed by absolute px. The empty-state box
+  // and framed/tweet/slot targets are placed by the %/anchor vars instead.
   const isBareMainTarget =
-    !hasTweet && hasMainTarget && !hasDeviceFrame && slots.length === 0
+    !hasTweet && hasMainScreenshot && !hasDeviceFrame && slots.length === 0
 
   const dimsRef = React.useRef<StagePlacementDims | null>(null)
   React.useLayoutEffect(() => {
@@ -180,12 +189,16 @@ export function AnimationLayer() {
 
   // The screenshot elements carry a 300ms ease transition on transform/placement
   // (for smooth slider/preset changes). While PLAYING we drive those every frame,
-  // so that transition would smear the motion ~300ms behind the playhead and make
-  // it "finish at the end". Suppress it during playback and restore when stopped.
+  // so that transition would smear the motion ~300ms behind the playhead. But it
+  // also causes the box to "drift" whenever a pose var changes OUTSIDE playback —
+  // most visibly when you hit PAUSE (or reset), where the box eases between poses
+  // and looks like it randomly moves. In animate mode every pose change is either
+  // driven per-frame (play) or an intentional snap (pause / scrub / edit), so we
+  // suppress the transition for the whole animate session and restore on exit.
   // Both the framed target and the frame-less bare image (different data-attrs)
   // need covering.
   React.useLayoutEffect(() => {
-    if (typeof document === "undefined" || !canvasId || !isPlaying) return
+    if (typeof document === "undefined" || !canvasId) return
     const canvasEl = document.querySelector<HTMLElement>(
       `[data-canvas-id="${canvasId}"]`
     )
@@ -199,7 +212,7 @@ export function AnimationLayer() {
     return () => {
       for (const el of targets) el.style.removeProperty("transition")
     }
-  }, [canvasId, isPlaying])
+  }, [canvasId, isPlaying, hasMainScreenshot, slots.length])
 
   React.useLayoutEffect(() => {
     if (typeof document === "undefined" || !canvasId) return
@@ -228,11 +241,14 @@ export function AnimationLayer() {
         })
     }
 
-    // Only drive motion while playing. At rest we clear every override so the
-    // committed inspector pose shows through — which means dragging the box or
-    // editing the inspector in animate mode reads naturally, and whatever you
-    // leave it at simply becomes this clip's animation target.
-    if (!isPlaying) {
+    // Drive motion while PLAYING, and also while parked mid-timeline (paused or
+    // scrubbed past the start) so a PAUSE HOLDS the current frame instead of
+    // snapping the box back to the committed pose (and then snapping forward
+    // again on resume). Only when truly at rest — stopped at the very start — do
+    // we clear every override so the committed inspector pose shows through:
+    // dragging the box or editing the inspector then reads naturally, and
+    // whatever you leave it at simply becomes this clip's animation target.
+    if (!isPlaying && playheadMs <= 0) {
       clearAll()
       return
     }
@@ -314,7 +330,7 @@ export function AnimationLayer() {
 
       // --- position (grid + offset → point, revealing from center) ---
       const posFrames = mainClips.filter((c) => clipOwns(c, "position"))
-      if (posFrames.length > 0 && hasMainTarget && frame) {
+      if (posFrames.length > 0 && frame) {
         const dims = isBareMainTarget ? measureDims(canvasEl) : null
         const aspect = canvas?.aspect ?? globalAspect
         const pointFor = (
@@ -379,20 +395,25 @@ export function AnimationLayer() {
           : null
       )
 
-      // --- shadow — reveals in from invisible, direction eases between owners ---
-      const shadowVal = sampleKeyframes<Shadow>(
+      // --- shadow — reveals in from invisible; between owners the old shadow
+      // eases OUT beneath the new one easing IN, so different shadow types
+      // cross-blend instead of one snapping off. May be 1 or 2 layered shadows.
+      const shadowLayers = sampleShadowLayers(
         framesFor("shadow", (pz) => pz.shadow),
         playheadMs,
-        INVISIBLE_SHADOW,
-        shadowBetween
+        INVISIBLE_SHADOW
       )
-      if (shadowVal) {
-        setVar(mainScopeEl, SHADOW_PREVIEW_VAR, shadowCss(shadowVal) ?? "none")
-        setVar(
-          mainScopeEl,
-          SHADOW_FILTER_PREVIEW_VAR,
-          shadowDropFilterCss(shadowVal) ?? "none"
-        )
+      if (shadowLayers) {
+        const box = shadowLayers
+          .map(shadowCss)
+          .filter((v): v is string => Boolean(v))
+          .join(", ")
+        const filter = shadowLayers
+          .map(shadowDropFilterCss)
+          .filter((v): v is string => Boolean(v))
+          .join(" ")
+        setVar(mainScopeEl, SHADOW_PREVIEW_VAR, box || "none")
+        setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, filter || "none")
       } else {
         setVar(mainScopeEl, SHADOW_PREVIEW_VAR, null)
         setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, null)
@@ -521,7 +542,6 @@ export function AnimationLayer() {
     backdrop,
     background,
     frame,
-    hasMainTarget,
     isBareMainTarget,
     globalAspect,
     measureDims,

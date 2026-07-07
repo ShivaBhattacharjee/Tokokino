@@ -129,16 +129,21 @@ function parseLightSource(ls: string): { r: number; c: number } {
 }
 
 /**
- * Shadow at progress p, animating `from` → `to`. When the shadow type is
- * unchanged the intensity AND light direction ease between the two (so a shadow
- * cast in one direction rotates smoothly to another). When the type changed
- * (e.g. none → drop) the target shadow simply grows in from intensity 0 at its
- * own direction. `shadowCss` parses fractional grid coords, so the interpolated
+ * Shadow at progress p, animating `from` → `to`. Intensity eases from whatever
+ * the previous keyframe actually rendered, so back-to-back shadow keyframes stay
+ * CONTINUOUS: a drop shadow morphing into a soft one keeps its weight instead of
+ * snapping the old shadow to invisible and looking like it just ended. Only when
+ * the previous shadow rendered NOTHING (type "none" or zero intensity) do we
+ * grow in from 0 — the intended reveal for the first shadow keyframe.
+ *
+ * Light direction eases only when the type is unchanged (a same-type shadow
+ * rotating its cast); across a type change it jumps straight to the target
+ * direction. `shadowCss` parses fractional grid coords, so the interpolated
  * "r-c" light source renders a smooth intermediate offset.
  */
 export function shadowBetween(from: Shadow, to: Shadow, p: number): Shadow {
   const sameType = from.type === to.type
-  const fromIntensity = sameType ? from.intensity : 0
+  const fromIntensity = shadowInvisible(from) ? 0 : from.intensity
   const toLs = parseLightSource(to.lightSource)
   const fromLs = sameType ? parseLightSource(from.lightSource) : toLs
   return {
@@ -146,6 +151,57 @@ export function shadowBetween(from: Shadow, to: Shadow, p: number): Shadow {
     intensity: lerp(fromIntensity, to.intensity, p),
     lightSource: `${lerp(fromLs.r, toLs.r, p)}-${lerp(fromLs.c, toLs.c, p)}`,
   }
+}
+
+/**
+ * Sample the shadow keyframe track, returning the shadow LAYER(S) to render at
+ * `timeMs`. `box-shadow` (and chained `drop-shadow()`) can stack layers, so a
+ * transition between two DIFFERENT, both-visible shadow types is rendered as a
+ * cross-blend: the previous shadow eases back OUT (mirroring how it revealed)
+ * beneath the next shadow easing IN, instead of the old one snapping off and the
+ * new one popping in. Every other case is a single continuous layer:
+ *  - before the first keyframe → the neutral rest shadow,
+ *  - a same-type change → one shadow morphing intensity + direction,
+ *  - a reveal from nothing → one shadow growing in from 0,
+ *  - a retract to nothing → the old shadow easing OUT (keeping its own type so
+ *    it fades rather than vanishing),
+ *  - a gap / past the end → hold that keyframe's shadow.
+ * Returns null when no keyframe animates the shadow (leave the committed value).
+ */
+export function sampleShadowLayers(
+  frames: readonly { startMs: number; durationMs: number; value: Shadow }[],
+  timeMs: number,
+  rest: Shadow
+): Shadow[] | null {
+  if (frames.length === 0) return null
+  const sorted = [...frames].sort((a, b) => a.startMs - b.startMs)
+  if (timeMs < sorted[0].startMs) return [rest]
+  for (let i = 0; i < sorted.length; i++) {
+    const f = sorted[i]
+    if (timeMs < f.startMs) return [sorted[i - 1].value] // gap → hold previous
+    if (timeMs <= f.startMs + f.durationMs) {
+      const from = i > 0 ? sorted[i - 1].value : rest
+      const to = f.value
+      const p = easeOut(clamp01((timeMs - f.startMs) / f.durationMs))
+      const fromVisible = !shadowInvisible(from)
+      const toVisible = !shadowInvisible(to)
+      // Retract to nothing: fade the source out on its own type so it recedes
+      // the way it arrived rather than blinking off.
+      if (fromVisible && !toVisible) {
+        return [{ ...from, intensity: lerp(from.intensity, 0, p) }]
+      }
+      // Two different visible shadows → cross-blend (old OUT, new IN).
+      if (fromVisible && toVisible && from.type !== to.type) {
+        return [
+          { ...from, intensity: lerp(from.intensity, 0, p) },
+          { ...to, intensity: lerp(0, to.intensity, p) },
+        ]
+      }
+      // Same-type morph, reveal from nothing, or nothing→nothing: one layer.
+      return [shadowBetween(from, to, p)]
+    }
+  }
+  return [sorted[sorted.length - 1].value] // past the end → hold last
 }
 
 export function backdropEffectsDiffer(

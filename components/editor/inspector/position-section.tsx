@@ -40,10 +40,18 @@ export function PositionSection() {
 
   const hasDeviceFrame = editor.frame.id !== "none"
   const hasTweet = Boolean(editor.tweet)
-  const hasMainTarget = Boolean(editor.screenshot) || hasTweet || hasDeviceFrame
+  const hasMainScreenshot = Boolean(editor.screenshot)
+  // The canvas ALWAYS has a positionable main box — a screenshot, tweet, device
+  // frame, or (when none exist yet) the empty-state placeholder — so the pad can
+  // move it and record a position keyframe even before an image is added.
+  // Previously this required a real screenshot, so dragging the inspector pad on
+  // an empty canvas silently did nothing and no animation was captured.
+  const hasMainTarget = true
+  // "Bare" = a frame-less REAL screenshot (placed by absolute px). The empty box
+  // and framed targets use the %/anchor path instead.
   const isBareMainTarget =
     !hasTweet &&
-    hasMainTarget &&
+    hasMainScreenshot &&
     !hasDeviceFrame &&
     editor.screenshotSlots.length === 0
   const scaleFactor = editor.scale / 100
