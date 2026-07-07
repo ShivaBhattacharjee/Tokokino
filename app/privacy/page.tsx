@@ -1,11 +1,21 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import type { ReactNode } from "react"
-import { ArrowLeft } from "lucide-react"
+import type { CSSProperties, ReactNode } from "react"
 
-import { BrandLogo } from "@/components/editor/brand-logo"
+import { Nav } from "@/components/landing/nav"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
 import { PolicyIndex } from "./policy-index"
+
+const CONTENT_WIDTH =
+  "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Tokokino",
@@ -126,19 +136,37 @@ const indexItems = sections.map((section) => ({
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-svh bg-background text-foreground">
+    <main
+      className="relative isolate min-h-svh bg-background text-foreground"
+      style={
+        {
+          "--rail": "color-mix(in oklch, var(--foreground) 20%, transparent)",
+        } as CSSProperties
+      }
+    >
+      <div className={CONTENT_WIDTH}>
+        <Nav />
+      </div>
+
       <section className="border-b border-border/70 bg-card/30">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-7 sm:px-10 lg:px-12">
-          <nav className="flex items-center justify-between gap-5">
-            <BrandLogo />
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
-            >
-              <ArrowLeft className="size-3.5" aria-hidden />
-              Back to sign in
-            </Link>
-          </nav>
+        <div
+          className={`flex w-full flex-col gap-10 px-5 py-7 sm:px-8 lg:px-12 ${CONTENT_WIDTH}`}
+        >
+          <Breadcrumb>
+            <BreadcrumbList className="label-eyebrow gap-1.5 text-muted-foreground">
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild className="hover:text-foreground">
+                  <Link href="/">Home</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-muted-foreground">
+                  Privacy Policy
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
           <div className="min-w-0 space-y-4 text-left">
             <h1 className="max-w-full text-[clamp(1.75rem,5.2vw,5.05rem)] leading-[0.95] font-semibold tracking-[-0.04em] whitespace-nowrap">
@@ -159,7 +187,9 @@ export default function PrivacyPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-10 sm:px-10 lg:grid-cols-[240px_1fr] lg:px-12 lg:py-14">
+      <section
+        className={`grid w-full gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[240px_1fr] lg:px-12 lg:py-14 ${CONTENT_WIDTH}`}
+      >
         <aside className="hidden lg:block">
           <PolicyIndex items={indexItems} />
         </aside>
