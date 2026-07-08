@@ -13,8 +13,10 @@ import {
   LIGHTING_OPACITY_VAR,
 } from "@/components/editor/inspector/backdrop-section-parts/constants"
 import { DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
+import { overlayUrl } from "@/lib/editor/presets"
 import type {
   BackdropLighting,
+  Overlay,
   PortraitMode,
   ScreenshotLayer,
 } from "@/lib/editor/store"
@@ -170,6 +172,26 @@ export function lightingOverlayCss(
     backgroundImage: `var(${LIGHTING_IMAGE_VAR}${suffix}, ${values.image})`,
     opacity:
       `var(${LIGHTING_OPACITY_VAR}${suffix}, ${restOpacity.toFixed(3)})` as unknown as number,
+  }
+}
+
+/**
+ * Style for one texture-overlay layer during Animate playback: its opacity is
+ * the layer's crossfade opacity (a var the player drives) × the overlay's own
+ * opacity. Returns null when the overlay has no texture (id null). `restOpaque`
+ * is the fallback when the var is unset (at rest).
+ */
+export function overlayLayerCss(
+  overlay: Overlay,
+  opacityVar: string,
+  restOpaque: number
+): React.CSSProperties | null {
+  if (overlay.id === null) return null
+  const own = clamp(overlay.opacity, 0, 100) / 100
+  return {
+    backgroundImage: `url("${overlayUrl(overlay.id)}")`,
+    opacity:
+      `calc(var(${opacityVar}, ${restOpaque}) * ${own})` as unknown as number,
   }
 }
 

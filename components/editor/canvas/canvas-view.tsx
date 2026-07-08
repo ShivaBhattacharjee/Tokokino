@@ -41,10 +41,14 @@ import {
   clipOwns,
   EMPTY_BG_STACK,
   EMPTY_FILTER_STACK,
+  EMPTY_OVERLAY_STACK,
   EMPTY_PATTERN_STACK,
   EMPTY_PORTRAIT_STACK,
+  overlayLayerOpacityVar,
+  OVERLAY_BASE_OPACITY_VAR,
   resolveAnimateBgStack,
   resolveAnimateFilterStack,
+  resolveAnimateOverlayStack,
   resolveAnimatePatternStack,
   resolveAnimatePortraitStack,
 } from "@/lib/editor/animation-playback"
@@ -60,6 +64,7 @@ import { MockupEmptyState } from "./mockup-empty-state"
 import {
   deviceMockupSpec,
   lightingOverlayCss,
+  overlayLayerCss,
   screenshotPlacementStyle,
 } from "./helpers"
 import { MainScreenshotRowItem } from "./main-screenshot-row-item"
@@ -229,6 +234,17 @@ function CanvasViewInner({
           )
         : EMPTY_PATTERN_STACK,
     [isAnimateMode, canvasAnimation, backdrop.pattern, selectedAnimationClipId]
+  )
+  const animateOverlayStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimateOverlayStack(
+            canvasAnimation.clips,
+            overlay,
+            selectedAnimationClipId
+          )
+        : EMPTY_OVERLAY_STACK,
+    [isAnimateMode, canvasAnimation, overlay, selectedAnimationClipId]
   )
   // Downscale whenever the background sourceUrl changes (on mount/hydration,
   // and also when a custom preset applies a new image background mid-session).
@@ -754,6 +770,7 @@ function CanvasViewInner({
             animateFilterStack={animateFilterStack}
             animatePortraitStack={animatePortraitStack}
             animatePatternStack={animatePatternStack}
+            animateOverlayStack={animateOverlayStack}
             lightingAnimated={lightingAnimated}
             backdropAnimated={backdropAnimated}
           />
@@ -1113,7 +1130,46 @@ function CanvasViewInner({
             </div>
           ) : null}
 
-          {overlay.id !== null && overlay.position === "overlay" ? (
+          {animateOverlayStack.layers.length > 0 ? (
+            // Animate mode with animated overlay: render the `overlay`-positioned
+            // layers (base + one per keyframe), crossfade-chained by AnimationLayer
+            // so the additive textures transition instead of accumulating. The
+            // `underlay`-positioned ones render inside CanvasBackdrop.
+            <>
+              {animateOverlayStack.base.position === "overlay"
+                ? (() => {
+                    const style = overlayLayerCss(
+                      animateOverlayStack.base,
+                      OVERLAY_BASE_OPACITY_VAR,
+                      0
+                    )
+                    return style ? (
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 bg-cover bg-center"
+                        style={{ ...style, zIndex: 200 }}
+                      />
+                    ) : null
+                  })()
+                : null}
+              {animateOverlayStack.layers.map((layer) => {
+                if (layer.overlay.position !== "overlay") return null
+                const style = overlayLayerCss(
+                  layer.overlay,
+                  overlayLayerOpacityVar(layer.id),
+                  layer.restOpaque ? 1 : 0
+                )
+                return style ? (
+                  <div
+                    key={layer.id}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 bg-cover bg-center"
+                    style={{ ...style, zIndex: 200 }}
+                  />
+                ) : null
+              })}
+            </>
+          ) : overlay.id !== null && overlay.position === "overlay" ? (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 bg-cover bg-center"

@@ -20,6 +20,7 @@ import type {
   BackdropPattern,
   ClipBaseline,
   ClipSlotPose,
+  Overlay,
   Portrait,
   Shadow,
 } from "./state-types"
@@ -42,6 +43,7 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   filter: DEFAULT_CANVAS_BASE.backdrop.filter,
   portrait: DEFAULT_CANVAS_BASE.portrait,
   pattern: DEFAULT_CANVAS_BASE.backdrop.pattern,
+  overlay: DEFAULT_CANVAS_BASE.overlay,
   slots: {},
 }
 
@@ -629,6 +631,77 @@ export function resolveAnimatePatternStack(
       c.id === selectedClipId
         ? committedPattern
         : (clipPose(c).pattern ?? DEFAULT_CANVAS_BASE.backdrop.pattern),
+    restOpaque: i === restCutoff,
+  }))
+  return { base, layers }
+}
+
+/** True when two overlays are a different selection (texture, opacity, side). */
+export function overlaysDiffer(a: Overlay, b: Overlay): boolean {
+  return a.id !== b.id || a.opacity !== b.opacity || a.position !== b.position
+}
+
+/** CSS var carrying an overlay keyframe layer's crossfade opacity. */
+export const overlayLayerOpacityVar = (clipId: string) =>
+  `--canvas-overlay-op-${clipId}`
+
+/** CSS var for the pre-first-keyframe base overlay's crossfade opacity. */
+export const OVERLAY_BASE_OPACITY_VAR = "--canvas-overlay-op-base"
+
+export type AnimateOverlayLayer = {
+  id: string
+  overlay: Overlay
+  /** Opacity at REST (not playing): true (1) ONLY for the selected keyframe —
+   * overlay textures are additive, so exactly one shows at rest. */
+  restOpaque: boolean
+}
+
+export type AnimateOverlayStack = {
+  /** Overlay shown before the first overlay keyframe (changed FROM). */
+  base: Overlay
+  /** One layer per overlay keyframe, chronological (bottom → top). Each renders
+   * in ITS position's location (over vs under the screenshot), so a position
+   * change crossfades the texture from one side to the other. */
+  layers: AnimateOverlayLayer[]
+}
+
+export const EMPTY_OVERLAY_STACK: AnimateOverlayStack = {
+  base: DEFAULT_CANVAS_BASE.overlay,
+  layers: [],
+}
+
+/**
+ * Build the texture-overlay keyframe layers for Animate mode — same additive
+ * crossfade-chain as the portrait/pattern stacks. Each layer carries a full
+ * Overlay (id/opacity/position); the renderer places it over OR under the
+ * screenshot per its `position`, so a position change reads as the texture
+ * gliding between the two sides (like lighting's inner↔outer). At rest only the
+ * selected keyframe's layer shows.
+ */
+export function resolveAnimateOverlayStack(
+  clips: readonly AnimationClip[],
+  committedOverlay: Overlay,
+  selectedClipId: string | null
+): AnimateOverlayStack {
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const isOverlayKeyframe = (c: AnimationClip) =>
+    clipAffectsMain(c) && clipOwns(c, "overlay")
+  const overlayClips = sorted.filter(isOverlayKeyframe)
+  if (overlayClips.length === 0) return EMPTY_OVERLAY_STACK
+
+  const base =
+    clipBaseline(overlayClips[0]).overlay ?? DEFAULT_CANVAS_BASE.overlay
+
+  const selectedIndex = overlayClips.findIndex((c) => c.id === selectedClipId)
+  const restCutoff =
+    selectedIndex === -1 ? overlayClips.length - 1 : selectedIndex
+
+  const layers: AnimateOverlayLayer[] = overlayClips.map((c, i) => ({
+    id: c.id,
+    overlay:
+      c.id === selectedClipId
+        ? committedOverlay
+        : (clipPose(c).overlay ?? DEFAULT_CANVAS_BASE.overlay),
     restOpaque: i === restCutoff,
   }))
   return { base, layers }

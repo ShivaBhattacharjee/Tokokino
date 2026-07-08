@@ -56,6 +56,8 @@ import {
   PATTERN_BASE_OPACITY_VAR,
   portraitLayerOpacityVar,
   PORTRAIT_BASE_OPACITY_VAR,
+  overlayLayerOpacityVar,
+  OVERLAY_BASE_OPACITY_VAR,
   lightingEntranceRest,
   lightingBetween,
   NEUTRAL_SLOT_POSE,
@@ -257,11 +259,13 @@ export function AnimationLayer() {
       // back to their rest fallback.
       setVar(canvasEl, PORTRAIT_BASE_OPACITY_VAR, null)
       setVar(canvasEl, PATTERN_BASE_OPACITY_VAR, null)
+      setVar(canvasEl, OVERLAY_BASE_OPACITY_VAR, null)
       for (const c of clips) {
         setVar(canvasEl, backgroundLayerOpacityVar(c.id), null)
         setVar(canvasEl, filterLayerOpacityVar(c.id), null)
         setVar(canvasEl, portraitLayerOpacityVar(c.id), null)
         setVar(canvasEl, patternLayerOpacityVar(c.id), null)
+        setVar(canvasEl, overlayLayerOpacityVar(c.id), null)
       }
       for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
       canvasEl
@@ -568,6 +572,30 @@ export function AnimationLayer() {
           setVar(
             canvasEl,
             patternLayerOpacityVar(c.id),
+            String(pIn * (1 - pOut))
+          )
+        })
+      }
+
+      // --- overlay textures — same additive CROSSFADE-CHAIN as portrait. Each
+      // layer renders in its own position (over/under the screenshot), so a
+      // position change reads as the texture gliding between the two sides. ---
+      const overlayClips = mainClips
+        .filter((c) => clipOwns(c, "overlay"))
+        .sort((a, b) => a.startMs - b.startMs)
+      if (overlayClips.length > 0) {
+        setVar(
+          canvasEl,
+          OVERLAY_BASE_OPACITY_VAR,
+          String(1 - clipsProgressAt([overlayClips[0]], playheadMs))
+        )
+        overlayClips.forEach((c, i) => {
+          const pIn = clipsProgressAt([c], playheadMs)
+          const next = overlayClips[i + 1]
+          const pOut = next ? clipsProgressAt([next], playheadMs) : 0
+          setVar(
+            canvasEl,
+            overlayLayerOpacityVar(c.id),
             String(pIn * (1 - pOut))
           )
         })

@@ -84,6 +84,7 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   filter: RiSunLine,
   portrait: RiSunLine,
   pattern: RiSunLine,
+  overlay: RiSunLine,
 }
 
 export function TimelineClip({

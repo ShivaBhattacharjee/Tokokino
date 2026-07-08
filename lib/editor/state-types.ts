@@ -412,6 +412,7 @@ export type AnimationEffect =
   | "filter"
   | "portrait"
   | "pattern"
+  | "overlay"
 
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
@@ -460,6 +461,11 @@ export type ClipBaseline = {
    * drafts saved before pattern was animatable hydrate cleanly.
    */
   pattern?: BackdropPattern
+  /**
+   * Texture overlay (over/under the screenshot) at this keyframe. Optional so
+   * drafts saved before overlay was animatable hydrate cleanly.
+   */
+  overlay?: Overlay
   /** Per-slot poses keyed by slot id. */
   slots: Record<string, ClipSlotPose>
 }

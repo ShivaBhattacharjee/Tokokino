@@ -125,6 +125,7 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   filter: canvas.backdrop.filter,
   portrait: canvas.portrait,
   pattern: canvas.backdrop.pattern,
+  overlay: canvas.overlay,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
@@ -159,6 +160,8 @@ const applyPoseToCanvas = (
   background: pose.background,
   // Fall back to the live value for poses captured before portrait animated.
   portrait: pose.portrait ?? canvas.portrait,
+  // Fall back to the live value for poses captured before overlay animated.
+  overlay: pose.overlay ?? canvas.overlay,
   backdrop: {
     ...canvas.backdrop,
     effects: pose.backdropEffects,
@@ -279,6 +282,13 @@ const resolveKeyframePose = (
       const { at } = latestOwner(ownsMain("pattern"))
       const resolved = at ? clipPose(at).pattern : fallback.pattern
       return resolved ?? canvas.backdrop.pattern
+    })(),
+    // Overlay crossfade-chains like pattern: resolved value = latest owner's
+    // overlay (or the final look when unowned).
+    overlay: (() => {
+      const { at } = latestOwner(ownsMain("overlay"))
+      const resolved = at ? clipPose(at).overlay : fallback.overlay
+      return resolved ?? canvas.overlay
     })(),
     backdropEffects: main(
       "backdrop",
@@ -1427,7 +1437,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setMainScreenshotShadow: (s, canvasId) =>
       commitCanvasEffect(canvasId, { shadow: s }, "shadow", "shadow"),
     setOverlay: (o, canvasId) =>
-      commitCanvas(canvasId, { overlay: o }, "overlay"),
+      commitCanvasEffect(canvasId, { overlay: o }, "overlay", "overlay"),
     setFrame: (f, canvasId) =>
       commitCanvas(
         canvasId,

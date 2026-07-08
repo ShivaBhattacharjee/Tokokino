@@ -10,8 +10,11 @@ import {
   PATTERN_BASE_OPACITY_VAR,
   portraitLayerOpacityVar,
   PORTRAIT_BASE_OPACITY_VAR,
+  overlayLayerOpacityVar,
+  OVERLAY_BASE_OPACITY_VAR,
   type AnimateBgStack,
   type AnimateFilterStack,
+  type AnimateOverlayStack,
   type AnimatePatternStack,
   type AnimatePortraitStack,
 } from "@/lib/editor/animation-playback"
@@ -34,10 +37,12 @@ const EMPTY_BG_LAYERS: AnimateBgStack["layers"] = []
 const EMPTY_FILTER_LAYERS: AnimateFilterStack["layers"] = []
 const EMPTY_PORTRAIT_LAYERS: AnimatePortraitStack["layers"] = []
 const EMPTY_PATTERN_LAYERS: AnimatePatternStack["layers"] = []
+const EMPTY_OVERLAY_LAYERS: AnimateOverlayStack["layers"] = []
 
 import {
   lightingOverlayCss,
   NOISE_DATA_URL,
+  overlayLayerCss,
   portraitOverlayCss,
 } from "./helpers"
 
@@ -78,6 +83,15 @@ type CanvasBackdropProps = {
    */
   animatePatternStack?: AnimatePatternStack
   /**
+   * Animate mode only: one texture-overlay layer per OVERLAY keyframe (plus the
+   * pre-first base), crossfade-chained like the portrait/pattern stacks so the
+   * additive textures transition instead of accumulating. Each layer renders in
+   * ITS position (over vs under the screenshot); this component renders the
+   * `underlay` ones, canvas-view renders the `overlay` ones. Empty → the
+   * committed overlay renders as usual.
+   */
+  animateOverlayStack?: AnimateOverlayStack
+  /**
    * Animate mode only: a clip animates lighting, so the outer overlay mounts
    * even when it isn't the committed target (and even at zero intensity) so the
    * player can crossfade the glow onto it. See `lightingOverlayCss`.
@@ -104,6 +118,7 @@ function CanvasBackdropImpl({
   animateFilterStack,
   animatePortraitStack,
   animatePatternStack,
+  animateOverlayStack,
   lightingAnimated = false,
   backdropAnimated = false,
 }: CanvasBackdropProps) {
@@ -203,6 +218,47 @@ function CanvasBackdropImpl({
 
   const patternLayers = animatePatternStack?.layers ?? EMPTY_PATTERN_LAYERS
   const hasPatternStack = patternLayers.length > 0
+
+  const overlayLayers = animateOverlayStack?.layers ?? EMPTY_OVERLAY_LAYERS
+  const hasOverlayStack = overlayLayers.length > 0
+  // Render the `underlay`-positioned layers of the overlay stack (canvas-view
+  // handles `overlay`-positioned ones). Base renders here only if it sits under.
+  const renderOverlayUnderlay = React.useCallback(() => {
+    if (!animateOverlayStack) return null
+    const base = animateOverlayStack.base
+    const baseStyle =
+      base.position === "underlay"
+        ? overlayLayerCss(base, OVERLAY_BASE_OPACITY_VAR, 0)
+        : null
+    return (
+      <>
+        {baseStyle ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-cover bg-center"
+            style={baseStyle}
+          />
+        ) : null}
+        {overlayLayers.map((layer) => {
+          if (layer.overlay.position !== "underlay") return null
+          const style = overlayLayerCss(
+            layer.overlay,
+            overlayLayerOpacityVar(layer.id),
+            layer.restOpaque ? 1 : 0
+          )
+          if (!style) return null
+          return (
+            <div
+              key={layer.id}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-cover bg-center"
+              style={style}
+            />
+          )
+        })}
+      </>
+    )
+  }, [animateOverlayStack, overlayLayers])
   // Render one overlay div per id in a pattern, its opacity = the layer's
   // crossfade opacity (var) × the pattern's own intensity. `keyId` namespaces
   // the divs so React keys stay unique across layers.
@@ -474,7 +530,9 @@ function CanvasBackdropImpl({
         />
       ) : null}
 
-      {overlay.id !== null && overlay.position === "underlay" ? (
+      {hasOverlayStack ? (
+        renderOverlayUnderlay()
+      ) : overlay.id !== null && overlay.position === "underlay" ? (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-cover bg-center"
