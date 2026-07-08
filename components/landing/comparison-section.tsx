@@ -10,23 +10,23 @@ const COMPETITOR_COMPARISONS = [
   {
     competitor: "PostSpark",
     contrast:
-      "The closest match — screenshots plus X and Bluesky posts, with video and animation extras. Strong tool, but cloud storage and the no-limits workflow sit behind Pro.",
+      "The closest match — screenshots plus X and Bluesky posts, with video and animation extras. Strong tool, but animation workflows, no-limits usage, and cloud storage sit behind paid upgrades.",
     tokokino:
-      "Tokokino keeps the screenshot/post workflow lean: local editing, free high-res exports, free cloud drafts, and reusable presets without a subscription meter.",
+      "Tokokino keeps the screenshot/post workflow lean: local editing, free high-res exports, GIF/WebM animation export, free cloud drafts, and reusable presets without a subscription meter.",
   },
   {
     competitor: "Pika",
     contrast:
-      "A polished browser editor with URL capture, tweet shots, and templates. The catch: 4K export, presets, annotations, WebP/SVG, and no watermark are Pro features.",
+      "A polished browser editor with URL capture, tweet shots, and templates. The catch: it is built around static assets — no timeline animation — and 4K export, presets, annotations, WebP/SVG, and no watermark are Pro features.",
     tokokino:
-      "Tokokino gives the daily launch workflow room to breathe: 4K/8K export, annotations, custom presets, and Bluesky post mockups are part of the free product.",
+      "Tokokino gives the daily launch workflow room to breathe: 4K/8K export, animations, annotations, custom presets, and Bluesky post mockups are part of the free product.",
   },
   {
     competitor: "Shots.so",
     contrast:
-      "Beautiful for animated device mockups and zoom videos, but it is built around a cloud rendering/content platform and does not cover social-post mockups.",
+      "Beautiful for animated device mockups and zoom videos, with the serious motion export workflow on paid tiers. It is focused on mockups and does not cover social-post mockups.",
     tokokino:
-      "Tokokino is the lighter, faster lane for static product shots: device frames, browser frames, multi-shot layouts, X/Bluesky posts, and local-first editing.",
+      "Tokokino is the lighter, faster lane for product motion and static shots: device frames, browser frames, multi-shot layouts, X/Bluesky posts, and local-first editing.",
   },
 ] as const
 
@@ -43,6 +43,13 @@ const FEATURE_MATRIX = [
     tokokino: true,
     postspark: "paid",
     pika: "paid",
+    shots: "paid",
+  },
+  {
+    feature: "Timeline animation + GIF/WebM export",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
     shots: "paid",
   },
   {
@@ -201,8 +208,9 @@ export function ComparisonSection() {
         <p className="max-w-2xl text-sm leading-7 text-foreground/58">
           PostSpark, Pika, and Shots all make good-looking mockups. Tokokino is
           built for the part that should stay effortless: drag a huge
-          screenshot, tune the layout, save the project, reuse the preset, and
-          export clean 4K or 8K images without a watermark or subscription.
+          screenshot, tune the layout, animate the key moments, save the
+          project, reuse the preset, and export clean 4K/8K images or GIF/WebM
+          motion without a watermark or subscription.
         </p>
       </motion.div>
 

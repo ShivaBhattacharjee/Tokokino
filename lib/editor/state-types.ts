@@ -411,6 +411,7 @@ export type AnimationEffect =
   | "lighting"
   | "filter"
   | "portrait"
+  | "pattern"
 
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
@@ -454,6 +455,11 @@ export type ClipBaseline = {
    * saved before portrait was animatable hydrate cleanly.
    */
   portrait?: Portrait
+  /**
+   * Backdrop pattern (geometric texture overlay) at this keyframe. Optional so
+   * drafts saved before pattern was animatable hydrate cleanly.
+   */
+  pattern?: BackdropPattern
   /** Per-slot poses keyed by slot id. */
   slots: Record<string, ClipSlotPose>
 }

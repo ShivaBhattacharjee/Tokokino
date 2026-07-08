@@ -124,6 +124,7 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   background: canvas.background,
   filter: canvas.backdrop.filter,
   portrait: canvas.portrait,
+  pattern: canvas.backdrop.pattern,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
@@ -165,6 +166,8 @@ const applyPoseToCanvas = (
     lighting: pose.lighting ?? canvas.backdrop.lighting,
     // Fall back to the live value for poses captured before filter animated.
     filter: pose.filter ?? canvas.backdrop.filter,
+    // Fall back to the live value for poses captured before pattern animated.
+    pattern: pose.pattern ?? canvas.backdrop.pattern,
   },
   screenshotSlots: canvas.screenshotSlots.map((s) => {
     const sp = pose.slots[s.id]
@@ -269,6 +272,13 @@ const resolveKeyframePose = (
       const { at } = latestOwner(ownsMain("portrait"))
       const resolved = at ? clipPose(at).portrait : fallback.portrait
       return resolved ?? canvas.portrait
+    })(),
+    // Pattern crossfade-chains like portrait: resolved value = latest owner's
+    // pattern (or the final look when unowned).
+    pattern: (() => {
+      const { at } = latestOwner(ownsMain("pattern"))
+      const resolved = at ? clipPose(at).pattern : fallback.pattern
+      return resolved ?? canvas.backdrop.pattern
     })(),
     backdropEffects: main(
       "backdrop",
@@ -1297,10 +1307,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "backdrop"
       ),
     setBackdropPattern: (p, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({ backdrop: { ...canvas.backdrop, pattern: p } }),
-        "backdrop-pattern"
+        "backdrop-pattern",
+        "pattern"
       ),
     setBackdropLighting: (l, canvasId) =>
       commitCanvasEffect(

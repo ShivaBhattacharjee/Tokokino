@@ -109,11 +109,24 @@ const ICONS: Record<string, React.ReactNode> = {
       stroke="currentColor"
       strokeWidth={1.4}
     >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M7 9v6l5-3-5-3z" fill="currentColor" stroke="none" />
+      <path d="M14 9h4M14 12h3M14 15h4" />
+    </svg>
+  ),
+  "09": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 8v4l3 3" />
     </svg>
   ),
-  "09": (
+  "10": (
     <svg
       viewBox="0 0 24 24"
       fill="none"
@@ -125,9 +138,9 @@ const ICONS: Record<string, React.ReactNode> = {
       <rect x="14" y="7" width="8" height="10" rx="2" opacity="0.6" />
     </svg>
   ),
-  "10": <RiTwitterXLine className="size-5" />,
-  "11": <RiBlueskyFill className="size-5" />,
-  "12": (
+  "11": <RiTwitterXLine className="size-5" />,
+  "12": <RiBlueskyFill className="size-5" />,
+  "13": (
     <svg
       viewBox="0 0 24 24"
       fill="none"

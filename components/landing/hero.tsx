@@ -96,8 +96,8 @@ export function Hero() {
             transition={{ duration: 0.6, ease, delay: 0.3 }}
             className="mt-6 max-w-xl text-[14px] leading-relaxed text-balance text-foreground/60 sm:text-[15px]"
           >
-            Drop in a capture. Frame it, light it, share it — fully in the
-            browser. No watermark, no upload, no compromise.
+            Drop in a capture. Frame it, light it, animate it, share it — fully
+            in the browser. No watermark, no upload, no compromise.
           </motion.p>
 
           <motion.div

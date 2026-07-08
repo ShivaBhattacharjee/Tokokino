@@ -41,9 +41,11 @@ import {
   clipOwns,
   EMPTY_BG_STACK,
   EMPTY_FILTER_STACK,
+  EMPTY_PATTERN_STACK,
   EMPTY_PORTRAIT_STACK,
   resolveAnimateBgStack,
   resolveAnimateFilterStack,
+  resolveAnimatePatternStack,
   resolveAnimatePortraitStack,
 } from "@/lib/editor/animation-playback"
 import { AnnotationLayer } from "./annotation-layer"
@@ -216,6 +218,17 @@ function CanvasViewInner({
           )
         : EMPTY_PORTRAIT_STACK,
     [isAnimateMode, canvasAnimation, portrait, selectedAnimationClipId]
+  )
+  const animatePatternStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimatePatternStack(
+            canvasAnimation.clips,
+            backdrop.pattern,
+            selectedAnimationClipId
+          )
+        : EMPTY_PATTERN_STACK,
+    [isAnimateMode, canvasAnimation, backdrop.pattern, selectedAnimationClipId]
   )
   // Downscale whenever the background sourceUrl changes (on mount/hydration,
   // and also when a custom preset applies a new image background mid-session).
@@ -740,6 +753,7 @@ function CanvasViewInner({
             animateBgStack={animateBgStack}
             animateFilterStack={animateFilterStack}
             animatePortraitStack={animatePortraitStack}
+            animatePatternStack={animatePatternStack}
             lightingAnimated={lightingAnimated}
             backdropAnimated={backdropAnimated}
           />

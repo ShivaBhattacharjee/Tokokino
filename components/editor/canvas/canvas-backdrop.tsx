@@ -6,10 +6,13 @@ import { cn } from "@/lib/utils"
 import {
   backgroundLayerOpacityVar,
   filterLayerOpacityVar,
+  patternLayerOpacityVar,
+  PATTERN_BASE_OPACITY_VAR,
   portraitLayerOpacityVar,
   PORTRAIT_BASE_OPACITY_VAR,
   type AnimateBgStack,
   type AnimateFilterStack,
+  type AnimatePatternStack,
   type AnimatePortraitStack,
 } from "@/lib/editor/animation-playback"
 import {
@@ -19,6 +22,7 @@ import {
   patternCssFor,
   type AssetFilter,
   type Backdrop,
+  type BackdropPattern,
   type Background,
   type Overlay,
   type Portrait,
@@ -29,6 +33,7 @@ import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
 const EMPTY_BG_LAYERS: AnimateBgStack["layers"] = []
 const EMPTY_FILTER_LAYERS: AnimateFilterStack["layers"] = []
 const EMPTY_PORTRAIT_LAYERS: AnimatePortraitStack["layers"] = []
+const EMPTY_PATTERN_LAYERS: AnimatePatternStack["layers"] = []
 
 import {
   lightingOverlayCss,
@@ -66,6 +71,13 @@ type CanvasBackdropProps = {
    */
   animatePortraitStack?: AnimatePortraitStack
   /**
+   * Animate mode only: one group of pattern overlays per PATTERN keyframe (plus
+   * the pre-first base), crossfade-chained like the portrait stack so additive
+   * pattern textures transition instead of accumulating. Empty → the committed
+   * pattern renders as usual.
+   */
+  animatePatternStack?: AnimatePatternStack
+  /**
    * Animate mode only: a clip animates lighting, so the outer overlay mounts
    * even when it isn't the committed target (and even at zero intensity) so the
    * player can crossfade the glow onto it. See `lightingOverlayCss`.
@@ -91,6 +103,7 @@ function CanvasBackdropImpl({
   animateBgStack,
   animateFilterStack,
   animatePortraitStack,
+  animatePatternStack,
   lightingAnimated = false,
   backdropAnimated = false,
 }: CanvasBackdropProps) {
@@ -187,6 +200,30 @@ function CanvasBackdropImpl({
   const filterStackBase = animateFilterStack?.base ?? "none"
   const filterLayers = animateFilterStack?.layers ?? EMPTY_FILTER_LAYERS
   const hasFilterStack = filterLayers.length > 0
+
+  const patternLayers = animatePatternStack?.layers ?? EMPTY_PATTERN_LAYERS
+  const hasPatternStack = patternLayers.length > 0
+  // Render one overlay div per id in a pattern, its opacity = the layer's
+  // crossfade opacity (var) × the pattern's own intensity. `keyId` namespaces
+  // the divs so React keys stay unique across layers.
+  const renderPatternGroup = React.useCallback(
+    (pattern: BackdropPattern, opacityVar: string, restOpaque: number) => {
+      const intensity = Math.max(0, Math.min(100, pattern.intensity)) / 100
+      return pattern.ids.map((id) => (
+        <div
+          key={`${opacityVar}:${id}`}
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            ...patternCssFor(id, pattern.color, pattern.thickness),
+            opacity:
+              `calc(var(${opacityVar}, ${restOpaque}) * ${intensity})` as unknown as number,
+          }}
+        />
+      ))
+    },
+    []
+  )
 
   return (
     <>
@@ -335,20 +372,43 @@ function CanvasBackdropImpl({
           />
         )}
 
-        {backdrop.pattern.ids.map((id) => (
-          <div
-            key={id}
-            className="pointer-events-none absolute inset-0"
-            style={{
-              ...patternCssFor(
-                id,
-                backdrop.pattern.color,
-                backdrop.pattern.thickness
-              ),
-              opacity: `var(--bd-pattern-intensity, ${backdrop.pattern.intensity / 100})`,
-            }}
-          />
-        ))}
+        {hasPatternStack ? (
+          // Animate mode with animated pattern: base group + one group per
+          // keyframe, crossfade-chained by AnimationLayer so the additive
+          // textures transition instead of stacking. At rest only the selected
+          // keyframe's group shows.
+          <>
+            {animatePatternStack
+              ? renderPatternGroup(
+                  animatePatternStack.base,
+                  PATTERN_BASE_OPACITY_VAR,
+                  0
+                )
+              : null}
+            {patternLayers.map((layer) =>
+              renderPatternGroup(
+                layer.pattern,
+                patternLayerOpacityVar(layer.id),
+                layer.restOpaque ? 1 : 0
+              )
+            )}
+          </>
+        ) : (
+          backdrop.pattern.ids.map((id) => (
+            <div
+              key={id}
+              className="pointer-events-none absolute inset-0"
+              style={{
+                ...patternCssFor(
+                  id,
+                  backdrop.pattern.color,
+                  backdrop.pattern.thickness
+                ),
+                opacity: `var(--bd-pattern-intensity, ${backdrop.pattern.intensity / 100})`,
+              }}
+            />
+          ))
+        )}
 
         <div
           data-noise-enabled={noiseEnabled ? "" : undefined}

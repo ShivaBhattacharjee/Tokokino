@@ -52,6 +52,8 @@ import {
   DEFAULT_BASELINE,
   filterLayerOpacityVar,
   lerp,
+  patternLayerOpacityVar,
+  PATTERN_BASE_OPACITY_VAR,
   portraitLayerOpacityVar,
   PORTRAIT_BASE_OPACITY_VAR,
   lightingEntranceRest,
@@ -251,13 +253,15 @@ export function AnimationLayer() {
       for (const v of TILT_SCALE_VARS) setVar(canvasEl, v, null)
       clearPositionPreviewVars(canvasEl)
       for (const v of CANVAS_FX_VARS) setVar(canvasEl, v, null)
-      // Per-keyframe background + filter + portrait layer opacities → back to
-      // their rest fallback.
+      // Per-keyframe background + filter + portrait + pattern layer opacities →
+      // back to their rest fallback.
       setVar(canvasEl, PORTRAIT_BASE_OPACITY_VAR, null)
+      setVar(canvasEl, PATTERN_BASE_OPACITY_VAR, null)
       for (const c of clips) {
         setVar(canvasEl, backgroundLayerOpacityVar(c.id), null)
         setVar(canvasEl, filterLayerOpacityVar(c.id), null)
         setVar(canvasEl, portraitLayerOpacityVar(c.id), null)
+        setVar(canvasEl, patternLayerOpacityVar(c.id), null)
       }
       for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
       canvasEl
@@ -542,6 +546,28 @@ export function AnimationLayer() {
           setVar(
             canvasEl,
             portraitLayerOpacityVar(c.id),
+            String(pIn * (1 - pOut))
+          )
+        })
+      }
+
+      // --- pattern — same additive CROSSFADE-CHAIN as portrait. ---
+      const patternClips = mainClips
+        .filter((c) => clipOwns(c, "pattern"))
+        .sort((a, b) => a.startMs - b.startMs)
+      if (patternClips.length > 0) {
+        setVar(
+          canvasEl,
+          PATTERN_BASE_OPACITY_VAR,
+          String(1 - clipsProgressAt([patternClips[0]], playheadMs))
+        )
+        patternClips.forEach((c, i) => {
+          const pIn = clipsProgressAt([c], playheadMs)
+          const next = patternClips[i + 1]
+          const pOut = next ? clipsProgressAt([next], playheadMs) : 0
+          setVar(
+            canvasEl,
+            patternLayerOpacityVar(c.id),
             String(pIn * (1 - pOut))
           )
         })

@@ -17,6 +17,7 @@ import type {
   Background,
   BackdropEffects,
   BackdropLighting,
+  BackdropPattern,
   ClipBaseline,
   ClipSlotPose,
   Portrait,
@@ -40,6 +41,7 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   background: DEFAULT_CANVAS_BASE.background,
   filter: DEFAULT_CANVAS_BASE.backdrop.filter,
   portrait: DEFAULT_CANVAS_BASE.portrait,
+  pattern: DEFAULT_CANVAS_BASE.backdrop.pattern,
   slots: {},
 }
 
@@ -549,6 +551,84 @@ export function resolveAnimatePortraitStack(
         ? committedPortrait
         : (clipPose(c).portrait ?? DEFAULT_CANVAS_BASE.portrait),
     // Additive overlays → exactly the current keyframe shows at rest.
+    restOpaque: i === restCutoff,
+  }))
+  return { base, layers }
+}
+
+/** True when two patterns are a different selection (ids or any param). */
+export function patternsDiffer(
+  a: BackdropPattern,
+  b: BackdropPattern
+): boolean {
+  return (
+    a.intensity !== b.intensity ||
+    a.thickness !== b.thickness ||
+    a.color !== b.color ||
+    a.ids.length !== b.ids.length ||
+    a.ids.some((id, i) => id !== b.ids[i])
+  )
+}
+
+/** CSS var carrying a pattern keyframe layer's crossfade opacity. */
+export const patternLayerOpacityVar = (clipId: string) =>
+  `--canvas-pattern-op-${clipId}`
+
+/** CSS var for the pre-first-keyframe base pattern's crossfade opacity. */
+export const PATTERN_BASE_OPACITY_VAR = "--canvas-pattern-op-base"
+
+export type AnimatePatternLayer = {
+  id: string
+  pattern: BackdropPattern
+  /** Opacity at REST (not playing): true (1) ONLY for the selected keyframe —
+   * pattern overlays are additive, so exactly one shows at rest. */
+  restOpaque: boolean
+}
+
+export type AnimatePatternStack = {
+  /** Pattern shown before the first pattern keyframe (changed FROM). */
+  base: BackdropPattern
+  /** One layer per pattern keyframe, chronological (bottom → top). */
+  layers: AnimatePatternLayer[]
+}
+
+export const EMPTY_PATTERN_STACK: AnimatePatternStack = {
+  base: DEFAULT_CANVAS_BASE.backdrop.pattern,
+  layers: [],
+}
+
+/**
+ * Build the pattern keyframe layers for Animate mode — same crossfade-chain as
+ * the portrait stack (patterns are additive overlays): each layer fades in over
+ * its window then back out as the next fades in. Each layer carries a full
+ * BackdropPattern (its own ids/intensity/thickness/colour). At rest only the
+ * selected keyframe's layer shows.
+ */
+export function resolveAnimatePatternStack(
+  clips: readonly AnimationClip[],
+  committedPattern: BackdropPattern,
+  selectedClipId: string | null
+): AnimatePatternStack {
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const isPatternKeyframe = (c: AnimationClip) =>
+    clipAffectsMain(c) && clipOwns(c, "pattern")
+  const patternClips = sorted.filter(isPatternKeyframe)
+  if (patternClips.length === 0) return EMPTY_PATTERN_STACK
+
+  const base =
+    clipBaseline(patternClips[0]).pattern ??
+    DEFAULT_CANVAS_BASE.backdrop.pattern
+
+  const selectedIndex = patternClips.findIndex((c) => c.id === selectedClipId)
+  const restCutoff =
+    selectedIndex === -1 ? patternClips.length - 1 : selectedIndex
+
+  const layers: AnimatePatternLayer[] = patternClips.map((c, i) => ({
+    id: c.id,
+    pattern:
+      c.id === selectedClipId
+        ? committedPattern
+        : (clipPose(c).pattern ?? DEFAULT_CANVAS_BASE.backdrop.pattern),
     restOpaque: i === restCutoff,
   }))
   return { base, layers }
