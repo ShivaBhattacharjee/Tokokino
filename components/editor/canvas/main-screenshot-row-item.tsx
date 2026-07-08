@@ -119,6 +119,14 @@ export function MainScreenshotRender({
     ...style,
     transform:
       `${baseTransform} translate(var(--editor-main-offset-x, ${offset.x}px), var(--editor-main-offset-y, ${offset.y}px))`.trim(),
+    // Match the screenshot slots' position easing so a group move animates the
+    // primary box in lockstep with the slots instead of snapping ahead of them.
+    // Position travels via left/top (anchor) and the offset translate, so both
+    // must transition. Disabled while dragging/previewing for instant tracking.
+    transition:
+      previewMode || isScreenshotDragging
+        ? undefined
+        : "left 300ms ease-out, top 300ms ease-out, transform 300ms ease-out",
   }
   const selectionRadius = frameSelectionRadius(
     frame.id,

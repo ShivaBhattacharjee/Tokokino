@@ -42,6 +42,12 @@ type CanvasBackdropProps = {
    * bg3. Empty stack → just the committed background renders (default).
    */
   animateBgStack?: AnimateBgStack
+  /**
+   * Animate mode only: a clip animates lighting, so the outer overlay mounts
+   * even when it isn't the committed target (and even at zero intensity) so the
+   * player can crossfade the glow onto it. See `lightingOverlayCss`.
+   */
+  lightingAnimated?: boolean
 }
 
 function CanvasBackdropImpl({
@@ -53,6 +59,7 @@ function CanvasBackdropImpl({
   portrait,
   overlay,
   animateBgStack,
+  lightingAnimated = false,
 }: CanvasBackdropProps) {
   const resolveEffectiveBackground = React.useCallback(
     (bg: Background): Background => {
@@ -98,8 +105,11 @@ function CanvasBackdropImpl({
     portrait.distance
   )
   const outerLightingStyle =
-    backdrop.lighting.target === "outer"
-      ? lightingOverlayCss(backdrop.lighting)
+    backdrop.lighting.target === "outer" || lightingAnimated
+      ? lightingOverlayCss(backdrop.lighting, {
+          active: backdrop.lighting.target === "outer",
+          forceMount: lightingAnimated,
+        })
       : null
 
   const assetFilter = assetFilterCss(backdrop.filter ?? "none")

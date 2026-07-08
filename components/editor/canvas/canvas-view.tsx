@@ -38,6 +38,7 @@ import {
 } from "@/lib/mockups"
 
 import {
+  clipOwns,
   EMPTY_BG_STACK,
   resolveAnimateBgStack,
 } from "@/lib/editor/animation-playback"
@@ -508,9 +509,19 @@ function CanvasViewInner({
   const effectsFilter = effectsFilterCss(backdrop.effects)
   const noiseEnabled = backdrop.effects.noise > 0
   const noiseOpacity = noiseEnabled ? backdrop.effects.noise / 100 : 0
+  // When a clip animates lighting, BOTH overlays must be mounted so a keyframe
+  // targeting either side (inner/outer) can render and the two can crossfade for
+  // a depth shift — not just whichever side the committed target happens to be.
+  const lightingAnimated =
+    isAnimateMode &&
+    !!canvasAnimation?.clips.some((c) => clipOwns(c, "lighting"))
   const innerLightingStyle =
-    backdrop.lighting.target === "inner"
-      ? lightingOverlayCss(backdrop.lighting, { inner: true })
+    backdrop.lighting.target === "inner" || lightingAnimated
+      ? lightingOverlayCss(backdrop.lighting, {
+          inner: true,
+          active: backdrop.lighting.target === "inner",
+          forceMount: lightingAnimated,
+        })
       : null
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
   const mockupRotation =
@@ -694,6 +705,7 @@ function CanvasViewInner({
             portrait={portrait}
             overlay={overlay}
             animateBgStack={animateBgStack}
+            lightingAnimated={lightingAnimated}
           />
 
           {mainScreenshotRowStyle ? (

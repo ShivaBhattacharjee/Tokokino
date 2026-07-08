@@ -505,6 +505,22 @@ export function AnimationLayer() {
         lightingEntranceRest(lightingFrames[0]?.value),
         lightingBetween
       )
+      // The glow's inner/outer target eases as its own 0(outer)→1(inner) track,
+      // so switching target between keyframes crossfades the light from the
+      // backdrop into the screenshot (a depth shift) instead of snapping. The
+      // outer overlay's opacity is scaled by (1 − mix), the inner by mix.
+      const firstIsInner =
+        (lightingFrames[0]?.value.target ?? REST_LIGHTING.target) === "inner"
+      const targetMix =
+        sampleKeyframes<number>(
+          lightingFrames.map((f) => ({
+            ...f,
+            value: f.value.target === "inner" ? 1 : 0,
+          })),
+          playheadMs,
+          firstIsInner ? 1 : 0,
+          lerp
+        ) ?? (firstIsInner ? 1 : 0)
       if (lightVal) {
         const outer = lightingOverlayValues(lightVal)
         const inner = lightingOverlayValues(lightVal, { inner: true })
@@ -512,7 +528,7 @@ export function AnimationLayer() {
         setVar(
           canvasEl,
           LIGHTING_OPACITY_VAR,
-          outer ? outer.opacity.toFixed(3) : "0"
+          outer ? (outer.opacity * (1 - targetMix)).toFixed(3) : "0"
         )
         setVar(
           canvasEl,
@@ -522,7 +538,7 @@ export function AnimationLayer() {
         setVar(
           canvasEl,
           `${LIGHTING_OPACITY_VAR}-in`,
-          inner ? inner.opacity.toFixed(3) : "0"
+          inner ? (inner.opacity * targetMix).toFixed(3) : "0"
         )
       } else {
         setVar(canvasEl, LIGHTING_IMAGE_VAR, null)

@@ -102,10 +102,19 @@ function lightRgba(color: string, opacity: number) {
 }
 
 function lightGradientDirection(x: number, y: number) {
-  if (x === 50 && y === 50) return "to bottom"
-  const vertical = y <= 50 ? "bottom" : "top"
-  const horizontal = x <= 50 ? "right" : "left"
-  return `to ${vertical} ${horizontal}`
+  // The soft linear sweep should follow only the axes the light is actually off
+  // on. A deadzone (well under one grid step of 25%) keeps a pure top/bottom or
+  // left/right light from picking up a spurious diagonal — e.g. a top light
+  // (x≈50) must sweep straight down, not "to bottom right", so its animated
+  // entrance reads as top→down instead of a fixed left→right drift.
+  const DEAD = 6
+  const dx = x - 50
+  const dy = y - 50
+  const vertical = Math.abs(dy) < DEAD ? "" : dy < 0 ? "bottom" : "top"
+  const horizontal = Math.abs(dx) < DEAD ? "" : dx < 0 ? "right" : "left"
+  const parts = [vertical, horizontal].filter(Boolean)
+  if (parts.length === 0) return "to bottom"
+  return `to ${parts.join(" ")}`
 }
 
 /**
@@ -116,9 +125,14 @@ function lightGradientDirection(x: number, y: number) {
  */
 export function lightingOverlayValues(
   lighting: BackdropLighting | undefined,
-  options: { inner?: boolean } = {}
+  options: { inner?: boolean; forceMount?: boolean } = {}
 ): { image: string; opacity: number } | null {
-  if (!lighting || lighting.intensity <= 0) return null
+  if (!lighting) return null
+  const off = lighting.intensity <= 0
+  // Normally an off light renders nothing. In Animate mode the overlay element
+  // must still mount (`forceMount`) so the player has a node to fade in when a
+  // later keyframe lights it — it just sits at opacity 0 until then.
+  if (off && !options.forceMount) return null
 
   const intensity = clamp(lighting.intensity, 0, 100) / 100
   const { x, y } = lightSourcePoint(lighting.direction)
@@ -131,13 +145,13 @@ export function lightingOverlayValues(
       `radial-gradient(circle at ${x}% ${y}%, ${strong} 0%, ${mid} 22%, transparent 58%)`,
       `linear-gradient(${lightGradientDirection(x, y)}, ${soft} 0%, transparent 62%)`,
     ].join(", "),
-    opacity: 0.15 + intensity * 0.85,
+    opacity: off ? 0 : 0.15 + intensity * 0.85,
   }
 }
 
 export function lightingOverlayCss(
   lighting: BackdropLighting | undefined,
-  options: { inner?: boolean } = {}
+  options: { inner?: boolean; active?: boolean; forceMount?: boolean } = {}
 ): React.CSSProperties | null {
   const values = lightingOverlayValues(lighting, options)
   if (!values) return null
@@ -146,11 +160,16 @@ export function lightingOverlayCss(
   // light chains between keyframes — its position, strength and colour easing
   // from one to the next). At rest the vars are unset and fall back to the
   // committed values, so the static look is untouched.
+  //
+  // `active: false` means this side (inner/outer) is not the committed target,
+  // so at rest it stays invisible — but it's still mounted so the player can
+  // crossfade the glow onto it (an inner↔outer depth shift between keyframes).
   const suffix = options.inner ? "-in" : ""
+  const restOpacity = options.active === false ? 0 : values.opacity
   return {
     backgroundImage: `var(${LIGHTING_IMAGE_VAR}${suffix}, ${values.image})`,
     opacity:
-      `var(${LIGHTING_OPACITY_VAR}${suffix}, ${values.opacity.toFixed(3)})` as unknown as number,
+      `var(${LIGHTING_OPACITY_VAR}${suffix}, ${restOpacity.toFixed(3)})` as unknown as number,
   }
 }
 
