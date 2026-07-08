@@ -111,7 +111,7 @@ const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
 
 /** Snapshot the canvas's animatable state as a clip's target keyframe (pose). */
-const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
+export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   tilt: canvas.tilt,
   scale: canvas.scale,
   screenshotPosition: canvas.screenshotPosition,
@@ -126,6 +126,8 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   portrait: canvas.portrait,
   pattern: canvas.backdrop.pattern,
   overlay: canvas.overlay,
+  border: canvas.border,
+  borderRadius: canvas.borderRadius,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
@@ -162,6 +164,10 @@ const applyPoseToCanvas = (
   portrait: pose.portrait ?? canvas.portrait,
   // Fall back to the live value for poses captured before overlay animated.
   overlay: pose.overlay ?? canvas.overlay,
+  // Fall back to the live value for poses captured before border animated.
+  border: pose.border ?? canvas.border,
+  // Fall back to the live value for poses captured before radius animated.
+  borderRadius: pose.borderRadius ?? canvas.borderRadius,
   backdrop: {
     ...canvas.backdrop,
     effects: pose.backdropEffects,
@@ -243,6 +249,24 @@ const resolveKeyframePose = (
     return any ? rest : extract(fallback)
   }
 
+  // Like `main`, but the "owned only by a LATER keyframe" case resolves to the
+  // value the effect REVEALS FROM — the first owner's baseline — instead of the
+  // final look. This mirrors playback (which eases from that baseline), so
+  // selecting a keyframe BEFORE the first change shows the pre-animation state,
+  // not the end state. Without this, editing a later keyframe (e.g. border →
+  // orange) makes every earlier keyframe resolve to that end value too.
+  const mainReveal = <V,>(
+    effect: AnimationEffect,
+    extract: (p: ClipBaseline) => V
+  ): V => {
+    const owners = clips
+      .filter((c) => ownsMain(effect)(c))
+      .sort((a, b) => a.startMs - b.startMs)
+    if (owners.length === 0) return extract(fallback)
+    const { at } = latestOwner(ownsMain(effect))
+    return extract(at ? clipPose(at) : clipBaseline(owners[0]))
+  }
+
   return {
     tilt: main("tilt", (p) => p.tilt, { rx: 0, ry: 0, rz: 0 }),
     scale: main("zoom", (p) => p.scale, 100),
@@ -263,33 +287,19 @@ const resolveKeyframePose = (
       const { at } = latestOwner(ownsMain("background"))
       return at ? clipPose(at).background : fallback.background
     })(),
-    // Filter chains via stacked layers like background: the resolved value at a
-    // keyframe is the latest owner's filter (or the final look when unowned).
-    filter: (() => {
-      const { at } = latestOwner(ownsMain("filter"))
-      return at ? (clipPose(at).filter ?? "none") : (fallback.filter ?? "none")
-    })(),
-    // Portrait crossfade-chains like filter: the resolved value at a keyframe is
-    // the latest owner's portrait (or the final look when unowned).
-    portrait: (() => {
-      const { at } = latestOwner(ownsMain("portrait"))
-      const resolved = at ? clipPose(at).portrait : fallback.portrait
-      return resolved ?? canvas.portrait
-    })(),
-    // Pattern crossfade-chains like portrait: resolved value = latest owner's
-    // pattern (or the final look when unowned).
-    pattern: (() => {
-      const { at } = latestOwner(ownsMain("pattern"))
-      const resolved = at ? clipPose(at).pattern : fallback.pattern
-      return resolved ?? canvas.backdrop.pattern
-    })(),
-    // Overlay crossfade-chains like pattern: resolved value = latest owner's
-    // overlay (or the final look when unowned).
-    overlay: (() => {
-      const { at } = latestOwner(ownsMain("overlay"))
-      const resolved = at ? clipPose(at).overlay : fallback.overlay
-      return resolved ?? canvas.overlay
-    })(),
+    // Reveal effects: held from an earlier owner if one exists at/before this
+    // keyframe, else the value they reveal FROM (first owner's baseline) — never
+    // the final look, so an earlier keyframe never inherits a later edit.
+    filter: mainReveal("filter", (p) => p.filter ?? "none"),
+    portrait: mainReveal("portrait", (p) => p.portrait ?? canvas.portrait),
+    pattern: mainReveal("pattern", (p) => p.pattern ?? canvas.backdrop.pattern),
+    overlay: mainReveal("overlay", (p) => p.overlay ?? canvas.overlay),
+    border: mainReveal("border", (p) => p.border ?? canvas.border),
+    borderRadius: main(
+      "borderRadius",
+      (p) => p.borderRadius ?? canvas.borderRadius,
+      DEFAULT_BASELINE.borderRadius ?? canvas.borderRadius
+    ),
     backdropEffects: main(
       "backdrop",
       (p) => p.backdropEffects,
@@ -1275,7 +1285,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "padding"
       ),
     setBorderRadius: (n, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           borderRadius: n,
@@ -1283,6 +1293,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             borderRadius: n,
           }),
         }),
+        "borderRadius",
         "borderRadius"
       ),
     setCanvasBorderRadius: (n, canvasId) =>
@@ -1293,7 +1304,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "canvasRadius"
       ),
     setBorder: (b, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           border: b,
@@ -1301,12 +1312,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             border: cloneBorder(b),
           })),
         }),
+        "border",
         "border"
       ),
     setMainScreenshotPadding: (n, canvasId) =>
       commitCanvasEffect(canvasId, { padding: n }, "padding", "padding"),
     setMainScreenshotBorderRadius: (n, canvasId) =>
-      commitCanvas(canvasId, { borderRadius: n }, "borderRadius"),
+      commitCanvasEffect(
+        canvasId,
+        { borderRadius: n },
+        "borderRadius",
+        "borderRadius"
+      ),
     setMainScreenshotBorder: (b, canvasId) =>
       commitCanvas(canvasId, { border: b }, "border"),
     setBackdropEffects: (e, canvasId) =>

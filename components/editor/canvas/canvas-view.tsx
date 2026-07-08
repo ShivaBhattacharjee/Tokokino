@@ -12,6 +12,11 @@ import { bulkToolbarScale } from "@/components/editor/toolbar/primitives"
 import { cn } from "@/lib/utils"
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
 import {
+  BORDER_OFFSET_PREVIEW_VAR,
+  BORDER_OUTLINE_PREVIEW_VAR,
+  borderOffsetCss,
+  borderOutlineCss,
+  SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowBoxShadowCss,
   shadowCss,
   shadowDropFilterCss,
@@ -538,8 +543,11 @@ function CanvasViewInner({
     ? screenshotPlacementStyle(placementDims, scaleFactor, positionX, positionY)
     : null
   const enhanceFilter = enhanceFilterCss(enhance)
+  // Read the animated radius via a var so an Animate-mode clip can ease it,
+  // falling back to the committed value at rest / outside Animate mode.
+  const screenshotRadiusCss = `var(${SCREENSHOT_RADIUS_PREVIEW_VAR}, ${borderRadius}px)`
   const imgStyle: React.CSSProperties = {
-    borderRadius,
+    borderRadius: screenshotRadiusCss,
     transform,
     transformStyle: "preserve-3d",
     boxShadow: shadowBoxShadowCss(computedShadow),
@@ -549,14 +557,23 @@ function CanvasViewInner({
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     imgStyle.mixBlendMode = screenshotLayer.blendMode
   }
-  if (border.color && border.width > 0) {
-    imgStyle.outline = `${border.width}px ${border.style || "solid"} ${border.color}`
-    imgStyle.outlineOffset = `${border.padding || 0}px`
+  // When a clip animates the border, the outline is ALWAYS mounted (even when
+  // the committed border is invisible) so the player can ease it in from 0 /
+  // recolour it via the preview vars. Otherwise it renders only when committed.
+  const borderAnimated =
+    isAnimateMode && !!canvasAnimation?.clips.some((c) => clipOwns(c, "border"))
+  const borderVisible = Boolean(border.color) && border.width > 0
+  if (borderAnimated || borderVisible) {
+    const committedOutline = borderVisible
+      ? borderOutlineCss(border)
+      : "0px solid transparent"
+    imgStyle.outline = `var(${BORDER_OUTLINE_PREVIEW_VAR}, ${committedOutline})`
+    imgStyle.outlineOffset = `var(${BORDER_OFFSET_PREVIEW_VAR}, ${borderOffsetCss(border)})`
   }
   const emptyStateBoxStyle: React.CSSProperties = {
-    borderRadius,
+    borderRadius: screenshotRadiusCss,
   }
-  if (border.color && border.width > 0) {
+  if (borderAnimated || borderVisible) {
     emptyStateBoxStyle.outline = imgStyle.outline
     emptyStateBoxStyle.outlineOffset = imgStyle.outlineOffset
   }
@@ -853,7 +870,7 @@ function CanvasViewInner({
                 <TweetCardView
                   tweet={tweet}
                   transform={transform}
-                  borderRadius={borderRadius}
+                  borderRadius={screenshotRadiusCss}
                   boxShadow={shadowBoxShadowCss(computedShadow)}
                   enhanceFilter={enhanceFilter}
                   screenshotLayer={screenshotLayer}

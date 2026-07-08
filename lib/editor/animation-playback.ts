@@ -18,6 +18,7 @@ import type {
   BackdropEffects,
   BackdropLighting,
   BackdropPattern,
+  Border,
   ClipBaseline,
   ClipSlotPose,
   Overlay,
@@ -44,6 +45,8 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   portrait: DEFAULT_CANVAS_BASE.portrait,
   pattern: DEFAULT_CANVAS_BASE.backdrop.pattern,
   overlay: DEFAULT_CANVAS_BASE.overlay,
+  border: DEFAULT_CANVAS_BASE.border,
+  borderRadius: DEFAULT_CANVAS_BASE.borderRadius,
   slots: {},
 }
 
@@ -221,6 +224,58 @@ export function shadowsDiffer(a: Shadow, b: Shadow): boolean {
     a.color !== b.color ||
     a.lightSource !== b.lightSource
   )
+}
+
+/** A border renders nothing when it has no colour or zero width. */
+function borderVisible(b: Border): boolean {
+  return !!b.color && b.width > 0
+}
+
+/** A border that renders nothing — the rest a first border keyframe reveals FROM. */
+export const INVISIBLE_BORDER: Border = {
+  color: null,
+  width: 0,
+  style: "solid",
+  padding: 0,
+}
+
+/** True when two borders are a different look (both-invisible borders are equal). */
+export function bordersDiffer(a: Border, b: Border): boolean {
+  if (!borderVisible(a) && !borderVisible(b)) return false
+  return (
+    a.color !== b.color ||
+    a.width !== b.width ||
+    (a.style || "solid") !== (b.style || "solid") ||
+    a.padding !== b.padding
+  )
+}
+
+/**
+ * Border at progress p, easing `from` → `to`. Width and inner padding ease
+ * numerically; the colour eases as RGBA so a border can FADE in from nothing
+ * (an invisible side lends its alpha=0 to the other's rgb) and a colour change
+ * cross-blends continuously. Style snaps to the destination past the midpoint
+ * (an `outline` can't render two styles at once). This lets a first border
+ * keyframe emerge from the committed base (0-width / no colour) and lets a later
+ * keyframe recolour or resize the border without any jump.
+ */
+export function borderBetween(from: Border, to: Border, p: number): Border {
+  const fromVis = borderVisible(from)
+  const toVis = borderVisible(to)
+  // An invisible side borrows the other's rgb so ONLY the alpha fades (no hue
+  // slide toward an arbitrary default colour).
+  const fromRgb = hexToRgb(from.color || to.color || "#ffffff")
+  const toRgb = hexToRgb(to.color || from.color || "#ffffff")
+  const r = Math.round(clampChannel(lerp(fromRgb.r, toRgb.r, p)))
+  const g = Math.round(clampChannel(lerp(fromRgb.g, toRgb.g, p)))
+  const b = Math.round(clampChannel(lerp(fromRgb.b, toRgb.b, p)))
+  const a = clamp01(lerp(fromVis ? 1 : 0, toVis ? 1 : 0, p))
+  return {
+    color: `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`,
+    width: lerp(from.width, to.width, p),
+    style: p >= 0.5 ? (to.style ?? "solid") : (from.style ?? "solid"),
+    padding: lerp(from.padding, to.padding, p),
+  }
 }
 
 /** Light source as grid coords (row/col 0..4); "center" is the 2,2 middle. */

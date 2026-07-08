@@ -413,6 +413,8 @@ export type AnimationEffect =
   | "portrait"
   | "pattern"
   | "overlay"
+  | "border"
+  | "borderRadius"
 
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
@@ -466,6 +468,16 @@ export type ClipBaseline = {
    * drafts saved before overlay was animatable hydrate cleanly.
    */
   overlay?: Overlay
+  /**
+   * Screenshot border (color/width/style/inner padding) at this keyframe.
+   * Optional so drafts saved before border was animatable hydrate cleanly.
+   */
+  border?: Border
+  /**
+   * Screenshot corner radius (0–48) at this keyframe. Optional so drafts saved
+   * before it was animatable hydrate cleanly (read through a live fallback).
+   */
+  borderRadius?: number
   /** Per-slot poses keyed by slot id. */
   slots: Record<string, ClipSlotPose>
 }

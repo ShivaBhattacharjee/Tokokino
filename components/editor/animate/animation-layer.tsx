@@ -43,6 +43,7 @@ import { lightingOverlayValues } from "@/components/editor/canvas/helpers"
 import {
   backdropEffectsBetween,
   backgroundLayerOpacityVar,
+  borderBetween,
   clipAffectsMain,
   clipAffectsSlot,
   clipBaseline,
@@ -51,6 +52,7 @@ import {
   clipsProgressAt,
   DEFAULT_BASELINE,
   filterLayerOpacityVar,
+  INVISIBLE_BORDER,
   lerp,
   patternLayerOpacityVar,
   PATTERN_BASE_OPACITY_VAR,
@@ -66,17 +68,23 @@ import {
   sampleShadowLayers,
 } from "@/lib/editor/animation-playback"
 import {
+  BORDER_OFFSET_PREVIEW_VAR,
+  BORDER_OUTLINE_PREVIEW_VAR,
+  borderOffsetCss,
+  borderOutlineCss,
   effectsFilterCss,
+  SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowCss,
   shadowDropFilterCss,
   SHADOW_FILTER_PREVIEW_VAR,
   SHADOW_PREVIEW_VAR,
 } from "@/lib/editor/css-utils"
-import { useEditorStore } from "@/lib/editor/store"
+import { captureClipPose, useEditorStore } from "@/lib/editor/store"
 import type {
   AnimationClip,
   BackdropEffects,
   BackdropLighting,
+  Border,
   ClipBaseline,
   ScreenshotPosition,
   Shadow,
@@ -116,6 +124,9 @@ const SCOPE_VARS = [
   PADDING_PREVIEW_VAR,
   SHADOW_PREVIEW_VAR,
   SHADOW_FILTER_PREVIEW_VAR,
+  BORDER_OUTLINE_PREVIEW_VAR,
+  BORDER_OFFSET_PREVIEW_VAR,
+  SCREENSHOT_RADIUS_PREVIEW_VAR,
 ]
 const CANVAS_FX_VARS = [
   BG_OPACITY_VAR,
@@ -291,31 +302,13 @@ export function AnimationLayer() {
 
     // The live/committed pose. Each clip stores its own target keyframe; the
     // clip currently OPEN for editing reflects live canvas edits, so it reads
-    // from the committed pose instead of its stored one.
+    // from the committed pose instead of its stored one. Reuse the store's
+    // `captureClipPose` (rather than re-listing the fields here) so a new
+    // animatable effect can never be silently dropped from the OPEN clip's pose
+    // — a missing field makes its numeric track sample `undefined` and ease
+    // toward a zero/invisible fallback instead of the value being edited.
     const committedPose: ClipBaseline | null = canvas
-      ? {
-          tilt: canvas.tilt,
-          scale: canvas.scale,
-          screenshotPosition: canvas.screenshotPosition,
-          screenshotOffset: canvas.screenshotOffset,
-          padding: canvas.padding,
-          canvasBorderRadius: canvas.canvasBorderRadius,
-          shadow: canvas.shadow,
-          backdropEffects: canvas.backdrop.effects,
-          lighting: canvas.backdrop.lighting,
-          background: canvas.background,
-          slots: Object.fromEntries(
-            canvas.screenshotSlots.map((s) => [
-              s.id,
-              {
-                tilt: s.tilt,
-                scale: s.scale,
-                rotation: s.rotation,
-                shadow: s.shadow ?? canvas.shadow,
-              },
-            ])
-          ),
-        }
+      ? captureClipPose(canvas)
       : null
     const poseOf = (c: AnimationClip): ClipBaseline =>
       committedPose && c.id === selectedClipId ? committedPose : clipPose(c)
@@ -507,6 +500,61 @@ export function AnimationLayer() {
         setVar(mainScopeEl, SHADOW_PREVIEW_VAR, null)
         setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, null)
       }
+
+      // --- border — eases from the committed base border (INVISIBLE when the
+      // base has none, so a first keyframe FADES the border in from 0); between
+      // owners the colour/width cross-blend continuously, so a later keyframe can
+      // recolour or resize without a jump. Drives the outline + offset vars the
+      // canvas reads via var(...) fallbacks. ---
+      const borderVal = sampleKeyframes<Border>(
+        framesFor("border", (pz) => pz.border ?? INVISIBLE_BORDER),
+        playheadMs,
+        restFor(
+          "border",
+          (pz) => pz.border ?? INVISIBLE_BORDER,
+          INVISIBLE_BORDER
+        ),
+        borderBetween
+      )
+      if (borderVal) {
+        setVar(
+          mainScopeEl,
+          BORDER_OUTLINE_PREVIEW_VAR,
+          borderOutlineCss(borderVal)
+        )
+        setVar(
+          mainScopeEl,
+          BORDER_OFFSET_PREVIEW_VAR,
+          borderOffsetCss(borderVal)
+        )
+      } else {
+        setVar(mainScopeEl, BORDER_OUTLINE_PREVIEW_VAR, null)
+        setVar(mainScopeEl, BORDER_OFFSET_PREVIEW_VAR, null)
+      }
+
+      // --- screenshot corner radius (Border section "Radius") — eases from the
+      // committed base radius, exactly like padding/canvasRadius. Drives the var
+      // the screenshot reads via var(...) fallback. ---
+      const screenshotRadiusVal = sampleKeyframes<number>(
+        framesFor(
+          "borderRadius",
+          (pz) => pz.borderRadius ?? DEFAULT_BASELINE.borderRadius ?? 0
+        ),
+        playheadMs,
+        restFor(
+          "borderRadius",
+          (pz) => pz.borderRadius ?? DEFAULT_BASELINE.borderRadius ?? 0,
+          DEFAULT_BASELINE.borderRadius ?? 0
+        ),
+        lerp
+      )
+      setVar(
+        mainScopeEl,
+        SCREENSHOT_RADIUS_PREVIEW_VAR,
+        screenshotRadiusVal != null
+          ? `${Math.max(0, Math.min(48, screenshotRadiusVal)).toFixed(3)}px`
+          : null
+      )
 
       // --- background — each background keyframe owns its own layer and fades in
       // over its window, so multiple swaps chain (bg1 → bg2 → bg3). Drive every
