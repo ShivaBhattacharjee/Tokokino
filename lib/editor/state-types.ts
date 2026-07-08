@@ -409,6 +409,7 @@ export type AnimationEffect =
   | "backdrop"
   | "canvasRadius"
   | "lighting"
+  | "filter"
 
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
@@ -441,6 +442,12 @@ export type ClipBaseline = {
    */
   lighting?: BackdropLighting
   background: Background
+  /**
+   * Backdrop filter (AssetFilter preset) at this keyframe. Optional so drafts
+   * saved before filters were animatable hydrate cleanly (read through a
+   * fallback to the live value).
+   */
+  filter?: AssetFilter
   /** Per-slot poses keyed by slot id. */
   slots: Record<string, ClipSlotPose>
 }

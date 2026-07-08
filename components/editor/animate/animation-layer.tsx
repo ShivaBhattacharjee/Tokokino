@@ -50,6 +50,7 @@ import {
   clipPose,
   clipsProgressAt,
   DEFAULT_BASELINE,
+  filterLayerOpacityVar,
   lerp,
   lightingEntranceRest,
   lightingBetween,
@@ -248,9 +249,11 @@ export function AnimationLayer() {
       for (const v of TILT_SCALE_VARS) setVar(canvasEl, v, null)
       clearPositionPreviewVars(canvasEl)
       for (const v of CANVAS_FX_VARS) setVar(canvasEl, v, null)
-      // Per-keyframe background layer opacities → back to their rest fallback.
-      for (const c of clips)
+      // Per-keyframe background + filter layer opacities → back to rest fallback.
+      for (const c of clips) {
         setVar(canvasEl, backgroundLayerOpacityVar(c.id), null)
+        setVar(canvasEl, filterLayerOpacityVar(c.id), null)
+      }
       for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
       canvasEl
         .querySelectorAll<HTMLElement>("[data-screenshot-slot-id]")
@@ -372,7 +375,8 @@ export function AnimationLayer() {
         zoomVal != null ? String(zoomVal / 100) : null
       )
 
-      // --- position (grid + offset → point, revealing from center) ---
+      // --- position (grid + offset → point, eases from the committed base
+      // placement) ---
       const posFrames = mainClips.filter((c) => clipOwns(c, "position"))
       if (posFrames.length > 0 && frame) {
         const dims = isBareMainTarget ? measureDims(canvasEl) : null
@@ -427,7 +431,7 @@ export function AnimationLayer() {
         clearPositionPreviewVars(canvasEl)
       }
 
-      // --- padding (main only) — reveals from 0 ---
+      // --- padding (main only) — eases from the committed base padding ---
       const padVal =
         slots.length === 0
           ? sampleKeyframes<number>(
@@ -466,9 +470,10 @@ export function AnimationLayer() {
           : null
       )
 
-      // --- shadow — reveals in from invisible; between owners the old shadow
-      // eases OUT beneath the new one easing IN, so different shadow types
-      // cross-blend instead of one snapping off. May be 1 or 2 layered shadows.
+      // --- shadow — eases from the committed base shadow (invisible when the
+      // base has none); between owners the old shadow eases OUT beneath the new
+      // one easing IN, so different shadow types cross-blend instead of one
+      // snapping off. May be 1 or 2 layered shadows.
       const shadowLayers = sampleShadowLayers(
         framesFor("shadow", (pz) => pz.shadow),
         playheadMs,
@@ -501,7 +506,19 @@ export function AnimationLayer() {
         )
       }
 
-      // --- backdrop effects — reveals from neutral ---
+      // --- backdrop filter — same stacked-layer crossfade as background: each
+      // filter keyframe owns a layer that fades in over its window, so multiple
+      // filter changes chain (f1 → f2 → f3). ---
+      for (const c of mainClips.filter((c) => clipOwns(c, "filter"))) {
+        setVar(
+          canvasEl,
+          filterLayerOpacityVar(c.id),
+          String(clipsProgressAt([c], playheadMs))
+        )
+      }
+
+      // --- backdrop effects — eases from the committed base (first owning
+      // clip's baseline), then chains keyframe → keyframe. ---
       const bdVal = sampleKeyframes<BackdropEffects>(
         framesFor("backdrop", (pz) => pz.backdropEffects),
         playheadMs,

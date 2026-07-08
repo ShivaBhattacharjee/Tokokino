@@ -122,6 +122,7 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   backdropEffects: canvas.backdrop.effects,
   lighting: canvas.backdrop.lighting,
   background: canvas.background,
+  filter: canvas.backdrop.filter,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
@@ -159,6 +160,8 @@ const applyPoseToCanvas = (
     effects: pose.backdropEffects,
     // Fall back to the live value for poses captured before lighting animated.
     lighting: pose.lighting ?? canvas.backdrop.lighting,
+    // Fall back to the live value for poses captured before filter animated.
+    filter: pose.filter ?? canvas.backdrop.filter,
   },
   screenshotSlots: canvas.screenshotSlots.map((s) => {
     const sp = pose.slots[s.id]
@@ -250,6 +253,12 @@ const resolveKeyframePose = (
     background: (() => {
       const { at } = latestOwner(ownsMain("background"))
       return at ? clipPose(at).background : fallback.background
+    })(),
+    // Filter chains via stacked layers like background: the resolved value at a
+    // keyframe is the latest owner's filter (or the final look when unowned).
+    filter: (() => {
+      const { at } = latestOwner(ownsMain("filter"))
+      return at ? (clipPose(at).filter ?? "none") : (fallback.filter ?? "none")
     })(),
     backdropEffects: main(
       "backdrop",
@@ -1303,10 +1312,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "lighting"
       ),
     setBackdropFilter: (f, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({ backdrop: { ...canvas.backdrop, filter: f } }),
-        "backdrop-filter"
+        "backdrop-filter",
+        "filter"
       ),
     setTilt: (t, canvasId) =>
       commitCanvasEffect(canvasId, { tilt: t }, "tilt", "tilt"),

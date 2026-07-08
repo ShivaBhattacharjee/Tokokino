@@ -40,7 +40,9 @@ import {
 import {
   clipOwns,
   EMPTY_BG_STACK,
+  EMPTY_FILTER_STACK,
   resolveAnimateBgStack,
+  resolveAnimateFilterStack,
 } from "@/lib/editor/animation-playback"
 import { AnnotationLayer } from "./annotation-layer"
 import { CanvasBackdrop } from "./canvas-backdrop"
@@ -190,6 +192,17 @@ function CanvasViewInner({
           )
         : EMPTY_BG_STACK,
     [isAnimateMode, canvasAnimation, background, selectedAnimationClipId]
+  )
+  const animateFilterStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimateFilterStack(
+            canvasAnimation.clips,
+            backdrop.filter ?? "none",
+            selectedAnimationClipId
+          )
+        : EMPTY_FILTER_STACK,
+    [isAnimateMode, canvasAnimation, backdrop.filter, selectedAnimationClipId]
   )
   // Downscale whenever the background sourceUrl changes (on mount/hydration,
   // and also when a custom preset applies a new image background mid-session).
@@ -523,6 +536,13 @@ function CanvasViewInner({
           forceMount: lightingAnimated,
         })
       : null
+  // When a clip animates backdrop effects, the backdrop must always carry the
+  // `--bd-fx-preview` filter var — even when the committed effects are neutral
+  // (no filter). Otherwise the player has nothing to drive when an effect eases
+  // in from / out to neutral, so it silently wouldn't animate.
+  const backdropAnimated =
+    isAnimateMode &&
+    !!canvasAnimation?.clips.some((c) => clipOwns(c, "backdrop"))
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
   const mockupRotation =
     frame.orientation === "horizontal" && mockupOrientation === "portrait"
@@ -705,7 +725,9 @@ function CanvasViewInner({
             portrait={portrait}
             overlay={overlay}
             animateBgStack={animateBgStack}
+            animateFilterStack={animateFilterStack}
             lightingAnimated={lightingAnimated}
+            backdropAnimated={backdropAnimated}
           />
 
           {mainScreenshotRowStyle ? (

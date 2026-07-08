@@ -13,6 +13,7 @@ import type {
   AnimationClip,
   AnimationClipTarget,
   AnimationEffect,
+  AssetFilter,
   Background,
   BackdropEffects,
   BackdropLighting,
@@ -36,6 +37,7 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   backdropEffects: DEFAULT_CANVAS_BASE.backdrop.effects,
   lighting: DEFAULT_CANVAS_BASE.backdrop.lighting,
   background: DEFAULT_CANVAS_BASE.background,
+  filter: DEFAULT_CANVAS_BASE.backdrop.filter,
   slots: {},
 }
 
@@ -404,6 +406,71 @@ export function resolveAnimateBgStack(
     id: c.id,
     background:
       c.id === selectedClipId ? committedBackground : clipPose(c).background,
+    restOpaque: i <= restCutoff,
+  }))
+  return { base, layers }
+}
+
+/** True when two backdrop filters are a different selection. */
+export function filtersDiffer(a: AssetFilter, b: AssetFilter): boolean {
+  return a !== b
+}
+
+/** CSS var carrying a filter keyframe layer's opacity (its reveal progress). */
+export const filterLayerOpacityVar = (clipId: string) =>
+  `--canvas-filter-op-${clipId}`
+
+export type AnimateFilterLayer = {
+  id: string
+  filter: AssetFilter
+  /** Opacity at REST (not playing): true (1) when at/before the selected
+   * keyframe, false (0) otherwise — so at rest the selected keyframe shows. */
+  restOpaque: boolean
+}
+
+export type AnimateFilterStack = {
+  /** Filter shown before the first filter keyframe (the one it changed FROM). */
+  base: AssetFilter
+  /** One layer per filter keyframe, chronological (bottom → top). */
+  layers: AnimateFilterLayer[]
+}
+
+export const EMPTY_FILTER_STACK: AnimateFilterStack = {
+  base: "none",
+  layers: [],
+}
+
+/**
+ * Build the stacked filter layers for Animate mode — the exact mirror of
+ * `resolveAnimateBgStack`, but the layers differ by backdrop FILTER (each is the
+ * committed background rendered with that keyframe's filter). AnimationLayer
+ * fades them in one after another so multiple filter changes CHAIN (f1 → f2 →
+ * f3), each cross-fading over the one beneath. Empty stack when the filter isn't
+ * animated (the caller renders the committed filter as usual).
+ */
+export function resolveAnimateFilterStack(
+  clips: readonly AnimationClip[],
+  committedFilter: AssetFilter,
+  selectedClipId: string | null
+): AnimateFilterStack {
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const isFilterKeyframe = (c: AnimationClip) =>
+    clipAffectsMain(c) && clipOwns(c, "filter")
+  const filterClips = sorted.filter(isFilterKeyframe)
+  if (filterClips.length === 0) return EMPTY_FILTER_STACK
+
+  const base = clipBaseline(filterClips[0]).filter ?? "none"
+
+  const selectedIndex = filterClips.findIndex((c) => c.id === selectedClipId)
+  const restCutoff =
+    selectedIndex === -1 ? filterClips.length - 1 : selectedIndex
+
+  const layers: AnimateFilterLayer[] = filterClips.map((c, i) => ({
+    id: c.id,
+    filter:
+      c.id === selectedClipId
+        ? committedFilter
+        : (clipPose(c).filter ?? "none"),
     restOpaque: i <= restCutoff,
   }))
   return { base, layers }
