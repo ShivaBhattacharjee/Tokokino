@@ -393,6 +393,8 @@ export function useEditor(): EditorContext {
       store.addAnimationClip(canvasId ?? targetId, atMs),
     updateAnimationClip: (id, patch, canvasId) =>
       store.updateAnimationClip(id, patch, canvasId ?? targetId),
+    clearAnimationClipEffects: (id, canvasId) =>
+      store.clearAnimationClipEffects(id, canvasId ?? targetId),
     removeAnimationClip: (id, canvasId) =>
       store.removeAnimationClip(id, canvasId ?? targetId),
     moveAnimationClip: (id, startMs, canvasId) =>

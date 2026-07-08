@@ -45,6 +45,7 @@ import {
   backgroundLayerOpacityVar,
   clipAffectsMain,
   clipAffectsSlot,
+  clipBaseline,
   clipOwns,
   clipPose,
   clipsProgressAt,
@@ -324,11 +325,28 @@ export function AnimationLayer() {
             value: value(poseOf(c)),
           }))
 
+      // The value an effect eases FROM before its first keyframe: the committed
+      // base pose captured in the first owning clip's baseline. So a tilt/scale/
+      // padding/shadow/… animation starts from the CURRENT canvas pose (e.g. a
+      // -12° base tilt) instead of a neutral zero. Mirrors how background reveals
+      // from clipBaseline(bgClips[0]).background. Falls back to `fallback` when no
+      // clip owns the effect (never sampled) — its value doesn't matter then.
+      const restFor = <V,>(
+        effect: Parameters<typeof clipOwns>[1],
+        value: (pose: ClipBaseline) => V,
+        fallback: V
+      ): V => {
+        const first = mainClips
+          .filter((c) => clipOwns(c, effect))
+          .sort((a, b) => a.startMs - b.startMs)[0]
+        return first ? value(clipBaseline(first)) : fallback
+      }
+
       // --- tilt (rx/ry/rz) ---
       const tiltVal = sampleKeyframes<Tilt>(
         framesFor("tilt", (pz) => pz.tilt),
         playheadMs,
-        { rx: 0, ry: 0, rz: 0 },
+        restFor("tilt", (pz) => pz.tilt, { rx: 0, ry: 0, rz: 0 }),
         tiltLerp
       )
       if (tiltVal) {
@@ -345,7 +363,7 @@ export function AnimationLayer() {
       const zoomVal = sampleKeyframes<number>(
         framesFor("zoom", (pz) => pz.scale),
         playheadMs,
-        100,
+        restFor("zoom", (pz) => pz.scale, 100),
         lerp
       )
       setVar(
@@ -385,10 +403,16 @@ export function AnimationLayer() {
             value: pointFor(pz.screenshotPosition, pz.screenshotOffset),
           }
         })
+        // Start from the committed base placement (first position clip's
+        // baseline), not a hardcoded centre, so the move eases from where the
+        // screenshot actually sits.
+        const posRest = clipBaseline(
+          [...posFrames].sort((a, b) => a.startMs - b.startMs)[0]
+        )
         const point = sampleKeyframes(
           frames,
           playheadMs,
-          pointFor("center", { x: 0, y: 0 }),
+          pointFor(posRest.screenshotPosition, posRest.screenshotOffset),
           pointLerp
         )
         if (point && dims != null) {
@@ -409,7 +433,7 @@ export function AnimationLayer() {
           ? sampleKeyframes<number>(
               framesFor("padding", (pz) => pz.padding),
               playheadMs,
-              0,
+              restFor("padding", (pz) => pz.padding, 0),
               lerp
             )
           : null
@@ -427,7 +451,11 @@ export function AnimationLayer() {
       const radiusVal = sampleKeyframes<number>(
         framesFor("canvasRadius", (pz) => pz.canvasBorderRadius),
         playheadMs,
-        DEFAULT_BASELINE.canvasBorderRadius,
+        restFor(
+          "canvasRadius",
+          (pz) => pz.canvasBorderRadius ?? DEFAULT_BASELINE.canvasBorderRadius,
+          DEFAULT_BASELINE.canvasBorderRadius
+        ),
         lerp
       )
       setVar(
@@ -444,7 +472,7 @@ export function AnimationLayer() {
       const shadowLayers = sampleShadowLayers(
         framesFor("shadow", (pz) => pz.shadow),
         playheadMs,
-        INVISIBLE_SHADOW
+        restFor("shadow", (pz) => pz.shadow, INVISIBLE_SHADOW)
       )
       if (shadowLayers) {
         const box = shadowLayers
@@ -477,7 +505,11 @@ export function AnimationLayer() {
       const bdVal = sampleKeyframes<BackdropEffects>(
         framesFor("backdrop", (pz) => pz.backdropEffects),
         playheadMs,
-        DEFAULT_BASELINE.backdropEffects,
+        restFor(
+          "backdrop",
+          (pz) => pz.backdropEffects,
+          DEFAULT_BASELINE.backdropEffects
+        ),
         backdropEffectsBetween
       )
       if (bdVal) {
@@ -492,25 +524,38 @@ export function AnimationLayer() {
         setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, null)
       }
 
-      // --- backdrop lighting — chains between keyframes. The first lighting
-      // keyframe starts just outside its target side/corner, so a top light
-      // travels downward into place instead of coming from a fixed default edge.
+      // --- backdrop lighting — chains between keyframes. If the canvas already
+      // has a lit backdrop, the first keyframe eases FROM that committed light
+      // (start from the current pose). When the base is dark, the light fades in
+      // AT its target position (no positional travel) so it brightens in place
+      // instead of sliding/falling in. Position still eases BETWEEN keyframes.
       const lightingFrames = framesFor(
         "lighting",
         (pz) => pz.lighting ?? REST_LIGHTING
       )
+      const lightingRestBase = restFor(
+        "lighting",
+        (pz) => pz.lighting ?? REST_LIGHTING,
+        REST_LIGHTING
+      )
+      const lightingRest =
+        lightingRestBase.intensity > 0
+          ? lightingRestBase
+          : lightingEntranceRest(lightingFrames[0]?.value)
       const lightVal = sampleKeyframes<BackdropLighting>(
         lightingFrames,
         playheadMs,
-        lightingEntranceRest(lightingFrames[0]?.value),
+        lightingRest,
         lightingBetween
       )
       // The glow's inner/outer target eases as its own 0(outer)→1(inner) track,
       // so switching target between keyframes crossfades the light from the
       // backdrop into the screenshot (a depth shift) instead of snapping. The
       // outer overlay's opacity is scaled by (1 − mix), the inner by mix.
+      // The mix eases from the base target when the canvas is already lit, else
+      // from the first keyframe's target (the reveal's own side).
       const firstIsInner =
-        (lightingFrames[0]?.value.target ?? REST_LIGHTING.target) === "inner"
+        (lightingRest.target ?? REST_LIGHTING.target) === "inner"
       const targetMix =
         sampleKeyframes<number>(
           lightingFrames.map((f) => ({

@@ -46,30 +46,17 @@ export const REST_LIGHTING: BackdropLighting = {
 }
 
 /**
- * Dark entrance pose for the first lighting keyframe. The glow starts just
- * outside the same edge/corner as the target direction, then travels into place.
+ * Dark entrance pose for the first lighting keyframe: the glow fades in AT its
+ * own position (intensity 0 → target) with NO positional travel. A light placed
+ * at "top" simply brightens at the top instead of dropping in from off-canvas —
+ * so there's no falling/sliding motion on the reveal (or at the hold/loop
+ * boundary). Position still animates BETWEEN keyframes via `lightingBetween`.
  */
 export function lightingEntranceRest(
   lighting?: BackdropLighting
 ): BackdropLighting {
   const base = lighting ?? REST_LIGHTING
-  const point = lightingGridPoint(base.direction)
-  const fromCenter = { r: point.r - 2, c: point.c - 2 }
-
-  if (fromCenter.r === 0 && fromCenter.c === 0) {
-    return { ...base, intensity: 0 }
-  }
-
-  const entrance = {
-    r: point.r + Math.sign(fromCenter.r) * 2,
-    c: point.c + Math.sign(fromCenter.c) * 2,
-  }
-
-  return {
-    ...base,
-    intensity: 0,
-    direction: `${entrance.r}-${entrance.c}`,
-  }
+  return { ...base, intensity: 0 }
 }
 
 /** A clip's captured baseline, falling back to the canvas defaults. */

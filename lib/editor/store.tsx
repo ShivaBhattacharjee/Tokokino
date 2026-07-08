@@ -6,6 +6,7 @@ import { DEFAULT_CLIP_DURATION_MS } from "./animation-motion"
 import {
   clipAffectsMain,
   clipAffectsSlot,
+  clipBaseline,
   clipPose,
   DEFAULT_BASELINE,
   REST_LIGHTING,
@@ -600,6 +601,12 @@ export type EditorActions = {
     patch: Partial<Omit<AnimationClip, "id">>,
     canvasId?: string
   ) => void
+  /**
+   * Strip every animated effect from a clip: reverts its pose to its captured
+   * baseline and clears `effects` so it animates nothing. When it's the open
+   * clip, the committed canvas reverts too (so e.g. a lit backdrop goes dark).
+   */
+  clearAnimationClipEffects: (id: string, canvasId?: string) => void
   removeAnimationClip: (id: string, canvasId?: string) => void
   moveAnimationClip: (id: string, startMs: number, canvasId?: string) => void
   duplicateAnimationClip: (id: string, canvasId?: string) => string | null
@@ -1991,6 +1998,43 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 clip.id === id ? { ...clip, ...patch } : clip
               ),
             },
+          }
+        },
+        `animation-clip:${id}`
+      ),
+    clearAnimationClipEffects: (id, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          const clip = animation.clips.find((c) => c.id === id)
+          // Nothing owned → nothing to strip (and no canvas revert needed).
+          if (!clip || (clip.effects ?? []).length === 0) return {}
+          // Revert the clip to its captured start: pose = baseline, owns nothing.
+          // Merge over DEFAULT_BASELINE so older clips missing newer pose fields
+          // (e.g. lighting) still reset those to neutral instead of leaking the
+          // committed value back through resolveKeyframePose's fallback.
+          const cleared: AnimationClip = {
+            ...clip,
+            effects: [],
+            pose: { ...DEFAULT_BASELINE, ...clipBaseline(clip) },
+          }
+          const nextClips = animation.clips.map((c) =>
+            c.id === id ? cleared : c
+          )
+          // If this clip is open for editing, the committed canvas is showing its
+          // (now-removed) effects — reload the resolved look WITHOUT this clip so
+          // the canvas reflects the strip (e.g. the lit backdrop goes dark).
+          const isOpen = get().selectedAnimationClipId === id
+          const canvasPatch = isOpen
+            ? applyPoseToCanvas(
+                canvas,
+                resolveKeyframePose(canvas, nextClips, cleared)
+              )
+            : {}
+          return {
+            ...canvasPatch,
+            animation: { ...animation, clips: nextClips },
           }
         },
         `animation-clip:${id}`

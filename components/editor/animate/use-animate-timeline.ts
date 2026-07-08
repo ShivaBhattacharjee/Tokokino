@@ -51,6 +51,9 @@ export function useAnimateTimeline() {
   const setScreenshotSlotImage = useEditorStore((s) => s.setScreenshotSlotImage)
   const addAnimationClip = useEditorStore((s) => s.addAnimationClip)
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
+  const clearAnimationClipEffects = useEditorStore(
+    (s) => s.clearAnimationClipEffects
+  )
   const moveAnimationClip = useEditorStore((s) => s.moveAnimationClip)
   const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
   const duplicateAnimationClip = useEditorStore((s) => s.duplicateAnimationClip)
@@ -639,12 +642,14 @@ export function useAnimateTimeline() {
   )
 
   // Strips the effects a keyframe owns, turning it back into a passive clip
-  // that holds the previous keyframe's values — only this clip is affected.
+  // that holds the previous keyframe's values. Reverts the clip's pose to its
+  // baseline so the committed canvas also drops the effect (e.g. lighting) when
+  // this clip is the one open for editing — only this clip is affected.
   const clearClipEffects = React.useCallback(
     (id: string) => {
-      updateAnimationClip(id, { effects: [] })
+      clearAnimationClipEffects(id)
     },
-    [updateAnimationClip]
+    [clearAnimationClipEffects]
   )
 
   // After deleting the open clip, open the last remaining clip so the canvas
@@ -728,7 +733,7 @@ export function useAnimateTimeline() {
       ) {
         // ⌘/Ctrl+Shift+Delete — clear this clip's effects (this clip only).
         e.preventDefault()
-        updateAnimationClip(selectedClipId, { effects: [] })
+        clearAnimationClipEffects(selectedClipId)
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault()
         removeAnimationClip(selectedClipId)
@@ -760,6 +765,7 @@ export function useAnimateTimeline() {
     removeAnimationClip,
     duplicateAnimationClip,
     updateAnimationClip,
+    clearAnimationClipEffects,
     selectAnimationClip,
     fallbackAfterDelete,
   ])
