@@ -6,8 +6,11 @@ import { cn } from "@/lib/utils"
 import {
   backgroundLayerOpacityVar,
   filterLayerOpacityVar,
+  portraitLayerOpacityVar,
+  PORTRAIT_BASE_OPACITY_VAR,
   type AnimateBgStack,
   type AnimateFilterStack,
+  type AnimatePortraitStack,
 } from "@/lib/editor/animation-playback"
 import {
   assetFilterCss,
@@ -25,6 +28,7 @@ import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
 /** Stable empty layer list so the memo deps don't change every render. */
 const EMPTY_BG_LAYERS: AnimateBgStack["layers"] = []
 const EMPTY_FILTER_LAYERS: AnimateFilterStack["layers"] = []
+const EMPTY_PORTRAIT_LAYERS: AnimatePortraitStack["layers"] = []
 
 import {
   lightingOverlayCss,
@@ -55,6 +59,13 @@ type CanvasBackdropProps = {
    */
   animateFilterStack?: AnimateFilterStack
   /**
+   * Animate mode only: one overlay per PORTRAIT keyframe (plus the pre-first
+   * base), crossfade-chained by AnimationLayer (each fades in then back out as
+   * the next fades in) so the additive vignettes transition instead of stacking.
+   * Empty → the committed portrait renders as usual.
+   */
+  animatePortraitStack?: AnimatePortraitStack
+  /**
    * Animate mode only: a clip animates lighting, so the outer overlay mounts
    * even when it isn't the committed target (and even at zero intensity) so the
    * player can crossfade the glow onto it. See `lightingOverlayCss`.
@@ -79,6 +90,7 @@ function CanvasBackdropImpl({
   overlay,
   animateBgStack,
   animateFilterStack,
+  animatePortraitStack,
   lightingAnimated = false,
   backdropAnimated = false,
 }: CanvasBackdropProps) {
@@ -125,6 +137,29 @@ function CanvasBackdropImpl({
     portrait.position,
     portrait.distance
   )
+  // Build a portrait overlay style for a given portrait state (blur/stage sit on
+  // top via a raised z-index, matching the committed render). Returns null when
+  // the portrait is "off" (no overlay).
+  const portraitLayerStyle = React.useCallback(
+    (p: Portrait): React.CSSProperties | null => {
+      const style = portraitOverlayCss(
+        p.mode,
+        p.intensity,
+        p.position,
+        p.distance
+      )
+      if (!style) return null
+      return p.mode === "blur" || p.mode === "stage"
+        ? { ...style, zIndex: 200 }
+        : style
+    },
+    []
+  )
+  const portraitLayers = animatePortraitStack?.layers ?? EMPTY_PORTRAIT_LAYERS
+  const hasPortraitStack = portraitLayers.length > 0
+  const portraitBaseStyle = animatePortraitStack
+    ? portraitLayerStyle(animatePortraitStack.base)
+    : null
   const outerLightingStyle =
     backdrop.lighting.target === "outer" || lightingAnimated
       ? lightingOverlayCss(backdrop.lighting, {
@@ -333,7 +368,41 @@ function CanvasBackdropImpl({
         />
       ) : null}
 
-      {portraitStyle ? (
+      {hasPortraitStack ? (
+        // Animate mode with animated portrait: base overlay + one per keyframe,
+        // each opacity crossfade-chained by AnimationLayer so the vignettes
+        // transition instead of accumulating. At rest only the selected shows.
+        <>
+          {portraitBaseStyle ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                ...portraitBaseStyle,
+                opacity:
+                  `var(${PORTRAIT_BASE_OPACITY_VAR}, 0)` as unknown as number,
+              }}
+            />
+          ) : null}
+          {portraitLayers.map((layer) => {
+            const style = portraitLayerStyle(layer.portrait)
+            if (!style) return null
+            return (
+              <div
+                key={layer.id}
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  ...style,
+                  opacity: `var(${portraitLayerOpacityVar(layer.id)}, ${
+                    layer.restOpaque ? 1 : 0
+                  })` as unknown as number,
+                }}
+              />
+            )
+          })}
+        </>
+      ) : portraitStyle ? (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"

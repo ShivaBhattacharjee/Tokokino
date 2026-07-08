@@ -410,6 +410,7 @@ export type AnimationEffect =
   | "canvasRadius"
   | "lighting"
   | "filter"
+  | "portrait"
 
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
@@ -448,6 +449,11 @@ export type ClipBaseline = {
    * fallback to the live value).
    */
   filter?: AssetFilter
+  /**
+   * Backdrop portrait (depth-of-field) at this keyframe. Optional so drafts
+   * saved before portrait was animatable hydrate cleanly.
+   */
+  portrait?: Portrait
   /** Per-slot poses keyed by slot id. */
   slots: Record<string, ClipSlotPose>
 }

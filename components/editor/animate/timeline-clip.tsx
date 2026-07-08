@@ -4,7 +4,6 @@ import * as React from "react"
 import { motion } from "motion/react"
 import {
   RiCheckboxBlankLine,
-  RiContrastLine,
   RiDeleteBinLine,
   RiDragMove2Line,
   RiEraserLine,
@@ -79,11 +78,11 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   background: RiPaletteLine,
   // Canvas Radius lives in the Backdrop section, so it shares its icon.
   canvasRadius: RiSunLine,
-  // Lighting also lives in the Backdrop section — share the sun icon.
+  // Lighting, Filter and Portrait all live in the Backdrop section — share the
+  // sun icon, matching Backdrop and Canvas Radius.
   lighting: RiSunLine,
-  // Filter (backdrop asset-filter preset) — distinct from the palette used for
-  // background swaps.
-  filter: RiContrastLine,
+  filter: RiSunLine,
+  portrait: RiSunLine,
 }
 
 export function TimelineClip({

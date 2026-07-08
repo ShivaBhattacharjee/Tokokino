@@ -19,6 +19,7 @@ import type {
   BackdropLighting,
   ClipBaseline,
   ClipSlotPose,
+  Portrait,
   Shadow,
 } from "./state-types"
 
@@ -38,6 +39,7 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   lighting: DEFAULT_CANVAS_BASE.backdrop.lighting,
   background: DEFAULT_CANVAS_BASE.background,
   filter: DEFAULT_CANVAS_BASE.backdrop.filter,
+  portrait: DEFAULT_CANVAS_BASE.portrait,
   slots: {},
 }
 
@@ -472,6 +474,82 @@ export function resolveAnimateFilterStack(
         ? committedFilter
         : (clipPose(c).filter ?? "none"),
     restOpaque: i <= restCutoff,
+  }))
+  return { base, layers }
+}
+
+/** True when two portraits are a different selection (any field). */
+export function portraitsDiffer(a: Portrait, b: Portrait): boolean {
+  return (
+    a.mode !== b.mode ||
+    a.intensity !== b.intensity ||
+    a.position !== b.position ||
+    a.distance !== b.distance
+  )
+}
+
+/** CSS var carrying a portrait keyframe layer's crossfade opacity. */
+export const portraitLayerOpacityVar = (clipId: string) =>
+  `--canvas-portrait-op-${clipId}`
+
+/** CSS var for the pre-first-keyframe base portrait's crossfade opacity. */
+export const PORTRAIT_BASE_OPACITY_VAR = "--canvas-portrait-op-base"
+
+export type AnimatePortraitLayer = {
+  id: string
+  portrait: Portrait
+  /** Opacity at REST (not playing): true (1) ONLY for the selected keyframe.
+   * Portrait overlays are additive/transparent, so unlike the opaque bg/filter
+   * stacks exactly ONE may show at rest — never a cumulative stack. */
+  restOpaque: boolean
+}
+
+export type AnimatePortraitStack = {
+  /** Portrait shown before the first portrait keyframe (changed FROM). */
+  base: Portrait
+  /** One layer per portrait keyframe, chronological (bottom → top). */
+  layers: AnimatePortraitLayer[]
+}
+
+export const EMPTY_PORTRAIT_STACK: AnimatePortraitStack = {
+  base: DEFAULT_CANVAS_BASE.portrait,
+  layers: [],
+}
+
+/**
+ * Build the portrait keyframe layers for Animate mode. Like the bg/filter stacks
+ * it's a base + one layer per keyframe, but because portrait overlays are
+ * SEMI-TRANSPARENT (additive), the AnimationLayer drives a CROSSFADE-CHAIN: each
+ * layer fades in over its window then fades back out as the NEXT one fades in, so
+ * only one (or a blend of two adjacent) portrait shows at a time instead of the
+ * vignettes accumulating. At rest only the selected keyframe's layer is opaque.
+ */
+export function resolveAnimatePortraitStack(
+  clips: readonly AnimationClip[],
+  committedPortrait: Portrait,
+  selectedClipId: string | null
+): AnimatePortraitStack {
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const isPortraitKeyframe = (c: AnimationClip) =>
+    clipAffectsMain(c) && clipOwns(c, "portrait")
+  const portraitClips = sorted.filter(isPortraitKeyframe)
+  if (portraitClips.length === 0) return EMPTY_PORTRAIT_STACK
+
+  const base =
+    clipBaseline(portraitClips[0]).portrait ?? DEFAULT_CANVAS_BASE.portrait
+
+  const selectedIndex = portraitClips.findIndex((c) => c.id === selectedClipId)
+  const restCutoff =
+    selectedIndex === -1 ? portraitClips.length - 1 : selectedIndex
+
+  const layers: AnimatePortraitLayer[] = portraitClips.map((c, i) => ({
+    id: c.id,
+    portrait:
+      c.id === selectedClipId
+        ? committedPortrait
+        : (clipPose(c).portrait ?? DEFAULT_CANVAS_BASE.portrait),
+    // Additive overlays → exactly the current keyframe shows at rest.
+    restOpaque: i === restCutoff,
   }))
   return { base, layers }
 }

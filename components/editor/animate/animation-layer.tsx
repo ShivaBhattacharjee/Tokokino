@@ -52,6 +52,8 @@ import {
   DEFAULT_BASELINE,
   filterLayerOpacityVar,
   lerp,
+  portraitLayerOpacityVar,
+  PORTRAIT_BASE_OPACITY_VAR,
   lightingEntranceRest,
   lightingBetween,
   NEUTRAL_SLOT_POSE,
@@ -249,10 +251,13 @@ export function AnimationLayer() {
       for (const v of TILT_SCALE_VARS) setVar(canvasEl, v, null)
       clearPositionPreviewVars(canvasEl)
       for (const v of CANVAS_FX_VARS) setVar(canvasEl, v, null)
-      // Per-keyframe background + filter layer opacities → back to rest fallback.
+      // Per-keyframe background + filter + portrait layer opacities → back to
+      // their rest fallback.
+      setVar(canvasEl, PORTRAIT_BASE_OPACITY_VAR, null)
       for (const c of clips) {
         setVar(canvasEl, backgroundLayerOpacityVar(c.id), null)
         setVar(canvasEl, filterLayerOpacityVar(c.id), null)
+        setVar(canvasEl, portraitLayerOpacityVar(c.id), null)
       }
       for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
       canvasEl
@@ -515,6 +520,31 @@ export function AnimationLayer() {
           filterLayerOpacityVar(c.id),
           String(clipsProgressAt([c], playheadMs))
         )
+      }
+
+      // --- portrait — CROSSFADE-CHAIN. Portrait overlays are additive, so a
+      // layer must fade OUT as the next fades IN (not stay opaque like the bg /
+      // filter stacks): layer_i = progress(i) · (1 − progress(i+1)); the base
+      // fades out under the first keyframe (1 − progress(0)); the last holds. ---
+      const portraitClips = mainClips
+        .filter((c) => clipOwns(c, "portrait"))
+        .sort((a, b) => a.startMs - b.startMs)
+      if (portraitClips.length > 0) {
+        setVar(
+          canvasEl,
+          PORTRAIT_BASE_OPACITY_VAR,
+          String(1 - clipsProgressAt([portraitClips[0]], playheadMs))
+        )
+        portraitClips.forEach((c, i) => {
+          const pIn = clipsProgressAt([c], playheadMs)
+          const next = portraitClips[i + 1]
+          const pOut = next ? clipsProgressAt([next], playheadMs) : 0
+          setVar(
+            canvasEl,
+            portraitLayerOpacityVar(c.id),
+            String(pIn * (1 - pOut))
+          )
+        })
       }
 
       // --- backdrop effects — eases from the committed base (first owning

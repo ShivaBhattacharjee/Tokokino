@@ -123,6 +123,7 @@ const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   lighting: canvas.backdrop.lighting,
   background: canvas.background,
   filter: canvas.backdrop.filter,
+  portrait: canvas.portrait,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
@@ -155,6 +156,8 @@ const applyPoseToCanvas = (
   canvasBorderRadius: pose.canvasBorderRadius ?? canvas.canvasBorderRadius,
   shadow: pose.shadow,
   background: pose.background,
+  // Fall back to the live value for poses captured before portrait animated.
+  portrait: pose.portrait ?? canvas.portrait,
   backdrop: {
     ...canvas.backdrop,
     effects: pose.backdropEffects,
@@ -259,6 +262,13 @@ const resolveKeyframePose = (
     filter: (() => {
       const { at } = latestOwner(ownsMain("filter"))
       return at ? (clipPose(at).filter ?? "none") : (fallback.filter ?? "none")
+    })(),
+    // Portrait crossfade-chains like filter: the resolved value at a keyframe is
+    // the latest owner's portrait (or the final look when unowned).
+    portrait: (() => {
+      const { at } = latestOwner(ownsMain("portrait"))
+      const resolved = at ? clipPose(at).portrait : fallback.portrait
+      return resolved ?? canvas.portrait
     })(),
     backdropEffects: main(
       "backdrop",
@@ -1505,7 +1515,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "screenshot-layer"
       ),
     setPortrait: (p, canvasId) =>
-      commitCanvas(canvasId, { portrait: p }, "portrait"),
+      commitCanvasEffect(canvasId, { portrait: p }, "portrait", "portrait"),
     setEnhance: (e, canvasId) =>
       commitCanvas(canvasId, { enhance: e }, "enhance"),
     setAnnotation: (patch) =>
