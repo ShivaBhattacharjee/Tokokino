@@ -29,6 +29,7 @@ import {
 } from "@/components/editor/mobile-controls/position-math"
 import {
   clearPositionPreviewVars,
+  setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
 } from "@/components/editor/position-preview-vars"
@@ -86,6 +87,7 @@ import type {
   BackdropLighting,
   Border,
   ClipBaseline,
+  ClipSlotPose,
   ScreenshotPosition,
   Shadow,
   Tilt,
@@ -151,6 +153,17 @@ const SLOT_VARS = [
   "--slot-ts-rz",
   "--slot-ts-scale",
   "--slot-ts-rot",
+]
+// Per-slot border / radius / padding / lighting preview vars (mirrors the main
+// screenshot's, but scoped to the slot element). Cleared on the rest/no-clip
+// paths so the committed slot look shows through.
+const SLOT_FX_VARS = [
+  BORDER_OUTLINE_PREVIEW_VAR,
+  BORDER_OFFSET_PREVIEW_VAR,
+  SCREENSHOT_RADIUS_PREVIEW_VAR,
+  PADDING_PREVIEW_VAR,
+  `${LIGHTING_IMAGE_VAR}-in`,
+  `${LIGHTING_OPACITY_VAR}-in`,
 ]
 
 export function AnimationLayer() {
@@ -238,7 +251,15 @@ export function AnimationLayer() {
     if (!canvasEl) return
     const targets = Array.from(
       canvasEl.querySelectorAll<HTMLElement>(
-        "[data-editor-shadow-filter-target], [data-editor-shadow-box-target]"
+        // The shadow targets carry the transform ease; the slot container and the
+        // main-row positioning container each carry a left/top/transform ease for
+        // their position — all would smear the per-frame playback ~300ms behind
+        // the playhead (and, more visibly, make a pad drag in Animate mode lag and
+        // then ease to the drop point instead of tracking the cursor), so suppress
+        // them for the whole session. The main row must be listed explicitly: its
+        // container is scoped by `data-editor-shadow-preview-scope`, not the slot
+        // attribute, so it was previously the one box left un-suppressed.
+        "[data-editor-shadow-filter-target], [data-editor-shadow-box-target], [data-screenshot-slot-id], [data-editor-main-row]"
       )
     )
     for (const el of targets) el.style.transition = "none"
@@ -283,8 +304,10 @@ export function AnimationLayer() {
         .querySelectorAll<HTMLElement>("[data-screenshot-slot-id]")
         .forEach((slotEl) => {
           for (const v of SLOT_VARS) setVar(slotEl, v, null)
+          for (const v of SLOT_FX_VARS) setVar(slotEl, v, null)
           setVar(slotEl, SHADOW_PREVIEW_VAR, null)
           setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
+          clearPositionPreviewVars(slotEl)
         })
     }
 
@@ -760,8 +783,10 @@ export function AnimationLayer() {
       const slotClips = clips.filter((c) => clipAffectsSlot(c, slot.id))
       if (slotClips.length === 0) {
         for (const v of SLOT_VARS) setVar(slotEl, v, null)
+        for (const v of SLOT_FX_VARS) setVar(slotEl, v, null)
         setVar(slotEl, SHADOW_PREVIEW_VAR, null)
         setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
+        clearPositionPreviewVars(slotEl)
         continue
       }
       const slotPoseOf = (c: AnimationClip) =>
@@ -817,6 +842,41 @@ export function AnimationLayer() {
         slotZoom != null ? String(slotZoom / 100) : null
       )
 
+      // position (xPct/yPct) — eases from the slot's committed home (the first
+      // position keyframe's baseline) → each keyframe's value, driving the same
+      // --editor-position-x/y vars the slot's left/top read. Only the keyframes
+      // that OWN position animate; otherwise the committed position shows.
+      const slotPosClips = slotClips.filter((c) => clipOwns(c, "position"))
+      if (slotPosClips.length > 0) {
+        const firstPos = [...slotPosClips].sort(
+          (a, b) => a.startMs - b.startMs
+        )[0]
+        const restPose = clipBaseline(firstPos).slots[slot.id]
+        const slotPoint = sampleKeyframes<{ xPct: number; yPct: number }>(
+          slotPosClips.map((c) => {
+            const sp = slotPoseOf(c)
+            return {
+              startMs: c.startMs,
+              durationMs: c.durationMs,
+              value: {
+                xPct: sp.xPct ?? slot.xPct,
+                yPct: sp.yPct ?? slot.yPct,
+              },
+            }
+          }),
+          playheadMs,
+          {
+            xPct: restPose?.xPct ?? slot.xPct,
+            yPct: restPose?.yPct ?? slot.yPct,
+          },
+          pointLerp
+        )
+        if (slotPoint) setElementPositionPreview(slotEl, slotPoint)
+        else clearPositionPreviewVars(slotEl)
+      } else {
+        clearPositionPreviewVars(slotEl)
+      }
+
       // shadow — reveals from invisible; different shadow types cross-blend
       // between owners, exactly like the main screenshot. Vars are set on the
       // slot's own preview scope (this element carries data-editor-shadow-
@@ -846,6 +906,144 @@ export function AnimationLayer() {
       } else {
         setVar(slotEl, SHADOW_PREVIEW_VAR, null)
         setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
+      }
+
+      // The value a slot effect eases FROM before its first keyframe: the first
+      // owning clip's captured baseline slot pose, so border/radius/padding/
+      // lighting reveal from the slot's OWN committed look (mirrors the main
+      // screenshot's restFor). Falls back when no clip owns the effect.
+      const slotRestFor = <V,>(
+        effect: Parameters<typeof clipOwns>[1],
+        extract: (sp: ClipSlotPose | undefined) => V | undefined,
+        fallback: V
+      ): V => {
+        const first = slotClips
+          .filter((c) => clipOwns(c, effect))
+          .sort((a, b) => a.startMs - b.startMs)[0]
+        if (!first) return fallback
+        return extract(clipBaseline(first).slots[slot.id]) ?? fallback
+      }
+
+      // border — reveals from the slot's committed border (INVISIBLE when none,
+      // so a first keyframe FADES it in); between owners colour/width cross-blend.
+      const committedBorder = slot.border ?? canvas?.border ?? INVISIBLE_BORDER
+      const slotBorder = sampleKeyframes<Border>(
+        slotClips
+          .filter((c) => clipOwns(c, "border"))
+          .map((c) => ({
+            startMs: c.startMs,
+            durationMs: c.durationMs,
+            value: slotPoseOf(c).border ?? committedBorder,
+          })),
+        playheadMs,
+        slotRestFor("border", (sp) => sp?.border, INVISIBLE_BORDER),
+        borderBetween
+      )
+      if (slotBorder) {
+        setVar(slotEl, BORDER_OUTLINE_PREVIEW_VAR, borderOutlineCss(slotBorder))
+        setVar(slotEl, BORDER_OFFSET_PREVIEW_VAR, borderOffsetCss(slotBorder))
+      } else {
+        setVar(slotEl, BORDER_OUTLINE_PREVIEW_VAR, null)
+        setVar(slotEl, BORDER_OFFSET_PREVIEW_VAR, null)
+      }
+
+      // corner radius — eases from the slot's committed radius.
+      const committedRadius = slot.borderRadius ?? canvas?.borderRadius ?? 0
+      const slotRadius = sampleKeyframes<number>(
+        slotClips
+          .filter((c) => clipOwns(c, "borderRadius"))
+          .map((c) => ({
+            startMs: c.startMs,
+            durationMs: c.durationMs,
+            value: slotPoseOf(c).borderRadius ?? committedRadius,
+          })),
+        playheadMs,
+        slotRestFor("borderRadius", (sp) => sp?.borderRadius, committedRadius),
+        lerp
+      )
+      setVar(
+        slotEl,
+        SCREENSHOT_RADIUS_PREVIEW_VAR,
+        slotRadius != null ? `${Math.max(0, slotRadius).toFixed(3)}px` : null
+      )
+
+      // padding — eases from the slot's committed padding (same %-of-box formula
+      // the slot element uses for its committed value).
+      const committedPadding = slot.padding ?? canvas?.padding ?? 0
+      const slotPadding = sampleKeyframes<number>(
+        slotClips
+          .filter((c) => clipOwns(c, "padding"))
+          .map((c) => ({
+            startMs: c.startMs,
+            durationMs: c.durationMs,
+            value: slotPoseOf(c).padding ?? committedPadding,
+          })),
+        playheadMs,
+        slotRestFor("padding", (sp) => sp?.padding, committedPadding),
+        lerp
+      )
+      setVar(
+        slotEl,
+        PADDING_PREVIEW_VAR,
+        slotPadding != null
+          ? `${(Math.max(0, Math.min(240, slotPadding)) / 12).toFixed(3)}%`
+          : null
+      )
+
+      // lighting — slots only carry the INNER glow (over the screenshot); it
+      // eases position/strength/colour between owners like the main screenshot's,
+      // and reveals from dark. Setting the `-in` vars on the slot element
+      // overrides the canvas-level ones it would otherwise inherit.
+      const slotLightingFrames = slotClips
+        .filter((c) => clipOwns(c, "lighting"))
+        .map((c) => ({
+          startMs: c.startMs,
+          durationMs: c.durationMs,
+          value: slotPoseOf(c).lighting ?? REST_LIGHTING,
+        }))
+      if (slotLightingFrames.length > 0) {
+        const restBase = slotRestFor(
+          "lighting",
+          (sp) => sp?.lighting,
+          REST_LIGHTING
+        )
+        const lightingRest =
+          restBase.intensity > 0
+            ? restBase
+            : lightingEntranceRest(slotLightingFrames[0]?.value)
+        const lightVal = sampleKeyframes<BackdropLighting>(
+          slotLightingFrames,
+          playheadMs,
+          lightingRest,
+          lightingBetween
+        )
+        // Inner-glow strength scales by how "inner" the target is (1 inner, 0
+        // outer): slots don't render an outer glow, so an outer target reads as 0.
+        const innerMix =
+          sampleKeyframes<number>(
+            slotLightingFrames.map((f) => ({
+              ...f,
+              value: f.value.target === "inner" ? 1 : 0,
+            })),
+            playheadMs,
+            (lightingRest.target ?? REST_LIGHTING.target) === "inner" ? 1 : 0,
+            lerp
+          ) ?? 0
+        const inner = lightVal
+          ? lightingOverlayValues(lightVal, { inner: true })
+          : null
+        setVar(slotEl, `${LIGHTING_IMAGE_VAR}-in`, inner ? inner.image : "none")
+        setVar(
+          slotEl,
+          `${LIGHTING_OPACITY_VAR}-in`,
+          inner ? (inner.opacity * innerMix).toFixed(3) : "0"
+        )
+      } else {
+        // No slot lighting keyframe → let the slot fall back to its committed
+        // inner glow (or inherit the canvas-level animated glow, matching how a
+        // slot shows the shared backdrop lighting at rest).
+        setVar(slotEl, `${LIGHTING_IMAGE_VAR}-in`, null)
+        setVar(slotEl, `${LIGHTING_OPACITY_VAR}-in`, null)
       }
     }
 

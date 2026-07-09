@@ -141,6 +141,7 @@ export function MainScreenshotRender({
     <div
       ref={containerRef}
       data-box-hover-target={previewMode ? undefined : ""}
+      data-editor-main-row={previewMode ? undefined : ""}
       data-editor-shadow-preview-scope="canvas"
       className={cn(
         "group/main-row",

@@ -37,10 +37,16 @@ import {
 import { slotBoxAspectRatio } from "@/lib/editor/screenshot-layout"
 import { computeCropTarget, type CropTarget } from "@/lib/editor/crop-utils"
 import {
+  BORDER_OFFSET_PREVIEW_VAR,
+  BORDER_OUTLINE_PREVIEW_VAR,
+  borderOffsetCss,
+  borderOutlineCss,
+  SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowBoxShadowCss,
   shadowCss,
   shadowDropFilterCss,
 } from "@/lib/editor/css-utils"
+import { clipAffectsSlot, clipOwns } from "@/lib/editor/animation-playback"
 import {
   assetFilterCss,
   type AssetBlendMode,
@@ -171,9 +177,33 @@ export function ScreenshotSlotRender({
   const effectiveLighting = slot.lighting ?? shared.lighting
   const computedShadowFilter = shadowDropFilterCss(effectiveShadow)
   const enhanceFilter = enhanceFilterCss(shared.enhance)
+
+  // Whether an Animate-mode keyframe animates THIS slot's border / lighting.
+  // Like the main screenshot (canvas-view), those overlays must always mount
+  // when animated — even when the committed look is invisible — so the player
+  // has a node to ease in from 0 / recolour via the preview vars. Suppressed in
+  // preset previews (previewMode has no live animation).
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  const canvasClips = useActiveCanvasField((c) => c.animation?.clips ?? [])
+  const slotOwns = React.useCallback(
+    (effect: Parameters<typeof clipOwns>[1]) =>
+      !previewMode &&
+      isAnimateMode &&
+      canvasClips.some(
+        (c) => clipAffectsSlot(c, slot.id) && clipOwns(c, effect)
+      ),
+    [canvasClips, isAnimateMode, previewMode, slot.id]
+  )
+  const borderAnimated = slotOwns("border")
+  const lightingAnimated = slotOwns("lighting")
+
   const innerLightingStyle =
-    effectiveLighting.target === "inner"
-      ? lightingOverlayCss(effectiveLighting, { inner: true })
+    effectiveLighting.target === "inner" || lightingAnimated
+      ? lightingOverlayCss(effectiveLighting, {
+          inner: true,
+          active: effectiveLighting.target === "inner",
+          forceMount: lightingAnimated,
+        })
       : null
   const filterChain = [enhanceFilter, assetFilterCss(slot.filter)]
     .filter(Boolean)
@@ -221,15 +251,25 @@ export function ScreenshotSlotRender({
     borderRadius: selectionRadius,
   }
   const bareImgStyle: React.CSSProperties = {
-    borderRadius: bareBorderRadius,
+    // Read the radius via a var so an Animate-mode clip can ease it; falls back
+    // to the committed value at rest / outside Animate mode.
+    borderRadius: `var(${SCREENSHOT_RADIUS_PREVIEW_VAR}, ${bareBorderRadius}px)`,
     boxShadow: shadowBoxShadowCss(shadowCss(effectiveShadow)),
     filter: filterChain || undefined,
     transform: contentTransform,
     transformStyle: "preserve-3d" as const,
   }
-  if (imageBoxOutline?.color && imageBoxOutline.width > 0) {
-    bareImgStyle.outline = `${imageBoxOutline.width}px ${imageBoxOutline.style || "solid"} ${imageBoxOutline.color}`
-    bareImgStyle.outlineOffset = `${imageBoxOutline.padding || 0}px`
+  // When a clip animates this slot's border the outline is ALWAYS mounted (even
+  // when the committed border is invisible) so the player can ease it in from 0 /
+  // recolour it via the preview vars. Otherwise it renders only when committed.
+  const borderVisible =
+    Boolean(imageBoxOutline.color) && imageBoxOutline.width > 0
+  if (borderAnimated || borderVisible) {
+    const committedOutline = borderVisible
+      ? borderOutlineCss(imageBoxOutline)
+      : "0px solid transparent"
+    bareImgStyle.outline = `var(${BORDER_OUTLINE_PREVIEW_VAR}, ${committedOutline})`
+    bareImgStyle.outlineOffset = `var(${BORDER_OFFSET_PREVIEW_VAR}, ${borderOffsetCss(imageBoxOutline)})`
   }
 
   const showEditMenu = !previewMode && Boolean(slot.src)

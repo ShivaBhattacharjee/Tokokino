@@ -104,7 +104,16 @@ const MIN_ANIMATION_CLIP_MS = 200
 /** Effects an extra screenshot slot can actually animate (its keyframe pose only
  * carries transform + shadow). Used to decide when editing an effect may auto-
  * bind an unbound keyframe to a slot. */
-const SLOT_ANIMATABLE_EFFECTS: AnimationEffect[] = ["tilt", "zoom", "shadow"]
+const SLOT_ANIMATABLE_EFFECTS: AnimationEffect[] = [
+  "tilt",
+  "zoom",
+  "shadow",
+  "position",
+  "border",
+  "borderRadius",
+  "padding",
+  "lighting",
+]
 
 /** Canvas.animation is optional (older drafts) — always read through this. */
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
@@ -135,8 +144,14 @@ export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
         tilt: s.tilt,
         scale: s.scale,
         rotation: s.rotation,
-        // Slots fall back to the canvas shadow when they have none of their own.
+        // Slots fall back to the canvas value when they have none of their own.
         shadow: s.shadow ?? canvas.shadow,
+        xPct: s.xPct,
+        yPct: s.yPct,
+        border: s.border ?? canvas.border,
+        borderRadius: s.borderRadius ?? canvas.borderRadius,
+        padding: s.padding ?? canvas.padding,
+        lighting: s.lighting ?? canvas.backdrop.lighting,
       },
     ])
   ),
@@ -189,6 +204,17 @@ const applyPoseToCanvas = (
       // Only overwrite the slot's shadow when the pose captured one (older poses
       // are transform-only, so leave the committed shadow untouched there).
       ...(sp.shadow ? { shadow: sp.shadow } : {}),
+      // Likewise only restore position for poses that captured it (older poses
+      // omit it, so leave the committed position untouched there).
+      ...(sp.xPct != null && sp.yPct != null
+        ? { xPct: sp.xPct, yPct: sp.yPct }
+        : {}),
+      // Border / radius / padding / lighting: only restore when the pose captured
+      // them (older poses omit them → leave the committed slot values untouched).
+      ...(sp.border ? { border: sp.border } : {}),
+      ...(sp.borderRadius != null ? { borderRadius: sp.borderRadius } : {}),
+      ...(sp.padding != null ? { padding: sp.padding } : {}),
+      ...(sp.lighting ? { lighting: sp.lighting } : {}),
     }
   }),
 })
@@ -317,6 +343,8 @@ const resolveKeyframePose = (
           scale: s.scale,
           rotation: s.rotation,
           shadow: s.shadow ?? canvas.shadow,
+          xPct: s.xPct,
+          yPct: s.yPct,
         }
         const slot = (effect: AnimationEffect, rest: ClipSlotPose) => {
           const { at, any } = latestOwner(ownsSlot(s.id, effect))
@@ -330,6 +358,26 @@ const resolveKeyframePose = (
         })
         const z = slot("zoom", { ...committed, scale: 100 })
         const sh = slot("shadow", { ...committed, shadow: REST_SHADOW })
+        // Reveal-from semantics (mirrors mainReveal): held from the latest owner
+        // at/before this keyframe, else the value it reveals FROM (the first
+        // owner's captured baseline), else the committed slot value. Used for the
+        // effects that ease from the slot's own committed look — position, border,
+        // radius, padding, lighting — rather than from a neutral rest.
+        const slotReveal = <V,>(
+          effect: AnimationEffect,
+          extract: (sp: ClipSlotPose | undefined) => V | undefined,
+          committedVal: V
+        ): V => {
+          const owners = clips
+            .filter((c) => ownsSlot(s.id, effect)(c))
+            .sort((a, b) => a.startMs - b.startMs)
+          if (owners.length === 0) return committedVal
+          const { at } = latestOwner(ownsSlot(s.id, effect))
+          const src = at
+            ? clipPose(at).slots[s.id]
+            : clipBaseline(owners[0]).slots[s.id]
+          return extract(src) ?? committedVal
+        }
         return [
           s.id,
           {
@@ -337,6 +385,28 @@ const resolveKeyframePose = (
             rotation: t.rotation,
             scale: z.scale,
             shadow: sh.shadow ?? committed.shadow,
+            xPct: slotReveal("position", (sp) => sp?.xPct, s.xPct),
+            yPct: slotReveal("position", (sp) => sp?.yPct, s.yPct),
+            border: slotReveal(
+              "border",
+              (sp) => sp?.border,
+              s.border ?? canvas.border
+            ),
+            borderRadius: slotReveal(
+              "borderRadius",
+              (sp) => sp?.borderRadius,
+              s.borderRadius ?? canvas.borderRadius
+            ),
+            padding: slotReveal(
+              "padding",
+              (sp) => sp?.padding,
+              s.padding ?? canvas.padding
+            ),
+            lighting: slotReveal(
+              "lighting",
+              (sp) => sp?.lighting,
+              s.lighting ?? canvas.backdrop.lighting
+            ),
           },
         ]
       })
@@ -817,9 +887,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         // Auto-bind: an as-yet-unbound ("all") keyframe binds to the SLOT this
         // edit targets, so selecting it later re-selects that slot and further
         // edits scope to it. Only for the effects a slot can actually animate
-        // (transform + shadow) — main-only effects like position always edit the
-        // main even when a slot is selected, so they must not re-bind the clip.
-        // A keyframe already bound keeps its binding.
+        // (SLOT_ANIMATABLE_EFFECTS: transform, shadow, position, border, radius,
+        // padding, lighting) — canvas-wide effects (background, backdrop, pattern,
+        // filter, portrait, overlay, canvas radius) always edit the canvas/main
+        // even when a slot is selected, so they must not re-bind the clip. A
+        // keyframe already bound keeps its binding.
         const currentTarget = clip.target ?? { scope: "all" as const }
         const nextTarget = resolveSelectionTarget(
           canvas,
@@ -2460,13 +2532,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           slot.id === id ? { ...slot, ...patch } : slot
         ),
       })
-      // A slot's transform + shadow edits become owned effects on the open
-      // keyframe; other slot changes (position, fit, filter…) don't animate, so
-      // they commit normally.
+      // A slot's transform + shadow + position + border/radius/padding/lighting
+      // edits become owned effects on the open keyframe; other slot changes (fit,
+      // filter…) don't animate, so they commit normally.
       const effects: AnimationEffect[] = []
       if ("tilt" in patch || "rotation" in patch) effects.push("tilt")
       if ("scale" in patch) effects.push("zoom")
       if ("shadow" in patch) effects.push("shadow")
+      if ("xPct" in patch || "yPct" in patch) effects.push("position")
+      if ("border" in patch) effects.push("border")
+      if ("borderRadius" in patch) effects.push("borderRadius")
+      if ("padding" in patch) effects.push("padding")
+      if ("lighting" in patch) effects.push("lighting")
       if (effects.length === 0) {
         commitCanvas(canvasId, apply, `screenshot-slot-${id}`)
       } else {

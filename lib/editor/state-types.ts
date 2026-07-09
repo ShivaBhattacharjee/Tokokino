@@ -423,6 +423,22 @@ export type ClipSlotPose = {
   rotation: number
   /** Optional so older drafts (transform-only slot poses) still load. */
   shadow?: Shadow
+  /**
+   * Slot centre position as a % of the canvas (matches ScreenshotSlot.xPct/yPct).
+   * Optional so drafts saved before slot position was animatable hydrate cleanly
+   * (read through a fallback to the live slot position).
+   */
+  xPct?: number
+  yPct?: number
+  /**
+   * Slot border / corner radius / padding / lighting at this keyframe. All
+   * optional so drafts saved before these were animatable per slot hydrate
+   * cleanly (read through a fallback to the live slot / canvas value).
+   */
+  border?: Border
+  borderRadius?: number
+  padding?: number
+  lighting?: BackdropLighting
 }
 
 /**
