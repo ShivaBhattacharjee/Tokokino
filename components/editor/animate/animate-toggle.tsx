@@ -11,9 +11,11 @@ import { useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
 /**
- * Floating, bottom-center trigger that enters Animate mode. The animated
- * rainbow border is a masked conic-gradient ring (see the `animate-spin`
- * gradient below), themed with a subtle dark inner pill to match the editor.
+ * Floating trigger that enters Animate mode. Hidden on phones (animate isn't
+ * supported there); sits above the canvas on iPad widths and bottom-center on
+ * desktop. The animated rainbow border is a masked conic-gradient ring (see the
+ * `animate-spin` gradient below), themed with a subtle dark inner pill to match
+ * the editor.
  */
 export function AnimateToggle() {
   const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
@@ -52,7 +54,7 @@ export function AnimateToggle() {
   )
 
   return (
-    <div className="pointer-events-none absolute bottom-20 left-1/2 z-30 -translate-x-1/2 max-md:bottom-[210px]">
+    <div className="pointer-events-none absolute top-4 left-1/2 z-30 -translate-x-1/2 max-md:hidden xl:top-auto xl:bottom-20">
       {bulkEditMode ? (
         <Tooltip>
           <TooltipTrigger asChild>{button}</TooltipTrigger>

@@ -33,7 +33,7 @@ type AnimateControlsProps = {
 }
 
 const iconButton =
-  "flex size-9 cursor-pointer items-center justify-center rounded-md transition-colors"
+  "flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors"
 
 export function AnimateControls({
   audio,
@@ -51,7 +51,7 @@ export function AnimateControls({
   onReset,
 }: AnimateControlsProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <input
         ref={audioInputRef}
         type="file"
@@ -69,10 +69,10 @@ export function AnimateControls({
           "bg-foreground/8 text-foreground hover:bg-foreground/15"
         )}
       >
-        <RiArrowLeftLine className="size-5" />
+        <RiArrowLeftLine className="size-[18px]" />
       </button>
 
-      <div className="mx-auto flex items-center gap-2">
+      <div className="mx-auto flex items-center gap-1.5">
         <button
           type="button"
           onClick={onToggleAudio}
@@ -86,16 +86,16 @@ export function AnimateControls({
           )}
         >
           {audio && !audio.muted ? (
-            <RiVolumeUpLine className="size-5" />
+            <RiVolumeUpLine className="size-[18px]" />
           ) : (
-            <RiVolumeMuteLine className="size-5" />
+            <RiVolumeMuteLine className="size-[18px]" />
           )}
         </button>
 
         <button
           type="button"
           onClick={onAddClip}
-          className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-foreground/8 px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-foreground/15"
+          className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-foreground/8 px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-foreground/15"
         >
           <RiAddLine className="size-4" />
           Animation
@@ -105,7 +105,7 @@ export function AnimateControls({
           type="button"
           onClick={onTogglePlay}
           aria-label={isPlaying ? "Pause" : "Play"}
-          className="flex h-9 w-24 cursor-pointer items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-[1.02]"
+          className="flex h-8 w-16 cursor-pointer items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-[1.02]"
         >
           {isPlaying ? (
             <RiPauseFill className="size-4" />
@@ -127,7 +127,7 @@ export function AnimateControls({
               : "cursor-not-allowed text-muted-foreground/40"
           )}
         >
-          <RiScissorsCutLine className="size-5" />
+          <RiScissorsCutLine className="size-[18px]" />
         </button>
 
         <button
@@ -137,11 +137,11 @@ export function AnimateControls({
           title="Reset playhead"
           className={cn(iconButton, "text-foreground hover:bg-foreground/10")}
         >
-          <RiResetLeftLine className="size-5" />
+          <RiResetLeftLine className="size-[18px]" />
         </button>
       </div>
 
-      <span className="font-mono text-[12px] text-muted-foreground tabular-nums">
+      <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
         {formatTime(playheadMs)} / {formatShort(durationMs)}
       </span>
     </div>

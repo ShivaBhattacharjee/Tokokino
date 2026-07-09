@@ -274,10 +274,10 @@ function EditorLayout() {
             <DeferredMount
               priority={0}
               fallback={
-                <EffectsSidebarSkeleton className="hidden w-[264px] border-r-0! border-l border-dashed md:order-last md:flex lg:w-[288px] xl:hidden" />
+                <EffectsSidebarSkeleton className="hidden w-[256px] border-r border-l-0! border-dashed md:flex lg:w-[280px] xl:hidden" />
               }
             >
-              <IpadSidebar className="hidden md:order-last md:flex xl:hidden" />
+              <IpadSidebar className="hidden md:flex xl:hidden" />
             </DeferredMount>
           )}
           <div

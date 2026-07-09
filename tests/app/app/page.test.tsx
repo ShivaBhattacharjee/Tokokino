@@ -21,9 +21,18 @@ const storeMock = vi.hoisted(() => {
   const defaults = {
     isPreviewMode: false,
     isPreviewAutoScroll: false,
+    isAnimateMode: false,
     previewAutoScrollDelay: 3000,
     previewAnimation: "slide" as "slide" | "fade" | "zoom" | "flip",
-    present: { activeCanvasId: "canvas-1" },
+    // Slideshow controls only render with multiple canvases, so the mock
+    // provides two so the pill/settings tests can find them.
+    present: {
+      activeCanvasId: "canvas-1",
+      canvases: [
+        { id: "canvas-1", screenshotSlots: [] },
+        { id: "canvas-2", screenshotSlots: [] },
+      ],
+    },
     ...setters,
   }
   const holder = { current: { ...defaults } }
@@ -77,6 +86,25 @@ function stub(testid: string) {
 }
 
 vi.mock("@/components/editor/canvas", () => ({ Canvas: stub("canvas") }))
+vi.mock("@/components/editor/animate/animate-bar", () => ({
+  AnimateBar: stub("animate-bar"),
+}))
+vi.mock("@/components/editor/animate/animate-toggle", () => ({
+  AnimateToggle: stub("animate-toggle"),
+}))
+vi.mock("@/components/editor/animate/animation-layer", () => ({
+  AnimationLayer: stub("animation-layer"),
+}))
+vi.mock("@/components/editor/animate/animation-preview-controls", () => ({
+  AnimationPreviewControls: stub("animation-preview-controls"),
+}))
+vi.mock("@/hooks/use-animation-player", () => ({
+  AnimationPlayerProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+}))
+vi.mock("@/components/editor/chrome-recommended-dialog", () => ({
+  ChromeRecommendedDialog: stub("chrome-recommended-dialog"),
+}))
 vi.mock("@/components/editor/top-bar", () => ({ TopBar: stub("top-bar") }))
 vi.mock("@/components/editor/effects-sidebar", () => ({
   EffectsSidebar: stub("effects-sidebar"),
