@@ -53,6 +53,20 @@ type ScreenshotBareProps = {
   innerLightingStyle?: React.CSSProperties | null
 }
 
+/**
+ * Bare (no device/browser frame) screenshot.
+ *
+ * Why contain broke Inner lighting
+ * --------------------------------
+ * The light layer is an empty absolutely-positioned div (only a CSS gradient).
+ * With `object-fit: cover|fill` it got `width/height: 100%` → real size → glow.
+ * With `object-fit: contain` it only got `max-width/max-height: 100%` and no
+ * content → used to collapse to 0×0 → glow vanished. Outer lighting lives on
+ * the canvas backdrop, so it was never affected.
+ *
+ * Fix: always give the light layer an explicit size matching the image box
+ * (measured imgW×imgH when free-placed, otherwise 100% of the stage/parent).
+ */
 export function ScreenshotBare({
   screenshot,
   imgStyle,
@@ -87,22 +101,79 @@ export function ScreenshotBare({
   innerLightingStyle,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
-  // Only the free-positioned single main screenshot passes numeric left/top and
-  // should read `--editor-main-bare-*` live-preview vars. Nested multi-row / slot
-  // content is always centered at 50%/50% — if it inherited canvas-level bare
-  // vars during a main pad drag, every image would shift inside its box and the
-  // main selection outline would detach from its image.
-  const useBarePreviewVars = typeof screenshotLeft === "number"
-  const screenshotLeftValue =
-    typeof screenshotLeft === "number" ? `${screenshotLeft}px` : "50%"
-  const screenshotTopValue =
-    typeof screenshotTop === "number" ? `${screenshotTop}px` : "50%"
-  const leftStyle = useBarePreviewVars
-    ? `var(--editor-main-bare-left, ${screenshotLeftValue})`
-    : screenshotLeftValue
-  const topStyle = useBarePreviewVars
-    ? `var(--editor-main-bare-top, ${screenshotTopValue})`
-    : screenshotTopValue
+
+  // Free-placed single main uses numeric left/top in stage px (+ live-preview
+  // vars). Nested multi-row/slot content has no left/top — parent sizes it.
+  const isFreePlaced = typeof screenshotLeft === "number"
+  const leftStyle = isFreePlaced
+    ? `var(--editor-main-bare-left, ${screenshotLeft}px)`
+    : "50%"
+  const topStyle =
+    typeof screenshotTop === "number"
+      ? `var(--editor-main-bare-top, ${screenshotTop}px)`
+      : "50%"
+
+  // Nested multi (no free placement, no stage measurement): fill parent.
+  const isNested = !isFreePlaced && placementDims == null
+
+  // Image position/transform (mirrors historical bare layout).
+  const imagePositionStyle: React.CSSProperties = isNested
+    ? {
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        ...imgStyle,
+        // Nested parent already applied centering translate; only keep 3D here.
+        transform: (imgStyle.transform) || transform || undefined,
+      }
+    : {
+        ...imgStyle,
+        left: leftStyle,
+        top: topStyle,
+        ...(positionedStyle
+          ? null
+          : {
+              transform: `translate(-50%, -50%) ${transform}`,
+            }),
+      }
+
+  // Explicit light size — NEVER rely on max-width/max-height alone (0×0 when
+  // the layer has no in-flow content, which is exactly the contain bug).
+  const lightSizeStyle: React.CSSProperties = isNested
+    ? { inset: 0, width: "100%", height: "100%" }
+    : isFreePlaced && placementDims
+      ? {
+          left: leftStyle,
+          top: topStyle,
+          width: placementDims.imgW,
+          height: placementDims.imgH,
+        }
+      : {
+          // Cover/fill-style full stage, or pre-measure fallback.
+          left: leftStyle,
+          top: topStyle,
+          width: "100%",
+          height: "100%",
+        }
+
+  // Free-placed / positioned: left/top already place the box — same 3D
+  // transform as the image (no extra translate). Nested multi: 3D only.
+  // Centered pre-measure: translate(-50%) + 3D like the image.
+  const lightTransform: React.CSSProperties =
+    isFreePlaced || positionedStyle
+      ? {
+          transform: imgStyle.transform,
+          transformStyle: imgStyle.transformStyle,
+        }
+      : isNested
+        ? {
+            transform: (imgStyle.transform) || transform || undefined,
+            transformStyle: "preserve-3d",
+          }
+        : {
+            transform: `translate(-50%, -50%) ${transform}`,
+            transformStyle: "preserve-3d",
+          }
 
   return (
     <div
@@ -124,21 +195,21 @@ export function ScreenshotBare({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        style={{
-          ...imgStyle,
-          left: leftStyle,
-          top: topStyle,
-          ...(positionedStyle
-            ? null
-            : {
-                transform: `translate(-50%, -50%) ${transform}`,
-              }),
-        }}
+        style={imagePositionStyle}
         className={cn(
           "pointer-events-auto absolute select-none",
-          objectFit === "cover" && "h-full w-full object-cover",
-          objectFit === "fill" && "h-full w-full object-fill",
-          objectFit === "contain" && "max-h-full max-w-full object-contain",
+          // Nested multi always fills the parent slot/row box.
+          isNested && "inset-0 h-full w-full",
+          !isNested && objectFit === "cover" && "h-full w-full object-cover",
+          !isNested && objectFit === "fill" && "h-full w-full object-fill",
+          // contain: shrink-wrap to the image's aspect (max bounds = stage).
+          // Lighting uses measured imgW×imgH so it still gets a real size.
+          !isNested &&
+            objectFit === "contain" &&
+            "max-h-full max-w-full object-contain",
+          isNested && objectFit === "cover" && "object-cover",
+          isNested && objectFit === "fill" && "object-fill",
+          isNested && objectFit === "contain" && "object-contain",
           screenshotLayer.hidden && "pointer-events-none",
           isScreenshotDragging ||
             suppressTransition ||
@@ -154,26 +225,20 @@ export function ScreenshotBare({
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute",
-            objectFit === "cover" && "h-full w-full",
-            objectFit === "fill" && "h-full w-full",
-            objectFit === "contain" && "max-h-full max-w-full"
+            "pointer-events-none absolute z-10",
+            isScreenshotDragging ||
+              suppressTransition ||
+              activeTool === "position"
+              ? "transition-none"
+              : "transition-all duration-300 ease-out"
           )}
           style={{
             ...innerLightingStyle,
+            ...lightSizeStyle,
+            ...lightTransform,
             borderRadius: imgStyle.borderRadius,
-            left: leftStyle,
-            top: topStyle,
-            zIndex: 1,
-            ...(positionedStyle
-              ? {
-                  transform: imgStyle.transform,
-                  transformStyle: imgStyle.transformStyle,
-                }
-              : {
-                  transform: `translate(-50%, -50%) ${transform}`,
-                  transformStyle: "preserve-3d",
-                }),
+            // Keep the light above the image stacking context
+            zIndex: 10,
           }}
         />
       ) : null}

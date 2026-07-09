@@ -355,7 +355,9 @@ function CanvasViewInner({
     enabled: Boolean(screenshot),
     stageRef,
     imageRef,
-    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}`,
+    // Include objectFit so contain↔cover remeasures imgW/imgH — inner lighting
+    // sizes itself from those dims and would stay at the wrong box otherwise.
+    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}`,
   })
   const selectedScreenshotSlotId = useEditorStore(
     (s) => s.selectedScreenshotSlotId
