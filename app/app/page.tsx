@@ -14,6 +14,7 @@ import { BulkBar, FloatingToolbar } from "@/components/editor/floating-toolbar"
 import { AnimateBar } from "@/components/editor/animate/animate-bar"
 import { AnimateToggle } from "@/components/editor/animate/animate-toggle"
 import { AnimationLayer } from "@/components/editor/animate/animation-layer"
+import { AnimationPreviewControls } from "@/components/editor/animate/animation-preview-controls"
 import { AnimationPlayerProvider } from "@/hooks/use-animation-player"
 import { Inspector } from "@/components/editor/inspector"
 import { IpadSidebar } from "@/components/editor/ipad-sidebar"
@@ -56,6 +57,12 @@ function EditorLayout() {
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const setIsPreviewMode = useEditorStore((s) => s.setIsPreviewMode)
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // Slideshow controls (play + slide-duration/transition) only make sense when
+  // preview cycles through MULTIPLE screenshots. A single canvas (e.g. an
+  // animation preview) has nothing to slide between, so we hide them there.
+  const hasMultipleCanvases = useEditorStore(
+    (s) => s.present.canvases.length > 1
+  )
   const isPreviewAutoScroll = useEditorStore((s) => s.isPreviewAutoScroll)
   const setIsPreviewAutoScroll = useEditorStore((s) => s.setIsPreviewAutoScroll)
   const previewAutoScrollDelay = useEditorStore((s) => s.previewAutoScrollDelay)
@@ -111,7 +118,7 @@ function EditorLayout() {
             >
               {/* Settings panel */}
               <AnimatePresence>
-                {settingsOpen && (
+                {hasMultipleCanvases && !isAnimateMode && settingsOpen && (
                   <motion.div
                     initial={{
                       opacity: 0,
@@ -187,43 +194,53 @@ function EditorLayout() {
 
               {/* Bottom bar */}
               <div className="flex items-center gap-2">
-                {/* Play + settings pill */}
-                <div className="flex h-10 items-center overflow-hidden rounded-xl border border-foreground/15 bg-background/80 shadow-xl backdrop-blur-md">
-                  <button
-                    type="button"
-                    onClick={() => setIsPreviewAutoScroll(!isPreviewAutoScroll)}
-                    title={
-                      isPreviewAutoScroll ? "Stop slideshow" : "Start slideshow"
-                    }
-                    className="flex h-full cursor-pointer items-center px-3 text-foreground transition-colors hover:bg-foreground/6"
-                  >
-                    {isPreviewAutoScroll ? (
-                      <RiStopCircleLine className="size-4" />
-                    ) : (
-                      <RiPlayCircleLine className="size-4" />
-                    )}
-                  </button>
-                  <div className="h-5 w-px bg-foreground/12" />
-                  <button
-                    type="button"
-                    onClick={() => setSettingsOpen((v) => !v)}
-                    title="Slideshow settings"
-                    className={cn(
-                      "flex h-full cursor-pointer items-center px-3 transition-colors",
-                      settingsOpen
-                        ? "bg-foreground/8 text-foreground"
-                        : "text-foreground hover:bg-foreground/6"
-                    )}
-                  >
-                    <motion.span
-                      animate={{ rotate: settingsOpen ? 45 : 0 }}
-                      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                      className="flex items-center"
+                {/* Animation preview → play/pause; slideshow controls make no
+                    sense for a single animated canvas. */}
+                {isAnimateMode && <AnimationPreviewControls />}
+
+                {/* Play + settings pill — slideshow only (multiple screenshots) */}
+                {hasMultipleCanvases && !isAnimateMode && (
+                  <div className="flex h-10 items-center overflow-hidden rounded-xl border border-foreground/15 bg-background/80 shadow-xl backdrop-blur-md">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIsPreviewAutoScroll(!isPreviewAutoScroll)
+                      }
+                      title={
+                        isPreviewAutoScroll
+                          ? "Stop slideshow"
+                          : "Start slideshow"
+                      }
+                      className="flex h-full cursor-pointer items-center px-3 text-foreground transition-colors hover:bg-foreground/6"
                     >
-                      <RiSettings3Line className="size-4" />
-                    </motion.span>
-                  </button>
-                </div>
+                      {isPreviewAutoScroll ? (
+                        <RiStopCircleLine className="size-4" />
+                      ) : (
+                        <RiPlayCircleLine className="size-4" />
+                      )}
+                    </button>
+                    <div className="h-5 w-px bg-foreground/12" />
+                    <button
+                      type="button"
+                      onClick={() => setSettingsOpen((v) => !v)}
+                      title="Slideshow settings"
+                      className={cn(
+                        "flex h-full cursor-pointer items-center px-3 transition-colors",
+                        settingsOpen
+                          ? "bg-foreground/8 text-foreground"
+                          : "text-foreground hover:bg-foreground/6"
+                      )}
+                    >
+                      <motion.span
+                        animate={{ rotate: settingsOpen ? 45 : 0 }}
+                        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                        className="flex items-center"
+                      >
+                        <RiSettings3Line className="size-4" />
+                      </motion.span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Exit Preview */}
                 <Button
@@ -270,9 +287,10 @@ function EditorLayout() {
             // Reserve room for the bottom timeline so the canvas shifts up into
             // the empty top space instead of sitting behind it. The timeline
             // grows by one 48px row per extra screenshot layer, so grow the
-            // reserved space to match.
+            // reserved space to match. Skip in preview — the timeline is hidden
+            // there, so the reserved strip would just expose the outer bg.
             style={
-              isAnimateMode
+              isAnimateMode && !isPreviewMode
                 ? { paddingBottom: 120 + extraSlotCount * 48 }
                 : undefined
             }
@@ -292,7 +310,13 @@ function EditorLayout() {
                 AnimatePresence lets the timeline bar slide/fade out on exit
                 (it defines its own enter/exit motion). */}
             {isAnimateMode && <AnimationLayer />}
-            <AnimatePresence>{isAnimateMode && <AnimateBar />}</AnimatePresence>
+            {/* Hide the timeline UI in preview — it overlaps the preview controls
+                and its capture-phase Esc handler would otherwise steal Esc from
+                Exit Preview. Playback keeps working (AnimationLayer + player stay
+                mounted; preview shows its own play/pause). */}
+            <AnimatePresence>
+              {isAnimateMode && !isPreviewMode && <AnimateBar />}
+            </AnimatePresence>
           </div>
           {!hideBottomToolbar && (
             <div

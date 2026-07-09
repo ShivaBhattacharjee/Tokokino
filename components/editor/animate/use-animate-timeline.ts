@@ -57,7 +57,6 @@ export function useAnimateTimeline() {
   const moveAnimationClip = useEditorStore((s) => s.moveAnimationClip)
   const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
   const duplicateAnimationClip = useEditorStore((s) => s.duplicateAnimationClip)
-  const clearAnimationClips = useEditorStore((s) => s.clearAnimationClips)
   const setAnimationAudio = useEditorStore((s) => s.setAnimationAudio)
   const updateAnimationAudio = useEditorStore((s) => s.updateAnimationAudio)
   const setAnimationDuration = useEditorStore((s) => s.setAnimationDuration)
@@ -76,7 +75,6 @@ export function useAnimateTimeline() {
     setClearEffectsShortcut(apple ? "⌘⇧⌫" : "Ctrl+Shift+Del")
     setDeselectShortcut(apple ? "⌘⇧A" : "Ctrl+Shift+A")
   }, [])
-  const [confirmExitOpen, setConfirmExitOpen] = React.useState(false)
   const trackRef = React.useRef<HTMLDivElement | null>(null)
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
   const audioInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -685,32 +683,22 @@ export function useAnimateTimeline() {
     [selectAnimationClip]
   )
 
-  // ---- exit (guarded) ----------------------------------------------------
-  const hasWork = clips.length > 0 || Boolean(audio)
-
+  // ---- exit ---------------------------------------------------------------
+  // Leaving animate mode keeps the timeline — it's part of the saved canvas and
+  // the user comes back to it. No confirmation, no discard.
   const requestExit = React.useCallback(() => {
-    if (hasWork) setConfirmExitOpen(true)
-    else setIsAnimateMode(false)
-  }, [hasWork, setIsAnimateMode])
-
-  const confirmExit = React.useCallback(() => {
-    clearAnimationClips()
-    setAnimationAudio(null)
-    setConfirmExitOpen(false)
     setIsAnimateMode(false)
-  }, [clearAnimationClips, setAnimationAudio, setIsAnimateMode])
+  }, [setIsAnimateMode])
 
-  // Esc routes through the same guard so it can't skip the confirmation.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return
-      if (confirmExitOpen) return
       e.stopPropagation()
       requestExit()
     }
     window.addEventListener("keydown", onKeyDown, true)
     return () => window.removeEventListener("keydown", onKeyDown, true)
-  }, [confirmExitOpen, requestExit])
+  }, [requestExit])
 
   // Clip shortcuts: Delete/Backspace removes the selected clip, ⌘/Ctrl+D
   // duplicates it (no copy/paste yet, so duplicate stands in for it).
@@ -906,9 +894,6 @@ export function useAnimateTimeline() {
     onPickScreenshot,
 
     // exit
-    confirmExitOpen,
-    setConfirmExitOpen,
     requestExit,
-    confirmExit,
   }
 }

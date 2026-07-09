@@ -21,6 +21,8 @@ export function usePersistentState<T>(
       const raw = window.localStorage.getItem(key)
       if (raw == null) return
       const parsed = JSON.parse(raw) as unknown
+      // One-time hydration read on mount — intentional, not a cascading render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (!isValid || isValid(parsed)) setValue(parsed as T)
     } catch {
       /* ignore corrupt/unavailable storage */

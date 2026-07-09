@@ -58,7 +58,7 @@ const EXPORT_RESOLUTIONS: ExportResolution[] = ["hd", "4k", "8k"]
 const EXPORT_BUTTON_MAX_LABEL = `Export ${EXPORT_RESOLUTION_LABELS["hd"]} • ${EXPORT_FORMAT_LABELS.webp}`
 
 /** Animate-mode export — fully local (user device). No server, no watermark. */
-const ANIMATION_FORMATS: AnimationExportFormat[] = ["gif", "webm", "mp4"]
+const ANIMATION_FORMATS: AnimationExportFormat[] = ["mp4", "webm", "gif"]
 const ANIMATION_FORMAT_LABELS: Record<AnimationExportFormat, string> = {
   gif: "GIF",
   webm: "WebM",
@@ -517,7 +517,7 @@ export function ExportControls({
   )
   const [animFormat, setAnimFormat] = usePersistentState<AnimationExportFormat>(
     "tokokino:export:animFormat",
-    "gif",
+    "mp4",
     (v): v is AnimationExportFormat =>
       ANIMATION_FORMATS.includes(v as AnimationExportFormat)
   )

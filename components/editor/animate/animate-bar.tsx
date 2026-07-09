@@ -4,16 +4,6 @@ import { AnimatePresence, motion } from "motion/react"
 import { RiAddCircleLine, RiImageAddLine } from "@remixicon/react"
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
   MAX_DURATION_MS,
   MIN_DURATION_MS,
 } from "@/lib/editor/animation-timeline"
@@ -38,27 +28,6 @@ export function AnimateBar() {
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
       className="pointer-events-auto absolute right-3 bottom-3 left-3 z-30 rounded-2xl border border-border/70 bg-popover/95 p-3 shadow-2xl backdrop-blur-xl"
     >
-      <AlertDialog open={t.confirmExitOpen} onOpenChange={t.setConfirmExitOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Leave animate mode?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your animation timeline{t.audio ? " and audio" : ""} will be
-              discarded. This can be undone from the editor.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={t.confirmExit}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              Discard &amp; exit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AnimateControls
         audio={t.audio}
         isPlaying={t.isPlaying}
@@ -115,13 +84,13 @@ export function AnimateBar() {
                 blurred while its playable portion stays sharp. */}
             <div
               aria-hidden
-              className="pointer-events-none absolute -top-2 bottom-0 z-25 rounded-r-lg"
+              className="pointer-events-none absolute -top-2 bottom-0 z-25 rounded-r-lg [--tl-dim:rgba(0,0,0,0.05)] [--tl-hatch:rgba(0,0,0,0.05)] dark:[--tl-dim:rgba(0,0,0,0.28)] dark:[--tl-hatch:rgba(255,255,255,0.03)]"
               style={{
                 left: pxFor(durationMs),
                 right: 0,
-                backgroundColor: "rgba(0,0,0,0.28)",
+                backgroundColor: "var(--tl-dim)",
                 backgroundImage:
-                  "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 9px)",
+                  "repeating-linear-gradient(-45deg, var(--tl-hatch) 0 1px, transparent 1px 9px)",
                 backdropFilter: "blur(2px) saturate(0.6)",
                 WebkitBackdropFilter: "blur(2px) saturate(0.6)",
               }}
