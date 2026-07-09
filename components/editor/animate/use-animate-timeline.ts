@@ -127,7 +127,6 @@ export function useAnimateTimeline() {
     [rawMsFromClientX]
   )
 
-  // ---- edge auto-scroll (shared by every horizontal drag) ---------------
   const pointerXRef = React.useRef(0)
   const autoScrollRef = React.useRef<{
     raf: number | null
@@ -172,7 +171,6 @@ export function useAnimateTimeline() {
 
   React.useEffect(() => stopAutoScroll, [stopAutoScroll])
 
-  // ---- trackpad zoom + wheel-to-scroll ----------------------------------
   React.useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -225,7 +223,6 @@ export function useAnimateTimeline() {
     if (playheadMs > durationMs) seek(durationMs)
   }, [playheadMs, durationMs, seek])
 
-  // ---- clip drag (move body / trim either edge) -------------------------
   const dragRef = React.useRef<{
     id: string
     mode: ClipDragMode
@@ -378,7 +375,6 @@ export function useAnimateTimeline() {
     [moveAnimationClip, stopAutoScroll, selectAnimationClip]
   )
 
-  // ---- playhead scrubbing (click + drag anywhere on the track) -----------
   const scrubbingRef = React.useRef(false)
 
   const applyScrub = React.useCallback(
@@ -417,7 +413,6 @@ export function useAnimateTimeline() {
     [stopAutoScroll]
   )
 
-  // ---- duration resize (drag the end handle) -----------------------------
   const durationDraggingRef = React.useRef(false)
   const [isDurationDragging, setIsDurationDragging] = React.useState(false)
 
@@ -471,7 +466,6 @@ export function useAnimateTimeline() {
     [stopAutoScroll]
   )
 
-  // ---- audio -------------------------------------------------------------
   const onPickAudio = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
@@ -483,7 +477,6 @@ export function useAnimateTimeline() {
     [setAnimationAudio]
   )
 
-  // ---- base image layers (click a row to set/replace its image) ----------
   // Which layer the shared file input targets: "main" or a slot id.
   const pickTargetRef = React.useRef<string>("main")
 
@@ -523,7 +516,6 @@ export function useAnimateTimeline() {
     updateAnimationAudio({ muted: !audio.muted })
   }, [audio, updateAnimationAudio])
 
-  // ---- hover-to-add ghost on the motion lane -----------------------------
   // Position is written straight to the DOM node (no React re-render per pointer
   // move) so it never lags; an rAF coalesces bursts into one write per frame.
   const clipsRowRef = React.useRef<HTMLDivElement | null>(null)
@@ -683,7 +675,6 @@ export function useAnimateTimeline() {
     [selectAnimationClip]
   )
 
-  // ---- exit ---------------------------------------------------------------
   // Leaving animate mode keeps the timeline — it's part of the saved canvas and
   // the user comes back to it. No confirmation, no discard.
   const requestExit = React.useCallback(() => {

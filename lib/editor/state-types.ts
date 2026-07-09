@@ -377,10 +377,6 @@ export type ScreenshotSlot = {
 
 export type CanvasPosition = { x: number; y: number }
 
-// ---------------------------------------------------------------------------
-// Animate mode — motion clips on a per-canvas timeline
-// ---------------------------------------------------------------------------
-
 /**
  * Which screenshot on the canvas a clip animates.
  *  - "all": every screenshot (main + all slots) — used when nothing is selected.

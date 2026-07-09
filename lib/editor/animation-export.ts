@@ -402,10 +402,6 @@ export async function exportAnimation(
   }
 }
 
-// ---------------------------------------------------------------------------
-// GIF — gifenc (pure JS, local)
-// ---------------------------------------------------------------------------
-
 async function encodeGif(ctx: CaptureCtx) {
   const {
     capture,
@@ -461,10 +457,6 @@ async function encodeGif(ctx: CaptureCtx) {
     `tokokino-animation-${Date.now()}.gif`
   )
 }
-
-// ---------------------------------------------------------------------------
-// Video via Mediabunny + WebCodecs (preferred — local, hardware-accelerated)
-// ---------------------------------------------------------------------------
 
 async function tryEncodeWithMediabunny(
   ctx: CaptureCtx,
@@ -591,10 +583,6 @@ async function tryEncodeWithMediabunny(
     signal?.removeEventListener("abort", onAbort)
   }
 }
-
-// ---------------------------------------------------------------------------
-// WebM fallback — MediaRecorder (also fully local, no server)
-// ---------------------------------------------------------------------------
 
 async function encodeWebmMediaRecorder({
   capture,

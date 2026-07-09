@@ -253,7 +253,6 @@ export function applyAnimationFrameAtTime({
   const poseOf = (c: AnimationClip): ClipBaseline =>
     selectedClipId && c.id === selectedClipId ? committedPose : clipPose(c)
 
-  // ---- main screenshot ---------------------------------------------------
   const mainClips = clips.filter(clipAffectsMain)
   if (mainClips.length > 0) {
     const framesFor = <V>(
@@ -634,7 +633,6 @@ export function applyAnimationFrameAtTime({
     for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
   }
 
-  // ---- slots -------------------------------------------------------------
   for (const slot of slots) {
     const slotEl = canvasEl.querySelector<HTMLElement>(
       `[data-screenshot-slot-id="${slot.id}"]`

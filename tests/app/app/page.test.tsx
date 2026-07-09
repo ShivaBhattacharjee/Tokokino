@@ -11,9 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
  * chrome is mounted in each mode.
  */
 
-// ---------------------------------------------------------------------------
-// Store mock — a single mutable state object that selectors read from.
-// ---------------------------------------------------------------------------
 const storeMock = vi.hoisted(() => {
   const setters = {
     setIsPreviewMode: vi.fn(),
@@ -39,10 +36,6 @@ vi.mock("@/lib/editor/store", () => ({
     selector(storeMock.holder.current),
 }))
 
-// ---------------------------------------------------------------------------
-// `motion` mock — strip animation-only props, render plain DOM, and render
-// AnimatePresence children synchronously so conditional content is testable.
-// ---------------------------------------------------------------------------
 vi.mock("motion/react", async () => {
   const React = await import("react")
   const ANIM_PROPS = new Set([
@@ -77,11 +70,6 @@ vi.mock("motion/react", async () => {
   }
 })
 
-// ---------------------------------------------------------------------------
-// Child-component mocks — lightweight stubs keyed by data-testid. Components
-// that receive a `className` echo it so we can assert the responsive classes
-// the page passes down.
-// ---------------------------------------------------------------------------
 function stub(testid: string) {
   return function Stub({ className }: { className?: string } = {}) {
     return <div data-testid={testid} className={className} />

@@ -6,10 +6,6 @@ import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import { useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
-/* -------------------------------------------------------------------------- */
-/*  Effects Sidebar Skeleton — matches EffectsSidebar layout (left panel)      */
-/* -------------------------------------------------------------------------- */
-
 export function EffectsSidebarSkeleton({ className }: { className?: string }) {
   return (
     <aside
@@ -73,10 +69,6 @@ export function EffectsSidebarSkeleton({ className }: { className?: string }) {
   )
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Canvas Skeleton — matches Canvas layout (center area)                      */
-/* -------------------------------------------------------------------------- */
-
 export function CanvasSkeleton() {
   const aspect = useEditorStore((s) => s.present.aspect)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
@@ -121,10 +113,6 @@ export function CanvasSkeleton() {
     </section>
   )
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Inspector Skeleton — matches Inspector layout (right panel)                */
-/* -------------------------------------------------------------------------- */
 
 export function InspectorSkeleton({ className }: { className?: string }) {
   return (

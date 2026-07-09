@@ -64,10 +64,6 @@ export type PersistedEditorDraft = {
 export const isBrowserIndexedDbAvailable = () =>
   typeof window !== "undefined" && "indexedDB" in window
 
-// ---------------------------------------------------------------------------
-// Blob helpers
-// ---------------------------------------------------------------------------
-
 function isDataUrl(v: string | null | undefined): v is string {
   return typeof v === "string" && v.startsWith("data:")
 }
@@ -152,10 +148,6 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
-// ---------------------------------------------------------------------------
-// Screenshot extraction (data URLs / object URLs → Blobs) for write path
-// ---------------------------------------------------------------------------
-
 type BlobMap = Record<string, Blob>
 
 function extractField(
@@ -239,10 +231,6 @@ function extractScreenshots(state: EditorState): {
 
   return { stripped: { ...state, canvases }, blobs }
 }
-
-// ---------------------------------------------------------------------------
-// Screenshot resolution (Blobs → data URLs) for read path
-// ---------------------------------------------------------------------------
 
 function readBlobsFromDb(
   db: IDBDatabase,
@@ -347,10 +335,6 @@ async function resolveScreenshots(
   return { ...state, canvases }
 }
 
-// ---------------------------------------------------------------------------
-// DB open
-// ---------------------------------------------------------------------------
-
 function openEditorDraftDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!isBrowserIndexedDbAvailable()) {
@@ -377,10 +361,6 @@ function openEditorDraftDb(): Promise<IDBDatabase> {
     request.onsuccess = () => resolve(request.result)
   })
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export function readEditorDraft(): Promise<PersistedEditorDraft | null> {
   return openEditorDraftDb().then(async (db) => {
@@ -487,10 +467,6 @@ export function createEditorDraftSnapshot(
     },
   }
 }
-
-// ---------------------------------------------------------------------------
-// State normalization (unchanged — used on hydration)
-// ---------------------------------------------------------------------------
 
 const cloneEditorState = (state: EditorState): EditorState =>
   JSON.parse(JSON.stringify(state)) as EditorState
