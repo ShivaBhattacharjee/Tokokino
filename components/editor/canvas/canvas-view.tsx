@@ -96,6 +96,7 @@ import {
   downscaleImageFromUrl,
   getOptimizedUrlSync,
 } from "@/lib/editor/image-resize"
+import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
 import { useImageFileIntake } from "./use-image-file-intake"
@@ -259,16 +260,29 @@ function CanvasViewInner({
   )
   // Downscale whenever the background sourceUrl changes (on mount/hydration,
   // and also when a custom preset applies a new image background mid-session).
+  // Unsplash CDN URLs must stay hotlinked — never convert them to data URLs.
   React.useEffect(() => {
-    if (
-      background.type !== "image" ||
-      !background.sourceUrl ||
-      background.value.startsWith("data:") ||
-      !scopeId
-    )
-      return
+    if (background.type !== "image" || !background.sourceUrl || !scopeId) return
 
     const sourceUrl = background.sourceUrl
+    if (isUnsplashImageUrl(sourceUrl)) {
+      // Restore hotlink if a previous session stored a data-URL value.
+      if (background.value !== sourceUrl) {
+        useEditorStore.getState().setBackground(
+          {
+            type: "image",
+            value: sourceUrl,
+            sourceUrl,
+            thumbUrl: background.thumbUrl ?? undefined,
+          },
+          scopeId
+        )
+      }
+      return
+    }
+
+    if (background.value.startsWith("data:")) return
+
     const thumbUrl = background.thumbUrl
     const canvasId = scopeId
     const opts = { maxDimension: 1600, jpegQuality: 0.9 }

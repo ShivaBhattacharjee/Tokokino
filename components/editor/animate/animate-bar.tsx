@@ -10,7 +10,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import { AnimateControls } from "./animate-controls"
-import { TimelineClip } from "./timeline-clip"
+import { RAZOR_CURSOR, TimelineClip } from "./timeline-clip"
 import { TimelineRuler } from "./timeline-ruler"
 import { useAnimateTimeline } from "./use-animate-timeline"
 
@@ -33,14 +33,15 @@ export function AnimateBar() {
         isPlaying={t.isPlaying}
         playheadMs={playheadMs}
         durationMs={durationMs}
-        canDelete={Boolean(t.selectedClipId)}
+        canRazor={t.canRazor}
+        razorActive={t.razorMode}
         onExit={t.requestExit}
         onToggleAudio={t.onAudioButton}
         onPickAudio={t.onPickAudio}
         audioInputRef={t.audioInputRef}
         onAddClip={t.addClip}
         onTogglePlay={t.toggle}
-        onDeleteSelected={t.deleteSelectedClip}
+        onToggleRazor={t.toggleRazor}
         onReset={t.reset}
       />
 
@@ -145,7 +146,10 @@ export function AnimateBar() {
                 "relative h-11 overflow-visible rounded-lg border border-border/50 bg-background/40",
                 t.ghostVisible && "cursor-copy"
               )}
-              style={{ width: pxFor(durationMs) }}
+              style={{
+                width: pxFor(durationMs),
+                ...(t.razorMode ? { cursor: RAZOR_CURSOR } : null),
+              }}
             >
               {/* Cursor-following add affordance (position written via transform
                   in the move handler — no React re-render, so it can't lag). */}
@@ -174,6 +178,7 @@ export function AnimateBar() {
                     selected={clip.id === t.selectedClipId}
                     dragging={clip.id === t.draggingClipId}
                     beyond={clip.startMs >= durationMs}
+                    razorMode={t.razorMode}
                     interacting={
                       clip.id === t.interactingClipId || !t.clipsAnimated
                     }

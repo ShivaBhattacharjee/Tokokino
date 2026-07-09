@@ -9,10 +9,12 @@ import {
   clipBaseline,
   clipPose,
   DEFAULT_BASELINE,
+  poseAtCut,
   REST_LIGHTING,
 } from "./animation-playback"
 import { MAX_DURATION_MS } from "./animation-timeline"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
+import { screenshotPositionAnchor } from "./presets"
 import type { TweetCardSettings } from "./tweet-settings"
 import {
   resolveActivePresetGeometry,
@@ -231,6 +233,77 @@ const REST_SHADOW: Shadow = {
   intensity: 0,
   color: "#000000",
   lightSource: "center",
+}
+
+// Non-bare (aspect-based) main-screenshot position geometry, mirroring
+// mainScreenshotPositionPct / mainScreenshotOffsetForPoint in position-math.ts
+// (which can't be imported here — it imports from this store). The razor split
+// uses these to interpolate position in the same percent-point space playback
+// uses, then invert the eased mid point back to a (cell, offset) keyframe.
+const POSITION_BASE_CANVAS_WIDTH = 1100
+const mainPositionBase = (
+  aspect: AspectState,
+  frame: DeviceFrame,
+  position: ScreenshotPosition,
+  slots: ScreenshotSlot[]
+) => {
+  const aw = aspect.w || 16
+  const ah = aspect.h || 10
+  const width = POSITION_BASE_CANVAS_WIDTH
+  const height = (POSITION_BASE_CANVAS_WIDTH * ah) / aw
+  const anchor = screenshotPositionAnchor(position)
+  let baseX = anchor.x
+  let baseY = anchor.y
+  // With extra screenshots, a centered main sits at its row-layout slot; other
+  // cells still anchor to the grid (matches mainScreenshotPositionPct).
+  if (slots.length > 0 && position === "center") {
+    const rowLayout = computeRowLayout(
+      [{ id: "__main__", frame }, ...slots.map((s) => ({ id: s.id, frame }))],
+      aw / ah
+    )
+    const mainLayout = rowLayout[0]
+    if (mainLayout) {
+      baseX = mainLayout.xPct
+      baseY = 50
+    }
+  }
+  return { width, height, baseX, baseY }
+}
+const mainPositionPoint = (
+  aspect: AspectState,
+  frame: DeviceFrame,
+  position: ScreenshotPosition,
+  offset: { x: number; y: number },
+  slots: ScreenshotSlot[]
+) => {
+  const { width, height, baseX, baseY } = mainPositionBase(
+    aspect,
+    frame,
+    position,
+    slots
+  )
+  return {
+    xPct: baseX + (offset.x / width) * 100,
+    yPct: baseY + (offset.y / height) * 100,
+  }
+}
+const mainPositionOffsetForPoint = (
+  aspect: AspectState,
+  frame: DeviceFrame,
+  position: ScreenshotPosition,
+  slots: ScreenshotSlot[],
+  point: { xPct: number; yPct: number }
+) => {
+  const { width, height, baseX, baseY } = mainPositionBase(
+    aspect,
+    frame,
+    position,
+    slots
+  )
+  return {
+    x: ((point.xPct - baseX) / 100) * width,
+    y: ((point.yPct - baseY) / 100) * height,
+  }
 }
 
 const resolveKeyframePose = (
@@ -729,6 +802,18 @@ export type EditorActions = {
   removeAnimationClip: (id: string, canvasId?: string) => void
   moveAnimationClip: (id: string, startMs: number, canvasId?: string) => void
   duplicateAnimationClip: (id: string, canvasId?: string) => string | null
+  /**
+   * Cut a clip in two at `atMs` (like a razor tool). The first half keeps the
+   * original id/pose; the second half is a new clip holding the same target
+   * keyframe. Together they fill the original clip's exact footprint, so each
+   * can then be dragged/trimmed on its own. Returns the new (second) clip id, or
+   * null if the cut leaves either side smaller than the minimum clip length.
+   */
+  splitAnimationClip: (
+    id: string,
+    atMs: number,
+    canvasId?: string
+  ) => string | null
   clearAnimationClips: (canvasId?: string) => void
   setAnimationAudio: (audio: AnimationAudio | null, canvasId?: string) => void
   updateAnimationAudio: (
@@ -2303,6 +2388,122 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         },
         null
       )
+      return newId
+    },
+    splitAnimationClip: (id, atMs, canvasId) => {
+      const state = get().present
+      const resolvedId = canvasId ?? state.activeCanvasId
+      const canvas = state.canvases.find((c) => c.id === resolvedId)
+      const source = canvas
+        ? getCanvasAnimation(canvas).clips.find((clip) => clip.id === id)
+        : undefined
+      if (!source) return null
+      const end = source.startMs + source.durationMs
+      // The cut has to leave a real clip on each side — bail if either half
+      // would be shorter than the minimum length.
+      if (
+        atMs - source.startMs < MIN_ANIMATION_CLIP_MS ||
+        end - atMs < MIN_ANIMATION_CLIP_MS
+      ) {
+        return null
+      }
+      // When the clip being cut is the one open for editing, its live edits sit
+      // on the committed canvas (not yet folded into its stored pose), so capture
+      // the canvas as the true target keyframe. "Open" status then transfers to
+      // the second half below so the follow-up reselect doesn't overwrite the
+      // first half's cut pose with the live one.
+      const wasOpen = get().selectedAnimationClipId === id
+      const newId = makeId()
+      commitCanvas(
+        canvasId,
+        (c, state) => {
+          const animation = getCanvasAnimation(c)
+          const src = animation.clips.find((clip) => clip.id === id)
+          if (!src) return {}
+          const srcEnd = src.startMs + src.durationMs
+          // The clip's own target keyframe (what it eases TO)...
+          const toPose = wasOpen ? captureClipPose(c) : clipPose(src)
+          // ...and the pose it eases FROM — the accumulated state the instant
+          // before it starts, resolved with the same logic playback uses (ask
+          // for the keyframe pose just before this clip's start).
+          const fromPose = resolveKeyframePose(c, animation.clips, {
+            ...src,
+            startMs: src.startMs - 1,
+          })
+          const affectedSlotIds = c.screenshotSlots
+            .filter((s) => clipAffectsSlot(src, s.id))
+            .map((s) => s.id)
+          // Main position eases in percent-point space (as playback does), then
+          // inverts back to a (cell, offset) keyframe pinned to the target cell.
+          const aspect = c.aspect ?? state.aspect
+          const positionAt = (easedP: number) => {
+            const slots = c.screenshotSlots
+            const fromPt = mainPositionPoint(
+              aspect,
+              c.frame,
+              fromPose.screenshotPosition,
+              fromPose.screenshotOffset,
+              slots
+            )
+            const toPt = mainPositionPoint(
+              aspect,
+              c.frame,
+              toPose.screenshotPosition,
+              toPose.screenshotOffset,
+              slots
+            )
+            const midPt = {
+              xPct: fromPt.xPct + (toPt.xPct - fromPt.xPct) * easedP,
+              yPct: fromPt.yPct + (toPt.yPct - fromPt.yPct) * easedP,
+            }
+            const cell = toPose.screenshotPosition
+            return {
+              screenshotPosition: cell,
+              screenshotOffset: mainPositionOffsetForPoint(
+                aspect,
+                c.frame,
+                cell,
+                slots,
+                midPt
+              ),
+            }
+          }
+          // The eased pose at the cut becomes the boundary keyframe: the first
+          // half eases from → cut, the second half eases cut → to, so each piece
+          // plays its portion of the original motion instead of the whole thing.
+          const midPose = poseAtCut(
+            fromPose,
+            toPose,
+            (atMs - src.startMs) / src.durationMs,
+            src.effects ?? [],
+            clipAffectsMain(src),
+            affectedSlotIds,
+            positionAt
+          )
+          const clips = animation.clips.flatMap((clip) => {
+            if (clip.id !== id) return [clip]
+            const first: AnimationClip = {
+              ...clip,
+              durationMs: atMs - clip.startMs,
+              pose: midPose,
+            }
+            const second: AnimationClip = {
+              ...clip,
+              id: newId,
+              startMs: atMs,
+              durationMs: srcEnd - atMs,
+              pose: toPose,
+            }
+            return [first, second]
+          })
+          return { animation: { ...animation, clips } }
+        },
+        null
+      )
+      // Hand the open-clip role to the second half (its pose is the live canvas,
+      // so the canvas already shows it — no reload needed). A later
+      // selectAnimationClip(newId) then no-ops instead of re-saving over the cut.
+      if (wasOpen) set({ selectedAnimationClipId: newId })
       return newId
     },
     clearAnimationClips: (canvasId) =>

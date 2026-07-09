@@ -23,7 +23,9 @@ import type {
   ClipSlotPose,
   Overlay,
   Portrait,
+  ScreenshotPosition,
   Shadow,
+  Tilt,
 } from "./state-types"
 
 /**
@@ -953,4 +955,142 @@ export function activeClipAt(
     }
   }
   return at(sorted.length - 1, 1)
+}
+
+const tiltLerp = (a: Tilt, b: Tilt, p: number): Tilt => ({
+  rx: lerp(a.rx, b.rx, p),
+  ry: lerp(a.ry, b.ry, p),
+  rz: lerp(a.rz, b.rz, p),
+})
+
+/**
+ * The keyframe pose at a cut point, used by the razor tool to split one clip
+ * into two that reproduce the original motion. A clip eases each owned effect
+ * from `fromPose` (its previous keyframe / reveal-rest) → `toPose` (its own
+ * pose). At `fraction` (0..1) through the clip, this returns the eased midpoint
+ * pose: give it to the first half and keep `toPose` on the second, and the pair
+ * plays the first and second portions of the original transition.
+ *
+ * Only owned effects are interpolated; everything else keeps `toPose` (those
+ * properties hold the previous value at playback and never animate here).
+ * Continuous effects (shadow, tilt, zoom, padding, radii, border, backdrop,
+ * lighting) ease exactly. The main screenshot's position is a grid cell + pixel
+ * offset that playback interpolates in percent-point space, so the caller passes
+ * `mainPosition` to compute the eased mid position (cell + offset) in that space;
+ * without it, position falls back to easing the pixel offset only. Discrete
+ * crossfades (background, filter, portrait, pattern, overlay) resolve within
+ * whichever half the cut is nearer to.
+ */
+export function poseAtCut(
+  fromPose: ClipBaseline,
+  toPose: ClipBaseline,
+  fraction: number,
+  effects: readonly AnimationEffect[],
+  affectsMain: boolean,
+  affectedSlotIds: readonly string[],
+  mainPosition?: (easedProgress: number) => {
+    screenshotPosition: ScreenshotPosition
+    screenshotOffset: { x: number; y: number }
+  }
+): ClipBaseline {
+  const p = easeOut(clamp01(fraction))
+  const owns = (e: AnimationEffect) => effects.includes(e)
+  const disc = <V>(from: V, to: V): V => (p >= 0.5 ? to : from)
+  const mid: ClipBaseline = { ...toPose, slots: { ...toPose.slots } }
+
+  if (affectsMain) {
+    if (owns("tilt")) mid.tilt = tiltLerp(fromPose.tilt, toPose.tilt, p)
+    if (owns("zoom")) mid.scale = lerp(fromPose.scale, toPose.scale, p)
+    if (owns("position")) {
+      if (mainPosition) {
+        const r = mainPosition(p)
+        mid.screenshotPosition = r.screenshotPosition
+        mid.screenshotOffset = r.screenshotOffset
+      } else {
+        mid.screenshotOffset = {
+          x: lerp(fromPose.screenshotOffset.x, toPose.screenshotOffset.x, p),
+          y: lerp(fromPose.screenshotOffset.y, toPose.screenshotOffset.y, p),
+        }
+      }
+    }
+    if (owns("padding")) mid.padding = lerp(fromPose.padding, toPose.padding, p)
+    if (owns("canvasRadius")) {
+      mid.canvasBorderRadius = lerp(
+        fromPose.canvasBorderRadius,
+        toPose.canvasBorderRadius,
+        p
+      )
+    }
+    if (owns("shadow")) {
+      mid.shadow = shadowBetween(fromPose.shadow, toPose.shadow, p)
+    }
+    if (owns("backdrop")) {
+      mid.backdropEffects = backdropEffectsBetween(
+        fromPose.backdropEffects,
+        toPose.backdropEffects,
+        p
+      )
+    }
+    if (owns("lighting")) {
+      const from = fromPose.lighting ?? REST_LIGHTING
+      mid.lighting = lightingBetween(from, toPose.lighting ?? from, p)
+    }
+    if (owns("border")) {
+      const from = fromPose.border ?? INVISIBLE_BORDER
+      mid.border = borderBetween(from, toPose.border ?? from, p)
+    }
+    if (owns("borderRadius")) {
+      mid.borderRadius = lerp(
+        fromPose.borderRadius ?? 0,
+        toPose.borderRadius ?? 0,
+        p
+      )
+    }
+    if (owns("background")) {
+      mid.background = disc(fromPose.background, toPose.background)
+    }
+    if (owns("filter")) mid.filter = disc(fromPose.filter, toPose.filter)
+    if (owns("portrait"))
+      mid.portrait = disc(fromPose.portrait, toPose.portrait)
+    if (owns("pattern")) mid.pattern = disc(fromPose.pattern, toPose.pattern)
+    if (owns("overlay")) mid.overlay = disc(fromPose.overlay, toPose.overlay)
+  }
+
+  for (const id of affectedSlotIds) {
+    const f = fromPose.slots[id]
+    const tp = toPose.slots[id]
+    if (!f || !tp) continue
+    const s: ClipSlotPose = { ...tp }
+    if (owns("tilt")) {
+      s.tilt = tiltLerp(f.tilt, tp.tilt, p)
+      s.rotation = lerp(f.rotation, tp.rotation, p)
+    }
+    if (owns("zoom")) s.scale = lerp(f.scale, tp.scale, p)
+    if (owns("shadow") && f.shadow && tp.shadow) {
+      s.shadow = shadowBetween(f.shadow, tp.shadow, p)
+    }
+    if (owns("position")) {
+      s.xPct = lerp(f.xPct ?? tp.xPct ?? 0, tp.xPct ?? 0, p)
+      s.yPct = lerp(f.yPct ?? tp.yPct ?? 0, tp.yPct ?? 0, p)
+    }
+    if (owns("border") && f.border && tp.border) {
+      s.border = borderBetween(f.border, tp.border, p)
+    }
+    if (
+      owns("borderRadius") &&
+      f.borderRadius != null &&
+      tp.borderRadius != null
+    ) {
+      s.borderRadius = lerp(f.borderRadius, tp.borderRadius, p)
+    }
+    if (owns("padding") && f.padding != null && tp.padding != null) {
+      s.padding = lerp(f.padding, tp.padding, p)
+    }
+    if (owns("lighting") && f.lighting && tp.lighting) {
+      s.lighting = lightingBetween(f.lighting, tp.lighting, p)
+    }
+    mid.slots[id] = s
+  }
+
+  return mid
 }

@@ -57,6 +57,7 @@ export function useAnimateTimeline() {
   const moveAnimationClip = useEditorStore((s) => s.moveAnimationClip)
   const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
   const duplicateAnimationClip = useEditorStore((s) => s.duplicateAnimationClip)
+  const splitAnimationClip = useEditorStore((s) => s.splitAnimationClip)
   const setAnimationAudio = useEditorStore((s) => s.setAnimationAudio)
   const updateAnimationAudio = useEditorStore((s) => s.updateAnimationAudio)
   const setAnimationDuration = useEditorStore((s) => s.setAnimationDuration)
@@ -310,6 +311,14 @@ export function useAnimateTimeline() {
       // Let right-click through so the context menu can open instead of dragging.
       if (e.button !== 0) return
       e.stopPropagation()
+      // Razor tool active → this click cuts the clip at the pointer instead of
+      // selecting/dragging it. Keep the piece under the cut (the new second half)
+      // selected so a follow-up edit lands on it.
+      if (razorModeRef.current) {
+        const newId = splitAnimationClip(clip.id, clipMsFromClientX(e.clientX))
+        if (newId) selectAnimationClip(newId)
+        return
+      }
       e.currentTarget.setPointerCapture(e.pointerId)
       const wasSelected = selectedClipId === clip.id
       selectAnimationClip(clip.id)
@@ -334,6 +343,7 @@ export function useAnimateTimeline() {
       startAutoScroll,
       selectAnimationClip,
       selectedClipId,
+      splitAnimationClip,
     ]
   )
 
@@ -539,7 +549,9 @@ export function useAnimateTimeline() {
       !ghostHoveringRef.current ||
       menuOpenRef.current ||
       dragRef.current ||
-      scrubbingRef.current
+      scrubbingRef.current ||
+      // Razor tool owns the lane — no "add clip" ghost while cutting.
+      razorModeRef.current
     ) {
       setGhostVisible(false)
       return
@@ -675,6 +687,27 @@ export function useAnimateTimeline() {
     [selectAnimationClip]
   )
 
+  // Razor (cut) tool — a persistent mode like Photoshop/After Effects, not a
+  // one-shot action. While on, the timeline shows a scissor cursor and clicking
+  // a clip splits it at that point. The button (and "S") toggle it. A ref mirrors
+  // it so the clip pointer handlers can read it without widening their deps.
+  const [razorMode, setRazorMode] = React.useState(false)
+  const razorModeRef = React.useRef(false)
+  React.useEffect(() => {
+    razorModeRef.current = razorMode
+  }, [razorMode])
+
+  // There must be at least one clip to cut. When the last clip goes away, drop
+  // out of razor mode so the cursor/button don't linger with nothing to act on.
+  const canRazor = clips.length > 0
+  React.useEffect(() => {
+    if (clips.length === 0) setRazorMode(false)
+  }, [clips.length])
+
+  const toggleRazor = React.useCallback(() => {
+    setRazorMode((m) => (clipsRef.current.length > 0 ? !m : false))
+  }, [])
+
   // Leaving animate mode keeps the timeline — it's part of the saved canvas and
   // the user comes back to it. No confirmation, no discard.
   const requestExit = React.useCallback(() => {
@@ -685,6 +718,12 @@ export function useAnimateTimeline() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return
       e.stopPropagation()
+      // Escape first drops the razor tool (like putting the tool down); only a
+      // second press leaves animate mode.
+      if (razorModeRef.current) {
+        setRazorMode(false)
+        return
+      }
       requestExit()
     }
     window.addEventListener("keydown", onKeyDown, true)
@@ -770,6 +809,28 @@ export function useAnimateTimeline() {
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [toggle])
+
+  // "S" toggles the razor/cut tool (video-editor convention). Ignored while
+  // typing and when a modifier is held (so it never clashes with ⌘S and friends).
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "s" && e.key !== "S") return
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      toggleRazor()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [toggleRazor])
 
   const ticks = computeTicks(MAX_DURATION_MS, pxPerSecond)
 
@@ -877,6 +938,9 @@ export function useAnimateTimeline() {
     // controls
     addClip,
     deleteSelectedClip,
+    razorMode,
+    canRazor,
+    toggleRazor,
     onAudioButton,
     onPickAudio,
 

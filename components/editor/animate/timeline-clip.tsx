@@ -30,6 +30,18 @@ import { cn } from "@/lib/utils"
 
 export type ClipDragMode = "move" | "trim" | "trim-start"
 
+// Custom scissor cursor for the razor/cut tool. A white-outlined black scissors
+// (Feather "scissors") so it reads on both light and dark clips; the hotspot
+// sits at the blade pivot so the cut lands under the visible crossing point.
+const SCISSOR_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'>" +
+  "<g stroke='white' stroke-width='4'><circle cx='6' cy='6' r='3'/><circle cx='6' cy='18' r='3'/><line x1='20' y1='4' x2='8.12' y2='15.88'/><line x1='14.47' y1='14.48' x2='20' y2='20'/><line x1='8.12' y1='8.12' x2='12' y2='12'/></g>" +
+  "<g stroke='black' stroke-width='2'><circle cx='6' cy='6' r='3'/><circle cx='6' cy='18' r='3'/><line x1='20' y1='4' x2='8.12' y2='15.88'/><line x1='14.47' y1='14.48' x2='20' y2='20'/><line x1='8.12' y1='8.12' x2='12' y2='12'/></g>" +
+  "</svg>"
+export const RAZOR_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
+  SCISSOR_SVG
+)}") 8 12, crosshair`
+
 type TimelineClipProps = {
   clip: AnimationClip
   left: number
@@ -39,6 +51,12 @@ type TimelineClipProps = {
   interacting: boolean
   /** Clip sits past the set timeline duration — rendered faded + blurred. */
   beyond: boolean
+  /**
+   * Razor (cut) tool is active: the clip shows the scissor cursor, the trim
+   * grips are disabled, and a pointer-down cuts instead of dragging (the cut is
+   * handled upstream in onPointerDownClip).
+   */
+  razorMode: boolean
   /**
    * Thumbnail(s) of the screenshot(s) this clip animates. One image renders as a
    * single preview; multiple (an "all" clip) render as a small grid.
@@ -99,6 +117,7 @@ export function TimelineClip({
   dragging,
   interacting,
   beyond,
+  razorMode,
   images,
   iconKeys,
   dupShortcut,
@@ -113,6 +132,15 @@ export function TimelineClip({
   onDelete,
   onMenuOpenChange,
 }: TimelineClipProps) {
+  // Several effects deliberately share an icon (border + border radius → brush;
+  // backdrop / lighting / filter / portrait / pattern / overlay / canvas radius →
+  // sun). Collapse to unique glyphs so a clip animating two of them doesn't show
+  // the same icon twice.
+  const uniqueIcons: (typeof RiDragMove2Line)[] = []
+  for (const key of iconKeys) {
+    const Icon = ICON_FOR[key]
+    if (!uniqueIcons.includes(Icon)) uniqueIcons.push(Icon)
+  }
   return (
     <ContextMenu onOpenChange={onMenuOpenChange}>
       <ContextMenuTrigger asChild>
@@ -123,8 +151,11 @@ export function TimelineClip({
           // Selection (and click-to-deselect) is handled in the pointer
           // down/up cycle; this just stops the click from reaching the track.
           onClick={(e) => e.stopPropagation()}
+          // Razor tool overrides the grab cursor with the scissor cursor.
+          style={razorMode ? { cursor: RAZOR_CURSOR } : undefined}
           className={cn(
-            "group/clip absolute top-1 bottom-1 z-20 cursor-grab touch-none overflow-hidden rounded-md border bg-linear-to-b from-neutral-100 to-neutral-200 transition-[border-color] duration-150 ease-out active:cursor-grabbing dark:from-neutral-700/70 dark:to-neutral-800",
+            "group/clip absolute top-1 bottom-1 z-20 touch-none overflow-hidden rounded-md border bg-linear-to-b from-neutral-100 to-neutral-200 transition-[border-color] duration-150 ease-out dark:from-neutral-700/70 dark:to-neutral-800",
+            !razorMode && "cursor-grab active:cursor-grabbing",
             selected
               ? "border-primary/60"
               : "border-black/10 hover:border-black/20 dark:border-white/10 dark:hover:border-white/20",
@@ -203,17 +234,14 @@ export function TimelineClip({
           {/* Animated-property icons (position / zoom / tilt) — mirrors the
               inspector's section icons so the clip shows what it animates. Plain
               muted glyphs, no chrome; only shown when the clip is wide enough. */}
-          {iconKeys.length > 0 && width >= 78 && (
+          {uniqueIcons.length > 0 && width >= 78 && (
             <div className="pointer-events-none absolute inset-y-0 right-2 flex max-w-[70%] items-center justify-end gap-1 overflow-hidden">
-              {iconKeys.map((key) => {
-                const Icon = ICON_FOR[key]
-                return (
-                  <Icon
-                    key={key}
-                    className="size-3 shrink-0 text-foreground/55 dark:text-foreground/60"
-                  />
-                )
-              })}
+              {uniqueIcons.map((Icon, i) => (
+                <Icon
+                  key={i}
+                  className="size-3 shrink-0 text-foreground/55 dark:text-foreground/60"
+                />
+              ))}
             </div>
           )}
 
@@ -222,17 +250,26 @@ export function TimelineClip({
             onPointerDown={(e) => onPointerDownClip(e, "trim-start")}
             onPointerMove={onPointerMoveClip}
             onPointerUp={onPointerUpClip}
-            className={cn(gripHandle, "left-0")}
+            className={cn(
+              gripHandle,
+              "left-0",
+              // Razor tool disables trim so the whole clip is one cut surface.
+              razorMode && "pointer-events-none"
+            )}
           >
-            <span className={gripPill} />
+            <span className={cn(gripPill, razorMode && "hidden")} />
           </div>
           <div
             onPointerDown={(e) => onPointerDownClip(e, "trim")}
             onPointerMove={onPointerMoveClip}
             onPointerUp={onPointerUpClip}
-            className={cn(gripHandle, "right-0")}
+            className={cn(
+              gripHandle,
+              "right-0",
+              razorMode && "pointer-events-none"
+            )}
           >
-            <span className={gripPill} />
+            <span className={cn(gripPill, razorMode && "hidden")} />
           </div>
         </motion.div>
       </ContextMenuTrigger>

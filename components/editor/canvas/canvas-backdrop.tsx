@@ -31,6 +31,7 @@ import {
   type Portrait,
 } from "@/lib/editor/store"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
+import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 
 /** Stable empty layer list so the memo deps don't change every render. */
 const EMPTY_BG_LAYERS: AnimateBgStack["layers"] = []
@@ -128,6 +129,13 @@ function CanvasBackdropImpl({
       if (bg.type !== "image") return bg
       // Already a downscaled data URL — use it directly (fast GPU texture)
       if (bg.value.startsWith("data:")) return bg
+      // Unsplash must stay hotlinked to images.unsplash.com for view tracking.
+      if (isUnsplashImageUrl(bg.value) || isUnsplashImageUrl(bg.sourceUrl)) {
+        const hotlink = isUnsplashImageUrl(bg.value)
+          ? bg.value
+          : (bg.sourceUrl as string)
+        return { ...bg, value: hotlink }
+      }
       // sourceUrl is set: show thumb while the client downscale is in-flight
       if (bg.sourceUrl) {
         if (bg.thumbUrl && !bg.thumbUrl.startsWith("data:")) {

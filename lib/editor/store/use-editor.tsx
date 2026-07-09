@@ -401,6 +401,8 @@ export function useEditor(): EditorContext {
       store.moveAnimationClip(id, startMs, canvasId ?? targetId),
     duplicateAnimationClip: (id, canvasId) =>
       store.duplicateAnimationClip(id, canvasId ?? targetId),
+    splitAnimationClip: (id, atMs, canvasId) =>
+      store.splitAnimationClip(id, atMs, canvasId ?? targetId),
     clearAnimationClips: (canvasId) =>
       store.clearAnimationClips(canvasId ?? targetId),
     setAnimationAudio: (audio, canvasId) =>

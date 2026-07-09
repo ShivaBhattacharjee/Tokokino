@@ -21,14 +21,15 @@ type AnimateControlsProps = {
   isPlaying: boolean
   playheadMs: number
   durationMs: number
-  canDelete: boolean
+  canRazor: boolean
+  razorActive: boolean
   onExit: () => void
   onToggleAudio: () => void
   onPickAudio: (e: React.ChangeEvent<HTMLInputElement>) => void
   audioInputRef: React.RefObject<HTMLInputElement | null>
   onAddClip: () => void
   onTogglePlay: () => void
-  onDeleteSelected: () => void
+  onToggleRazor: () => void
   onReset: () => void
 }
 
@@ -40,14 +41,15 @@ export function AnimateControls({
   isPlaying,
   playheadMs,
   durationMs,
-  canDelete,
+  canRazor,
+  razorActive,
   onExit,
   onToggleAudio,
   onPickAudio,
   audioInputRef,
   onAddClip,
   onTogglePlay,
-  onDeleteSelected,
+  onToggleRazor,
   onReset,
 }: AnimateControlsProps) {
   return (
@@ -116,15 +118,22 @@ export function AnimateControls({
 
         <button
           type="button"
-          onClick={onDeleteSelected}
-          disabled={!canDelete}
-          aria-label="Delete selected clip"
-          title="Delete selected clip"
+          onClick={onToggleRazor}
+          disabled={!canRazor}
+          aria-pressed={razorActive}
+          aria-label="Cut tool"
+          title={
+            razorActive
+              ? "Cut tool on — click a clip to split (S)"
+              : "Cut tool — split clips (S)"
+          }
           className={cn(
             iconButton,
-            canDelete
-              ? "text-foreground hover:bg-foreground/10"
-              : "cursor-not-allowed text-muted-foreground/40"
+            !canRazor
+              ? "cursor-not-allowed text-muted-foreground/40"
+              : razorActive
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-foreground hover:bg-foreground/10"
           )}
         >
           <RiScissorsCutLine className="size-[18px]" />

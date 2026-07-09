@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
+import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import {
   planLayoutPreset,
   planSinglePreset,
@@ -290,6 +291,17 @@ function previewImageAt(canvas: CanvasState, index: number) {
 
 function previewSafeBackground(bg: Background): Background {
   if (bg.type !== "image") return bg
+  // Keep Unsplash CDN hotlinks so photographer views still count in previews.
+  const hotlinkCandidate = bg.sourceUrl ?? bg.value
+  if (isUnsplashImageUrl(hotlinkCandidate)) {
+    return {
+      ...bg,
+      value:
+        bg.thumbUrl && isUnsplashImageUrl(bg.thumbUrl)
+          ? bg.thumbUrl
+          : hotlinkCandidate,
+    }
+  }
   if (bg.thumbUrl) return { ...bg, value: bg.thumbUrl }
   if (bg.sourceUrl) {
     const small = remoteImagePreviewUrl(bg.sourceUrl, {
