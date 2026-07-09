@@ -14,6 +14,10 @@ import {
   setMainScreenshotPositionPreview,
 } from "@/components/editor/position-preview-vars"
 import { EffectSlider } from "@/components/editor/inspector/effect-slider"
+import {
+  allScreenshotGroupCenter,
+  screenshotSlotGroupCenter,
+} from "@/components/editor/floating-toolbar-parts/geometry"
 import { useEditor, useEditorStore } from "@/lib/editor/store"
 
 import {
@@ -34,18 +38,22 @@ import {
  * of the editor instead of introducing a bespoke grid.
  *
  * The pad follows the selected keyframe's target: a slot-targeted clip drives
- * that slot's position/scale (not the main screenshot), a main clip drives the
- * main screenshot, and with no clip open the pad sits centered + disabled since
- * there's no keyframe to record into.
+ * that slot's position/scale, a main clip drives the main screenshot, and an
+ * "all" clip (or empty selection in a multi layout) moves every screenshot
+ * together — the same composition move the floating toolbar uses.
  */
 export function PositionSection() {
   const editor = useEditor()
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const setScale = useEditorStore((s) => s.setScale)
+  const setScreenshotScale = useEditorStore((s) => s.setScreenshotScale)
   const setScreenshotPositionDragging = useEditorStore(
     (s) => s.setScreenshotPositionDragging
   )
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
+  const setScreenshotSlotGroupPosition = useEditorStore(
+    (s) => s.setScreenshotSlotGroupPosition
+  )
 
   const CANVAS_SCALE_VAR = "--canvas-ts-scale"
   const SLOT_SCALE_VAR = "--slot-ts-scale"
@@ -53,6 +61,8 @@ export function PositionSection() {
   // Which screenshot the pad edits follows the current selection — a screenshot
   // box clicked on the canvas OR the box targeted by the open keyframe (both set
   // `selectedScreenshotSlotId` / `isScreenshotSelected`). A slot wins over main.
+  // With nothing selected in a multi layout, the pad drives ALL screenshots
+  // (main + every slot), matching clip.target "all" and the floating toolbar.
   const selectedSlot = editor.selectedScreenshotSlotId
     ? (editor.screenshotSlots.find(
         (slot) => slot.id === editor.selectedScreenshotSlotId
@@ -60,11 +70,7 @@ export function PositionSection() {
     : null
   const mainSelected = editor.isScreenshotSelected
   const hasSlots = editor.screenshotSlots.length > 0
-
-  // With a single screenshot the pad always drives the main box. Only in a
-  // MULTI layout, where "which box?" is ambiguous, does an empty selection
-  // disable the pad (centered) until a box is picked.
-  const disabled = hasSlots && !selectedSlot && !mainSelected
+  const isAllTarget = hasSlots && !selectedSlot && !mainSelected
 
   const hasDeviceFrame = editor.frame.id !== "none"
   const hasTweet = Boolean(editor.tweet)
@@ -72,12 +78,15 @@ export function PositionSection() {
   // The canvas ALWAYS has a positionable main box — a screenshot, tweet, device
   // frame, or (when none exist yet) the empty-state placeholder — so the pad can
   // move it and record a position keyframe even before an image is added.
-  const hasMainTarget = true
+  // Multi layouts always include the main box as slot 0 of the row layout.
+  const hasMainScreenshotBox =
+    hasMainScreenshot || hasTweet || hasDeviceFrame || hasSlots
   // "Bare" = a frame-less REAL screenshot (placed by absolute px). The empty box
   // and framed targets use the %/anchor path instead. Only relevant when the pad
-  // is editing the main screenshot (no slot selected).
+  // is editing the main screenshot alone (no slot, not all-group).
   const isBareMainTarget =
     !selectedSlot &&
+    !isAllTarget &&
     !hasTweet &&
     hasMainScreenshot &&
     !hasDeviceFrame &&
@@ -99,6 +108,14 @@ export function PositionSection() {
       ) ?? null
     )
   }, [getActiveCanvasElement, selectedSlot])
+
+  const querySlotElement = React.useCallback(
+    (slotId: string) =>
+      getActiveCanvasElement()?.querySelector<HTMLElement>(
+        `[data-screenshot-slot-id="${CSS.escape(slotId)}"]`
+      ) ?? null,
+    [getActiveCanvasElement]
+  )
 
   const measureMainStageDims =
     React.useCallback((): StagePlacementDims | null => {
@@ -134,13 +151,40 @@ export function PositionSection() {
     editor.screenshot,
   ])
 
+  const collectAllPreviewElements = React.useCallback(() => {
+    const canvasElement = getActiveCanvasElement()
+    if (!canvasElement) return []
+    const elements: Array<HTMLElement | null> = [canvasElement]
+    for (const slot of editor.screenshotSlots) {
+      elements.push(
+        canvasElement.querySelector<HTMLElement>(
+          `[data-screenshot-slot-id="${CSS.escape(slot.id)}"]`
+        )
+      )
+    }
+    return elements
+  }, [editor.screenshotSlots, getActiveCanvasElement])
+
   const currentPosition = React.useMemo<PositionSwipePoint | null>(() => {
-    // No keyframe open → sit centered so the disabled pad reads as "neutral".
-    if (disabled) return { xPct: 50, yPct: 50 }
     if (selectedSlot) {
       return {
         xPct: clampPercent(selectedSlot.xPct),
         yPct: clampPercent(selectedSlot.yPct),
+      }
+    }
+    if (isAllTarget) {
+      const center = allScreenshotGroupCenter({
+        hasMainScreenshot: hasMainScreenshotBox,
+        aspect: editor.aspect,
+        frame: editor.frame,
+        position: editor.screenshotPosition,
+        offset: editor.screenshotOffset,
+        slots: editor.screenshotSlots,
+      })
+      if (!center) return { xPct: 50, yPct: 50 }
+      return {
+        xPct: clampPercent(center.xPct),
+        yPct: clampPercent(center.yPct),
       }
     }
     if (isBareMainTarget && mainStageDims) {
@@ -151,25 +195,22 @@ export function PositionSection() {
         offset: editor.screenshotOffset,
       })
     }
-    if (hasMainTarget) {
-      const point = mainScreenshotPositionPct({
-        aspect: editor.aspect,
-        frame: editor.frame,
-        position: editor.screenshotPosition,
-        offset: editor.screenshotOffset,
-        slots: editor.screenshotSlots,
-      })
-      return { xPct: clampPercent(point.xPct), yPct: clampPercent(point.yPct) }
-    }
-    return null
+    const point = mainScreenshotPositionPct({
+      aspect: editor.aspect,
+      frame: editor.frame,
+      position: editor.screenshotPosition,
+      offset: editor.screenshotOffset,
+      slots: editor.screenshotSlots,
+    })
+    return { xPct: clampPercent(point.xPct), yPct: clampPercent(point.yPct) }
   }, [
-    disabled,
     editor.aspect,
     editor.frame,
     editor.screenshotOffset,
     editor.screenshotPosition,
     editor.screenshotSlots,
-    hasMainTarget,
+    hasMainScreenshotBox,
+    isAllTarget,
     isBareMainTarget,
     mainStageDims,
     scaleFactor,
@@ -189,6 +230,44 @@ export function PositionSection() {
         setElementPositionPreview(getSelectedSlotElement(), safePoint)
         return
       }
+
+      if (isAllTarget) {
+        const currentGroupCenter = allScreenshotGroupCenter({
+          hasMainScreenshot: hasMainScreenshotBox,
+          aspect: editor.aspect,
+          frame: editor.frame,
+          position: editor.screenshotPosition,
+          offset: editor.screenshotOffset,
+          slots: editor.screenshotSlots,
+        })
+        if (!currentGroupCenter) return
+
+        const dx = safePoint.xPct - currentGroupCenter.xPct
+        const dy = safePoint.yPct - currentGroupCenter.yPct
+
+        if (hasMainScreenshotBox) {
+          const mainCenter = mainScreenshotPositionPct({
+            aspect: editor.aspect,
+            frame: editor.frame,
+            position: editor.screenshotPosition,
+            offset: editor.screenshotOffset,
+            slots: editor.screenshotSlots,
+          })
+          setMainScreenshotPositionPreview(canvasElement, {
+            xPct: clampPercent(mainCenter.xPct + dx),
+            yPct: clampPercent(mainCenter.yPct + dy),
+          })
+        }
+
+        for (const slot of editor.screenshotSlots) {
+          setElementPositionPreview(querySlotElement(slot.id), {
+            xPct: clampPercent(slot.xPct + dx),
+            yPct: clampPercent(slot.yPct + dy),
+          })
+        }
+        return
+      }
+
       if (isBareMainTarget) {
         const dims = measureMainStageDims()
         if (dims) {
@@ -197,16 +276,21 @@ export function PositionSection() {
           return
         }
       }
-      if (hasMainTarget) {
-        setMainScreenshotPositionPreview(canvasElement, safePoint)
-      }
+      setMainScreenshotPositionPreview(canvasElement, safePoint)
     },
     [
+      editor.aspect,
+      editor.frame,
+      editor.screenshotOffset,
+      editor.screenshotPosition,
+      editor.screenshotSlots,
       getActiveCanvasElement,
       getSelectedSlotElement,
-      hasMainTarget,
+      hasMainScreenshotBox,
+      isAllTarget,
       isBareMainTarget,
       measureMainStageDims,
+      querySlotElement,
       selectedSlot,
     ]
   )
@@ -231,6 +315,60 @@ export function PositionSection() {
       }
 
       try {
+        if (isAllTarget) {
+          const currentGroupCenter = allScreenshotGroupCenter({
+            hasMainScreenshot: hasMainScreenshotBox,
+            aspect: editor.aspect,
+            frame: editor.frame,
+            position: editor.screenshotPosition,
+            offset: editor.screenshotOffset,
+            slots: editor.screenshotSlots,
+          })
+          if (!currentGroupCenter) return
+
+          const dx = safePoint.xPct - currentGroupCenter.xPct
+          const dy = safePoint.yPct - currentGroupCenter.yPct
+
+          if (hasMainScreenshotBox) {
+            const mainCenter = mainScreenshotPositionPct({
+              aspect: editor.aspect,
+              frame: editor.frame,
+              position: editor.screenshotPosition,
+              offset: editor.screenshotOffset,
+              slots: editor.screenshotSlots,
+            })
+            const nextMain = {
+              xPct: mainCenter.xPct + dx,
+              yPct: mainCenter.yPct + dy,
+            }
+            const mainPosId = positionIdFromPercent(
+              nextMain.xPct,
+              nextMain.yPct
+            )
+            editor.setScreenshotPlacement(
+              mainPosId,
+              mainScreenshotOffsetForPoint({
+                aspect: editor.aspect,
+                frame: editor.frame,
+                position: mainPosId,
+                slots: editor.screenshotSlots,
+                point: nextMain,
+              })
+            )
+          }
+
+          if (editor.screenshotSlots.length > 0) {
+            const slotCenter = screenshotSlotGroupCenter(editor.screenshotSlots)
+            if (slotCenter) {
+              setScreenshotSlotGroupPosition({
+                xPct: slotCenter.xPct + dx,
+                yPct: slotCenter.yPct + dy,
+              })
+            }
+          }
+          return
+        }
+
         if (isBareMainTarget) {
           const dims = measureMainStageDims()
           if (dims) {
@@ -243,31 +381,34 @@ export function PositionSection() {
             return
           }
         }
-        if (hasMainTarget) {
-          editor.setScreenshotPlacement(
+        editor.setScreenshotPlacement(
+          position,
+          mainScreenshotOffsetForPoint({
+            aspect: editor.aspect,
+            frame: editor.frame,
             position,
-            mainScreenshotOffsetForPoint({
-              aspect: editor.aspect,
-              frame: editor.frame,
-              position,
-              slots: editor.screenshotSlots,
-              point: safePoint,
-            })
-          )
-        }
+            slots: editor.screenshotSlots,
+            point: safePoint,
+          })
+        )
       } finally {
-        clearPositionPreviewVarsAfterPaint([canvasElement])
+        clearPositionPreviewVarsAfterPaint(
+          isAllTarget ? collectAllPreviewElements() : [canvasElement]
+        )
       }
     },
     [
+      collectAllPreviewElements,
       editor,
       getActiveCanvasElement,
       getSelectedSlotElement,
-      hasMainTarget,
+      hasMainScreenshotBox,
+      isAllTarget,
       isBareMainTarget,
       measureMainStageDims,
       scaleFactor,
       selectedSlot,
+      setScreenshotSlotGroupPosition,
       updateScreenshotSlot,
     ]
   )
@@ -276,50 +417,73 @@ export function PositionSection() {
   // override the transform reads for Tilt & Scale) so it updates during the drag
   // without touching the store. State is only committed on release; the var is
   // cleared next frame so the committed `scale` fallback takes over without a
-  // transition flash. A selected slot drives its own element; otherwise the
-  // whole canvas moves.
+  // transition flash. A selected slot drives its own element; "all" drives main
+  // + every slot; otherwise only the main/canvas moves.
   const zoom = selectedSlot ? selectedSlot.scale : editor.scale
+
+  const getZoomTargets = React.useCallback((): Array<{
+    el: HTMLElement
+    scaleVar: string
+  }> => {
+    if (selectedSlot) {
+      const el = getSelectedSlotElement()
+      return el ? [{ el, scaleVar: SLOT_SCALE_VAR }] : []
+    }
+    const canvasEl = getActiveCanvasElement()
+    if (!canvasEl) return []
+    if (!isAllTarget) return [{ el: canvasEl, scaleVar: CANVAS_SCALE_VAR }]
+    const targets: Array<{ el: HTMLElement; scaleVar: string }> = [
+      { el: canvasEl, scaleVar: CANVAS_SCALE_VAR },
+    ]
+    for (const slot of editor.screenshotSlots) {
+      const el = querySlotElement(slot.id)
+      if (el) targets.push({ el, scaleVar: SLOT_SCALE_VAR })
+    }
+    return targets
+  }, [
+    editor.screenshotSlots,
+    getActiveCanvasElement,
+    getSelectedSlotElement,
+    isAllTarget,
+    querySlotElement,
+    selectedSlot,
+  ])
 
   const previewScale = React.useCallback(
     (next: number) => {
-      if (selectedSlot) {
-        getSelectedSlotElement()?.style.setProperty(
-          SLOT_SCALE_VAR,
-          String(next / 100)
-        )
-        return
+      for (const { el, scaleVar } of getZoomTargets()) {
+        el.style.setProperty(scaleVar, String(next / 100))
       }
-      getActiveCanvasElement()?.style.setProperty(
-        CANVAS_SCALE_VAR,
-        String(next / 100)
-      )
     },
-    [getActiveCanvasElement, getSelectedSlotElement, selectedSlot]
+    [getZoomTargets]
   )
 
   const commitScale = React.useCallback(
     (next: number) => {
-      const target = selectedSlot ? getSelectedSlotElement() : null
-      const scaleVar = selectedSlot ? SLOT_SCALE_VAR : CANVAS_SCALE_VAR
-      const element = selectedSlot ? target : getActiveCanvasElement()
+      const targets = getZoomTargets()
 
       if (selectedSlot) updateScreenshotSlot(selectedSlot.id, { scale: next })
+      else if (isAllTarget) setScreenshotScale(next)
       else setScale(next)
 
-      if (!element) return
+      if (targets.length === 0) return
+      const clear = () => {
+        for (const { el, scaleVar } of targets) {
+          el.style.removeProperty(scaleVar)
+        }
+      }
       if (typeof requestAnimationFrame === "undefined") {
-        element.style.removeProperty(scaleVar)
+        clear()
         return
       }
-      requestAnimationFrame(() => {
-        element.style.removeProperty(scaleVar)
-      })
+      requestAnimationFrame(clear)
     },
     [
-      getActiveCanvasElement,
-      getSelectedSlotElement,
+      getZoomTargets,
+      isAllTarget,
       selectedSlot,
       setScale,
+      setScreenshotScale,
       updateScreenshotSlot,
     ]
   )
@@ -327,8 +491,13 @@ export function PositionSection() {
   return (
     <div className="space-y-3">
       <PositionSwipeField
-        ariaLabel="Position screenshot"
-        disabled={disabled}
+        ariaLabel={
+          isAllTarget
+            ? "Position all screenshots"
+            : selectedSlot
+              ? "Position screenshot box"
+              : "Position screenshot"
+        }
         value={currentPosition}
         onPreview={(point) => {
           // Drop the boxes' move easing for the pad drag so they track the pad
@@ -350,7 +519,6 @@ export function PositionSection() {
         value={zoom}
         onChange={commitScale}
         onPreview={previewScale}
-        disabled={disabled}
         min={10}
         max={300}
         suffix="%"

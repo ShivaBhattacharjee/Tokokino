@@ -2718,7 +2718,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         null
       ),
     setScreenshotSlotGroupPosition: (position, canvasId) =>
-      commitCanvas(
+      // Position is animatable — register ownership on the open keyframe so
+      // group moves (and the animate Position pad's "all" path) keyframe correctly.
+      commitCanvasEffect(
         canvasId,
         (canvas) => {
           if (canvas.screenshotSlots.length === 0) {
@@ -2752,7 +2754,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             })),
           }
         },
-        "screenshot-slot-group-position"
+        "screenshot-slot-group-position",
+        "position"
       ),
   }
 })
