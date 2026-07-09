@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { CSSProperties } from "react"
+import { RiHome5Line, RiImageEditLine, RiRouteLine } from "@remixicon/react"
 
 import { DashedH } from "@/components/landing/dashed-h"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
@@ -8,64 +9,6 @@ import { FlickeringGrid } from "@/components/ui/flickering-grid"
 
 const CONTENT_WIDTH =
   "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
-
-function RouteIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="6" r="3" />
-      <path d="M9 18h3a6 6 0 0 0 6-6V9" />
-    </svg>
-  )
-}
-
-function ImageEditIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="3" y="5" width="14" height="14" rx="2" />
-      <path d="m3 15 4-4 3 3 2-2 3 3" />
-      <path d="m16 4 4 4" />
-      <path d="m14 10 6-6" />
-    </svg>
-  )
-}
-
-function HomeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="m3 11 9-8 9 8" />
-      <path d="M5 10v10h14V10" />
-      <path d="M9 20v-6h6v6" />
-    </svg>
-  )
-}
 
 export default function NotFound() {
   return (
@@ -105,7 +48,7 @@ export default function NotFound() {
         <div className="grid min-h-[calc(100svh-2px)] items-center gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(22rem,0.72fr)] lg:px-12">
           <div className="space-y-8 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-background/70 px-3 py-1.5 font-mono text-[0.68rem] font-medium tracking-[0.16em] text-muted-foreground uppercase backdrop-blur">
-              <RouteIcon className="size-3.5 text-primary" />
+              <RiRouteLine className="size-3.5 text-primary" />
               Lost route
             </div>
 
@@ -125,15 +68,20 @@ export default function NotFound() {
             </div>
 
             <div className="flex flex-wrap justify-center gap-3 lg:justify-start">
-              <Button asChild size="lg">
+              <Button asChild size="lg" className="h-10 gap-2 px-4 text-sm">
                 <Link href="/app">
-                  <ImageEditIcon className="size-4" />
+                  <RiImageEditLine className="size-4" />
                   Open editor
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="h-10 gap-2 px-4 text-sm"
+              >
                 <Link href="/">
-                  <HomeIcon className="size-4" />
+                  <RiHome5Line className="size-4" />
                   Go home
                 </Link>
               </Button>
@@ -142,7 +90,7 @@ export default function NotFound() {
 
           <div
             aria-hidden="true"
-            className="relative hidden aspect-square min-h-[24rem] overflow-hidden lg:block"
+            className="relative hidden aspect-square min-h-96 overflow-hidden lg:block"
           >
             <div
               className="absolute inset-8 rounded-full blur-3xl"

@@ -49,6 +49,7 @@ import {
 } from "@/lib/editor/export"
 import { useEditorStore } from "@/lib/editor/store"
 import type { CanvasState } from "@/lib/editor/store"
+import { usePersistentState } from "@/hooks/use-persistent-state"
 import { cn } from "@/lib/utils"
 import { SegmentedRow, SummaryRow, SwitchRow } from "./ui"
 
@@ -94,38 +95,6 @@ const ANIMATION_EXPORT_PHASE_LABELS: Record<
   finishing: "Finishing download",
 }
 
-const EXPORT_QUIPS: Record<
-  AnimationExportProgress["phase"] | "idle",
-  string[]
-> = {
-  idle: ["Warming up the pixels...", "Almost showtime..."],
-  preparing: [
-    "Setting up the frame factory...",
-    "Getting the canvas camera ready...",
-    "One sec, making room for the magic...",
-  ],
-  capturing: [
-    "Frames are cooking...",
-    "Pixel by pixel, no rush...",
-    "Keeping the timeline on beat...",
-    "Rendering the good stuff...",
-  ],
-  encoding: [
-    "Stitching the frames together...",
-    "Compressing without killing the vibe...",
-    "Teaching pixels to behave like video...",
-  ],
-  finishing: ["Final polish pass...", "File incoming..."],
-}
-
-function exportQuip(
-  phase: AnimationExportProgress["phase"] | null,
-  tick: number
-): string {
-  const lines = EXPORT_QUIPS[phase ?? "idle"]
-  return lines[tick % lines.length] ?? lines[0]
-}
-
 /** Friendly ETA like "< 5 min", "~30s", "Almost done". */
 function formatExportEta(etaMs: number | null | undefined): string | null {
   if (etaMs == null || !Number.isFinite(etaMs)) return null
@@ -167,15 +136,6 @@ function AnimationExportProgressDialog({
   const phaseLabel =
     ANIMATION_EXPORT_PHASE_LABELS[progress?.phase ?? "idle"] ??
     ANIMATION_EXPORT_PHASE_LABELS.idle
-  const [quipTick, setQuipTick] = React.useState(0)
-
-  React.useEffect(() => {
-    if (!open) return
-    const id = window.setInterval(() => setQuipTick((t) => t + 1), 2400)
-    return () => window.clearInterval(id)
-  }, [open, progress?.phase])
-
-  const quip = exportQuip(progress?.phase ?? null, quipTick)
   const frameLabel = showFrames
     ? `${Math.min(current, total)} of ${total} frames`
     : progress
@@ -199,38 +159,21 @@ function AnimationExportProgressDialog({
         }}
       >
         <div className="flex flex-col gap-5 px-5 py-5">
-          <div className="space-y-2">
-            <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
               <DialogTitle className="text-[15px] leading-none font-semibold tracking-tight">
                 Exporting {formatLabel}
               </DialogTitle>
-              <div
-                className="shrink-0 rounded-md border border-primary/15 bg-primary/10 px-2.5 py-1 text-[12px] leading-none font-semibold text-primary tabular-nums"
-                aria-hidden="true"
-              >
-                {pct}%
-              </div>
+              <DialogDescription className="text-[12px] leading-5 text-muted-foreground">
+                {phaseLabel}
+              </DialogDescription>
             </div>
-            <DialogDescription
-              className="relative h-6 overflow-hidden text-[12px] leading-6 text-muted-foreground"
-              aria-live="polite"
+            <div
+              className="shrink-0 rounded-md border border-primary/15 bg-primary/10 px-2.5 py-1 text-[12px] leading-none font-semibold text-primary tabular-nums"
+              aria-hidden="true"
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={`${progress?.phase ?? "idle"}-${quipTick}-${quip}`}
-                  className="absolute inset-x-0 top-0 whitespace-nowrap will-change-transform"
-                  initial={{ y: 8, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -8, opacity: 0 }}
-                  transition={{
-                    duration: 0.24,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                >
-                  {quip}
-                </motion.span>
-              </AnimatePresence>
-            </DialogDescription>
+              {pct}%
+            </div>
           </div>
 
           <div className="w-full space-y-3">
@@ -559,13 +502,38 @@ export function ExportControls({
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
   const canvases = useEditorStore(useShallow((s) => s.present.canvases))
   const setTopBarPopoverOpen = useEditorStore((s) => s.setTopBarPopoverOpen)
-  const [format, setFormat] = React.useState<ExportFormat>("png")
-  const [resolution, setResolution] = React.useState<ExportResolution>("hd")
-  const [animFormat, setAnimFormat] =
-    React.useState<AnimationExportFormat>("gif")
+  // Sticky export preferences — persisted so a chosen format/resolution/fps
+  // survives reloads instead of snapping back to the default each session.
+  const [format, setFormat] = usePersistentState<ExportFormat>(
+    "tokokino:export:format",
+    "png",
+    (v): v is ExportFormat => EXPORT_FORMATS.includes(v as ExportFormat)
+  )
+  const [resolution, setResolution] = usePersistentState<ExportResolution>(
+    "tokokino:export:resolution",
+    "hd",
+    (v): v is ExportResolution =>
+      EXPORT_RESOLUTIONS.includes(v as ExportResolution)
+  )
+  const [animFormat, setAnimFormat] = usePersistentState<AnimationExportFormat>(
+    "tokokino:export:animFormat",
+    "gif",
+    (v): v is AnimationExportFormat =>
+      ANIMATION_FORMATS.includes(v as AnimationExportFormat)
+  )
   const [animResolution, setAnimResolution] =
-    React.useState<AnimationExportResolution>("hd")
-  const [animFps, setAnimFps] = React.useState<AnimationExportFps>(30)
+    usePersistentState<AnimationExportResolution>(
+      "tokokino:export:animResolution",
+      "hd",
+      (v): v is AnimationExportResolution =>
+        ANIMATION_RESOLUTIONS.includes(v as AnimationExportResolution)
+    )
+  const [animFps, setAnimFps] = usePersistentState<AnimationExportFps>(
+    "tokokino:export:animFps",
+    30,
+    (v): v is AnimationExportFps =>
+      ANIMATION_FPS_OPTIONS.includes(v as AnimationExportFps)
+  )
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = React.useState(false)

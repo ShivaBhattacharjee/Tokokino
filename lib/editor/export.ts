@@ -310,6 +310,58 @@ async function embedCloneImages(root: HTMLElement): Promise<void> {
   )
 }
 
+/**
+ * Inline every CSS `background-image: url(...)` in the clone as a data URI.
+ *
+ * Animation export reuses ONE clone and calls html-to-image ~200 times, mutating
+ * the crossfade layers' opacity between captures. html-to-image caches fetched
+ * remote images and, with a reused node, pins each background-image element's
+ * rendered state to the FIRST capture — so opacity changes on those elements
+ * never register and the exported background freezes on a single frame. Embedding
+ * the images as data URIs removes the fetch (and its cache) entirely, so every
+ * frame re-reads the current opacity. (`<img>` layers are handled by
+ * `embedCloneImages`; this is the background-image equivalent.)
+ */
+async function embedCloneBackgroundImages(root: HTMLElement): Promise<void> {
+  const cache = new Map<string, Promise<string | null>>()
+  const fetchDataUrl = (url: string): Promise<string | null> => {
+    const existing = cache.get(url)
+    if (existing) return existing
+    const p = (async () => {
+      try {
+        const response = await fetch(url, { credentials: "omit" })
+        if (!response.ok) return null
+        return await readBlobAsDataUrl(await response.blob())
+      } catch {
+        return null
+      }
+    })()
+    cache.set(url, p)
+    return p
+  }
+
+  const jobs: Promise<void>[] = []
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+    const value = el.style.backgroundImage
+    if (!value || !value.includes("url(")) continue
+    const matches = Array.from(value.matchAll(URL_FUNCTION_RE))
+    if (matches.length === 0) continue
+    jobs.push(
+      (async () => {
+        let next = value
+        for (const m of matches) {
+          const raw = m[2]
+          if (!raw || raw.startsWith("data:")) continue
+          const dataUrl = await fetchDataUrl(raw)
+          if (dataUrl) next = next.split(m[0]).join(`url("${dataUrl}")`)
+        }
+        if (next !== value) el.style.backgroundImage = next
+      })()
+    )
+  }
+  await Promise.all(jobs)
+}
+
 function makeExportStyle(scopeId: string) {
   const exportStyle = document.createElement("style")
   exportStyle.id = "__export-override"
@@ -667,6 +719,11 @@ export async function prepareAnimationCapture(
 
   await waitForExportAssets(preloadUrls)
   await embedCloneImages(exportTarget.node)
+  // Animation export reuses this clone for hundreds of captures while mutating
+  // the crossfade layers' opacity. Remote background-images must be inlined as
+  // data URIs or html-to-image caches them and freezes the animated background
+  // on one frame — see embedCloneBackgroundImages.
+  await embedCloneBackgroundImages(exportTarget.node)
 
   const captureOptions = {
     pixelRatio,
