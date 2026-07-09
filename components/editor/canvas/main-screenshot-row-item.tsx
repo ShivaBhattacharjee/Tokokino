@@ -194,9 +194,15 @@ export function MainScreenshotRender({
             borderRadius: selectionRadius,
           }}
         >
-          {isSelected && !previewMode ? (
+          {/* Container selection for framed/empty boxes. Bare images draw their
+              own ring on the image box in ScreenshotBare so contain doesn't
+              leave a ring around letterboxed empty space. */}
+          {isSelected &&
+          !previewMode &&
+          (frame.id !== "none" || !screenshot) ? (
             <div
               aria-hidden
+              data-selection-border="true"
               className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
               style={{
                 transform,
@@ -229,6 +235,7 @@ export function MainScreenshotRender({
               suppressEmptyTransition
               emptyCompact={emptyCompact}
               objectFit={objectFit}
+              isScreenshotSelected={isSelected && !previewMode}
               activeTool={activeTool}
               isDragging={isScreenshotDragging}
               stageRef={stageRef}

@@ -324,9 +324,15 @@ export function ScreenshotSlotRender({
       >
         <div className="absolute inset-0" style={contentStyle}>
           <div className="relative h-full w-full" style={transformedStyle}>
-            {isSelected && !previewMode ? (
+            {/* Container selection for framed/empty boxes. Bare images draw
+                their own ring on the image box in ScreenshotBare so contain
+                doesn't leave a ring around letterboxed empty space. */}
+            {isSelected &&
+            !previewMode &&
+            (shared.frame.id !== "none" || !slot.src) ? (
               <div
                 aria-hidden
+                data-selection-border="true"
                 className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
                 style={{
                   transform: contentTransform,
@@ -362,6 +368,7 @@ export function ScreenshotSlotRender({
                 suppressEmptyTransition
                 emptyCompact={Boolean(rowLayout)}
                 objectFit={slot.objectFit ?? "contain"}
+                isScreenshotSelected={isSelected && !previewMode}
                 activeTool={activeTool}
                 isDragging={false}
                 stageRef={stageRef}

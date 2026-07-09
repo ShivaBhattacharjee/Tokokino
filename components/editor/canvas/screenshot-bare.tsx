@@ -65,7 +65,17 @@ type ScreenshotBareProps = {
  * the canvas backdrop, so it was never affected.
  *
  * Fix: always give the light layer an explicit size matching the image box
- * (measured imgW×imgH when free-placed, otherwise 100% of the stage/parent).
+ * (measured imgW×imgH when free-placed, otherwise 100% of the stage/parent —
+ * or the measured shrink-wrapped box for nested contain).
+ *
+ * Why nested contain broke the border
+ * -----------------------------------
+ * Nested multi-row/slot used `inset:0; width/height:100%` + `object-fit:contain`.
+ * The painted image letterboxed inside that full box, but CSS `outline` (our
+ * border) traces the *element* box — so the border wrapped the container, not
+ * the image. Nested contain now shrink-wraps the img to the image's aspect
+ * (max bounds = parent), same as free-placed contain, so outline/radius/shadow
+ * hug the image.
  */
 export function ScreenshotBare({
   screenshot,
@@ -101,6 +111,12 @@ export function ScreenshotBare({
   innerLightingStyle,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
+  // Measured size of a nested-contain image so the empty lighting layer can
+  // match the shrink-wrapped box (it has no intrinsic size of its own).
+  const [nestedContainSize, setNestedContainSize] = React.useState<{
+    w: number
+    h: number
+  } | null>(null)
 
   // Free-placed single main uses numeric left/top in stage px (+ live-preview
   // vars). Nested multi-row/slot content has no left/top — parent sizes it.
@@ -113,67 +129,131 @@ export function ScreenshotBare({
       ? `var(--editor-main-bare-top, ${screenshotTop}px)`
       : "50%"
 
-  // Nested multi (no free placement, no stage measurement): fill parent.
+  // Nested multi (no free placement, no stage measurement): parent sizes the stage.
   const isNested = !isFreePlaced && placementDims == null
+  // Nested contain must shrink-wrap to the image (not fill the parent) so the
+  // border outline / radius / shadow hug the painted pixels instead of the slot.
+  const isNestedContain = isNested && objectFit === "contain"
+
+  const contentTransform =
+    (typeof imgStyle.transform === "string" && imgStyle.transform) ||
+    transform ||
+    ""
+
+  React.useLayoutEffect(() => {
+    if (!isNestedContain) return
+    const el = imageRef.current
+    if (!el) return
+
+    const update = () => {
+      const w = el.clientWidth
+      const h = el.clientHeight
+      if (w <= 0 || h <= 0) return
+      setNestedContainSize((prev) =>
+        prev && prev.w === w && prev.h === h ? prev : { w, h }
+      )
+    }
+    update()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [imageRef, isNestedContain, objectFit, screenshot])
+
+  // Ignore stale measurements after switching away from nested contain.
+  const measuredContainSize = isNestedContain ? nestedContainSize : null
 
   // Image position/transform (mirrors historical bare layout).
-  const imagePositionStyle: React.CSSProperties = isNested
+  const imagePositionStyle: React.CSSProperties = isNestedContain
     ? {
-        inset: 0,
-        width: "100%",
-        height: "100%",
+        // Shrink-wrap to the image aspect within the parent — border/outline
+        // then tracks the image, not the letterboxed container.
+        left: "50%",
+        top: "50%",
+        maxWidth: "100%",
+        maxHeight: "100%",
+        width: "auto",
+        height: "auto",
         ...imgStyle,
-        // Nested parent already applied centering translate; only keep 3D here.
-        transform: (imgStyle.transform) || transform || undefined,
+        transform: `translate(-50%, -50%) ${contentTransform}`.trim(),
+        transformStyle: imgStyle.transformStyle ?? "preserve-3d",
       }
-    : {
-        ...imgStyle,
-        left: leftStyle,
-        top: topStyle,
-        ...(positionedStyle
-          ? null
-          : {
-              transform: `translate(-50%, -50%) ${transform}`,
-            }),
-      }
+    : isNested
+      ? {
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          ...imgStyle,
+          // Nested parent already applied centering translate; only keep 3D here.
+          transform: contentTransform || undefined,
+        }
+      : {
+          ...imgStyle,
+          left: leftStyle,
+          top: topStyle,
+          ...(positionedStyle
+            ? null
+            : {
+                transform: `translate(-50%, -50%) ${transform}`,
+              }),
+        }
 
   // Explicit light size — NEVER rely on max-width/max-height alone (0×0 when
   // the layer has no in-flow content, which is exactly the contain bug).
-  const lightSizeStyle: React.CSSProperties = isNested
-    ? { inset: 0, width: "100%", height: "100%" }
-    : isFreePlaced && placementDims
+  const lightSizeStyle: React.CSSProperties = isNestedContain
+    ? measuredContainSize
       ? {
-          left: leftStyle,
-          top: topStyle,
-          width: placementDims.imgW,
-          height: placementDims.imgH,
+          left: "50%",
+          top: "50%",
+          width: measuredContainSize.w,
+          height: measuredContainSize.h,
         }
       : {
-          // Cover/fill-style full stage, or pre-measure fallback.
-          left: leftStyle,
-          top: topStyle,
+          // Pre-measure fallback: cover parent until the image has a real size.
+          inset: 0,
           width: "100%",
           height: "100%",
         }
-
-  // Free-placed / positioned: left/top already place the box — same 3D
-  // transform as the image (no extra translate). Nested multi: 3D only.
-  // Centered pre-measure: translate(-50%) + 3D like the image.
-  const lightTransform: React.CSSProperties =
-    isFreePlaced || positionedStyle
-      ? {
-          transform: imgStyle.transform,
-          transformStyle: imgStyle.transformStyle,
-        }
-      : isNested
+    : isNested
+      ? { inset: 0, width: "100%", height: "100%" }
+      : isFreePlaced && placementDims
         ? {
-            transform: (imgStyle.transform) || transform || undefined,
-            transformStyle: "preserve-3d",
+            left: leftStyle,
+            top: topStyle,
+            width: placementDims.imgW,
+            height: placementDims.imgH,
           }
         : {
-            transform: `translate(-50%, -50%) ${transform}`,
-            transformStyle: "preserve-3d",
+            // Cover/fill-style full stage, or pre-measure fallback.
+            left: leftStyle,
+            top: topStyle,
+            width: "100%",
+            height: "100%",
           }
+
+  // Free-placed / positioned: left/top already place the box — same 3D
+  // transform as the image (no extra translate). Nested multi cover/fill: 3D
+  // only. Nested contain + centered free: translate(-50%) + 3D like the image.
+  const lightTransform: React.CSSProperties =
+    isNestedContain && measuredContainSize
+      ? {
+          transform: `translate(-50%, -50%) ${contentTransform}`.trim(),
+          transformStyle: "preserve-3d",
+        }
+      : isFreePlaced || positionedStyle
+        ? {
+            transform: imgStyle.transform,
+            transformStyle: imgStyle.transformStyle,
+          }
+        : isNested
+          ? {
+              transform: contentTransform || undefined,
+              transformStyle: "preserve-3d",
+            }
+          : {
+              transform: `translate(-50%, -50%) ${transform}`,
+              transformStyle: "preserve-3d",
+            }
 
   return (
     <div
@@ -198,18 +278,16 @@ export function ScreenshotBare({
         style={imagePositionStyle}
         className={cn(
           "pointer-events-auto absolute select-none",
-          // Nested multi always fills the parent slot/row box.
-          isNested && "inset-0 h-full w-full",
+          // Nested cover/fill fills the parent slot/row box.
+          isNested && !isNestedContain && "inset-0 h-full w-full",
           !isNested && objectFit === "cover" && "h-full w-full object-cover",
           !isNested && objectFit === "fill" && "h-full w-full object-fill",
-          // contain: shrink-wrap to the image's aspect (max bounds = stage).
-          // Lighting uses measured imgW×imgH so it still gets a real size.
-          !isNested &&
-            objectFit === "contain" &&
+          // contain: shrink-wrap to the image's aspect (max bounds = stage/parent).
+          // Outline/radius/shadow then hug the image; lighting uses measured size.
+          (isNestedContain || (!isNested && objectFit === "contain")) &&
             "max-h-full max-w-full object-contain",
           isNested && objectFit === "cover" && "object-cover",
           isNested && objectFit === "fill" && "object-fill",
-          isNested && objectFit === "contain" && "object-contain",
           screenshotLayer.hidden && "pointer-events-none",
           isScreenshotDragging ||
             suppressTransition ||
@@ -239,6 +317,30 @@ export function ScreenshotBare({
             borderRadius: imgStyle.borderRadius,
             // Keep the light above the image stacking context
             zIndex: 10,
+          }}
+        />
+      ) : null}
+
+      {/* Active selection ring — sized to the image box (same as lighting), not
+          the parent slot/stage. Critical for object-fit:contain where the image
+          is smaller than the container; a parent inset-0 ring would frame empty
+          letterbox space. Separate from the style-border outline on the img. */}
+      {isScreenshotSelected && !screenshotLayer.hidden ? (
+        <div
+          aria-hidden
+          data-selection-border="true"
+          className={cn(
+            "pointer-events-none absolute z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed",
+            isScreenshotDragging ||
+              suppressTransition ||
+              activeTool === "position"
+              ? "transition-none"
+              : "transition-all duration-300 ease-out"
+          )}
+          style={{
+            ...lightSizeStyle,
+            ...lightTransform,
+            borderRadius: imgStyle.borderRadius,
           }}
         />
       ) : null}
