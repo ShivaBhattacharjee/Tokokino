@@ -57,7 +57,7 @@ const EXPORT_FORMATS: ExportFormat[] = ["png", "jpeg", "webp"]
 const EXPORT_RESOLUTIONS: ExportResolution[] = ["hd", "4k", "8k"]
 const EXPORT_BUTTON_MAX_LABEL = `Export ${EXPORT_RESOLUTION_LABELS["hd"]} • ${EXPORT_FORMAT_LABELS.webp}`
 
-/** Animate-mode export — fully local (user device). No server, no watermark. */
+/** Animate-mode export — fully local (user device). Optional on-frame watermark. */
 const ANIMATION_FORMATS: AnimationExportFormat[] = ["mp4", "webm", "gif"]
 const ANIMATION_FORMAT_LABELS: Record<AnimationExportFormat, string> = {
   gif: "GIF",
@@ -569,6 +569,7 @@ export function ExportControls({
           format: animFormat,
           fps: animFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
+          watermark: includeWatermark,
           signal: abort.signal,
           onProgress: (p) => {
             const now = performance.now()
@@ -766,6 +767,12 @@ export function ExportControls({
                   <SummaryRow
                     label="Format"
                     value={ANIMATION_FORMAT_EXTENSION[animFormat]}
+                  />
+                  <div className="h-px bg-border/50" />
+                  <SwitchRow
+                    label="Watermark"
+                    checked={includeWatermark}
+                    onCheckedChange={onIncludeWatermarkChange}
                   />
                 </div>
               </>

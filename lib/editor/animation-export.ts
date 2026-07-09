@@ -48,11 +48,125 @@ export type AnimationExportOptions = {
   format: AnimationExportFormat
   fps?: number
   targetWidth?: number
+  /** Draw the "Designed by Tokokino" watermark on every frame. Defaults to on. */
+  watermark?: boolean
   onProgress?: (progress: AnimationExportProgress) => void
   signal?: AbortSignal
 }
 
 const MAX_FRAMES = 600
+
+const WATERMARK_LOGO_SRC = "/logo.png"
+const WATERMARK_PREFIX = "Designed by"
+const WATERMARK_APP_NAME = "Tokokino"
+const WATERMARK_FONT_STACK =
+  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+
+type WatermarkAssets = { logo: HTMLImageElement | null }
+
+/**
+ * Preload the watermark logo once before the frame loop. Same-origin (`/logo.png`)
+ * so it never taints the canvas that GIF export reads back via getImageData.
+ * Resolves to `null` on failure so the text-only watermark still renders.
+ */
+function loadWatermarkLogo(): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = WATERMARK_LOGO_SRC
+  })
+}
+
+function traceRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+) {
+  const radius = Math.max(0, Math.min(r, w / 2, h / 2))
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
+}
+
+/**
+ * Bottom-left "Designed by Tokokino" watermark, painted straight onto the frame
+ * canvas so it survives every encoder (GIF / WebCodecs / MediaRecorder) without
+ * touching the DOM capture clone. Scales with the frame's shorter edge.
+ */
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  assets: WatermarkAssets
+) {
+  const minEdge = Math.max(1, Math.min(width, height))
+  const scale = Math.max(0.72, Math.min(1.6, minEdge / 720))
+  const margin = Math.round(18 * scale)
+  const padX = Math.round(12 * scale)
+  const padY = Math.round(9 * scale)
+  const gap = Math.round(9 * scale)
+  const logoSize = Math.round(26 * scale)
+  const prefixSize = Math.round(11 * scale)
+  const nameSize = Math.round(17 * scale)
+  const lineGap = Math.round(2 * scale)
+  const logo = assets.logo
+
+  ctx.save()
+  // Keep the whole mark subtle so it reads as a credit, not a banner.
+  ctx.globalAlpha = 0.32
+
+  ctx.font = `500 ${prefixSize}px ${WATERMARK_FONT_STACK}`
+  const prefixWidth = ctx.measureText(WATERMARK_PREFIX).width
+  ctx.font = `700 ${nameSize}px ${WATERMARK_FONT_STACK}`
+  const nameWidth = ctx.measureText(WATERMARK_APP_NAME).width
+  const textWidth = Math.max(prefixWidth, nameWidth)
+  const textHeight = prefixSize + lineGap + nameSize
+
+  const logoBlock = logo ? logoSize + gap : 0
+  const contentW = logoBlock + textWidth
+  const contentH = Math.max(logo ? logoSize : 0, textHeight)
+
+  const pillW = contentW + padX * 2
+  const pillH = contentH + padY * 2
+  const pillX = margin
+  const pillY = height - margin - pillH
+
+  traceRoundRect(ctx, pillX, pillY, pillW, pillH, Math.round(10 * scale))
+  ctx.fillStyle = "rgba(0, 0, 0, 0.34)"
+  ctx.fill()
+
+  const centerY = pillY + pillH / 2
+  const contentX = pillX + padX
+  let textX = contentX
+  if (logo) {
+    try {
+      ctx.drawImage(logo, contentX, centerY - logoSize / 2, logoSize, logoSize)
+    } catch {
+      /* ignore a broken logo — keep the text */
+    }
+    textX = contentX + logoSize + gap
+  }
+
+  const textTop = centerY - textHeight / 2
+  ctx.textBaseline = "top"
+  ctx.font = `500 ${prefixSize}px ${WATERMARK_FONT_STACK}`
+  ctx.fillStyle = "rgba(255, 255, 255, 0.74)"
+  ctx.fillText(WATERMARK_PREFIX, textX, textTop)
+  ctx.font = `700 ${nameSize}px ${WATERMARK_FONT_STACK}`
+  ctx.fillStyle = "rgba(255, 255, 255, 0.97)"
+  ctx.fillText(WATERMARK_APP_NAME, textX, textTop + prefixSize + lineGap)
+
+  ctx.restore()
+}
 
 export class AnimationExportAbortedError extends Error {
   constructor(message = "Export cancelled") {
@@ -317,6 +431,8 @@ type CaptureCtx = {
   fps: number
   progress: ProgressReporter
   signal?: AbortSignal
+  /** Non-null when the watermark should be painted onto every frame. */
+  watermark: WatermarkAssets | null
 }
 
 /**
@@ -359,6 +475,10 @@ export async function exportAnimation(
     options.targetWidth ??
     (options.format === "gif" ? 720 : options.format === "mp4" ? 1080 : 1080)
 
+  // Added unless explicitly disabled — mirrors the still-image export toggle.
+  const watermark =
+    options.watermark === false ? null : { logo: await loadWatermarkLogo() }
+
   throwIfAborted(signal)
   const capture = await prepareAnimationCapture(canvasId, targetWidth)
   suppressCloneTransitions(capture.node)
@@ -374,6 +494,7 @@ export async function exportAnimation(
     fps,
     progress,
     signal,
+    watermark,
   }
 
   try {
@@ -412,6 +533,7 @@ async function encodeGif(ctx: CaptureCtx) {
     frameDurationMs,
     progress,
     signal,
+    watermark,
   } = ctx
   const gif = GIFEncoder()
   let wrote = 0
@@ -430,6 +552,9 @@ async function encodeGif(ctx: CaptureCtx) {
     if (!gctx) {
       progress.report("capturing", f + 1, frameCount)
       continue
+    }
+    if (watermark) {
+      drawWatermark(gctx, frameCanvas.width, frameCanvas.height, watermark)
     }
     const { data, width, height } = gctx.getImageData(
       0,
@@ -488,6 +613,7 @@ async function tryEncodeWithMediabunny(
     fps,
     progress,
     signal,
+    watermark,
   } = ctx
 
   // Working canvas we redraw each frame into (CanvasSource samples this).
@@ -539,6 +665,7 @@ async function tryEncodeWithMediabunny(
       if (!safeDrawImage(ectx, frameCanvas, 0, 0, width, height)) {
         // Keep the black letterbox frame rather than aborting the whole export.
       }
+      if (watermark) drawWatermark(ectx, width, height, watermark)
 
       const timestamp = f / fps
       await videoSource.add(timestamp, durationSec)
@@ -596,6 +723,7 @@ async function encodeWebmMediaRecorder({
   durationMs,
   fps,
   audio,
+  watermark,
 }: CaptureCtx & {
   durationMs: number
   audio: { src: string; volume: number } | null
@@ -630,6 +758,7 @@ async function encodeWebmMediaRecorder({
     octx.fillStyle = "#000"
     octx.fillRect(0, 0, out.width, out.height)
   }
+  if (watermark) drawWatermark(octx, out.width, out.height, watermark)
 
   const stream = out.captureStream(fps)
   let audioEl: HTMLAudioElement | null = null
@@ -663,6 +792,7 @@ async function encodeWebmMediaRecorder({
       octx.fillStyle = "#000"
       octx.fillRect(0, 0, out.width, out.height)
     }
+    if (watermark) drawWatermark(octx, out.width, out.height, watermark)
   }
 
   await new Promise<void>((resolve, reject) => {
