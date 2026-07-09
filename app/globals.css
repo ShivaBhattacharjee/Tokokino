@@ -247,6 +247,15 @@
     offset-distance: 0%;
     animation: animate-beam 2s linear infinite;
   }
+  /* Indeterminate export progress bar — pure CSS, no React width thrashing */
+  @keyframes export-indeterminate {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     [aria-hidden="true"] *,
     .animate-beam {

@@ -92,9 +92,10 @@ type CanvasBackdropProps = {
    */
   animateOverlayStack?: AnimateOverlayStack
   /**
-   * Animate mode only: a clip animates lighting, so the outer overlay mounts
-   * even when it isn't the committed target (and even at zero intensity) so the
-   * player can crossfade the glow onto it. See `lightingOverlayCss`.
+   * Animate mode only: a clip animates OUTER (canvas) lighting, so the outer
+   * overlay mounts even when it isn't the committed target (and even at zero
+   * intensity) so the player can crossfade the glow onto it. Pure-inner
+   * lighting timelines leave this false — see `lightingSidesUsed`.
    */
   lightingAnimated?: boolean
   /**

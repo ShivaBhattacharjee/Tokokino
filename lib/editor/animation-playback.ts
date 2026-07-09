@@ -178,6 +178,87 @@ export function lightingBetween(
   }
 }
 
+/**
+ * Which lighting sides (inner = on-screenshot, outer = on-canvas backdrop) a
+ * timeline actually uses. Pure-inner animations must NOT mount/drive the outer
+ * overlay — otherwise the glow appears on the canvas and only later "settles"
+ * onto the image when targetMix reaches 1.
+ *
+ * A dark baseline (intensity 0) does not count as using its stored target —
+ * the light enters on the first keyframe's own side via `lightingEntranceRest`.
+ */
+export function lightingSidesUsed(
+  clips: readonly AnimationClip[],
+  committed: BackdropLighting
+): { inner: boolean; outer: boolean } {
+  let inner = committed.intensity > 0 && committed.target === "inner"
+  let outer = committed.intensity > 0 && committed.target === "outer"
+
+  for (const c of clips) {
+    if (!clipOwns(c, "lighting")) continue
+    // Slot-only lighting drives the slot's own overlay — not the main
+    // canvas inner/outer mounts.
+    if (!clipAffectsMain(c)) continue
+
+    const pose = clipPose(c).lighting
+    if (pose) {
+      // Keyframe target always counts — even at intensity 0 the side is where
+      // the light will appear as it eases in.
+      if (pose.target === "inner") inner = true
+      if (pose.target === "outer") outer = true
+    }
+    const base = clipBaseline(c).lighting
+    // Only a LIT baseline forces the opposite side (crossfade from an existing
+    // light). A dark baseline is replaced by lightingEntranceRest on the
+    // keyframe's own side, so it must not pull in the other overlay.
+    if (base && base.intensity > 0) {
+      if (base.target === "inner") inner = true
+      if (base.target === "outer") outer = true
+    }
+  }
+
+  return { inner, outer }
+}
+
+/**
+ * 0 = fully outer (canvas), 1 = fully inner (screenshot). Locked when the
+ * timeline never crosses sides; only lerps for a real inner↔outer depth shift.
+ */
+export function lightingTargetMixAt(
+  frames: readonly {
+    startMs: number
+    durationMs: number
+    value: BackdropLighting
+  }[],
+  timeMs: number,
+  rest: BackdropLighting
+): number {
+  if (frames.length === 0) {
+    return rest.target === "inner" ? 1 : 0
+  }
+  const sides = new Set<string>()
+  sides.add(rest.target === "inner" ? "inner" : "outer")
+  for (const f of frames) {
+    sides.add(f.value.target === "inner" ? "inner" : "outer")
+  }
+  if (sides.size === 1) {
+    return sides.has("inner") ? 1 : 0
+  }
+  const restMix = rest.target === "inner" ? 1 : 0
+  return (
+    sampleKeyframes<number>(
+      frames.map((f) => ({
+        startMs: f.startMs,
+        durationMs: f.durationMs,
+        value: f.value.target === "inner" ? 1 : 0,
+      })),
+      timeMs,
+      restMix,
+      lerp
+    ) ?? restMix
+  )
+}
+
 /** True when two backgrounds are different selections (robust to preview URLs). */
 export function backgroundsDiffer(a: Background, b: Background): boolean {
   if (a.type !== b.type) return true

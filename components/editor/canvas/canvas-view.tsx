@@ -49,6 +49,7 @@ import {
   EMPTY_OVERLAY_STACK,
   EMPTY_PATTERN_STACK,
   EMPTY_PORTRAIT_STACK,
+  lightingSidesUsed,
   overlayLayerOpacityVar,
   OVERLAY_BASE_OPACITY_VAR,
   resolveAnimateBgStack,
@@ -588,18 +589,30 @@ function CanvasViewInner({
   const effectsFilter = effectsFilterCss(backdrop.effects)
   const noiseEnabled = backdrop.effects.noise > 0
   const noiseOpacity = noiseEnabled ? backdrop.effects.noise / 100 : 0
-  // When a clip animates lighting, BOTH overlays must be mounted so a keyframe
-  // targeting either side (inner/outer) can render and the two can crossfade for
-  // a depth shift — not just whichever side the committed target happens to be.
+  // When a clip animates lighting, mount only the side(s) the timeline actually
+  // uses. Pure-inner never mounts the canvas-level (outer) overlay — that was
+  // the "light starts on the canvas then settles on the image" bug. Both sides
+  // still mount for a real inner↔outer depth-shift crossfade.
   const lightingAnimated =
     isAnimateMode &&
     !!canvasAnimation?.clips.some((c) => clipOwns(c, "lighting"))
+  const lightingSides = React.useMemo(
+    () =>
+      lightingAnimated && canvasAnimation
+        ? lightingSidesUsed(canvasAnimation.clips, backdrop.lighting)
+        : {
+            inner: backdrop.lighting.target === "inner",
+            outer: backdrop.lighting.target === "outer",
+          },
+    [lightingAnimated, canvasAnimation, backdrop.lighting]
+  )
   const innerLightingStyle =
-    backdrop.lighting.target === "inner" || lightingAnimated
+    backdrop.lighting.target === "inner" ||
+    (lightingAnimated && lightingSides.inner)
       ? lightingOverlayCss(backdrop.lighting, {
           inner: true,
           active: backdrop.lighting.target === "inner",
-          forceMount: lightingAnimated,
+          forceMount: lightingAnimated && lightingSides.inner,
         })
       : null
   // When a clip animates backdrop effects, the backdrop must always carry the
@@ -848,7 +861,7 @@ function CanvasViewInner({
             animatePortraitStack={animatePortraitStack}
             animatePatternStack={animatePatternStack}
             animateOverlayStack={animateOverlayStack}
-            lightingAnimated={lightingAnimated}
+            lightingAnimated={lightingAnimated && lightingSides.outer}
             backdropAnimated={backdropAnimated}
           />
 

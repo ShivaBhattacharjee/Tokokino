@@ -314,9 +314,10 @@ function makeExportStyle(scopeId: string) {
   const exportStyle = document.createElement("style")
   exportStyle.id = "__export-override"
   const scope = `[data-export-scope="${scopeId}"]`
+  // Do NOT zero `outline` globally — style borders use CSS outline on the
+  // screenshot box. Only strip UI chrome (selection rings, focus rings, caret).
   exportStyle.textContent = `
     ${scope}, ${scope} * {
-      outline: none !important;
       caret-color: transparent !important;
       --tw-ring-shadow: 0 0 #0000 !important;
       --tw-ring-offset-shadow: 0 0 #0000 !important;
@@ -324,7 +325,11 @@ function makeExportStyle(scopeId: string) {
       transition: none !important;
     }
     ${scope} [data-export-hidden="true"] { display: none !important; }
-    ${scope} [data-selection-border="true"] { border: none !important; }
+    ${scope} [data-selection-border="true"] {
+      outline: none !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
   `
   return exportStyle
 }
@@ -673,7 +678,19 @@ export async function prepareAnimationCapture(
     node: exportTarget.node,
     width: outputWidth,
     height: outputHeight,
-    captureFrame: () => toCanvas(exportTarget.node, captureOptions),
+    captureFrame: async () => {
+      // html-to-image can return a non-canvas / zero-size value on Safari &
+      // Firefox. Validate before handing it to drawImage callers.
+      const canvas = await toCanvas(exportTarget.node, captureOptions)
+      if (
+        !(canvas instanceof HTMLCanvasElement) ||
+        canvas.width <= 0 ||
+        canvas.height <= 0
+      ) {
+        throw new Error("Frame capture returned an invalid canvas")
+      }
+      return canvas
+    },
     cleanup: () => {
       for (const rewrite of rewrites.reverse()) rewrite.restore()
       exportTarget.cleanup()

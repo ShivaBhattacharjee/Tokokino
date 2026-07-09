@@ -5,6 +5,7 @@ import {
   RiArrowUpCircleLine,
   RiCheckLine,
   RiEqualizerLine,
+  RiCloseLine,
 } from "@remixicon/react"
 import { AnimatePresence, motion } from "motion/react"
 import { toast } from "sonner"
@@ -31,7 +32,14 @@ import {
 import { CanvasView } from "@/components/editor/canvas"
 import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import {
+  AnimationExportAbortedError,
+  exportAnimation,
+  type AnimationExportFormat,
+  type AnimationExportProgress,
+} from "@/lib/editor/animation-export"
+import {
   exportCanvas,
+  getCanvasRenderedDims,
   getOutputDims,
   EXPORT_FORMAT_EXTENSION,
   EXPORT_FORMAT_LABELS,
@@ -47,6 +55,228 @@ import { SegmentedRow, SummaryRow, SwitchRow } from "./ui"
 const EXPORT_FORMATS: ExportFormat[] = ["png", "jpeg", "webp"]
 const EXPORT_RESOLUTIONS: ExportResolution[] = ["hd", "4k", "8k"]
 const EXPORT_BUTTON_MAX_LABEL = `Export ${EXPORT_RESOLUTION_LABELS["hd"]} • ${EXPORT_FORMAT_LABELS.webp}`
+
+/** Animate-mode export — fully local (user device). No server, no watermark. */
+const ANIMATION_FORMATS: AnimationExportFormat[] = ["gif", "webm", "mp4"]
+const ANIMATION_FORMAT_LABELS: Record<AnimationExportFormat, string> = {
+  gif: "GIF",
+  webm: "WebM",
+  mp4: "MP4",
+}
+const ANIMATION_FORMAT_EXTENSION: Record<AnimationExportFormat, string> = {
+  gif: ".gif",
+  webm: ".webm",
+  mp4: ".mp4",
+}
+type AnimationExportResolution = "hd" | "4k"
+const ANIMATION_RESOLUTIONS: AnimationExportResolution[] = ["hd", "4k"]
+const ANIMATION_RESOLUTION_LABELS: Record<AnimationExportResolution, string> = {
+  hd: "HD",
+  "4k": "4K",
+}
+/** Target widths for animation export (lighter than still 4K/8K). */
+const ANIMATION_RESOLUTION_WIDTHS: Record<AnimationExportResolution, number> = {
+  hd: 1080,
+  "4k": 1920,
+}
+type AnimationExportFps = 24 | 30 | 60
+const ANIMATION_FPS_OPTIONS: AnimationExportFps[] = [24, 30, 60]
+const ANIMATION_BUTTON_MAX_LABEL = `Export ${ANIMATION_RESOLUTION_LABELS["4k"]} • ${ANIMATION_FORMAT_LABELS.webm}`
+
+const ANIMATION_EXPORT_PHASE_LABELS: Record<
+  AnimationExportProgress["phase"] | "idle",
+  string
+> = {
+  idle: "Starting export",
+  preparing: "Preparing canvas",
+  capturing: "Rendering frames",
+  encoding: "Encoding video",
+  finishing: "Finishing download",
+}
+
+const EXPORT_QUIPS: Record<
+  AnimationExportProgress["phase"] | "idle",
+  string[]
+> = {
+  idle: ["Warming up the pixels...", "Almost showtime..."],
+  preparing: [
+    "Setting up the frame factory...",
+    "Getting the canvas camera ready...",
+    "One sec, making room for the magic...",
+  ],
+  capturing: [
+    "Frames are cooking...",
+    "Pixel by pixel, no rush...",
+    "Keeping the timeline on beat...",
+    "Rendering the good stuff...",
+  ],
+  encoding: [
+    "Stitching the frames together...",
+    "Compressing without killing the vibe...",
+    "Teaching pixels to behave like video...",
+  ],
+  finishing: ["Final polish pass...", "File incoming..."],
+}
+
+function exportQuip(
+  phase: AnimationExportProgress["phase"] | null,
+  tick: number
+): string {
+  const lines = EXPORT_QUIPS[phase ?? "idle"]
+  return lines[tick % lines.length] ?? lines[0]
+}
+
+/** Friendly ETA like "< 5 min", "~30s", "Almost done". */
+function formatExportEta(etaMs: number | null | undefined): string | null {
+  if (etaMs == null || !Number.isFinite(etaMs)) return null
+  if (etaMs <= 0) return "Almost done"
+  const sec = Math.ceil(etaMs / 1000)
+  if (sec < 5) return "< 5s"
+  if (sec < 60) return `~${sec}s`
+  const min = Math.ceil(sec / 60)
+  if (min === 1) return "~1 min"
+  if (min < 5) return `~${min} min`
+  return `< ${min} min`
+}
+
+/**
+ * Export wait UI with frame counter. Updates are throttled in the parent so
+ * React isn't re-rendered every frame (that froze the main thread).
+ */
+function AnimationExportProgressDialog({
+  open,
+  progress,
+  formatLabel,
+  onCancel,
+}: {
+  open: boolean
+  progress: AnimationExportProgress | null
+  formatLabel: string
+  onCancel: () => void
+}) {
+  const current = progress?.current ?? 0
+  const total = Math.max(1, progress?.total ?? 1)
+  const progressRatio =
+    progress == null ? 0 : Math.min(1, Math.max(0, current / total))
+  const pct = Math.round(progressRatio * 100)
+  const showFrames =
+    progress != null &&
+    (progress.phase === "capturing" || progress.phase === "encoding") &&
+    progress.total > 1
+  const etaLabel = formatExportEta(progress?.etaMs)
+  const phaseLabel =
+    ANIMATION_EXPORT_PHASE_LABELS[progress?.phase ?? "idle"] ??
+    ANIMATION_EXPORT_PHASE_LABELS.idle
+  const [quipTick, setQuipTick] = React.useState(0)
+
+  React.useEffect(() => {
+    if (!open) return
+    const id = window.setInterval(() => setQuipTick((t) => t + 1), 2400)
+    return () => window.clearInterval(id)
+  }, [open, progress?.phase])
+
+  const quip = exportQuip(progress?.phase ?? null, quipTick)
+  const frameLabel = showFrames
+    ? `${Math.min(current, total)} of ${total} frames`
+    : progress
+      ? `${pct}% complete`
+      : "Waiting to start"
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onCancel()
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="overflow-hidden border-border/70 bg-popover/95 p-0 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:max-w-[400px]"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault()
+          onCancel()
+        }}
+      >
+        <div className="flex flex-col gap-5 px-5 py-5">
+          <div className="space-y-2">
+            <div className="flex items-start justify-between gap-4">
+              <DialogTitle className="text-[15px] leading-none font-semibold tracking-tight">
+                Exporting {formatLabel}
+              </DialogTitle>
+              <div
+                className="shrink-0 rounded-md border border-primary/15 bg-primary/10 px-2.5 py-1 text-[12px] leading-none font-semibold text-primary tabular-nums"
+                aria-hidden="true"
+              >
+                {pct}%
+              </div>
+            </div>
+            <DialogDescription
+              className="relative h-6 overflow-hidden text-[12px] leading-6 text-muted-foreground"
+              aria-live="polite"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={`${progress?.phase ?? "idle"}-${quipTick}-${quip}`}
+                  className="absolute inset-x-0 top-0 whitespace-nowrap will-change-transform"
+                  initial={{ y: 8, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -8, opacity: 0 }}
+                  transition={{
+                    duration: 0.24,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                >
+                  {quip}
+                </motion.span>
+              </AnimatePresence>
+            </DialogDescription>
+          </div>
+
+          <div className="w-full space-y-3">
+            <div
+              className="h-2 w-full overflow-hidden rounded-full bg-secondary/80 shadow-inner"
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Exporting ${formatLabel}`}
+              aria-valuetext={`${pct}% complete, ${phaseLabel.toLowerCase()}`}
+            >
+              <motion.div
+                className="relative h-full w-full origin-left overflow-hidden rounded-full bg-primary will-change-transform"
+                initial={false}
+                animate={{ scaleX: progressRatio }}
+                transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <div className="absolute inset-y-0 right-0 w-10 bg-linear-to-r from-transparent to-white/35" />
+              </motion.div>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] items-center gap-4 text-[12px] text-muted-foreground">
+              <span className="min-w-0 truncate font-mono tabular-nums">
+                {frameLabel}
+              </span>
+              <span className="font-mono text-foreground/70 tabular-nums">
+                {etaLabel ? `ETA ${etaLabel}` : "Calculating ETA"}
+              </span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="h-10 w-full gap-2 border-border/70 bg-background/30 text-[13px] text-foreground/75 hover:border-primary/35 hover:bg-primary/10 hover:text-primary"
+            onClick={onCancel}
+          >
+            <RiCloseLine className="size-4" />
+            Cancel export
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 function CanvasPreviewTile({
   canvas,
@@ -93,7 +323,7 @@ function CanvasPreviewTile({
     >
       <div
         ref={containerRef}
-        className="relative isolate w-full overflow-hidden rounded-[6px] [&_*]:pointer-events-none"
+        className="relative isolate w-full overflow-hidden rounded-[6px] **:pointer-events-none"
         style={{ aspectRatio: `${stageW} / ${stageH}` }}
       >
         <div
@@ -303,6 +533,20 @@ function BulkExportDialog({
   )
 }
 
+function animationOutputDims(
+  canvasId: string,
+  resolution: AnimationExportResolution
+): { width: number; height: number } | null {
+  const rendered = getCanvasRenderedDims(canvasId)
+  if (!rendered?.width || !rendered.height) return null
+  const targetWidth = ANIMATION_RESOLUTION_WIDTHS[resolution]
+  const scale = targetWidth / rendered.width
+  return {
+    width: Math.round(rendered.width * scale),
+    height: Math.round(rendered.height * scale),
+  }
+}
+
 export function ExportControls({
   includeWatermark,
   onIncludeWatermarkChange,
@@ -312,16 +556,95 @@ export function ExportControls({
 }) {
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
   const canvases = useEditorStore(useShallow((s) => s.present.canvases))
   const setTopBarPopoverOpen = useEditorStore((s) => s.setTopBarPopoverOpen)
   const [format, setFormat] = React.useState<ExportFormat>("png")
   const [resolution, setResolution] = React.useState<ExportResolution>("hd")
+  const [animFormat, setAnimFormat] =
+    React.useState<AnimationExportFormat>("gif")
+  const [animResolution, setAnimResolution] =
+    React.useState<AnimationExportResolution>("hd")
+  const [animFps, setAnimFps] = React.useState<AnimationExportFps>(30)
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = React.useState(false)
+  const [animProgress, setAnimProgress] =
+    React.useState<AnimationExportProgress | null>(null)
+  const animAbortRef = React.useRef<AbortController | null>(null)
+  // Throttle UI updates so we still show Frame X/Y without re-rendering every
+  // single capture. The fill itself eases between these snapshots.
+  const lastUiPushRef = React.useRef(0)
+  const lastUiSnapshotRef = React.useRef("")
+
+  const cancelAnimExport = React.useCallback(() => {
+    animAbortRef.current?.abort()
+  }, [])
 
   const handleExport = React.useCallback(async () => {
     if (isExporting) return
+    if (isAnimateMode) {
+      const abort = new AbortController()
+      animAbortRef.current = abort
+      lastUiPushRef.current = 0
+      lastUiSnapshotRef.current = ""
+      setIsExporting(true)
+      setAnimProgress({
+        phase: "preparing",
+        current: 0,
+        total: 1,
+        etaMs: null,
+      })
+      setOpen(false)
+      try {
+        await exportAnimation(activeCanvasId, {
+          format: animFormat,
+          fps: animFps,
+          targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
+          signal: abort.signal,
+          onProgress: (p) => {
+            const now = performance.now()
+            const isPhaseChange =
+              p.phase !== lastUiSnapshotRef.current.split("|")[0]
+            const isDone = p.current >= p.total && p.total > 0
+            // Always push phase changes + completion; throttle mid-flight.
+            if (
+              !isPhaseChange &&
+              !isDone &&
+              now - lastUiPushRef.current < 100
+            ) {
+              return
+            }
+            lastUiPushRef.current = now
+            lastUiSnapshotRef.current = `${p.phase}|${p.current}|${p.total}`
+            setAnimProgress(p)
+          },
+        })
+        toast.success(
+          `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
+        )
+      } catch (err) {
+        if (
+          err instanceof AnimationExportAbortedError ||
+          (err instanceof DOMException && err.name === "AbortError") ||
+          (err instanceof Error && err.name === "AnimationExportAbortedError")
+        ) {
+          toast.message("Export cancelled")
+        } else {
+          console.error(err)
+          toast.error(
+            err instanceof Error && err.message === "Nothing to export"
+              ? "Nothing to export — add a keyframe first."
+              : "Animation export failed. Please try again."
+          )
+        }
+      } finally {
+        animAbortRef.current = null
+        setAnimProgress(null)
+        setIsExporting(false)
+      }
+      return
+    }
     if (bulkEditMode) {
       setBulkDialogOpen(true)
       return
@@ -340,23 +663,46 @@ export function ExportControls({
     }
   }, [
     activeCanvasId,
+    animFormat,
+    animFps,
+    animResolution,
     bulkEditMode,
     format,
     includeWatermark,
+    isAnimateMode,
     resolution,
     isExporting,
   ])
 
-  const dims = open ? getOutputDims(activeCanvasId, resolution) : null
+  const dims = open
+    ? isAnimateMode
+      ? animationOutputDims(activeCanvasId, animResolution)
+      : getOutputDims(activeCanvasId, resolution)
+    : null
   const dimsLabel = dims ? `${dims.width} × ${dims.height}` : "—"
+
+  const buttonLabel = isExporting
+    ? "Exporting…"
+    : isAnimateMode
+      ? `Export ${ANIMATION_RESOLUTION_LABELS[animResolution]} • ${ANIMATION_FORMAT_LABELS[animFormat]}`
+      : `Export ${EXPORT_RESOLUTION_LABELS[resolution]} • ${EXPORT_FORMAT_LABELS[format]}`
 
   return (
     <>
+      <AnimationExportProgressDialog
+        open={isExporting && isAnimateMode}
+        progress={animProgress}
+        formatLabel={ANIMATION_FORMAT_LABELS[animFormat]}
+        onCancel={cancelAnimExport}
+      />
+
       <div className="flex h-8 items-stretch overflow-hidden rounded-md bg-primary text-white shadow-sm transition-all hover:shadow-md">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
+              type="button"
               className="flex items-center gap-2 px-3.5 transition-colors hover:bg-white/10"
+              disabled={isExporting}
               onClick={() => void handleExport()}
             >
               <RiArrowUpCircleLine className="size-4 shrink-0" />
@@ -365,26 +711,28 @@ export function ExportControls({
                   className="invisible pr-0.5 whitespace-nowrap"
                   aria-hidden
                 >
-                  {EXPORT_BUTTON_MAX_LABEL}
+                  {isAnimateMode
+                    ? ANIMATION_BUTTON_MAX_LABEL
+                    : EXPORT_BUTTON_MAX_LABEL}
                 </span>
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span
-                    key={isExporting ? "exporting" : "export"}
+                    key={isExporting ? "exporting" : buttonLabel}
                     className="whitespace-nowrap"
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.18 }}
                   >
-                    {isExporting
-                      ? "Exporting…"
-                      : `Export ${EXPORT_RESOLUTION_LABELS[resolution]} • ${EXPORT_FORMAT_LABELS[format]}`}
+                    {buttonLabel}
                   </motion.span>
                 </AnimatePresence>
               </span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Export screenshot</TooltipContent>
+          <TooltipContent side="bottom">
+            {isAnimateMode ? "Export animation" : "Export screenshot"}
+          </TooltipContent>
         </Tooltip>
 
         <div className="w-px bg-white/20" />
@@ -399,7 +747,10 @@ export function ExportControls({
           <Tooltip open={open ? false : undefined}>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <button className="flex items-center px-2.5 transition-colors hover:bg-white/10">
+                <button
+                  type="button"
+                  className="flex items-center px-2.5 transition-colors hover:bg-white/10"
+                >
                   <RiEqualizerLine className="size-4" />
                 </button>
               </PopoverTrigger>
@@ -411,36 +762,79 @@ export function ExportControls({
             sideOffset={8}
             className="w-64 gap-3 rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
           >
-            <SegmentedRow
-              options={EXPORT_FORMATS.map((f) => ({
-                value: f,
-                label: EXPORT_FORMAT_LABELS[f],
-              }))}
-              value={format}
-              onChange={(v) => setFormat(v as ExportFormat)}
-            />
-            <SegmentedRow
-              options={EXPORT_RESOLUTIONS.map((r) => ({
-                value: r,
-                label: EXPORT_RESOLUTION_LABELS[r],
-              }))}
-              value={resolution}
-              onChange={(v) => setResolution(v as ExportResolution)}
-            />
-            <div className="flex flex-col gap-1 px-1 pt-1">
-              <SummaryRow label="Resolution" value={dimsLabel} />
-              <div className="h-px bg-border/50" />
-              <SummaryRow
-                label="Format"
-                value={EXPORT_FORMAT_EXTENSION[format]}
-              />
-              <div className="h-px bg-border/50" />
-              <SwitchRow
-                label="Watermark"
-                checked={includeWatermark}
-                onCheckedChange={onIncludeWatermarkChange}
-              />
-            </div>
+            {isAnimateMode ? (
+              <>
+                <SegmentedRow
+                  options={ANIMATION_FORMATS.map((f) => ({
+                    value: f,
+                    label: ANIMATION_FORMAT_LABELS[f],
+                  }))}
+                  value={animFormat}
+                  onChange={(v) => setAnimFormat(v as AnimationExportFormat)}
+                />
+                <SegmentedRow
+                  options={ANIMATION_RESOLUTIONS.map((r) => ({
+                    value: r,
+                    label: ANIMATION_RESOLUTION_LABELS[r],
+                  }))}
+                  value={animResolution}
+                  onChange={(v) =>
+                    setAnimResolution(v as AnimationExportResolution)
+                  }
+                />
+                <SegmentedRow
+                  options={ANIMATION_FPS_OPTIONS.map((fps) => ({
+                    value: String(fps),
+                    label: `${fps} fps`,
+                  }))}
+                  value={String(animFps)}
+                  onChange={(v) => setAnimFps(Number(v) as AnimationExportFps)}
+                />
+                <div className="flex flex-col gap-1 px-1 pt-1">
+                  <SummaryRow label="Resolution" value={dimsLabel} />
+                  <div className="h-px bg-border/50" />
+                  <SummaryRow label="Frame rate" value={`${animFps} fps`} />
+                  <div className="h-px bg-border/50" />
+                  <SummaryRow
+                    label="Format"
+                    value={ANIMATION_FORMAT_EXTENSION[animFormat]}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <SegmentedRow
+                  options={EXPORT_FORMATS.map((f) => ({
+                    value: f,
+                    label: EXPORT_FORMAT_LABELS[f],
+                  }))}
+                  value={format}
+                  onChange={(v) => setFormat(v as ExportFormat)}
+                />
+                <SegmentedRow
+                  options={EXPORT_RESOLUTIONS.map((r) => ({
+                    value: r,
+                    label: EXPORT_RESOLUTION_LABELS[r],
+                  }))}
+                  value={resolution}
+                  onChange={(v) => setResolution(v as ExportResolution)}
+                />
+                <div className="flex flex-col gap-1 px-1 pt-1">
+                  <SummaryRow label="Resolution" value={dimsLabel} />
+                  <div className="h-px bg-border/50" />
+                  <SummaryRow
+                    label="Format"
+                    value={EXPORT_FORMAT_EXTENSION[format]}
+                  />
+                  <div className="h-px bg-border/50" />
+                  <SwitchRow
+                    label="Watermark"
+                    checked={includeWatermark}
+                    onCheckedChange={onIncludeWatermarkChange}
+                  />
+                </div>
+              </>
+            )}
           </PopoverContent>
         </Popover>
       </div>

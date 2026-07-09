@@ -18,6 +18,7 @@ import { AnimationPlayerProvider } from "@/hooks/use-animation-player"
 import { Inspector } from "@/components/editor/inspector"
 import { IpadSidebar } from "@/components/editor/ipad-sidebar"
 import { MobileControls } from "@/components/editor/mobile-controls"
+import { ChromeRecommendedDialog } from "@/components/editor/chrome-recommended-dialog"
 import { TopBar } from "@/components/editor/top-bar"
 import { EditorProvider, useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
@@ -331,6 +332,7 @@ function EditorLayout() {
 export default function ScreenshotsPage() {
   return (
     <EditorProvider>
+      <ChromeRecommendedDialog />
       <EditorLayout />
     </EditorProvider>
   )
