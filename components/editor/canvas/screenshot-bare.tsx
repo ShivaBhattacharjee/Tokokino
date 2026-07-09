@@ -87,10 +87,22 @@ export function ScreenshotBare({
   innerLightingStyle,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
+  // Only the free-positioned single main screenshot passes numeric left/top and
+  // should read `--editor-main-bare-*` live-preview vars. Nested multi-row / slot
+  // content is always centered at 50%/50% — if it inherited canvas-level bare
+  // vars during a main pad drag, every image would shift inside its box and the
+  // main selection outline would detach from its image.
+  const useBarePreviewVars = typeof screenshotLeft === "number"
   const screenshotLeftValue =
     typeof screenshotLeft === "number" ? `${screenshotLeft}px` : "50%"
   const screenshotTopValue =
     typeof screenshotTop === "number" ? `${screenshotTop}px` : "50%"
+  const leftStyle = useBarePreviewVars
+    ? `var(--editor-main-bare-left, ${screenshotLeftValue})`
+    : screenshotLeftValue
+  const topStyle = useBarePreviewVars
+    ? `var(--editor-main-bare-top, ${screenshotTopValue})`
+    : screenshotTopValue
 
   return (
     <div
@@ -114,8 +126,8 @@ export function ScreenshotBare({
         onPointerCancel={onPointerUp}
         style={{
           ...imgStyle,
-          left: `var(--editor-main-bare-left, ${screenshotLeftValue})`,
-          top: `var(--editor-main-bare-top, ${screenshotTopValue})`,
+          left: leftStyle,
+          top: topStyle,
           ...(positionedStyle
             ? null
             : {
@@ -150,8 +162,8 @@ export function ScreenshotBare({
           style={{
             ...innerLightingStyle,
             borderRadius: imgStyle.borderRadius,
-            left: `var(--editor-main-bare-left, ${screenshotLeftValue})`,
-            top: `var(--editor-main-bare-top, ${screenshotTopValue})`,
+            left: leftStyle,
+            top: topStyle,
             zIndex: 1,
             ...(positionedStyle
               ? {

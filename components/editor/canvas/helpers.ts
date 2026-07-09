@@ -412,18 +412,35 @@ export function framePositionTransform({
   offset,
   transform,
   rotation = 0,
+  readPreviewVars = true,
 }: {
   anchor: { x: number; y: number }
   offset: { x: number; y: number }
   transform: string
   rotation?: number
+  /**
+   * When true (default) the anchor/offset legs read the `--editor-main-*` live-
+   * preview vars (with the passed values as fallbacks) so the box tracks a drag.
+   * Set false when this element sits INSIDE a container that is itself positioned
+   * by those vars (the multi-screenshot row item and slots): reading them here
+   * too would apply the move twice — detaching the image from its box. Then only
+   * the committed anchor/offset values are used.
+   */
+  readPreviewVars?: boolean
 }) {
   const rotationTransform = rotation ? ` rotate(${rotation}deg)` : ""
 
+  const anchorLeg = readPreviewVars
+    ? `translate(var(--editor-main-anchor-x, ${frameAnchorTravel(anchor.x, "x")}), var(--editor-main-anchor-y, ${frameAnchorTravel(anchor.y, "y")}))`
+    : `translate(${frameAnchorTravel(anchor.x, "x")}, ${frameAnchorTravel(anchor.y, "y")})`
+  const offsetLeg = readPreviewVars
+    ? `translate(var(--editor-main-offset-x, ${offset.x}px), var(--editor-main-offset-y, ${offset.y}px))`
+    : `translate(${offset.x}px, ${offset.y}px)`
+
   return [
     "translate(-50%, -50%)",
-    `translate(var(--editor-main-anchor-x, ${frameAnchorTravel(anchor.x, "x")}), var(--editor-main-anchor-y, ${frameAnchorTravel(anchor.y, "y")}))`,
-    `translate(var(--editor-main-offset-x, ${offset.x}px), var(--editor-main-offset-y, ${offset.y}px))`,
+    anchorLeg,
+    offsetLeg,
     transform,
     rotationTransform,
   ].join(" ")

@@ -7,6 +7,7 @@ import {
   type PositionSwipePoint,
 } from "@/components/editor/position-swipe-field"
 import {
+  afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
@@ -41,6 +42,9 @@ export function PositionSection() {
   const editor = useEditor()
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const setScale = useEditorStore((s) => s.setScale)
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
 
   const CANVAS_SCALE_VAR = "--canvas-ts-scale"
@@ -326,8 +330,20 @@ export function PositionSection() {
         ariaLabel="Position screenshot"
         disabled={disabled}
         value={currentPosition}
-        onPreview={previewMoveTo}
-        onChange={moveTo}
+        onPreview={(point) => {
+          // Drop the boxes' move easing for the pad drag so they track the pad
+          // live instead of easing ~300ms behind it.
+          setScreenshotPositionDragging(true)
+          previewMoveTo(point)
+        }}
+        onChange={(point) => {
+          moveTo(point)
+          // Reset only after the preview-var clear paints, so the main box
+          // doesn't ease between its preview and committed representations.
+          afterPositionPreviewCleared(() =>
+            setScreenshotPositionDragging(false)
+          )
+        }}
       />
       <EffectSlider
         label="Zoom"

@@ -413,6 +413,7 @@ export function useEditor(): EditorContext {
     setPreviewAnimation: store.setPreviewAnimation,
     setBulkEditMode: store.setBulkEditMode,
     setBulkCanvasDragging: store.setBulkCanvasDragging,
+    setScreenshotPositionDragging: store.setScreenshotPositionDragging,
     setBulkViewportZoom: store.setBulkViewportZoom,
     setBulkScale: store.setBulkScale,
     reset: store.reset,

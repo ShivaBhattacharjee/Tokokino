@@ -19,6 +19,7 @@ import {
   type PositionSwipePoint,
 } from "@/components/editor/position-swipe-field"
 import {
+  afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
@@ -107,6 +108,9 @@ export function DefaultToolbarContents() {
     : null
 
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
   const activeCanvasPosition = useActiveCanvasField((c) => c.position)
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
@@ -907,8 +911,23 @@ export function DefaultToolbarContents() {
                   ariaLabel={`Position ${positionTargetLabel}`}
                   disabled={isDisabled}
                   value={currentPositionPoint}
-                  onPreview={previewPositionPoint}
-                  onChange={applyPositionPoint}
+                  onPreview={(point) => {
+                    // Drop the boxes' 300ms left/top/transform easing for the
+                    // duration of the pad drag so they track the pad live instead
+                    // of easing behind it (which read as the preview landing in a
+                    // different spot than the committed result).
+                    setScreenshotPositionDragging(true)
+                    previewPositionPoint(point)
+                  }}
+                  onChange={(point) => {
+                    applyPositionPoint(point)
+                    // Reset only AFTER the preview-var clear paints, so the main
+                    // box doesn't ease between its preview and committed position
+                    // representations on release.
+                    afterPositionPreviewCleared(() =>
+                      setScreenshotPositionDragging(false)
+                    )
+                  }}
                 />
               </div>
             </ToolbarPopover>

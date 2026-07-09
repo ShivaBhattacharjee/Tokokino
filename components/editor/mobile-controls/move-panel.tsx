@@ -7,6 +7,7 @@ import {
   type PositionSwipePoint,
 } from "@/components/editor/position-swipe-field"
 import {
+  afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
@@ -29,6 +30,9 @@ import {
 export function MobileMovePanel() {
   const editor = useEditor()
   const setActiveTool = useEditorStore((s) => s.setActiveTool)
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
 
   React.useEffect(() => {
@@ -391,8 +395,20 @@ export function MobileMovePanel() {
         ariaLabel={`Move ${targetLabel}`}
         disabled={targetLabel === "nothing"}
         value={currentPosition}
-        onPreview={previewMoveTo}
-        onChange={moveTo}
+        onPreview={(point) => {
+          // Drop the boxes' move easing for the pad drag so they track the pad
+          // live instead of easing ~300ms behind it.
+          setScreenshotPositionDragging(true)
+          previewMoveTo(point)
+        }}
+        onChange={(point) => {
+          moveTo(point)
+          // Reset only after the preview-var clear paints, so the main box
+          // doesn't ease between its preview and committed representations.
+          afterPositionPreviewCleared(() =>
+            setScreenshotPositionDragging(false)
+          )
+        }}
       />
     </div>
   )

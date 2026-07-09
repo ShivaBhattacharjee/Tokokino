@@ -87,4 +87,16 @@ export const FEATURES = [
     d: "Grab a live website by URL at a chosen device viewport — Tokokino takes the screenshot for you, no manual capture needed.",
     tone: "matcha" as const,
   },
+  {
+    k: "14",
+    t: "Custom presets",
+    d: "Save a polished look once, then re-apply the same layout, styling, and framing across future shots and drafts.",
+    tone: "primary" as const,
+  },
+  {
+    k: "15",
+    t: "Bulk edit & preview",
+    d: "Arrange multiple canvases on one board, then preview them with Slide, Fade, Zoom, or Flip before export.",
+    tone: "matcha" as const,
+  },
 ]

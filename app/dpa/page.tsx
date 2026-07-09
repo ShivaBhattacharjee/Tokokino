@@ -47,10 +47,38 @@ const subProcessorGroups: SubProcessorGroup[] = [
     title: "Cloud Infrastructure & Hosting",
     rows: [
       {
-        name: "Cloudflare",
+        name: "Cloudflare Workers & CDN",
         purpose:
-          "Application hosting, request routing, D1 database, R2 object storage, CDN delivery, security controls, logs, and optional browser rendering infrastructure.",
+          "Application hosting, request routing, CDN delivery, edge security controls, and operational logging for hosted service traffic.",
         entity: "Cloudflare, Inc.",
+        location: "United States / Global",
+      },
+      {
+        name: "Cloudflare D1",
+        purpose:
+          "Managed relational database used for account, share, draft metadata, and other application records.",
+        entity: "Cloudflare, Inc.",
+        location: "United States / Global",
+      },
+      {
+        name: "Cloudflare R2",
+        purpose:
+          "Object storage used for hosted share images, draft state files, thumbnails, and related uploaded assets.",
+        entity: "Cloudflare, Inc.",
+        location: "United States / Global",
+      },
+      {
+        name: "Cloudflare Browser Rendering",
+        purpose:
+          "Optional remote browser automation and rendering infrastructure used for browser-based capture features when enabled.",
+        entity: "Cloudflare, Inc.",
+        location: "United States / Global",
+      },
+      {
+        name: "Sentry",
+        purpose:
+          "Optional application error monitoring and exception reporting used to detect, investigate, and remediate service issues.",
+        entity: "Functional Software, Inc. d/b/a Sentry",
         location: "United States / Global",
       },
     ],
@@ -614,19 +642,19 @@ function SubProcessorTables({ groups }: { groups: SubProcessorGroup[] }) {
             {group.title}
           </h3>
           <div className="overflow-x-auto rounded-lg border border-border/70">
-            <table className="min-w-[720px] border-collapse text-left text-xs leading-6">
+            <table className="w-full min-w-[720px] border-collapse text-left text-xs leading-6">
               <thead className="bg-card/60 text-foreground">
                 <tr>
-                  <th className="border-b border-border/70 px-4 py-3 font-semibold">
+                  <th className="w-[18%] border-b border-border/70 px-4 py-3 font-semibold">
                     Sub-processor
                   </th>
-                  <th className="border-b border-border/70 px-4 py-3 font-semibold">
+                  <th className="w-[50%] border-b border-border/70 px-4 py-3 font-semibold">
                     Purpose
                   </th>
-                  <th className="border-b border-border/70 px-4 py-3 font-semibold">
+                  <th className="w-[16%] border-b border-border/70 px-4 py-3 font-semibold">
                     Entity
                   </th>
-                  <th className="border-b border-border/70 px-4 py-3 font-semibold">
+                  <th className="w-[16%] border-b border-border/70 px-4 py-3 font-semibold">
                     Location
                   </th>
                 </tr>

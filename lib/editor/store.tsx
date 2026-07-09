@@ -741,6 +741,7 @@ export type EditorActions = {
   setPreviewAnimation: (a: "slide" | "fade" | "zoom" | "flip") => void
   setBulkEditMode: (b: boolean) => void
   setBulkCanvasDragging: (dragging: boolean) => void
+  setScreenshotPositionDragging: (dragging: boolean) => void
   setBulkViewportZoom: (zoom: number) => void
   setBulkScale: (n: number) => void
   reset: () => void
@@ -797,6 +798,10 @@ export type EditorStore = {
   previewAnimation: "slide" | "fade" | "zoom" | "flip"
   bulkEditMode: boolean
   bulkCanvasDragging: boolean
+  /** True while a screenshot/slot is being moved via the position pad (not the
+   * on-canvas box drag). Lets the boxes drop their left/top/transform easing so
+   * they track the pad live instead of easing ~300ms behind it. */
+  screenshotPositionDragging: boolean
   bulkViewportZoom: number
   bulkScale: number
   bulkFitViewSeq: number
@@ -960,6 +965,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     previewAnimation: "slide" as const,
     bulkEditMode: false,
     bulkCanvasDragging: false,
+    screenshotPositionDragging: false,
     bulkViewportZoom: 1,
     bulkScale: 65,
     bulkFitViewSeq: 0,
@@ -2350,6 +2356,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set({ bulkEditMode: b, bulkCanvasDragging: false, bulkViewportZoom: 1 })
     },
     setBulkCanvasDragging: (dragging) => set({ bulkCanvasDragging: dragging }),
+    setScreenshotPositionDragging: (dragging) =>
+      set({ screenshotPositionDragging: dragging }),
     setBulkViewportZoom: (zoom) =>
       set({ bulkViewportZoom: Math.max(0.05, Math.min(2, zoom)) }),
     setBulkScale: (n) => set({ bulkScale: Math.max(20, Math.min(100, n)) }),

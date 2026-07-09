@@ -72,6 +72,11 @@ import {
   overlayLayerCss,
   screenshotPlacementStyle,
 } from "./helpers"
+import { mainScreenshotPositionPct } from "@/components/editor/mobile-controls/position-math"
+import {
+  setMainScreenshotBarePreviewPx,
+  setMainScreenshotPositionPreview,
+} from "@/components/editor/position-preview-vars"
 import { MainScreenshotRowItem } from "./main-screenshot-row-item"
 import { ScreenshotBare } from "./screenshot-bare"
 import {
@@ -625,6 +630,56 @@ function CanvasViewInner({
     setSelectedTextId,
   ])
 
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
+
+  // Keep Animate-mode position CSS vars in sync with the live drag so the box
+  // tracks the pointer instead of staying on AnimationLayer's last sample until
+  // mouse-up. Uses the same preview helpers the position pad / player write.
+  const previewLiveMainOffset = React.useCallback(
+    (offset: { x: number; y: number }) => {
+      const canvasEl = canvasRef.current
+      if (!canvasEl) return
+
+      // Multi-row / framed / tweet: container is % positioned. Bare single: px.
+      if (inRowMode || frame.id !== "none" || tweet) {
+        const point = mainScreenshotPositionPct({
+          aspect: { id: aspect.id, w: aw, h: ah },
+          frame,
+          position: screenshotPosition,
+          offset,
+          slots: screenshotSlots,
+        })
+        setMainScreenshotPositionPreview(canvasEl, point)
+        return
+      }
+
+      if (
+        positionedStyle &&
+        typeof positionedStyle.left === "number" &&
+        typeof positionedStyle.top === "number"
+      ) {
+        setMainScreenshotBarePreviewPx(
+          canvasEl,
+          positionedStyle.left + offset.x,
+          positionedStyle.top + offset.y
+        )
+      }
+    },
+    [
+      ah,
+      aspect.id,
+      aw,
+      frame,
+      inRowMode,
+      positionedStyle,
+      screenshotPosition,
+      screenshotSlots,
+      tweet,
+    ]
+  )
+
   const {
     isScreenshotDragging,
     liveOffset,
@@ -647,6 +702,9 @@ function CanvasViewInner({
     setIsScreenshotSelected,
     clearSelection: clearElementSelection,
     updateCenterGuides,
+    setScreenshotPositionDragging,
+    onLiveOffsetPreview: previewLiveMainOffset,
+    getPreviewCanvasElement: () => canvasRef.current,
   })
   const effectiveOffset = liveOffset ?? screenshotOffset
   const screenshotLeft =

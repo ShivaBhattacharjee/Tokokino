@@ -9,6 +9,11 @@ import {
   type ScreenshotPosition,
 } from "@/lib/editor/store"
 
+import {
+  afterPositionPreviewCleared,
+  clearPositionPreviewVarsAfterPaint,
+} from "@/components/editor/position-preview-vars"
+
 import type { CenterGuidesState } from "./center-guides"
 import { screenshotPlacementStyle, snapCenterToTarget } from "./helpers"
 import type { PlacementDims } from "./use-placement-measurement"
@@ -50,6 +55,9 @@ export function useScreenshotDrag({
   setIsScreenshotSelected,
   clearSelection,
   updateCenterGuides,
+  setScreenshotPositionDragging,
+  onLiveOffsetPreview,
+  getPreviewCanvasElement,
 }: {
   activeTool: EditorTool
   canDragScreenshot: boolean
@@ -63,16 +71,33 @@ export function useScreenshotDrag({
   setIsScreenshotSelected: (selected: boolean) => void
   clearSelection: () => void
   updateCenterGuides: (next: CenterGuidesState) => void
+  /**
+   * Marks an on-canvas position drag so AnimationLayer stops overwriting the
+   * main/slot position CSS vars mid-gesture (otherwise Animate-mode mid-timeline
+   * holds the box on the sampled pose until mouse-up).
+   */
+  setScreenshotPositionDragging?: (dragging: boolean) => void
+  /**
+   * Drive the same position preview vars AnimationLayer uses, so a drag still
+   * tracks the pointer while those vars are mounted (Animate mode / pad path).
+   */
+  onLiveOffsetPreview?: (offset: Offset) => void
+  /** Canvas root used to clear position preview vars after a drag commits. */
+  getPreviewCanvasElement?: () => HTMLElement | null
 }) {
   const [isScreenshotDragging, setIsScreenshotDragging] = React.useState(false)
   const [liveOffset, setLiveOffset] = React.useState<Offset | null>(null)
   const liveOffsetRef = React.useRef<Offset | null>(null)
   const dragRef = React.useRef<ScreenshotDragState | null>(null)
   const mockupDragRef = React.useRef<MockupDragState | null>(null)
+  const setDraggingFlag = setScreenshotPositionDragging
+  const previewLive = onLiveOffsetPreview
+  const getPreviewCanvas = getPreviewCanvasElement
 
   const updateLiveOffset = (offset: Offset | null) => {
     liveOffsetRef.current = offset
     setLiveOffset(offset)
+    if (offset) previewLive?.(offset)
   }
 
   const normalizeScreenshotOffset = (offset: Offset) => {
@@ -137,7 +162,29 @@ export function useScreenshotDrag({
         setScreenshotOffset(liveOffsetRef.current)
       }
     }
-    updateLiveOffset(null)
+    liveOffsetRef.current = null
+    setLiveOffset(null)
+  }
+
+  const beginDrag = () => {
+    setIsScreenshotDragging(true)
+    setDraggingFlag?.(true)
+  }
+
+  const endDrag = (normalize: boolean) => {
+    setIsScreenshotDragging(false)
+    updateCenterGuides({ x: false, y: false })
+    const canvasEl = getPreviewCanvas?.() ?? null
+    try {
+      commitLiveOffset(normalize)
+    } finally {
+      // Drop the live-preview vars so the committed left/offset fallbacks take
+      // over (outside Animate mode nothing else clears them; inside, hold the
+      // dragging flag until after the clear paints so AnimationLayer doesn't
+      // re-sample the pre-drag pose for a frame).
+      clearPositionPreviewVarsAfterPaint([canvasEl])
+      afterPositionPreviewCleared(() => setDraggingFlag?.(false))
+    }
   }
 
   const startScreenshotDrag = (e: React.PointerEvent<HTMLImageElement>) => {
@@ -147,7 +194,7 @@ export function useScreenshotDrag({
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     setIsScreenshotSelected(true)
-    setIsScreenshotDragging(true)
+    beginDrag()
     clearSelection()
     dragRef.current = {
       pointerId: e.pointerId,
@@ -194,9 +241,7 @@ export function useScreenshotDrag({
     if (!drag || drag.pointerId !== e.pointerId) return
 
     dragRef.current = null
-    setIsScreenshotDragging(false)
-    updateCenterGuides({ x: false, y: false })
-    commitLiveOffset(true)
+    endDrag(true)
   }
 
   const startMockupDrag = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -206,7 +251,7 @@ export function useScreenshotDrag({
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     setIsScreenshotSelected(true)
-    setIsScreenshotDragging(true)
+    beginDrag()
     clearSelection()
     mockupDragRef.current = {
       pointerId: e.pointerId,
@@ -245,9 +290,7 @@ export function useScreenshotDrag({
     if (!drag || drag.pointerId !== e.pointerId) return
 
     mockupDragRef.current = null
-    setIsScreenshotDragging(false)
-    updateCenterGuides({ x: false, y: false })
-    commitLiveOffset()
+    endDrag(false)
   }
 
   return {

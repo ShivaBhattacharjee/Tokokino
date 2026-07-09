@@ -185,6 +185,13 @@ export function AnimationLayer() {
   const backdrop = canvas?.backdrop
   const background = canvas?.background
   const selectedClipId = useEditorStore((s) => s.selectedAnimationClipId)
+  // True while the user is dragging a box (on-canvas or position pad). While set,
+  // this layer must not rewrite position CSS vars — the gesture owns them so the
+  // box tracks the pointer in real time instead of sticking on the last sample
+  // until mouse-up.
+  const screenshotPositionDragging = useEditorStore(
+    (s) => s.screenshotPositionDragging
+  )
 
   // Frame-less single screenshots position by stage pixels (not %), so we need a
   // one-time stage measurement per playback; cache it and re-measure only when a
@@ -251,15 +258,13 @@ export function AnimationLayer() {
     if (!canvasEl) return
     const targets = Array.from(
       canvasEl.querySelectorAll<HTMLElement>(
-        // The shadow targets carry the transform ease; the slot container and the
-        // main-row positioning container each carry a left/top/transform ease for
-        // their position — all would smear the per-frame playback ~300ms behind
-        // the playhead (and, more visibly, make a pad drag in Animate mode lag and
-        // then ease to the drop point instead of tracking the cursor), so suppress
-        // them for the whole session. The main row must be listed explicitly: its
-        // container is scoped by `data-editor-shadow-preview-scope`, not the slot
-        // attribute, so it was previously the one box left un-suppressed.
-        "[data-editor-shadow-filter-target], [data-editor-shadow-box-target], [data-screenshot-slot-id], [data-editor-main-row]"
+        // The shadow targets carry the transform ease; the slot container carries
+        // a left/top ease for its position — both would smear the per-frame
+        // playback ~300ms behind the playhead, so suppress them for the session.
+        // (The main-row positioning container disables its own transition
+        // declaratively in Animate mode — see main-screenshot-row-item — since an
+        // imperative override here is clobbered by its frequent re-renders.)
+        "[data-editor-shadow-filter-target], [data-editor-shadow-box-target], [data-screenshot-slot-id]"
       )
     )
     for (const el of targets) el.style.transition = "none"
@@ -406,8 +411,12 @@ export function AnimationLayer() {
 
       // --- position (grid + offset → point, eases from the committed base
       // placement) ---
+      // While the user is dragging (pad or on-canvas), leave the vars alone so
+      // the live gesture can drive them without being overwritten each sample.
       const posFrames = mainClips.filter((c) => clipOwns(c, "position"))
-      if (posFrames.length > 0 && frame) {
+      if (screenshotPositionDragging) {
+        // Gesture owns the position vars this frame.
+      } else if (posFrames.length > 0 && frame) {
         const dims = isBareMainTarget ? measureDims(canvasEl) : null
         const aspect = canvas?.aspect ?? globalAspect
         const pointFor = (
@@ -846,8 +855,11 @@ export function AnimationLayer() {
       // position keyframe's baseline) → each keyframe's value, driving the same
       // --editor-position-x/y vars the slot's left/top read. Only the keyframes
       // that OWN position animate; otherwise the committed position shows.
+      // Skip while a drag/pad gesture owns the vars (same as main above).
       const slotPosClips = slotClips.filter((c) => clipOwns(c, "position"))
-      if (slotPosClips.length > 0) {
+      if (screenshotPositionDragging) {
+        // Gesture owns the position vars this frame.
+      } else if (slotPosClips.length > 0) {
         const firstPos = [...slotPosClips].sort(
           (a, b) => a.startMs - b.startMs
         )[0]
@@ -1057,6 +1069,7 @@ export function AnimationLayer() {
     playheadMs,
     clips,
     selectedClipId,
+    screenshotPositionDragging,
     tilt,
     scale,
     slots,

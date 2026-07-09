@@ -220,10 +220,16 @@ export function ScreenshotFrameContent({
       <div
         className="pointer-events-none absolute top-1/2 left-1/2 h-full w-full"
         style={{
+          // This content always lives inside a container that is ITSELF
+          // positioned (the multi-screenshot row item / slot). Don't read the
+          // `--editor-main-*` preview vars here or a main-screenshot drag applies
+          // the move twice — the image detaches from its selection box (only the
+          // container moved). Use the committed anchor/offset values only.
           transform: framePositionTransform({
             anchor: screenshotAnchor,
             offset: screenshotOffset,
             transform: "",
+            readPreviewVars: false,
           }),
           transformOrigin: "center",
         }}

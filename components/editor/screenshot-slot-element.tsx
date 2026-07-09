@@ -65,6 +65,11 @@ import {
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
+import {
+  afterPositionPreviewCleared,
+  clearPositionPreviewVarsAfterPaint,
+  setElementPositionPreview,
+} from "@/components/editor/position-preview-vars"
 import { cn } from "@/lib/utils"
 
 /**
@@ -184,6 +189,11 @@ export function ScreenshotSlotRender({
   // has a node to ease in from 0 / recolour via the preview vars. Suppressed in
   // preset previews (previewMode has no live animation).
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // A position-pad / group drag drives this slot via the live-preview vars while
+  // it still carries its left/top easing, so it would ease ~300ms behind the pad
+  // (preview appears offset from the committed spot). Drop the easing during that
+  // drag, exactly like the slot's own on-canvas drag (isBeingDragged).
+  const positionDragging = useEditorStore((s) => s.screenshotPositionDragging)
   const canvasClips = useActiveCanvasField((c) => c.animation?.clips ?? [])
   const slotOwns = React.useCallback(
     (effect: Parameters<typeof clipOwns>[1]) =>
@@ -228,7 +238,7 @@ export function ScreenshotSlotRender({
     zIndex: 60 + slot.zIndex,
     display: slot.hidden ? "none" : undefined,
     transition:
-      previewMode || isBeingDragged
+      previewMode || isBeingDragged || positionDragging
         ? undefined
         : "left 300ms ease-out, top 300ms ease-out",
   }
@@ -635,12 +645,18 @@ export function ScreenshotSlotView({
     stageRef,
   ])
 
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
+
   const startDrag = (e: React.PointerEvent<Element>) => {
     if (!canvasRef.current) return
     e.stopPropagation()
     e.preventDefault()
     select(e)
     setIsBeingDragged(true)
+    // Stop AnimationLayer from overwriting --editor-position-* while we drag.
+    setScreenshotPositionDragging(true)
     const rect = canvasRef.current.getBoundingClientRect()
     dragRef.current = {
       pointerId: e.pointerId,
@@ -684,8 +700,10 @@ export function ScreenshotSlotView({
     onCenterGuideChange?.(snap.guides)
     const el = elRef.current
     if (el) {
-      el.style.left = `${nextX}%`
-      el.style.top = `${nextY}%`
+      // Drive the same CSS vars the slot's left/top read (and AnimationLayer
+      // would write). Survives React re-renders from toolbar measure; direct
+      // style.left would get clobbered by the style prop on the next paint.
+      setElementPositionPreview(el, { xPct: nextX, yPct: nextY })
       setToolbarRect(el.getBoundingClientRect())
     }
   }
@@ -693,15 +711,23 @@ export function ScreenshotSlotView({
   const endDrag = (e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
+    const el = elRef.current
     if (drag.moved) {
-      updateScreenshotSlot(slot.id, {
-        xPct: drag.lastXPct,
-        yPct: drag.lastYPct,
-      })
+      try {
+        updateScreenshotSlot(slot.id, {
+          xPct: drag.lastXPct,
+          yPct: drag.lastYPct,
+        })
+      } finally {
+        clearPositionPreviewVarsAfterPaint([el])
+      }
     }
     dragRef.current = null
     setIsBeingDragged(false)
     onCenterGuideChange?.({ x: false, y: false })
+    // Hold the flag until after the preview-var clear paints so AnimationLayer
+    // doesn't re-apply the pre-drag sampled pose for a frame.
+    afterPositionPreviewCleared(() => setScreenshotPositionDragging(false))
   }
 
   const onBrowse = () => {

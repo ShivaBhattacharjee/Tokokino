@@ -16,7 +16,11 @@ import {
   ToolbarPopover,
   ToolbarSurface,
 } from "@/components/editor/toolbar/primitives"
-import type { DeviceFrame, EditorTool } from "@/lib/editor/store"
+import {
+  useEditorStore,
+  type DeviceFrame,
+  type EditorTool,
+} from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
 
@@ -114,6 +118,20 @@ export function MainScreenshotRender({
   captureDefaultDevice,
   captureStateKey,
 }: MainScreenshotRenderProps) {
+  // In Animate mode every pose change is driven per-frame (playback) or is an
+  // intentional snap (pad drag / scrub / edit), so the easing must be OFF the
+  // whole session — otherwise a pad drag lags 300ms behind the cursor and eases
+  // to the drop point on release. Read it declaratively (not via an imperative
+  // `style.transition = none` that any re-render would clobber) so it can't be
+  // reintroduced mid-drag.
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // A position-pad / group drag drives this box via the live-preview vars while
+  // it still carries its move easing, so it would ease ~300ms behind the pad
+  // (the preview appears to land somewhere other than the committed spot). Drop
+  // the easing for the duration of that drag too, exactly like an on-canvas drag.
+  const screenshotPositionDragging = useEditorStore(
+    (s) => s.screenshotPositionDragging
+  )
   const baseTransform = style.transform ?? ""
   const mergedStyle: React.CSSProperties = {
     ...style,
@@ -122,9 +140,13 @@ export function MainScreenshotRender({
     // Match the screenshot slots' position easing so a group move animates the
     // primary box in lockstep with the slots instead of snapping ahead of them.
     // Position travels via left/top (anchor) and the offset translate, so both
-    // must transition. Disabled while dragging/previewing for instant tracking.
+    // must transition. Disabled while dragging/previewing/animating for instant
+    // tracking.
     transition:
-      previewMode || isScreenshotDragging
+      previewMode ||
+      isScreenshotDragging ||
+      isAnimateMode ||
+      screenshotPositionDragging
         ? undefined
         : "left 300ms ease-out, top 300ms ease-out, transform 300ms ease-out",
   }
@@ -141,7 +163,6 @@ export function MainScreenshotRender({
     <div
       ref={containerRef}
       data-box-hover-target={previewMode ? undefined : ""}
-      data-editor-main-row={previewMode ? undefined : ""}
       data-editor-shadow-preview-scope="canvas"
       className={cn(
         "group/main-row",
