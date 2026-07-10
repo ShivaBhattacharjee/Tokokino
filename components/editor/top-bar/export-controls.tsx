@@ -70,19 +70,41 @@ const ANIMATION_FORMAT_EXTENSION: Record<AnimationExportFormat, string> = {
   webm: ".webm",
   mp4: ".mp4",
 }
-type AnimationExportResolution = "hd" | "4k"
-const ANIMATION_RESOLUTIONS: AnimationExportResolution[] = ["hd", "4k"]
+type AnimationExportResolution = "hd" | "fullhd"
+const ANIMATION_RESOLUTIONS: AnimationExportResolution[] = ["hd", "fullhd"]
 const ANIMATION_RESOLUTION_LABELS: Record<AnimationExportResolution, string> = {
   hd: "HD",
-  "4k": "4K",
+  fullhd: "Full HD",
 }
-/** Target widths for animation export (lighter than still 4K/8K). */
+// Animation export is capped at Full HD (1920px) on purpose — encoding hundreds
+// of frames at true 4K (3840px) is slow and produces huge files, especially GIF.
 const ANIMATION_RESOLUTION_WIDTHS: Record<AnimationExportResolution, number> = {
   hd: 1080,
-  "4k": 1920,
+  fullhd: 1920,
 }
-type AnimationExportFps = 24 | 30 | 60
-const ANIMATION_FPS_OPTIONS: AnimationExportFps[] = [24, 30, 60]
+type AnimationExportFps = 20 | 24 | 25 | 30 | 50 | 60
+// Video encoders (MP4/WebM) handle any rate; GIF delays are whole centiseconds,
+// so only rates that divide 100 cleanly (20→5cs, 25→4cs, 50→2cs) play smoothly.
+const VIDEO_FPS_OPTIONS: AnimationExportFps[] = [24, 30, 60]
+const GIF_FPS_OPTIONS: AnimationExportFps[] = [20, 25, 50]
+const ANIMATION_FPS_OPTIONS: AnimationExportFps[] = [
+  ...VIDEO_FPS_OPTIONS,
+  ...GIF_FPS_OPTIONS,
+]
+function fpsOptionsForFormat(
+  format: AnimationExportFormat
+): AnimationExportFps[] {
+  return format === "gif" ? GIF_FPS_OPTIONS : VIDEO_FPS_OPTIONS
+}
+/** Snap a persisted fps to the nearest option valid for the current format. */
+function snapFpsToOptions(
+  fps: number,
+  options: AnimationExportFps[]
+): AnimationExportFps {
+  return options.reduce((best, cur) =>
+    Math.abs(cur - fps) < Math.abs(best - fps) ? cur : best
+  )
+}
 const ANIMATION_CAPTURE_MODES: AnimationCaptureMode[] = [
   "auto",
   "fast",
@@ -93,7 +115,7 @@ const ANIMATION_CAPTURE_MODE_LABELS: Record<AnimationCaptureMode, string> = {
   fast: "Fast",
   legacy: "Precise",
 }
-const ANIMATION_BUTTON_MAX_LABEL = `Export ${ANIMATION_RESOLUTION_LABELS["4k"]} • ${ANIMATION_FORMAT_LABELS.webm}`
+const ANIMATION_BUTTON_MAX_LABEL = `Export ${ANIMATION_RESOLUTION_LABELS.fullhd} • ${ANIMATION_FORMAT_LABELS.webm}`
 
 const ANIMATION_EXPORT_PHASE_LABELS: Record<
   AnimationExportProgress["phase"] | "idle",
@@ -552,6 +574,11 @@ export function ExportControls({
       (v): v is AnimationCaptureMode =>
         ANIMATION_CAPTURE_MODES.includes(v as AnimationCaptureMode)
     )
+  // GIF only supports its centisecond-friendly rates; snap the persisted fps to
+  // the options valid for the current format so a video rate (e.g. 30) picked
+  // earlier resolves to the nearest GIF rate (25) when GIF is selected.
+  const animFpsOptions = fpsOptionsForFormat(animFormat)
+  const effectiveAnimFps = snapFpsToOptions(animFps, animFpsOptions)
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = React.useState(false)
@@ -585,7 +612,7 @@ export function ExportControls({
       try {
         await exportAnimation(activeCanvasId, {
           format: animFormat,
-          fps: animFps,
+          fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
           watermark: includeWatermark,
           capture: animCapture,
@@ -653,7 +680,7 @@ export function ExportControls({
     activeCanvasId,
     animCapture,
     animFormat,
-    animFps,
+    effectiveAnimFps,
     animResolution,
     bulkEditMode,
     format,
@@ -772,17 +799,20 @@ export function ExportControls({
                   }
                 />
                 <SegmentedRow
-                  options={ANIMATION_FPS_OPTIONS.map((fps) => ({
+                  options={animFpsOptions.map((fps) => ({
                     value: String(fps),
                     label: `${fps} fps`,
                   }))}
-                  value={String(animFps)}
+                  value={String(effectiveAnimFps)}
                   onChange={(v) => setAnimFps(Number(v) as AnimationExportFps)}
                 />
                 <div className="flex flex-col gap-1 px-1 pt-1">
                   <SummaryRow label="Resolution" value={dimsLabel} />
                   <div className="h-px bg-border/50" />
-                  <SummaryRow label="Frame rate" value={`${animFps} fps`} />
+                  <SummaryRow
+                    label="Frame rate"
+                    value={`${effectiveAnimFps} fps`}
+                  />
                   <div className="h-px bg-border/50" />
                   <SummaryRow
                     label="Format"

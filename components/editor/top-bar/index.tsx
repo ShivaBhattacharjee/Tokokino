@@ -94,7 +94,7 @@ import {
 
 const ANIM_SHARE_WIDTHS: Record<AnimateShareResolution, number> = {
   hd: 1080,
-  "4k": 1920,
+  fullhd: 1920,
 }
 
 export function TopBar() {
@@ -441,7 +441,8 @@ export function TopBar() {
       )
       const { blob } = await exportAnimationBlob(activeCanvasId, {
         format: shareAnimFormat,
-        fps: 30,
+        // GIF delays are whole centiseconds; 25fps (4cs) plays cleaner than 30.
+        fps: shareAnimFormat === "gif" ? 25 : 30,
         targetWidth: ANIM_SHARE_WIDTHS[shareAnimResolution],
         watermark: includeExportWatermark,
         capture: "auto",
