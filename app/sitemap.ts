@@ -8,6 +8,7 @@ const routes = [
   { path: "/app", changeFrequency: "monthly", priority: 0.9 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.4 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.4 },
+  { path: "/dpa", changeFrequency: "yearly", priority: 0.4 },
 ] as const satisfies ReadonlyArray<{
   path: string
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]
