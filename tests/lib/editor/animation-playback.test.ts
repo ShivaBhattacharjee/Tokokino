@@ -202,6 +202,54 @@ describe("sampleKeyframes", () => {
   it("holds the last frame's value past the end", () => {
     expect(sampleKeyframes(frames, 9000, 0, num)).toBe(20)
   })
+
+  it("uses a frame's own ease over the default ease-out", () => {
+    const linear = [
+      { startMs: 0, durationMs: 1000, value: 10, ease: (t: number) => t },
+    ]
+    // Linear ease at 0.5 → lerp(0,10,0.5)=5, vs the ease-out default's 8.75.
+    expect(sampleKeyframes(linear, 500, 0, num)).toBeCloseTo(5, 5)
+  })
+})
+
+describe("per-clip easing & speed", () => {
+  it("clipsProgressAt applies a clip's linear easing instead of ease-out", () => {
+    const linear = [
+      clip({ id: "a", startMs: 0, durationMs: 1000, easing: "linear" }),
+    ]
+    expect(clipsProgressAt(linear, 500)).toBeCloseTo(0.5, 5)
+  })
+
+  it("clipsProgressAt still defaults to ease-out with no easing set", () => {
+    const dflt = [clip({ id: "a", startMs: 0, durationMs: 1000 })]
+    expect(clipsProgressAt(dflt, 500)).toBeCloseTo(EASED_HALF, 5)
+  })
+
+  it("clipsProgressAt completes early then holds when speed > 1", () => {
+    const fast = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "linear",
+        speed: 2,
+      }),
+    ]
+    // Speed 2 reaches the pose at half the window, then holds at 1.
+    expect(clipsProgressAt(fast, 250)).toBeCloseTo(0.5, 5)
+    expect(clipsProgressAt(fast, 500)).toBeCloseTo(1, 5)
+    expect(clipsProgressAt(fast, 750)).toBeCloseTo(1, 5)
+  })
+
+  it("activeClipAt reports the clip's eased progress", () => {
+    const linear = clip({
+      id: "a",
+      startMs: 0,
+      durationMs: 1000,
+      easing: "linear",
+    })
+    expect(activeClipAt([linear], 500)!.progress).toBeCloseTo(0.5, 5)
+  })
 })
 
 describe("resolveAnimateFilterStack", () => {

@@ -118,14 +118,12 @@ function DraftCard({
   draft,
   isCurrent,
   isOpening,
-  isDeleting,
   onOpen,
   onDelete,
 }: {
   draft: DraftListItem
   isCurrent: boolean
   isOpening: boolean
-  isDeleting: boolean
   onOpen: () => void
   onDelete: () => void
 }) {
@@ -138,13 +136,13 @@ function DraftCard({
       <button
         type="button"
         onClick={onOpen}
-        disabled={isOpening || isDeleting}
+        disabled={isOpening}
         className={cn(
           "flex w-full flex-col overflow-hidden rounded-xl border bg-secondary/30 text-left transition-colors",
           isCurrent
             ? "border-primary"
             : "border-border/50 hover:border-primary/55",
-          (isOpening || isDeleting) && "cursor-not-allowed opacity-60"
+          isOpening && "cursor-not-allowed opacity-60"
         )}
       >
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary/40">
@@ -187,7 +185,6 @@ function DraftCard({
           e.stopPropagation()
           onDelete()
         }}
-        disabled={isDeleting}
         aria-label={`Delete ${draft.name}`}
         className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-border/60 bg-background/85 text-muted-foreground opacity-100 shadow-sm transition-opacity hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
       >
@@ -298,8 +295,12 @@ function ProjectPagination({
   loading: boolean
   onPageChange: (page: number) => void
 }) {
-  // Nothing to paginate — keep the shell clean on empty states.
-  if (total <= 0 || loading) return null
+  // Nothing to paginate — keep the shell clean on empty states. Note we do NOT
+  // hide while `loading`: during a page change `total` stays put, so the bar
+  // must stay mounted (hiding it made it blink out and back on every page turn).
+  // On the very first load `total` is still 0, so the bar stays hidden behind
+  // the skeleton until results arrive.
+  if (total <= 0) return null
 
   const items = buildPageItems(page, totalPages)
   const canPrev = page > 1
@@ -319,7 +320,7 @@ function ProjectPagination({
               variant="ghost"
               size="sm"
               className="h-8 gap-1 px-2 text-[11px]"
-              disabled={!canPrev}
+              disabled={!canPrev || loading}
               onClick={() => onPageChange(page - 1)}
               aria-label="Go to previous page"
             >
@@ -342,6 +343,9 @@ function ProjectPagination({
                   className="size-8 text-[11px] tabular-nums"
                   aria-label={`Go to page ${item}`}
                   aria-current={item === page ? "page" : undefined}
+                  // Keep the active page interactive-looking; only lock the
+                  // others while a page is loading.
+                  disabled={loading && item !== page}
                   onClick={() => onPageChange(item)}
                 >
                   {item}
@@ -356,7 +360,7 @@ function ProjectPagination({
               variant="ghost"
               size="sm"
               className="h-8 gap-1 px-2 text-[11px]"
-              disabled={!canNext}
+              disabled={!canNext || loading}
               onClick={() => onPageChange(page + 1)}
               aria-label="Go to next page"
             >
@@ -392,7 +396,6 @@ export function OpenProjectDialog({
   const [drafts, setDrafts] = React.useState<DraftListItem[] | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
-  const [deletingId, setDeletingId] = React.useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null
   )
@@ -517,7 +520,16 @@ export function OpenProjectDialog({
   }
 
   const handleDelete = async (id: string) => {
-    setDeletingId(id)
+    // Optimistic: drop the card and decrement the count immediately, then call
+    // the API. Snapshots let us restore everything if the delete fails — same
+    // pattern as the shares gallery.
+    const snapshotDrafts = drafts
+    const snapshotTotal = total
+    const remaining = snapshotDrafts?.filter((d) => d.id !== id) ?? null
+
+    setDrafts(remaining)
+    setTotal((t) => Math.max(0, t - 1))
+
     try {
       const res = await fetch(`/api/drafts/${id}`, {
         method: "DELETE",
@@ -530,20 +542,16 @@ export function OpenProjectDialog({
         throw new Error(data?.error ?? "Could not delete draft")
       }
       toast.success("Draft removed")
-      setTotal((t) => Math.max(0, t - 1))
-      setDrafts((prev) => {
-        const next = prev?.filter((d) => d.id !== id) ?? prev
-        // If this page is now empty and we're past page 1, step back.
-        if (next && next.length === 0 && page > 1) {
-          setPage((p) => Math.max(1, p - 1))
-        }
-        return next
-      })
+      // If the page emptied out, step back so we don't sit on a blank page.
+      if (remaining && remaining.length === 0 && page > 1) {
+        setPage((p) => Math.max(1, p - 1))
+      }
     } catch (err) {
       console.error(err)
+      // Revert the optimistic removal.
+      setDrafts(snapshotDrafts)
+      setTotal(snapshotTotal)
       toast.error(err instanceof Error ? err.message : "Could not delete draft")
-    } finally {
-      setDeletingId(null)
     }
   }
 
@@ -713,7 +721,6 @@ export function OpenProjectDialog({
                           draft={draft}
                           isCurrent={currentDraftId === draft.id}
                           isOpening={busyId === draft.id}
-                          isDeleting={deletingId === draft.id}
                           onOpen={() => void handleOpen(draft.id)}
                           onDelete={() => setConfirmDeleteId(draft.id)}
                         />

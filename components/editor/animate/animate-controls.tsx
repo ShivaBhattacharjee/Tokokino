@@ -31,6 +31,8 @@ type AnimateControlsProps = {
   onTogglePlay: () => void
   onToggleRazor: () => void
   onReset: () => void
+  /** Selected clip's transition button — only present while a clip is selected. */
+  transitionControl?: React.ReactNode
 }
 
 const iconButton =
@@ -51,9 +53,13 @@ export function AnimateControls({
   onTogglePlay,
   onToggleRazor,
   onReset,
+  transitionControl,
 }: AnimateControlsProps) {
   return (
-    <div className="flex items-center gap-1.5">
+    // 3-column grid: the center controls stay centered no matter what the side
+    // cells hold, so the transition button appearing on the right never shifts
+    // the play controls (a plain flex + mx-auto re-centered on every toggle).
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
       <input
         ref={audioInputRef}
         type="file"
@@ -62,19 +68,21 @@ export function AnimateControls({
         onChange={onPickAudio}
       />
 
-      <button
-        type="button"
-        onClick={onExit}
-        aria-label="Exit animate"
-        className={cn(
-          iconButton,
-          "bg-foreground/8 text-foreground hover:bg-foreground/15"
-        )}
-      >
-        <RiArrowLeftLine className="size-[18px]" />
-      </button>
+      <div className="flex items-center justify-self-start">
+        <button
+          type="button"
+          onClick={onExit}
+          aria-label="Exit animate"
+          className={cn(
+            iconButton,
+            "bg-foreground/8 text-foreground hover:bg-foreground/15"
+          )}
+        >
+          <RiArrowLeftLine className="size-[18px]" />
+        </button>
+      </div>
 
-      <div className="mx-auto flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={onToggleAudio}
@@ -150,9 +158,15 @@ export function AnimateControls({
         </button>
       </div>
 
-      <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-        {formatTime(playheadMs)} / {formatShort(durationMs)}
-      </span>
+      {/* Right cell: the selected clip's transition control on the left, then
+          the playhead / total-duration readout on the right. Its own grid column
+          so it never moves the centered controls. */}
+      <div className="flex min-w-0 items-center justify-end gap-2 justify-self-end">
+        {transitionControl}
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+          {formatTime(playheadMs)} / {formatShort(durationMs)}
+        </span>
+      </div>
     </div>
   )
 }

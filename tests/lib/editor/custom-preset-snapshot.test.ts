@@ -128,6 +128,33 @@ describe("custom preset snapshot", () => {
     expect(remapped.audio).toBeNull()
   })
 
+  it("preserves per-clip easing & speed through capture and apply", () => {
+    const source = canvasWithClips(["old-slot"])
+    source.animation = {
+      ...source.animation!,
+      clips: [{ ...source.animation!.clips[0], easing: "linear", speed: 2.5 }],
+    }
+    const geometry = captureCustomPresetGeometry(
+      source,
+      { id: "16-10", w: 16, h: 10 },
+      { includeAnimation: true }
+    )
+    const saved = geometry.animation!.clips[0] as {
+      easing?: string
+      speed?: number
+    }
+    expect(saved.easing).toBe("linear")
+    expect(saved.speed).toBe(2.5)
+
+    const remapped = remapAnimationForApply(
+      geometry.animation!,
+      ["new-slot"],
+      source.background
+    )
+    expect(remapped.clips[0]?.easing).toBe("linear")
+    expect(remapped.clips[0]?.speed).toBe(2.5)
+  })
+
   it("builds slot remap by index from sourceSlotIds", () => {
     const map = buildSlotIdRemap(["live-a", "live-b"], ["src-a", "src-b"], [])
     expect(map.get("src-a")).toBe("live-a")

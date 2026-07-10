@@ -158,4 +158,61 @@ describe("draft persistence", () => {
     expect(applied.isAnimateMode).toBe(true)
     expect(applied.selectedAnimationClipId).toBe("clip-b")
   })
+
+  it("preserves per-clip transition easing & speed through hydration", () => {
+    const canvas = createCanvas("saved", { x: 0, y: 0 })
+    canvas.animation = {
+      durationMs: 4000,
+      clips: [
+        {
+          id: "clip-a",
+          startMs: 0,
+          durationMs: 1000,
+          effects: ["tilt"],
+          easing: "linear",
+          speed: 3,
+        },
+      ],
+      audio: null,
+    }
+
+    const draft: PersistedEditorDraft = {
+      id: EDITOR_DRAFT_KEY,
+      schemaVersion: EDITOR_DRAFT_SCHEMA_VERSION,
+      updatedAt: Date.now(),
+      present: {
+        activeTool: "pointer",
+        aspect: { id: "1-1", w: 1, h: 1 },
+        canvasZoom: 100,
+        annotation: {
+          mode: "pen",
+          color: "#111111",
+          strokeWidth: 4,
+          lineStyle: "solid",
+          blurEffect: "blur",
+          blurAmount: 0,
+        },
+        canvases: [canvas],
+        activeCanvasId: "saved",
+      },
+      ui: {
+        bulkEditMode: false,
+        bulkViewportZoom: 1,
+        bulkScale: 65,
+        presetTab: "custom",
+        activeLayoutPresetId: null,
+        activeCustomPresetId: null,
+        activeSinglePresetId: null,
+        previewAutoScrollDelay: 3000,
+        previewAnimation: "slide",
+        currentDraft: null,
+        isAnimateMode: true,
+      },
+    }
+
+    const applied = applyEditorDraft(draft)
+    const clip = applied.present?.canvases[0]?.animation?.clips[0]
+    expect(clip?.easing).toBe("linear")
+    expect(clip?.speed).toBe(3)
+  })
 })

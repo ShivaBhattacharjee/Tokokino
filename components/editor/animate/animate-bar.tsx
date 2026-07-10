@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import { AnimateControls } from "./animate-controls"
+import { ClipTransitionButton } from "./clip-transition-toolbar"
 import { RAZOR_CURSOR, TimelineClip } from "./timeline-clip"
 import { TimelineRuler } from "./timeline-ruler"
 import { useAnimateTimeline } from "./use-animate-timeline"
@@ -51,6 +52,8 @@ export function AnimateBar() {
     ghostWidthPx,
     clips,
     selectedClipId,
+    selectedClip,
+    updateAnimationClip,
     draggingClipId,
     interactingClipId,
     clipsAnimated,
@@ -98,6 +101,15 @@ export function AnimateBar() {
         onTogglePlay={toggle}
         onToggleRazor={toggleRazor}
         onReset={reset}
+        transitionControl={
+          selectedClip ? (
+            <ClipTransitionButton
+              clip={selectedClip}
+              onUpdate={(patch) => updateAnimationClip(selectedClip.id, patch)}
+              disabled={isPlaying}
+            />
+          ) : null
+        }
       />
 
       {/* Scrollable timeline — ruler + tracks share one horizontal scroll so

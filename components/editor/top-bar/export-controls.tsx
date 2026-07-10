@@ -583,8 +583,17 @@ export function ExportControls({
   // GIF only supports its centisecond-friendly rates; snap the persisted fps to
   // the options valid for the current format so a video rate (e.g. 30) picked
   // earlier resolves to the nearest GIF rate (25) when GIF is selected.
-  const animFpsOptions = fpsOptionsForFormat(animFormat)
-  const effectiveAnimFps = snapFpsToOptions(animFps, animFpsOptions)
+  // Memoized so the freshly-allocated options array has a stable identity — the
+  // React Compiler needs that to preserve the `handleExport` memoization (which
+  // depends on effectiveAnimFps).
+  const animFpsOptions = React.useMemo(
+    () => fpsOptionsForFormat(animFormat),
+    [animFormat]
+  )
+  const effectiveAnimFps = React.useMemo(
+    () => snapFpsToOptions(animFps, animFpsOptions),
+    [animFps, animFpsOptions]
+  )
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = React.useState(false)
