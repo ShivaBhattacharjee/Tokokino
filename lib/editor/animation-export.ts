@@ -25,7 +25,11 @@ import {
   clearAnimationFrameVars,
   measureBareStageDims,
 } from "./apply-animation-frame"
-import { prepareAnimationCapture } from "./export"
+import {
+  prepareAnimationCapture,
+  prepareFastAnimationCapture,
+  type AnimationCapture,
+} from "./export"
 import { captureClipPose, useEditorStore } from "./store"
 import type { AnimationClip, CanvasState } from "./state-types"
 
@@ -44,12 +48,25 @@ export type AnimationExportProgress = {
   etaMs: number | null
 }
 
+/**
+ * Frame-capture strategy.
+ *  - `fast`   — reused-clone `<foreignObject>` path. Sets up the clone/assets once
+ *               and bakes computed styles per frame (no re-clone, no re-embed, no
+ *               paint wait). Faster; correct for every canvas.
+ *  - `legacy` — html-to-image path (exposed as "Precise"). Fully re-processes the
+ *               DOM each frame. Slower, kept as a fallback.
+ *  - `auto`   — fast, falling back to legacy only if fast setup throws. Default.
+ */
+export type AnimationCaptureMode = "auto" | "fast" | "legacy"
+
 export type AnimationExportOptions = {
   format: AnimationExportFormat
   fps?: number
   targetWidth?: number
   /** Draw the "Designed by Tokokino" watermark on every frame. Defaults to on. */
   watermark?: boolean
+  /** Frame-capture strategy. Defaults to `auto`. */
+  capture?: AnimationCaptureMode
   onProgress?: (progress: AnimationExportProgress) => void
   signal?: AbortSignal
 }
@@ -166,6 +183,34 @@ function drawWatermark(
   ctx.fillText(WATERMARK_APP_NAME, textX, textTop + prefixSize + lineGap)
 
   ctx.restore()
+}
+
+/**
+ * Resolve the frame-capture strategy and build it, honoring the requested mode.
+ *
+ * `auto` uses the fast path for every canvas — the per-frame computed-style bake
+ * resolves theme and container queries, so device frames are safe too — and falls
+ * back to the html-to-image path only if fast setup throws, so an export never
+ * hard-fails on a capable browser.
+ */
+async function acquireAnimationCapture(
+  canvasId: string,
+  targetWidth: number,
+  mode: AnimationCaptureMode
+): Promise<AnimationCapture> {
+  if (mode === "legacy") return prepareAnimationCapture(canvasId, targetWidth)
+  if (mode === "fast") return prepareFastAnimationCapture(canvasId, targetWidth)
+
+  // auto
+  try {
+    return await prepareFastAnimationCapture(canvasId, targetWidth)
+  } catch (err) {
+    console.warn(
+      "[export] fast capture setup failed, using html-to-image:",
+      err
+    )
+    return prepareAnimationCapture(canvasId, targetWidth)
+  }
 }
 
 export class AnimationExportAbortedError extends Error {
@@ -402,7 +447,10 @@ async function captureStableFrame(
   timeMs: number
 ): Promise<HTMLCanvasElement> {
   applyExportFrame(capture.node, canvas, globalAspect, clips, timeMs)
-  await waitForPaint()
+  // The fast path serializes the clone's inline styles synchronously, so it
+  // needs no browser paint between mutation and capture. The html-to-image path
+  // reads live computed styles and does.
+  if (capture.needsPaint) await waitForPaint()
   let raw: unknown
   try {
     raw = await capture.captureFrame()
@@ -411,7 +459,7 @@ async function captureStableFrame(
   }
   // html-to-image is flaky on some browsers — one retry after another paint.
   if (!isDrawImageSource(raw)) {
-    await waitForPaint()
+    if (capture.needsPaint) await waitForPaint()
     try {
       raw = await capture.captureFrame()
     } catch {
@@ -480,7 +528,11 @@ export async function exportAnimation(
     options.watermark === false ? null : { logo: await loadWatermarkLogo() }
 
   throwIfAborted(signal)
-  const capture = await prepareAnimationCapture(canvasId, targetWidth)
+  const capture = await acquireAnimationCapture(
+    canvasId,
+    targetWidth,
+    options.capture ?? "auto"
+  )
   suppressCloneTransitions(capture.node)
   progress.report("preparing", 1, 1)
 

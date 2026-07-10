@@ -313,8 +313,15 @@ export function applyAnimationFrameAtTime({
     if (screenshotPositionDragging) {
       // gesture owns vars
     } else if (posFrames.length > 0 && frame) {
-      const dims =
-        bareDims ?? (isBareMainTarget ? measureBareStageDims(canvasEl) : null)
+      // The bare-pixel positioning path is ONLY valid for the free-floating
+      // single screenshot. For a framed or multi-slot (row) main, `dims` must be
+      // null so the percentage/anchor path runs — otherwise a caller that always
+      // passes `bareDims` (the exporter measures it unconditionally) would push
+      // the row main onto the wrong path and misplace it. Never trust a passed
+      // `bareDims` unless this really is the bare target.
+      const dims = isBareMainTarget
+        ? (bareDims ?? measureBareStageDims(canvasEl))
+        : null
       const aspect = canvas.aspect ?? globalAspect
       const pointFor = (
         pos: ScreenshotPosition,

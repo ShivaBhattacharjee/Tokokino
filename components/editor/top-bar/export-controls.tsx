@@ -34,6 +34,7 @@ import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import {
   AnimationExportAbortedError,
   exportAnimation,
+  type AnimationCaptureMode,
   type AnimationExportFormat,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
@@ -82,6 +83,16 @@ const ANIMATION_RESOLUTION_WIDTHS: Record<AnimationExportResolution, number> = {
 }
 type AnimationExportFps = 24 | 30 | 60
 const ANIMATION_FPS_OPTIONS: AnimationExportFps[] = [24, 30, 60]
+const ANIMATION_CAPTURE_MODES: AnimationCaptureMode[] = [
+  "auto",
+  "fast",
+  "legacy",
+]
+const ANIMATION_CAPTURE_MODE_LABELS: Record<AnimationCaptureMode, string> = {
+  auto: "Auto",
+  fast: "Fast",
+  legacy: "Precise",
+}
 const ANIMATION_BUTTON_MAX_LABEL = `Export ${ANIMATION_RESOLUTION_LABELS["4k"]} • ${ANIMATION_FORMAT_LABELS.webm}`
 
 const ANIMATION_EXPORT_PHASE_LABELS: Record<
@@ -534,6 +545,13 @@ export function ExportControls({
     (v): v is AnimationExportFps =>
       ANIMATION_FPS_OPTIONS.includes(v as AnimationExportFps)
   )
+  const [animCapture, setAnimCapture] =
+    usePersistentState<AnimationCaptureMode>(
+      "tokokino:export:animCapture",
+      "auto",
+      (v): v is AnimationCaptureMode =>
+        ANIMATION_CAPTURE_MODES.includes(v as AnimationCaptureMode)
+    )
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = React.useState(false)
@@ -570,6 +588,7 @@ export function ExportControls({
           fps: animFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
           watermark: includeWatermark,
+          capture: animCapture,
           signal: abort.signal,
           onProgress: (p) => {
             const now = performance.now()
@@ -632,6 +651,7 @@ export function ExportControls({
     }
   }, [
     activeCanvasId,
+    animCapture,
     animFormat,
     animFps,
     animResolution,
@@ -773,6 +793,19 @@ export function ExportControls({
                     label="Watermark"
                     checked={includeWatermark}
                     onCheckedChange={onIncludeWatermarkChange}
+                  />
+                </div>
+                <div className="flex flex-col gap-1 px-1">
+                  <span className="px-1 text-[11px] text-muted-foreground">
+                    Capture engine
+                  </span>
+                  <SegmentedRow
+                    options={ANIMATION_CAPTURE_MODES.map((m) => ({
+                      value: m,
+                      label: ANIMATION_CAPTURE_MODE_LABELS[m],
+                    }))}
+                    value={animCapture}
+                    onChange={(v) => setAnimCapture(v as AnimationCaptureMode)}
                   />
                 </div>
               </>
