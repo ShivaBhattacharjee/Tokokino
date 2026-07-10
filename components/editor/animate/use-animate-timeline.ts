@@ -621,10 +621,29 @@ export function useAnimateTimeline() {
     setGhostVisible(false)
   }, [])
 
-  const onClipsRowClick = React.useCallback(() => {
-    if (!ghostVisible) return
-    selectAnimationClip(addAnimationClip(undefined, ghostStartMsRef.current))
-  }, [addAnimationClip, ghostVisible, selectAnimationClip])
+  const onClipsRowClick = React.useCallback(
+    (e: React.MouseEvent) => {
+      // Compute the insertion slot straight from the click position rather than
+      // gating on the hover ghost. Touch devices (iPad) don't hover, so the
+      // ghost never becomes visible before the tap's click fires — reading the
+      // pointer position here makes tap-to-add work without a preceding hover
+      // while desktop still gets the ghost preview.
+      if (razorModeRef.current || menuOpenRef.current || dragRef.current) return
+      const el = clipsRowRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const pps = pxPerSecondRef.current
+      if (rect.width - (GHOST_SLOT_MS / 1000) * pps < 0) return
+      const cursorMs = Math.max(
+        0,
+        Math.min(durationMs, ((e.clientX - rect.left) / pps) * 1000)
+      )
+      const start = findGhostSlot(cursorMs, clipsRef.current, MAX_DURATION_MS)
+      if (start == null) return
+      selectAnimationClip(addAnimationClip(undefined, start))
+    },
+    [addAnimationClip, durationMs, selectAnimationClip]
+  )
 
   const onClipMenuOpenChange = React.useCallback((open: boolean) => {
     menuOpenRef.current = open
