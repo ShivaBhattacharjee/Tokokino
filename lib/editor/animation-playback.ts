@@ -7,6 +7,7 @@
 // turns that progress into concrete CSS override vars. Kept React-free so it's
 // testable and shared between live playback and (later) the exporter.
 
+import { clipProgressEase } from "./clip-easing"
 import { hexToRgb } from "./color-utils"
 import { DEFAULT_CANVAS_BASE } from "./store/defaults"
 import type {
@@ -231,6 +232,7 @@ export function lightingTargetMixAt(
     startMs: number
     durationMs: number
     value: BackdropLighting
+    ease?: (rawT: number) => number
   }[],
   timeMs: number,
   rest: BackdropLighting
@@ -253,6 +255,7 @@ export function lightingTargetMixAt(
         startMs: f.startMs,
         durationMs: f.durationMs,
         value: f.value.target === "inner" ? 1 : 0,
+        ease: f.ease,
       })),
       timeMs,
       restMix,
@@ -409,7 +412,12 @@ export function shadowBetween(from: Shadow, to: Shadow, p: number): Shadow {
  * Returns null when no keyframe animates the shadow (leave the committed value).
  */
 export function sampleShadowLayers(
-  frames: readonly { startMs: number; durationMs: number; value: Shadow }[],
+  frames: readonly {
+    startMs: number
+    durationMs: number
+    value: Shadow
+    ease?: (rawT: number) => number
+  }[],
   timeMs: number,
   rest: Shadow
 ): Shadow[] | null {
@@ -422,7 +430,8 @@ export function sampleShadowLayers(
     if (timeMs <= f.startMs + f.durationMs) {
       const from = i > 0 ? sorted[i - 1].value : rest
       const to = f.value
-      const p = easeOut(clamp01((timeMs - f.startMs) / f.durationMs))
+      const ease = f.ease ?? easeOut
+      const p = ease(clamp01((timeMs - f.startMs) / f.durationMs))
       const fromVisible = !shadowInvisible(from)
       const toVisible = !shadowInvisible(to)
       // Retract to nothing: fade the source out on its own type so it recedes
@@ -856,7 +865,14 @@ export function resolveAnimateOverlayStack(
  * This is the single source of truth for continuity + hold across the timeline.
  */
 export function sampleKeyframes<V>(
-  frames: readonly { startMs: number; durationMs: number; value: V }[],
+  frames: readonly {
+    startMs: number
+    durationMs: number
+    value: V
+    /** Per-clip progress remap (curve + speed). Falls back to the historic
+     * ease-out when a caller doesn't supply the owning clip's easing. */
+    ease?: (rawT: number) => number
+  }[],
   timeMs: number,
   rest: V,
   lerpValue: (from: V, to: V, p: number) => V
@@ -869,10 +885,11 @@ export function sampleKeyframes<V>(
     if (timeMs < f.startMs) return sorted[i - 1].value // gap → hold previous
     if (timeMs <= f.startMs + f.durationMs) {
       const from = i > 0 ? sorted[i - 1].value : rest
+      const ease = f.ease ?? easeOut
       return lerpValue(
         from,
         f.value,
-        easeOut(clamp01((timeMs - f.startMs) / f.durationMs))
+        ease(clamp01((timeMs - f.startMs) / f.durationMs))
       )
     }
   }
@@ -908,7 +925,7 @@ export function clipsProgressAt(
   for (const c of sorted) {
     if (timeMs < c.startMs) return 1 // in a gap that follows an earlier clip
     if (timeMs <= c.startMs + c.durationMs) {
-      return easeOut(clamp01((timeMs - c.startMs) / c.durationMs))
+      return clipProgressEase(c)((timeMs - c.startMs) / c.durationMs)
     }
   }
   return 1 // past every clip
@@ -951,7 +968,7 @@ export function activeClipAt(
     const c = sorted[i]
     if (timeMs < c.startMs) return at(Math.max(0, i - 1), 1)
     if (timeMs <= c.startMs + c.durationMs) {
-      return at(i, easeOut(clamp01((timeMs - c.startMs) / c.durationMs)))
+      return at(i, clipProgressEase(c)((timeMs - c.startMs) / c.durationMs))
     }
   }
   return at(sorted.length - 1, 1)

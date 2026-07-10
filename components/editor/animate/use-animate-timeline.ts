@@ -896,6 +896,12 @@ export function useAnimateTimeline() {
     []
   )
 
+  // The selected clip's data, surfaced for the floating transition toolbar.
+  const selectedClip = React.useMemo(
+    () => clips.find((c) => c.id === selectedClipId) ?? null,
+    [clips, selectedClipId]
+  )
+
   return {
     // playback + data
     playheadMs,
@@ -916,6 +922,8 @@ export function useAnimateTimeline() {
 
     // selection / labels
     selectedClipId,
+    selectedClip,
+    updateAnimationClip,
     draggingClipId,
     interactingClipId,
     clipsAnimated,

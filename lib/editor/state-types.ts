@@ -412,6 +412,15 @@ export type AnimationEffect =
   | "border"
   | "borderRadius"
 
+/** The selectable per-clip transition curves (see `clip-easing.ts`). */
+export type ClipEasingKind =
+  | "linear"
+  | "cubic"
+  | "in"
+  | "out"
+  | "inOut"
+  | "outCirc"
+
 /** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
   tilt: Tilt
@@ -522,6 +531,18 @@ export type AnimationClip = {
    * drafts hydrate cleanly; read through `clipPose`, which prefers `pose`.
    */
   baseline?: ClipBaseline
+  /**
+   * Transition curve this clip eases its owned effects with. Optional so drafts
+   * saved before per-clip easing hydrate cleanly — read through `clipEasingKind`,
+   * which defaults to the historic ease-out. See `clip-easing.ts`.
+   */
+  easing?: ClipEasingKind
+  /**
+   * Speed remap (1..5): how quickly the transition completes WITHIN the clip's
+   * window without moving its keyframe time. 1 = uses the full window; higher
+   * finishes proportionally sooner then holds the pose. Read through `clipSpeed`.
+   */
+  speed?: number
 }
 
 /**
