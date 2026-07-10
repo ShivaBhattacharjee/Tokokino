@@ -2471,14 +2471,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         : undefined
       if (!source) return null
       const end = source.startMs + source.durationMs
-      // The cut has to leave a real clip on each side — bail if either half
-      // would be shorter than the minimum length.
-      if (
-        atMs - source.startMs < MIN_ANIMATION_CLIP_MS ||
-        end - atMs < MIN_ANIMATION_CLIP_MS
-      ) {
+      // A cut has to leave a real clip on each side, so the clip must be at
+      // least twice the minimum length. Anything shorter simply can't be split.
+      if (source.durationMs < MIN_ANIMATION_CLIP_MS * 2) {
         return null
       }
+      // Clamp the cut into the legal window (≥ MIN from each edge) so a click
+      // near an edge still cuts at the nearest valid point instead of silently
+      // doing nothing.
+      atMs = Math.min(
+        Math.max(atMs, source.startMs + MIN_ANIMATION_CLIP_MS),
+        end - MIN_ANIMATION_CLIP_MS
+      )
       // When the clip being cut is the one open for editing, its live edits sit
       // on the committed canvas (not yet folded into its stored pose), so capture
       // the canvas as the true target keyframe. "Open" status then transfers to

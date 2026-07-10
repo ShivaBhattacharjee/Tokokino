@@ -35,6 +35,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
           title: "text-[13px] font-medium text-center",
           content: "flex items-center justify-center",
           icon: "m-0",
+          error:
+            "!bg-destructive !text-white !border-destructive [&_[data-icon]]:!text-white",
         },
       }}
       {...props}

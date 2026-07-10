@@ -321,6 +321,7 @@ export function useAnimateTimeline() {
       if (razorModeRef.current) {
         const newId = splitAnimationClip(clip.id, clipMsFromClientX(e.clientX))
         if (newId) selectAnimationClip(newId)
+        else toast.error("Clip is too short to cut")
         return
       }
       e.currentTarget.setPointerCapture(e.pointerId)

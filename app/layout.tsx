@@ -192,7 +192,7 @@ export default function RootLayout({
             <TooltipProvider delayDuration={150}>
               {children}
               <WebMcpProvider />
-              <Toaster position="top-right" />
+              <Toaster position="top-center" />
             </TooltipProvider>
           </ThemeProvider>
         </div>
