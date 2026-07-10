@@ -57,11 +57,10 @@ function wantsMarkdown(request: Request): boolean {
 
 export default {
   ...handler,
-  async fetch(
-    request: Request,
-    env: unknown,
-    ctx: ExecutionContext
-  ): Promise<Response> {
+  // Params are left unannotated so they pick up their types contextually from
+  // `satisfies ExportedHandler` below — that keeps `request` as the incoming
+  // Cloudflare request type expected by `handler.fetch`.
+  async fetch(request, env, ctx): Promise<Response> {
     if (wantsMarkdown(request)) {
       const { pathname } = new URL(request.url)
 

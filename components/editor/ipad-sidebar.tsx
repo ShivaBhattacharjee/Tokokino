@@ -39,6 +39,9 @@ export function IpadSidebar({ className }: { className?: string }) {
   // Animate mode's controls (Position etc.) live on the Tools panel, so jump to
   // it when entering animate mode. The user can still swipe back to Design.
   React.useEffect(() => {
+    // Jump to Tools when animate mode turns on (a real mode change the user can
+    // still swipe away from), not derived state — hence the effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isAnimateMode) setActiveTab("tools")
   }, [isAnimateMode])
 

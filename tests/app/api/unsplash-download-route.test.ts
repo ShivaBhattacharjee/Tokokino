@@ -78,6 +78,8 @@ describe("GET /api/unsplash/download", () => {
       "https://api.unsplash.com/photos/abc/download",
       expect.objectContaining({
         cache: "no-store",
+        // expect.objectContaining is typed as `any`; nesting it trips the rule.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         headers: expect.objectContaining({
           Authorization: "Client-ID test-key",
           "Accept-Version": "v1",

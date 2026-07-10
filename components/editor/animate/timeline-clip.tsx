@@ -110,7 +110,6 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
 }
 
 export function TimelineClip({
-  clip,
   left,
   width,
   selected,

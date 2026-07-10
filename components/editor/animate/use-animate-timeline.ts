@@ -71,10 +71,14 @@ export function useAnimateTimeline() {
   const [clearEffectsShortcut, setClearEffectsShortcut] = React.useState("⌘⇧⌫")
   const [deselectShortcut, setDeselectShortcut] = React.useState("⌘⇧A")
   React.useEffect(() => {
+    // Platform detection reads navigator, so it must run client-side after mount
+    // to keep SSR output deterministic (avoids a hydration mismatch on the label).
+    /* eslint-disable react-hooks/set-state-in-effect */
     const apple = isApplePlatform()
     setDupShortcut(apple ? "⌘D" : "Ctrl+D")
     setClearEffectsShortcut(apple ? "⌘⇧⌫" : "Ctrl+Shift+Del")
     setDeselectShortcut(apple ? "⌘⇧A" : "Ctrl+Shift+A")
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
   const trackRef = React.useRef<HTMLDivElement | null>(null)
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
@@ -694,6 +698,9 @@ export function useAnimateTimeline() {
   const [razorMode, setRazorMode] = React.useState(false)
   const razorModeRef = React.useRef(false)
   React.useEffect(() => {
+    // Mirror razorMode into a ref so the clip pointer handlers can read it
+    // without widening their dependency lists.
+    // eslint-disable-next-line react-hooks/immutability
     razorModeRef.current = razorMode
   }, [razorMode])
 
@@ -701,6 +708,8 @@ export function useAnimateTimeline() {
   // out of razor mode so the cursor/button don't linger with nothing to act on.
   const canRazor = clips.length > 0
   React.useEffect(() => {
+    // Drop out of razor mode once the last clip is gone (nothing left to cut).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (clips.length === 0) setRazorMode(false)
   }, [clips.length])
 

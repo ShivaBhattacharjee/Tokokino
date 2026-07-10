@@ -15,8 +15,63 @@ import { TimelineRuler } from "./timeline-ruler"
 import { useAnimateTimeline } from "./use-animate-timeline"
 
 export function AnimateBar() {
-  const t = useAnimateTimeline()
-  const { pxFor, durationMs, playheadMs } = t
+  const {
+    pxFor,
+    durationMs,
+    playheadMs,
+    audio,
+    isPlaying,
+    canRazor,
+    razorMode,
+    requestExit,
+    onAudioButton,
+    onPickAudio,
+    audioInputRef,
+    addClip,
+    toggle,
+    toggleRazor,
+    reset,
+    scrollRef,
+    contentWidth,
+    onScrubDown,
+    onScrubMove,
+    onScrubUp,
+    ticks,
+    trackRef,
+    onDurationHandleDown,
+    onDurationHandleMove,
+    onDurationHandleUp,
+    isDurationDragging,
+    clipsRowRef,
+    onClipsRowMove,
+    onClipsRowLeave,
+    onClipsRowClick,
+    ghostVisible,
+    ghostRef,
+    ghostWidthPx,
+    clips,
+    selectedClipId,
+    draggingClipId,
+    interactingClipId,
+    clipsAnimated,
+    resolveClipImages,
+    resolveClipIcons,
+    dupShortcut,
+    clearEffectsShortcut,
+    deselectShortcut,
+    onClipPointerDown,
+    onClipPointerMove,
+    onClipPointerUp,
+    duplicateClip,
+    clearClipEffects,
+    deselectClip,
+    deleteClip,
+    onClipMenuOpenChange,
+    screenshotInputRef,
+    onPickScreenshot,
+    layers,
+    onLayerClick,
+  } = useAnimateTimeline()
 
   return (
     <motion.div
@@ -29,40 +84,40 @@ export function AnimateBar() {
       className="pointer-events-auto absolute right-3 bottom-3 left-3 z-30 rounded-2xl border border-border/70 bg-popover/95 p-3 shadow-2xl backdrop-blur-xl"
     >
       <AnimateControls
-        audio={t.audio}
-        isPlaying={t.isPlaying}
+        audio={audio}
+        isPlaying={isPlaying}
         playheadMs={playheadMs}
         durationMs={durationMs}
-        canRazor={t.canRazor}
-        razorActive={t.razorMode}
-        onExit={t.requestExit}
-        onToggleAudio={t.onAudioButton}
-        onPickAudio={t.onPickAudio}
-        audioInputRef={t.audioInputRef}
-        onAddClip={t.addClip}
-        onTogglePlay={t.toggle}
-        onToggleRazor={t.toggleRazor}
-        onReset={t.reset}
+        canRazor={canRazor}
+        razorActive={razorMode}
+        onExit={requestExit}
+        onToggleAudio={onAudioButton}
+        onPickAudio={onPickAudio}
+        audioInputRef={audioInputRef}
+        onAddClip={addClip}
+        onTogglePlay={toggle}
+        onToggleRazor={toggleRazor}
+        onReset={reset}
       />
 
       {/* Scrollable timeline — ruler + tracks share one horizontal scroll so
           they stay aligned. */}
       <div
-        ref={t.scrollRef}
+        ref={scrollRef}
         className="mt-3 [scrollbar-width:none] overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div className="relative" style={{ width: t.contentWidth }}>
+        <div className="relative" style={{ width: contentWidth }}>
           {/* Click / drag anywhere on the ruler to move the playhead. Shares
               the same scrub handlers as the track (both start at left 0). */}
           <div
             className="cursor-pointer touch-none select-none"
-            onPointerDown={t.onScrubDown}
-            onPointerMove={t.onScrubMove}
-            onPointerUp={t.onScrubUp}
-            onPointerCancel={t.onScrubUp}
+            onPointerDown={onScrubDown}
+            onPointerMove={onScrubMove}
+            onPointerUp={onScrubUp}
+            onPointerCancel={onScrubUp}
           >
             <TimelineRuler
-              ticks={t.ticks}
+              ticks={ticks}
               durationMs={durationMs}
               pxFor={pxFor}
             />
@@ -70,12 +125,12 @@ export function AnimateBar() {
 
           {/* Tracks + playhead */}
           <div
-            ref={t.trackRef}
+            ref={trackRef}
             className="relative mt-1 cursor-pointer touch-none select-none"
-            onPointerDown={t.onScrubDown}
-            onPointerMove={t.onScrubMove}
-            onPointerUp={t.onScrubUp}
-            onPointerCancel={t.onScrubUp}
+            onPointerDown={onScrubDown}
+            onPointerMove={onScrubMove}
+            onPointerUp={onScrubUp}
+            onPointerCancel={onScrubUp}
           >
             {/* Inactive region — everything past the current duration is dimmed
                 with a diagonal hatch AND blurred so it reads as "outside" the
@@ -110,10 +165,10 @@ export function AnimateBar() {
 
             {/* Duration end handle — drag to lengthen/shorten the timeline. */}
             <div
-              onPointerDown={t.onDurationHandleDown}
-              onPointerMove={t.onDurationHandleMove}
-              onPointerUp={t.onDurationHandleUp}
-              onPointerCancel={t.onDurationHandleUp}
+              onPointerDown={onDurationHandleDown}
+              onPointerMove={onDurationHandleMove}
+              onPointerUp={onDurationHandleUp}
+              onPointerCancel={onDurationHandleUp}
               role="slider"
               aria-label="Timeline duration"
               aria-valuemin={Math.round(MIN_DURATION_MS / 1000)}
@@ -125,7 +180,7 @@ export function AnimateBar() {
               <div
                 className={cn(
                   "rounded-full transition-all duration-150",
-                  t.isDurationDragging
+                  isDurationDragging
                     ? "h-full w-1 bg-primary"
                     : "h-[calc(100%-1rem)] w-[3px] bg-foreground/30 group-hover:h-full group-hover:w-1 group-hover:bg-primary"
                 )}
@@ -133,70 +188,73 @@ export function AnimateBar() {
             </div>
 
             {/* Motion clips row — spans the current duration so the end handle
-                sits right at its edge. */}
+                sits right at its edge. A pointer-driven scrubbing surface; clip
+                editing has keyboard shortcuts, so there's no keyboard listener
+                on the row itself. */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
             <div
-              ref={t.clipsRowRef}
+              ref={clipsRowRef}
               onPointerDown={(e) => e.stopPropagation()}
-              onPointerMove={t.onClipsRowMove}
-              onPointerLeave={t.onClipsRowLeave}
-              onClick={t.onClipsRowClick}
+              onPointerMove={onClipsRowMove}
+              onPointerLeave={onClipsRowLeave}
+              onClick={onClipsRowClick}
               className={cn(
                 // overflow-visible so clips appended past the set duration can
                 // render out into the dimmed region to the right.
                 "relative h-11 overflow-visible rounded-lg border border-border/50 bg-background/40",
-                t.ghostVisible && "cursor-copy"
+                ghostVisible && "cursor-copy"
               )}
               style={{
                 width: pxFor(durationMs),
-                ...(t.razorMode ? { cursor: RAZOR_CURSOR } : null),
+                ...(razorMode ? { cursor: RAZOR_CURSOR } : null),
               }}
             >
               {/* Cursor-following add affordance (position written via transform
                   in the move handler — no React re-render, so it can't lag). */}
               <div
-                ref={t.ghostRef}
+                ref={ghostRef}
                 aria-hidden
                 className={cn(
                   "pointer-events-none absolute top-1 bottom-1 left-0 z-10 box-border flex items-center justify-center gap-1.5 overflow-hidden rounded-md border border-dashed border-primary/60 bg-primary/10 px-1 text-[11px] font-medium text-primary backdrop-blur-sm transition-opacity duration-150 ease-out will-change-transform",
-                  t.ghostVisible ? "opacity-100" : "opacity-0"
+                  ghostVisible ? "opacity-100" : "opacity-0"
                 )}
-                style={{ width: t.ghostWidthPx }}
+                style={{ width: ghostWidthPx }}
               >
                 <RiAddCircleLine className="size-4 shrink-0" />
-                {t.ghostWidthPx >= 92 && (
+                {ghostWidthPx >= 92 && (
                   <span className="truncate">Animation</span>
                 )}
               </div>
 
               <AnimatePresence>
-                {t.clips.map((clip) => (
+                {clips.map((clip) => (
                   <TimelineClip
                     key={clip.id}
                     clip={clip}
                     left={pxFor(clip.startMs)}
                     width={pxFor(clip.durationMs)}
-                    selected={clip.id === t.selectedClipId}
-                    dragging={clip.id === t.draggingClipId}
+                    selected={clip.id === selectedClipId}
+                    dragging={clip.id === draggingClipId}
                     beyond={clip.startMs >= durationMs}
-                    razorMode={t.razorMode}
+                    razorMode={razorMode}
                     interacting={
-                      clip.id === t.interactingClipId || !t.clipsAnimated
+                      clip.id === interactingClipId || !clipsAnimated
                     }
-                    images={t.resolveClipImages(clip)}
-                    iconKeys={t.resolveClipIcons(clip)}
-                    dupShortcut={t.dupShortcut}
-                    clearEffectsShortcut={t.clearEffectsShortcut}
-                    deselectShortcut={t.deselectShortcut}
+                    images={resolveClipImages(clip)}
+                    iconKeys={resolveClipIcons(clip)}
+                    dupShortcut={dupShortcut}
+                    clearEffectsShortcut={clearEffectsShortcut}
+                    deselectShortcut={deselectShortcut}
                     onPointerDownClip={(e, mode) =>
-                      t.onClipPointerDown(e, clip, mode)
+                      onClipPointerDown(e, clip, mode)
                     }
-                    onPointerMoveClip={t.onClipPointerMove}
-                    onPointerUpClip={t.onClipPointerUp}
-                    onDuplicate={() => t.duplicateClip(clip.id)}
-                    onClearEffects={() => t.clearClipEffects(clip.id)}
-                    onDeselect={t.deselectClip}
-                    onDelete={() => t.deleteClip(clip.id)}
-                    onMenuOpenChange={t.onClipMenuOpenChange}
+                    onPointerMoveClip={onClipPointerMove}
+                    onPointerUpClip={onClipPointerUp}
+                    onDuplicate={() => duplicateClip(clip.id)}
+                    onClearEffects={() => clearClipEffects(clip.id)}
+                    onDeselect={deselectClip}
+                    onDelete={() => deleteClip(clip.id)}
+                    onMenuOpenChange={onClipMenuOpenChange}
                   />
                 ))}
               </AnimatePresence>
@@ -208,13 +266,13 @@ export function AnimateBar() {
                 to the left while the timeline scrolls. Click a thumbnail to
                 set/replace that layer's image. */}
             <input
-              ref={t.screenshotInputRef}
+              ref={screenshotInputRef}
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={t.onPickScreenshot}
+              onChange={onPickScreenshot}
             />
-            {t.layers.map((layer, i) => {
+            {layers.map((layer, i) => {
               return (
                 <div
                   key={layer.id}
@@ -227,7 +285,7 @@ export function AnimateBar() {
                     <button
                       type="button"
                       aria-label={`Change screenshot ${i + 1}`}
-                      onClick={() => t.onLayerClick(layer.id)}
+                      onClick={() => onLayerClick(layer.id)}
                       className="relative h-8 w-12 shrink-0 cursor-pointer overflow-hidden rounded outline-none"
                     >
                       {layer.src ? (
