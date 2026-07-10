@@ -70,17 +70,23 @@ const ANIMATION_FORMAT_EXTENSION: Record<AnimationExportFormat, string> = {
   webm: ".webm",
   mp4: ".mp4",
 }
-type AnimationExportResolution = "hd" | "fullhd"
-const ANIMATION_RESOLUTIONS: AnimationExportResolution[] = ["hd", "fullhd"]
+type AnimationExportResolution = "hd" | "fullhd" | "4k"
+const ANIMATION_RESOLUTIONS: AnimationExportResolution[] = [
+  "hd",
+  "fullhd",
+  "4k",
+]
 const ANIMATION_RESOLUTION_LABELS: Record<AnimationExportResolution, string> = {
   hd: "HD",
   fullhd: "Full HD",
+  "4k": "4K",
 }
-// Animation export is capped at Full HD (1920px) on purpose — encoding hundreds
-// of frames at true 4K (3840px) is slow and produces huge files, especially GIF.
+// Note: 4K animation export encodes hundreds of frames at 3840px — it is slow
+// and produces large files, especially GIF. Offered as an opt-in choice.
 const ANIMATION_RESOLUTION_WIDTHS: Record<AnimationExportResolution, number> = {
   hd: 1080,
   fullhd: 1920,
+  "4k": 3840,
 }
 type AnimationExportFps = 20 | 24 | 25 | 30 | 50 | 60
 // Video encoders (MP4/WebM) handle any rate; GIF delays are whole centiseconds,

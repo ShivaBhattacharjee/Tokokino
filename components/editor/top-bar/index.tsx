@@ -95,6 +95,7 @@ import {
 const ANIM_SHARE_WIDTHS: Record<AnimateShareResolution, number> = {
   hd: 1080,
   fullhd: 1920,
+  "4k": 3840,
 }
 
 export function TopBar() {

@@ -1,12 +1,20 @@
 "use client"
 
 import * as React from "react"
-import Plyr from "plyr"
 import "plyr/dist/plyr.css"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import "./share-plyr.css"
+
+// The plyr .d.ts uses `export = Plyr` (no default/named export), so an
+// `import type` binding won't resolve — reference its types via inline import()
+// instead. The value is loaded lazily in the effect below so plyr never
+// evaluates during SSR (it touches `document` at import time).
+/* eslint-disable @typescript-eslint/consistent-type-imports */
+type PlyrConstructor = typeof import("plyr")
+type PlyrInstance = import("plyr")
+/* eslint-enable @typescript-eslint/consistent-type-imports */
 
 /**
  * Themed Plyr player for public / library animate shares.
@@ -25,7 +33,7 @@ export function SharePlyrPlayer({
   poster?: string | null
 }) {
   const videoRef = React.useRef<HTMLVideoElement>(null)
-  const playerRef = React.useRef<Plyr | null>(null)
+  const playerRef = React.useRef<PlyrInstance | null>(null)
   const [ready, setReady] = React.useState(false)
   const [activeSrc, setActiveSrc] = React.useState(src)
 
@@ -40,37 +48,53 @@ export function SharePlyrPlayer({
 
     const markReady = () => setReady(true)
 
-    const player = new Plyr(el, {
-      controls: [
-        "play-large",
-        "play",
-        "progress",
-        "current-time",
-        "mute",
-        "volume",
-        "settings",
-        "fullscreen",
-      ],
-      settings: ["speed"],
-      hideControls: true,
-      resetOnEnd: false,
-      // Reserve space before intrinsic size is known.
-      ratio: "16:9",
-      keyboard: { focused: true, global: false },
-    })
-    playerRef.current = player
+    let player: PlyrInstance | null = null
+    let cancelled = false
 
-    player.on("loadedmetadata", markReady)
-    player.on("ready", markReady)
-    player.on("canplay", markReady)
-    // Already buffered (cached share).
-    if (el.readyState >= 1) markReady()
+    // Plyr touches `document` at import time, so it can't be imported at module
+    // scope (breaks SSR). Load it on the client only, inside the effect.
+    void import("plyr").then((mod) => {
+      if (cancelled) return
+
+      // The ESM build exports the class as `default`; the `export = Plyr` typing
+      // doesn't reflect that, so read it through a typed cast.
+      const Plyr = (mod as unknown as { default: PlyrConstructor }).default
+
+      player = new Plyr(el, {
+        controls: [
+          "play-large",
+          "play",
+          "progress",
+          "current-time",
+          "mute",
+          "volume",
+          "settings",
+          "fullscreen",
+        ],
+        settings: ["speed"],
+        hideControls: true,
+        resetOnEnd: false,
+        // Reserve space before intrinsic size is known.
+        ratio: "16:9",
+        keyboard: { focused: true, global: false },
+      })
+      playerRef.current = player
+
+      player.on("loadedmetadata", markReady)
+      player.on("ready", markReady)
+      player.on("canplay", markReady)
+      // Already buffered (cached share).
+      if (el.readyState >= 1) markReady()
+    })
 
     return () => {
-      player.off("loadedmetadata", markReady)
-      player.off("ready", markReady)
-      player.off("canplay", markReady)
-      player.destroy()
+      cancelled = true
+      if (player) {
+        player.off("loadedmetadata", markReady)
+        player.off("ready", markReady)
+        player.off("canplay", markReady)
+        player.destroy()
+      }
       playerRef.current = null
     }
   }, [])

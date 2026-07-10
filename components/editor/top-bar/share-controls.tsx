@@ -37,7 +37,7 @@ import type {
 import type { ShareDialogState } from "./types"
 
 export type AnimateShareFormat = Exclude<AnimationExportFormat, "gif"> | "gif"
-export type AnimateShareResolution = "hd" | "fullhd"
+export type AnimateShareResolution = "hd" | "fullhd" | "4k"
 
 export type ShareProgressState = {
   phase: AnimationExportPhase | "uploading" | "idle"
@@ -85,6 +85,7 @@ const RESOLUTION_OPTIONS: {
 }[] = [
   { id: "hd", label: "HD", width: 1080 },
   { id: "fullhd", label: "Full HD", width: 1920 },
+  { id: "4k", label: "4K", width: 3840 },
 ]
 
 function formatBytes(bytes: number) {
@@ -238,7 +239,7 @@ function ShareContent({
             <p className="px-0.5 text-[11px] font-medium text-muted-foreground">
               Resolution
             </p>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {RESOLUTION_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
