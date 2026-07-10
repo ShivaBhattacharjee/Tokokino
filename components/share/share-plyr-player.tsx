@@ -76,7 +76,10 @@ export function SharePlyrPlayer({
         resetOnEnd: false,
         // Reserve space before intrinsic size is known.
         ratio: "16:9",
-        keyboard: { focused: true, global: false },
+        // `global` lets Space / arrows / F etc. work without first clicking the
+        // player — the share page has a single player, so there's nothing to
+        // conflict with. `focused` keeps them working once it does have focus.
+        keyboard: { focused: true, global: true },
       })
       playerRef.current = player
 
