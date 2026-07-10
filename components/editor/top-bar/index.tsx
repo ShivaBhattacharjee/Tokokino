@@ -16,6 +16,7 @@ import { useShallow } from "zustand/react/shallow"
 
 import { LoginForm } from "@/app/login/login-form"
 import { BrandLogo } from "@/components/editor/brand-logo"
+import { FeedbackDialog } from "@/components/editor/top-bar/feedback-dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -1254,6 +1255,8 @@ export function TopBar() {
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-1.5">
+        <FeedbackDialog />
+
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
 

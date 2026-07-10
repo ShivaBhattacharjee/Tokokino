@@ -138,7 +138,7 @@ export function MobileSaveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(calc(100vw-2rem),360px)] gap-2 rounded-2xl p-3 md:hidden">
+      <DialogContent className="w-[min(calc(100vw-2rem),360px)] gap-2 rounded-md p-3 md:hidden">
         <DialogHeader className="px-1 pb-1 text-left">
           <DialogTitle>Save</DialogTitle>
           <DialogDescription>{copy.headerDescription}</DialogDescription>

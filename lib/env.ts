@@ -18,6 +18,7 @@ const serverSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   CLOUDFLARE_BROWSER_API_TOKEN: z.string().optional(),
+  FEEDBACK_DISCORD_WEBHOOK_URL: z.url().optional(),
 })
 
 const booleanEnvFlag = z
@@ -46,6 +47,7 @@ const serverEnv = serverSchema.parse({
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
   CLOUDFLARE_BROWSER_API_TOKEN: process.env.CLOUDFLARE_BROWSER_API_TOKEN,
+  FEEDBACK_DISCORD_WEBHOOK_URL: process.env.FEEDBACK_DISCORD_WEBHOOK_URL,
 })
 
 const clientEnv = clientSchema.parse({

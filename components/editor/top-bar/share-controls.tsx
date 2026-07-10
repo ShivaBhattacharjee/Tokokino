@@ -514,7 +514,7 @@ export function MobileShareDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(calc(100vw-2rem),380px)] gap-3 rounded-2xl p-3 md:hidden">
+      <DialogContent className="w-[min(calc(100vw-2rem),380px)] gap-3 rounded-md p-3 md:hidden">
         <DialogTitle className="sr-only">
           {mediaKind === "animate" ? "Share animation" : "Share screenshot"}
         </DialogTitle>
