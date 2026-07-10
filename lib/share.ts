@@ -40,6 +40,18 @@ export function getLegacyShareObjectKey(id: string) {
   return `shares/${id}.png`
 }
 
+/** R2 object key for an animate share's poster still-frame. */
+export function getSharePosterObjectKey(id: string) {
+  return `shares/${id}-poster.png`
+}
+
+/** Same-origin URL that serves an animate share's poster still-frame. */
+export function getSharePosterUrl(id: string, baseUrl?: string | URL) {
+  const path = `/api/share/${id}/poster`
+  if (!baseUrl) return path
+  return new URL(path, baseUrl).toString()
+}
+
 export function getShareImageUrl(id: string, baseUrl?: string | URL) {
   const path = `/api/share/${id}/image`
   if (!baseUrl) return path

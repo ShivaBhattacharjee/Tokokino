@@ -58,6 +58,7 @@ import { cn } from "@/lib/utils"
 export type SerializedShare = {
   id: string
   imageUrl: string
+  posterUrl?: string | null
   viewCount: number
   sizeBytes: number
   createdAt: string
@@ -268,6 +269,15 @@ export function SharesGallery({
     TYPE_FILTERS.find((p) => p.id === typeFilter)?.label ?? "All"
   const dateFilterApplied = dateFilter !== "all"
   const sortFilterApplied = sortFilter !== "latest"
+  // "Delete all" acts on the active type filter, not the whole library.
+  const deleteAllTargets = React.useMemo(
+    () =>
+      typeFilter === "all"
+        ? shares
+        : shares.filter((s) => (s.type ?? "style") === typeFilter),
+    [shares, typeFilter]
+  )
+  const deleteAllScoped = typeFilter !== "all"
 
   const handleCopyLink = (id: string) => {
     const url = `${window.location.origin}/share/${id}`
@@ -303,19 +313,30 @@ export function SharesGallery({
 
   const handleDeleteAll = async () => {
     setDeleteAllOpen(false)
+    const scope = typeFilter
+    const inScope = (s: SerializedShare) =>
+      scope === "all" || (s.type ?? "style") === scope
     const snapshot = shares
     const usedSnapshot = usedBytes
-    setShares([])
-    setUsedBytes(0)
+    const removed = shares.filter(inScope)
+    if (removed.length === 0) return
+    const freedBytes = removed.reduce((sum, s) => sum + s.sizeBytes, 0)
+    setShares((prev) => prev.filter((s) => !inScope(s)))
+    setUsedBytes((prev) => Math.max(0, prev - freedBytes))
     setDeletingAll(true)
     try {
-      const res = await fetch("/api/share", { method: "DELETE" })
+      const query = scope === "all" ? "" : `?type=${scope}`
+      const res = await fetch(`/api/share${query}`, { method: "DELETE" })
       if (!res.ok) throw new Error()
-      toast.success("All screenshots deleted")
+      toast.success(
+        scope === "all"
+          ? "All screenshots deleted"
+          : `All ${typeFilterLabel} screenshots deleted`
+      )
     } catch {
       setShares(snapshot)
       setUsedBytes(usedSnapshot)
-      toast.error("Could not delete all screenshots")
+      toast.error("Could not delete screenshots")
     } finally {
       setDeletingAll(false)
     }
@@ -511,7 +532,7 @@ export function SharesGallery({
             >
               <SelectTrigger
                 className={cn(
-                  "h-8 w-auto min-w-[116px] flex-1 justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[116px] sm:flex-none",
+                  "h-8 w-auto min-w-[136px] flex-1 justify-center gap-1 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium whitespace-nowrap text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 hover:text-primary focus-visible:border-border/70 focus-visible:ring-0 data-[size=default]:h-8 sm:w-[136px] sm:flex-none",
                   sortFilterApplied &&
                     "border-destructive/60 text-destructive hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
                 )}
@@ -542,15 +563,15 @@ export function SharesGallery({
               </SelectContent>
             </Select>
 
-            {shares.length > 0 && (
+            {deleteAllTargets.length > 0 && (
               <button
                 type="button"
                 disabled={deletingAll}
                 onClick={() => setDeleteAllOpen(true)}
-                className="inline-flex h-8 w-auto min-w-[96px] flex-1 items-center justify-center gap-1 rounded-md border border-destructive/30 bg-background px-2.5 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 sm:w-[96px] sm:flex-none"
+                className="inline-flex h-8 w-auto min-w-[96px] flex-1 items-center justify-center gap-1 rounded-md border border-destructive/30 bg-background px-3 text-[11px] font-medium whitespace-nowrap text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:flex-none"
               >
-                <RiDeleteBinLine className="size-3" />
-                Delete all
+                <RiDeleteBinLine className="size-3 shrink-0" />
+                {deleteAllScoped ? `Delete ${typeFilterLabel}` : "Delete all"}
               </button>
             )}
           </div>
@@ -591,9 +612,18 @@ export function SharesGallery({
                       </span>
                     ) : null}
                     {(share.contentType ?? "").startsWith("video/") ? (
-                      <div className="flex aspect-video w-full items-center justify-center bg-secondary/50">
-                        <RiFilmLine className="size-10 text-muted-foreground/50" />
-                      </div>
+                      share.posterUrl ? (
+                        <ShimmerImage
+                          src={share.posterUrl}
+                          alt="Shared animation poster"
+                          className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex aspect-video w-full items-center justify-center bg-secondary/50">
+                          <RiFilmLine className="size-10 text-muted-foreground/50" />
+                        </div>
+                      )
                     ) : (
                       <ShimmerImage
                         src={share.imageUrl}
@@ -745,11 +775,15 @@ export function SharesGallery({
       <AlertDialog open={deleteAllOpen} onOpenChange={setDeleteAllOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all screenshots?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete all {deleteAllScoped ? typeFilterLabel : ""} screenshots?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              All {shares.length} shared screenshot
-              {shares.length !== 1 ? "s" : ""} will be permanently removed and
-              all share links will stop working. This cannot be undone.
+              All {deleteAllTargets.length}{" "}
+              {deleteAllScoped ? `${typeFilterLabel} ` : ""}shared screenshot
+              {deleteAllTargets.length !== 1 ? "s" : ""} will be permanently
+              removed and their share links will stop working. This cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">

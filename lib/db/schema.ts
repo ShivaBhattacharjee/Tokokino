@@ -105,6 +105,8 @@ export const shares = sqliteTable(
     sizeBytes: integer("size_bytes").notNull().default(0),
     type: text("type").$type<ShareType>().notNull().default("style"),
     contentType: text("content_type").notNull().default("image/png"),
+    // Poster still-frame object key for animate shares (nullable).
+    posterKey: text("poster_key"),
     userId: text("user_id").notNull(),
     userName: text("user_name"),
     userEmail: text("user_email"),

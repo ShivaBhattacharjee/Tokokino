@@ -428,11 +428,6 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
       ? "Social posts use one content slot."
       : undefined
 
-  const animateClips = preset.geometry.animation?.clips
-  const isAnimatePreset =
-    preset.type === "animate" ||
-    (Array.isArray(animateClips) && animateClips.length > 0)
-
   return (
     <div className="group/preset relative">
       <PresetCardShell
@@ -451,11 +446,6 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
           previewId={`_preset_preview_custom_${preset.id}`}
         />
       </PresetCardShell>
-      {isAnimatePreset && (
-        <span className="pointer-events-none absolute top-3 left-3 z-[1] rounded-full border border-white/15 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground">
-          Animate
-        </span>
-      )}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <button
           type="button"

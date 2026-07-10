@@ -434,7 +434,12 @@ export function TopBar() {
 
     try {
       await waitForNextPaint()
-      const { blob, contentType } = await exportAnimationBlob(activeCanvasId, {
+      // Grab a still of the settled canvas first — it becomes the gallery
+      // thumbnail. Best-effort: a failure just falls back to the film icon.
+      const poster = await captureCanvasThumbnail(activeCanvasId, 640).catch(
+        () => null
+      )
+      const { blob } = await exportAnimationBlob(activeCanvasId, {
         format: shareAnimFormat,
         fps: 30,
         targetWidth: ANIM_SHARE_WIDTHS[shareAnimResolution],
@@ -450,13 +455,13 @@ export function TopBar() {
         total: 1,
         label: "Uploading share…",
       })
+      const form = new FormData()
+      form.append("media", blob, `animation.${shareAnimFormat}`)
+      if (poster) form.append("poster", poster, "poster.jpg")
       const response = await fetch("/api/share", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": contentType,
-        },
-        body: blob,
+        body: form,
       })
       const result = (await response.json().catch(() => null)) as {
         url?: string

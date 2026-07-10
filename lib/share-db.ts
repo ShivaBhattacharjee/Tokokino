@@ -21,6 +21,7 @@ export type ShareRecord = {
   sizeBytes: number
   type: ShareType
   contentType: string
+  posterKey: string | null
   userId: string
   userName: string | null
   userEmail: string | null
@@ -39,6 +40,7 @@ type ShareRow = {
   sizeBytes: number
   type: ShareType | null
   contentType: string | null
+  posterKey: string | null
   userId: string
   userName: string | null
   userEmail: string | null
@@ -68,6 +70,7 @@ function rowToShare(row: ShareRow): ShareRecord {
     sizeBytes: row.sizeBytes ?? 0,
     type: normalizeShareType(row.type),
     contentType: row.contentType ?? "image/png",
+    posterKey: row.posterKey ?? null,
     userId: row.userId,
     userName: row.userName,
     userEmail: row.userEmail,
@@ -122,14 +125,21 @@ export async function deleteShareRecord(id: string, userId: string) {
     .where(and(eq(shares.id, id), eq(shares.userId, userId)))
 }
 
-export async function deleteAllUserShares(userId: string): Promise<string[]> {
+export async function deleteAllUserShares(
+  userId: string,
+  type?: ShareType | "all"
+): Promise<string[]> {
+  const where =
+    type === "animate" || type === "style"
+      ? and(eq(shares.userId, userId), eq(shares.type, type))
+      : eq(shares.userId, userId)
   const rows = await getDb()
     .select({ id: shares.id })
     .from(shares)
-    .where(eq(shares.userId, userId))
+    .where(where)
     .all()
   if (rows.length === 0) return []
-  await getDb().delete(shares).where(eq(shares.userId, userId))
+  await getDb().delete(shares).where(where)
   return rows.map((r) => r.id)
 }
 
@@ -141,6 +151,7 @@ export async function createShareRecord({
   sizeBytes,
   type,
   contentType,
+  posterKey = null,
   user,
 }: {
   id: string
@@ -150,6 +161,7 @@ export async function createShareRecord({
   sizeBytes: number
   type: ShareType
   contentType: string
+  posterKey?: string | null
   user: ShareUser
 }) {
   const now = toD1Date(new Date())
@@ -163,6 +175,7 @@ export async function createShareRecord({
       sizeBytes,
       type,
       contentType,
+      posterKey,
       userId: user.id,
       userName: user.name ?? null,
       userEmail: user.email ?? null,

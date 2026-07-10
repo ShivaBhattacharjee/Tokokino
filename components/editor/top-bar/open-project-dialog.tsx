@@ -132,7 +132,6 @@ function DraftCard({
   const updated = formatRelativeDate(draft.updatedAt)
   const [thumbError, setThumbError] = React.useState(false)
   const showThumbnail = draft.thumbnailUrl && !thumbError
-  const isAnimate = draft.type === "animate"
 
   return (
     <div className="group relative">
@@ -166,11 +165,6 @@ function DraftCard({
             {isCurrent ? (
               <span className="rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
                 Open
-              </span>
-            ) : null}
-            {isAnimate ? (
-              <span className="rounded-full border border-white/15 bg-background/85 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                Animate
               </span>
             ) : null}
           </div>
