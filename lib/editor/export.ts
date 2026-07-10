@@ -362,10 +362,24 @@ async function embedCloneBackgroundImages(root: HTMLElement): Promise<void> {
   await Promise.all(jobs)
 }
 
-function makeExportStyle(scopeId: string) {
+function makeExportStyle(scopeId: string, neutralizePortraitFx = false) {
   const exportStyle = document.createElement("style")
   exportStyle.id = "__export-override"
   const scope = `[data-export-scope="${scopeId}"]`
+  // Portrait blur/stage relies on backdrop-filter, which a rasterized
+  // foreignObject can't composite. For animation capture we neutralize the
+  // broken filter + tint (kept laid out for measurement) and re-draw the
+  // depth-of-field onto the frame canvas afterward. Still exports don't get the
+  // redraw, so they keep the overlay's own (partial) render instead.
+  const portraitFx = neutralizePortraitFx
+    ? `${scope} [data-export-portrait-fx] {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      background: none !important;
+      mask-image: none !important;
+      -webkit-mask-image: none !important;
+    }`
+    : ""
   // Do NOT zero `outline` globally — style borders use CSS outline on the
   // screenshot box. Only strip UI chrome (selection rings, focus rings, caret).
   exportStyle.textContent = `
@@ -382,6 +396,7 @@ function makeExportStyle(scopeId: string) {
       border: none !important;
       box-shadow: none !important;
     }
+    ${portraitFx}
   `
   return exportStyle
 }
@@ -441,12 +456,13 @@ function prepareExportNode(
   source: HTMLElement,
   width: number,
   height: number,
-  options: ExportCaptureOptions = {}
+  options: ExportCaptureOptions = {},
+  neutralizePortraitFx = false
 ) {
   const wrapper = document.createElement("div")
   const node = source.cloneNode(true) as HTMLElement
   const scopeId = `export-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  const exportStyle = makeExportStyle(scopeId)
+  const exportStyle = makeExportStyle(scopeId, neutralizePortraitFx)
 
   wrapper.style.position = "fixed"
   wrapper.style.left = "-100000px"
@@ -724,7 +740,13 @@ export async function prepareAnimationCapture(
   const outputWidth = Math.round(renderedWidth * pixelRatio)
   const outputHeight = Math.round(renderedHeight * pixelRatio)
 
-  const exportTarget = prepareExportNode(node, renderedWidth, renderedHeight)
+  const exportTarget = prepareExportNode(
+    node,
+    renderedWidth,
+    renderedHeight,
+    {},
+    true // neutralize portrait blur/stage — redrawn onto the frame canvas
+  )
   const { rewrites, preloadUrls } = rewriteExportAssets(exportTarget.node)
 
   await waitForExportAssets(preloadUrls)
@@ -904,7 +926,13 @@ export async function prepareFastAnimationCapture(
   // resolve to the same pixels as in the live editor.
   const containerContext = findNearestContainerContext(node)
 
-  const exportTarget = prepareExportNode(node, renderedWidth, renderedHeight)
+  const exportTarget = prepareExportNode(
+    node,
+    renderedWidth,
+    renderedHeight,
+    {},
+    true // neutralize portrait blur/stage — redrawn onto the frame canvas
+  )
   const { rewrites, preloadUrls } = rewriteExportAssets(exportTarget.node)
 
   // Recreate the query container around the clone (its wrapper) so per-frame

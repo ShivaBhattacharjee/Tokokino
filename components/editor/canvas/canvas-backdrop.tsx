@@ -47,6 +47,22 @@ import {
   portraitOverlayCss,
 } from "./helpers"
 
+/**
+ * Portrait `blur`/`stage` fake depth-of-field with `backdrop-filter`, which a
+ * rasterized `<foreignObject>` can't composite. Tag those overlays with their
+ * params so the exporter can neutralize the (non-working) filter and re-draw the
+ * blur onto the captured frame canvas instead. Harmless in the live editor.
+ */
+function portraitExportAttrs(p: Portrait): Record<string, string> {
+  if (p.mode !== "blur" && p.mode !== "stage") return {}
+  return {
+    "data-export-portrait-fx": p.mode,
+    "data-portrait-position": String(p.position),
+    "data-portrait-distance": String(p.distance),
+    "data-portrait-intensity": String(p.intensity),
+  }
+}
+
 type CanvasBackdropProps = {
   background: Background
   backdrop: Backdrop
@@ -502,6 +518,9 @@ function CanvasBackdropImpl({
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0"
+              {...(animatePortraitStack
+                ? portraitExportAttrs(animatePortraitStack.base)
+                : {})}
               style={{
                 ...portraitBaseStyle,
                 opacity:
@@ -517,6 +536,7 @@ function CanvasBackdropImpl({
                 key={layer.id}
                 aria-hidden
                 className="pointer-events-none absolute inset-0"
+                {...portraitExportAttrs(layer.portrait)}
                 style={{
                   ...style,
                   opacity: `var(${portraitLayerOpacityVar(layer.id)}, ${
@@ -531,6 +551,7 @@ function CanvasBackdropImpl({
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
+          {...portraitExportAttrs(portrait)}
           style={
             portrait.mode === "blur" || portrait.mode === "stage"
               ? { ...portraitStyle, zIndex: 200 }
