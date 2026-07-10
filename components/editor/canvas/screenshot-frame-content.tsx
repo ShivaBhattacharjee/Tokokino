@@ -62,6 +62,12 @@ type ScreenshotFrameContentProps = {
   /** Cap the mockup empty frame to the smaller canvas dimension (canvas-level only). */
   mockupScopeToMinSide?: boolean
   innerLightingStyle?: React.CSSProperties | null
+  /**
+   * Whether this screenshot is the active selection. Forwarded to bare images so
+   * the green selection ring can hug the image box (esp. object-fit:contain).
+   * Framed paths still draw selection on the outer container.
+   */
+  isScreenshotSelected?: boolean
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
@@ -117,6 +123,7 @@ export function ScreenshotFrameContent({
   aspectH,
   mockupScopeToMinSide = false,
   innerLightingStyle,
+  isScreenshotSelected = false,
   onCapture,
   captureDefaultDevice,
   captureStateKey,
@@ -220,10 +227,16 @@ export function ScreenshotFrameContent({
       <div
         className="pointer-events-none absolute top-1/2 left-1/2 h-full w-full"
         style={{
+          // This content always lives inside a container that is ITSELF
+          // positioned (the multi-screenshot row item / slot). Don't read the
+          // `--editor-main-*` preview vars here or a main-screenshot drag applies
+          // the move twice — the image detaches from its selection box (only the
+          // container moved). Use the committed anchor/offset values only.
           transform: framePositionTransform({
             anchor: screenshotAnchor,
             offset: screenshotOffset,
             transform: "",
+            readPreviewVars: false,
           }),
           transformOrigin: "center",
         }}
@@ -237,7 +250,7 @@ export function ScreenshotFrameContent({
           screenshotTop={undefined}
           placementDims={null}
           screenshotLayer={CONTENT_LAYER}
-          isScreenshotSelected={false}
+          isScreenshotSelected={isScreenshotSelected}
           isScreenshotDragging={isDragging}
           suppressTransition={false}
           activeTool={activeTool}

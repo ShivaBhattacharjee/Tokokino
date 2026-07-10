@@ -7,6 +7,8 @@
  * - Paste image: components/editor/canvas/use-image-file-intake.ts (window "paste")
  * - Delete selection: lib/editor/store/provider.tsx (Delete / Backspace)
  * - Deselect / Exit preview: canvas-surface / canvas-view / app preview (Escape)
+ * - Animate clip shortcuts: components/editor/animate/use-animate-timeline.ts
+ *   (Cut tool "S", Duplicate ⌘D, Remove effects ⌘⇧⌫, Deselect ⌘⇧A, Delete)
  *
  * Key tokens are platform-agnostic; `formatShortcutKey` renders the right
  * glyph for macOS vs. other platforms.
@@ -41,6 +43,16 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: "Export",
     items: [{ label: "Copy canvas", keys: ["mod", "C"] }],
+  },
+  {
+    title: "Animate",
+    items: [
+      { label: "Cut tool (razor)", keys: ["S"] },
+      { label: "Duplicate clip", keys: ["mod", "D"] },
+      { label: "Remove clip effects", keys: ["mod", "shift", "Delete"] },
+      { label: "Deselect clip", keys: ["mod", "shift", "A"] },
+      { label: "Delete clip", keys: ["Delete"] },
+    ],
   },
 ]
 

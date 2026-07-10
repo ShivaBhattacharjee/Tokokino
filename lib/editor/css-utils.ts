@@ -5,6 +5,7 @@ import type {
   AssetFilter,
   Background,
   BackdropEffects,
+  Border,
   EnhancePreset,
   Shadow,
 } from "./state-types"
@@ -264,6 +265,23 @@ export function shadowDropFilterPreviewCss(
 ): string | undefined {
   if (!committed) return undefined
   return `var(${SHADOW_FILTER_PREVIEW_VAR}, ${committed})`
+}
+
+export const BORDER_OUTLINE_PREVIEW_VAR = "--editor-border-outline-preview"
+export const BORDER_OFFSET_PREVIEW_VAR = "--editor-border-offset-preview"
+/** Screenshot corner-radius live preview (Border section "Radius" slider). */
+export const SCREENSHOT_RADIUS_PREVIEW_VAR = "--editor-screenshot-radius"
+
+/** The `outline` shorthand a border renders as (invisible when width is 0). */
+export function borderOutlineCss(border: Border): string {
+  return `${Math.max(0, border.width)}px ${border.style || "solid"} ${
+    border.color || "#ffffff"
+  }`
+}
+
+/** The `outline-offset` a border renders as. */
+export function borderOffsetCss(border: Border): string {
+  return `${border.padding || 0}px`
 }
 
 /**

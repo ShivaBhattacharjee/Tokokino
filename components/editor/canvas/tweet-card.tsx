@@ -522,7 +522,8 @@ function QuoteTweetPreview({
 type TweetCardViewProps = {
   tweet: TweetCard
   transform: string
-  borderRadius: number
+  /** number, or a CSS `var(...)` string when Animate mode drives the radius. */
+  borderRadius: number | string
   boxShadow?: string
   enhanceFilter?: string
   screenshotLayer: ScreenshotLayer

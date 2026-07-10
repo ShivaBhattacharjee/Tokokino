@@ -3,12 +3,23 @@ import { useEditorStore } from "@/lib/editor/store"
 
 export type ProtectedTopBarAction = "save" | "share" | "open"
 
+export type ShareMediaKind = "style" | "animate"
+
 export type ShareDialogState = {
   open: boolean
-  status: "idle" | "preparing" | "ready" | "error"
+  /**
+   * idle — closed/default
+   * configure — animate options (format/resolution + storage)
+   * preparing — encoding/uploading
+   * ready — public URL ready
+   * error — failed
+   */
+  status: "idle" | "configure" | "preparing" | "ready" | "error"
   url: string | null
   signature: string | null
   error: string | null
+  mediaKind: ShareMediaKind
+  storage: { used: number; limit: number } | null
 }
 
 export const SHARE_SKELETON_MIN_MS = 700

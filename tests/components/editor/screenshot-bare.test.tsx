@@ -76,6 +76,58 @@ describe("ScreenshotBare", () => {
     expect(screen.getByRole("img")).toHaveClass("object-contain")
   })
 
+  it("shrink-wraps nested contain so border hugs the image, not the container", () => {
+    // Nested = no free placement + no placementDims (multi-row / slot path).
+    // Filling the parent with object-fit:contain letterboxes the image inside a
+    // full-size element, so CSS outline would wrap the container. Nested contain
+    // must max-bound + auto-size instead of inset-0 h/w-full.
+    render(<ScreenshotBare {...baseProps()} objectFit="contain" />)
+    const img = screen.getByRole("img", { name: "Screenshot" })
+    expect(img).toHaveClass("max-h-full")
+    expect(img).toHaveClass("max-w-full")
+    expect(img).toHaveClass("object-contain")
+    expect(img).not.toHaveClass("inset-0")
+    expect(img).not.toHaveClass("h-full")
+    expect(img).not.toHaveClass("w-full")
+    expect(img).toHaveStyle({
+      left: "50%",
+      top: "50%",
+      maxWidth: "100%",
+      maxHeight: "100%",
+      width: "auto",
+      height: "auto",
+    })
+  })
+
+  it("fills the parent for nested cover (border matches the box)", () => {
+    render(<ScreenshotBare {...baseProps()} objectFit="cover" />)
+    const img = screen.getByRole("img", { name: "Screenshot" })
+    expect(img).toHaveClass("inset-0")
+    expect(img).toHaveClass("h-full")
+    expect(img).toHaveClass("w-full")
+    expect(img).toHaveClass("object-cover")
+  })
+
+  it("draws the active selection ring on the image box when selected", () => {
+    const { container } = render(
+      <ScreenshotBare
+        {...baseProps()}
+        isScreenshotSelected
+        objectFit="contain"
+      />
+    )
+    const ring = container.querySelector("[data-selection-border='true']")
+    expect(ring).toBeTruthy()
+    expect(ring).toHaveClass("outline-dashed")
+  })
+
+  it("hides the selection ring when not selected", () => {
+    const { container } = render(
+      <ScreenshotBare {...baseProps()} isScreenshotSelected={false} />
+    )
+    expect(container.querySelector("[data-selection-border='true']")).toBeNull()
+  })
+
   it("shows the edit menu when a pointer tool is active with placement dims", () => {
     render(
       <ScreenshotBare

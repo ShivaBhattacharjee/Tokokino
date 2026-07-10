@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import type { Background } from "@/lib/editor/state-types"
+import { trackUnsplashDownload } from "@/lib/editor/unsplash"
 import { cn } from "@/lib/utils"
 
 import { BackgroundLibrary } from "./background-library"
@@ -127,10 +128,10 @@ export function ImageBackgroundPanel({
   }
 
   const selectUnsplashImage = (photo: UnsplashResult) => {
+    // Track the download first so Unsplash attributes the selection even if
+    // the subsequent background apply is slow or the tab closes.
+    trackUnsplashDownload(photo.downloadLocation)
     selectImageFromUrl(photo.full, photo.thumb)
-    void fetch(
-      `/api/unsplash/download?url=${encodeURIComponent(photo.downloadLocation)}`
-    )
   }
 
   return (

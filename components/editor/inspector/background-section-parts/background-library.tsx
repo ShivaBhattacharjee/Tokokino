@@ -197,7 +197,7 @@ export function BackgroundLibrary({
           }
 
           const animatedGrid = (
-            <AnimatePresence mode="wait" initial={false}>
+            <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
                 key={`bg-${expanded ? "expanded" : "collapsed"}-${category.key}`}
                 variants={TILE_GRID_VARIANTS}

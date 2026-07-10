@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { useTheme } from "next-themes"
@@ -8,6 +9,10 @@ import { ArrowRight } from "@/components/landing/landing-svgs"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ease } from "@/components/landing/constants"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
+import {
+  scrollToHash,
+  landingSectionHref,
+} from "@/components/landing/section-link"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const links = [
@@ -16,18 +21,11 @@ const links = [
   { label: "Use cases", href: "#use-cases" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Contact", href: "#contact" },
-  { label: "Privacy", href: "/privacy" },
-  { label: "Terms", href: "/terms" },
 ]
 
-function scrollToHash(href: string) {
-  const id = href.slice(1)
-  document
-    .getElementById(id)
-    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-}
-
 export function Nav() {
+  const pathname = usePathname()
+  const showRails = pathname === "/"
   const [open, setOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
 
@@ -38,11 +36,10 @@ export function Nav() {
   return (
     <>
       <motion.nav
-        initial={{ opacity: 0, y: -6 }}
+        initial={showRails ? false : { opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease }}
         className="relative z-50 flex h-12 w-full shrink-0 items-center justify-between px-5 backdrop-blur-xl sm:px-8 lg:px-12"
-        style={RAIL_V_STYLE}
       >
         <BrandLogo />
 
@@ -50,17 +47,18 @@ export function Nav() {
         <div className="hidden items-center gap-1 font-mono text-xs text-foreground/60 xl:flex">
           {links.map((link) =>
             link.href.startsWith("#") ? (
-              <a
+              <Link
                 key={link.href}
-                href={link.href}
+                href={landingSectionHref(link.href, pathname)}
                 onClick={(e) => {
+                  if (pathname !== "/") return
                   e.preventDefault()
                   scrollToHash(link.href)
                 }}
                 className="rounded px-2.5 py-1.5 transition-colors hover:bg-primary/10 hover:text-primary"
               >
                 {link.label}
-              </a>
+              </Link>
             ) : (
               <Link
                 key={link.href}
@@ -122,7 +120,7 @@ export function Nav() {
           >
             <div
               className="mx-auto flex min-h-full w-[calc(100%-1rem)] max-w-[76rem] flex-col px-5 pt-8 pb-12 sm:w-[calc(100%-2rem)] sm:px-8 md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] lg:px-12"
-              style={RAIL_V_STYLE}
+              style={showRails ? RAIL_V_STYLE : undefined}
             >
               <nav className="flex flex-col gap-1">
                 {links.map((link, i) => (
@@ -134,17 +132,18 @@ export function Nav() {
                     transition={{ duration: 0.25, delay: i * 0.06, ease }}
                   >
                     {link.href.startsWith("#") ? (
-                      <a
-                        href={link.href}
+                      <Link
+                        href={landingSectionHref(link.href, pathname)}
                         onClick={(e) => {
-                          e.preventDefault()
                           setOpen(false)
+                          if (pathname !== "/") return
+                          e.preventDefault()
                           setTimeout(() => scrollToHash(link.href), 50)
                         }}
                         className="block py-1 font-mono text-4xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-5xl"
                       >
                         {link.label}
-                      </a>
+                      </Link>
                     ) : (
                       <Link
                         href={link.href}

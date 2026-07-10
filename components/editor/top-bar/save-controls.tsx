@@ -24,10 +24,43 @@ import { Button } from "@/components/ui/button"
 import type { CurrentDraftInfo } from "@/lib/editor/store"
 import { SaveActionRow } from "./ui"
 
+function saveCopy(
+  isAnimateMode: boolean,
+  currentDraft: CurrentDraftInfo | null
+) {
+  if (isAnimateMode) {
+    return {
+      headerDescription: currentDraft
+        ? `Currently editing "${currentDraft.name}" (with animation).`
+        : "Save this animation as a reusable preset or project.",
+      presetTitle: "Save as animate preset",
+      presetDescription: "Reuse this timeline and look for new projects.",
+      draftTitle: currentDraft ? "Save animate draft" : "Save as animate draft",
+      draftDescription: currentDraft
+        ? "Update this project and timeline so you can resume later."
+        : "Save the project and timeline so you can resume editing later.",
+      tooltip: "Save animation",
+    }
+  }
+  return {
+    headerDescription: currentDraft
+      ? `Currently editing "${currentDraft.name}".`
+      : "Save the current layout or the entire project.",
+    presetTitle: "Save as preset",
+    presetDescription: "Reuse this layout for new projects.",
+    draftTitle: currentDraft ? "Save draft" : "Save as draft",
+    draftDescription: currentDraft
+      ? "Update this project so you can resume later."
+      : "Save the project so you can resume editing later.",
+    tooltip: "Save project",
+  }
+}
+
 export function SaveControls({
   open,
   currentDraft,
   isDraftSaving,
+  isAnimateMode = false,
   onOpenChange,
   onSaveAsPreset,
   onSaveAsDraft,
@@ -35,10 +68,13 @@ export function SaveControls({
   open: boolean
   currentDraft: CurrentDraftInfo | null
   isDraftSaving: boolean
+  isAnimateMode?: boolean
   onOpenChange: (open: boolean) => void
   onSaveAsPreset: () => void
   onSaveAsDraft: () => void
 }) {
+  const copy = saveCopy(isAnimateMode, currentDraft)
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <Tooltip open={open ? false : undefined}>
@@ -50,7 +86,7 @@ export function SaveControls({
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent side="bottom">Save project</TooltipContent>
+        <TooltipContent side="bottom">{copy.tooltip}</TooltipContent>
       </Tooltip>
       <PopoverContent
         align="center"
@@ -60,25 +96,19 @@ export function SaveControls({
         <div className="px-1 pt-1 pb-2">
           <p className="text-sm font-medium">Save</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {currentDraft
-              ? `Currently editing "${currentDraft.name}".`
-              : "Save the current layout or the entire project."}
+            {copy.headerDescription}
           </p>
         </div>
         <SaveActionRow
           icon={RiBookmarkLine}
-          title="Save as preset"
-          description="Reuse this layout for new projects."
+          title={copy.presetTitle}
+          description={copy.presetDescription}
           onClick={onSaveAsPreset}
         />
         <SaveActionRow
           icon={RiDraftLine}
-          title={currentDraft ? "Save draft" : "Save as draft"}
-          description={
-            currentDraft
-              ? "Update this project so you can resume later."
-              : "Save the project so you can resume editing later."
-          }
+          title={copy.draftTitle}
+          description={copy.draftDescription}
           loading={isDraftSaving}
           onClick={onSaveAsDraft}
         />
@@ -91,6 +121,7 @@ export function MobileSaveDialog({
   open,
   currentDraft,
   isDraftSaving,
+  isAnimateMode = false,
   onOpenChange,
   onSaveAsPreset,
   onSaveAsDraft,
@@ -98,35 +129,30 @@ export function MobileSaveDialog({
   open: boolean
   currentDraft: CurrentDraftInfo | null
   isDraftSaving: boolean
+  isAnimateMode?: boolean
   onOpenChange: (open: boolean) => void
   onSaveAsPreset: () => void
   onSaveAsDraft: () => void
 }) {
+  const copy = saveCopy(isAnimateMode, currentDraft)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(calc(100vw-2rem),360px)] gap-2 rounded-2xl p-3 md:hidden">
         <DialogHeader className="px-1 pb-1 text-left">
           <DialogTitle>Save</DialogTitle>
-          <DialogDescription>
-            {currentDraft
-              ? `Currently editing "${currentDraft.name}".`
-              : "Save the current layout or the entire project."}
-          </DialogDescription>
+          <DialogDescription>{copy.headerDescription}</DialogDescription>
         </DialogHeader>
         <SaveActionRow
           icon={RiBookmarkLine}
-          title="Save as preset"
-          description="Reuse this layout for new projects."
+          title={copy.presetTitle}
+          description={copy.presetDescription}
           onClick={onSaveAsPreset}
         />
         <SaveActionRow
           icon={RiDraftLine}
-          title={currentDraft ? "Save draft" : "Save as draft"}
-          description={
-            currentDraft
-              ? "Update this project so you can resume later."
-              : "Save the project so you can resume editing later."
-          }
+          title={copy.draftTitle}
+          description={copy.draftDescription}
           loading={isDraftSaving}
           onClick={onSaveAsDraft}
         />

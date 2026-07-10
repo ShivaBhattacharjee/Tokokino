@@ -6,21 +6,35 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { SharePlyrPlayer } from "@/components/share/share-plyr-player"
+import { isVideoShareContentType } from "@/lib/share"
 
 export function ShareView({
   id,
   imageUrl,
   sharedBy,
   views,
+  contentType = "image/png",
+  shareType = "style",
 }: {
   id: string
   imageUrl: string
   sharedBy: string | null
   views: number | null
+  contentType?: string
+  shareType?: "style" | "animate"
 }) {
   const [imageCopied, setImageCopied] = React.useState(false)
   const [imageFailed, setImageFailed] = React.useState(false)
+  const isVideo = isVideoShareContentType(contentType)
+  const isGif = contentType.toLowerCase() === "image/gif"
+  const isAnimate = shareType === "animate" || isVideo || isGif
+
   const handleCopyImage = React.useCallback(async () => {
+    if (isVideo) {
+      toast.error("Copy works for still images. Download the video instead.")
+      return
+    }
     try {
       const response = await fetch(`/api/share/${id}/download`)
       const blob = await response.blob()
@@ -57,14 +71,16 @@ export function ShareView({
       console.error(error)
       toast.error("Could not copy image")
     }
-  }, [id])
+  }, [id, isVideo])
 
   return (
     <main className="min-h-svh bg-background text-foreground">
       <div className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dashed border-border/70 pb-4">
           <div className="min-w-0">
-            <p className="label-eyebrow">Shared screenshot</p>
+            <p className="label-eyebrow">
+              {isAnimate ? "Shared animation" : "Shared screenshot"}
+            </p>
             <h1 className="mt-1 truncate text-lg font-medium">
               Tokokino share
             </h1>
@@ -76,15 +92,17 @@ export function ShareView({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              className="w-44"
-              variant="outline"
-              size="lg"
-              onClick={() => void handleCopyImage()}
-            >
-              {imageCopied ? <RiCheckLine /> : <RiImageLine />}
-              <span>{imageCopied ? "Copied" : "Copy"}</span>
-            </Button>
+            {!isVideo ? (
+              <Button
+                className="w-44"
+                variant="outline"
+                size="lg"
+                onClick={() => void handleCopyImage()}
+              >
+                {imageCopied ? <RiCheckLine /> : <RiImageLine />}
+                <span>{imageCopied ? "Copied" : "Copy"}</span>
+              </Button>
+            ) : null}
             <Button className="w-44" asChild size="lg">
               <a href={`/api/share/${id}/download`}>
                 <RiDownloadLine />
@@ -95,25 +113,37 @@ export function ShareView({
         </header>
 
         <section className="grid min-h-0 flex-1 place-items-center py-6">
-          <div className="bg-checker w-full overflow-hidden rounded-lg border border-border/70">
+          <div className="w-full overflow-hidden">
             {imageFailed ? (
-              <div className="grid min-h-[52vh] place-items-center p-8 text-center">
+              <div className="bg-checker grid min-h-[52vh] place-items-center rounded-lg border border-border/70 p-8 text-center">
                 <div className="max-w-sm space-y-2">
                   <RiImageLine className="mx-auto size-8 text-muted-foreground" />
-                  <h2 className="text-sm font-medium">Image unavailable</h2>
+                  <h2 className="text-sm font-medium">Media unavailable</h2>
                   <p className="text-xs/relaxed text-muted-foreground">
-                    The share link exists, but the uploaded image could not be
+                    The share link exists, but the uploaded file could not be
                     loaded from storage.
                   </p>
                 </div>
               </div>
-            ) : (
-              <ShimmerImage
+            ) : isVideo ? (
+              <SharePlyrPlayer
                 src={imageUrl}
-                alt="Shared Tokokino screenshot"
-                className="block h-auto max-h-[calc(100svh-9rem)] w-full object-contain"
-                onError={() => setImageFailed(true)}
+                contentType={contentType}
+                className="max-h-[calc(100svh-9rem)]"
               />
+            ) : (
+              <div className="bg-checker overflow-hidden rounded-lg border border-border/70">
+                <ShimmerImage
+                  src={imageUrl}
+                  alt={
+                    isAnimate
+                      ? "Shared Tokokino animation"
+                      : "Shared Tokokino screenshot"
+                  }
+                  className="block h-auto max-h-[calc(100svh-9rem)] w-full object-contain"
+                  onError={() => setImageFailed(true)}
+                />
+              </div>
             )}
           </div>
         </section>

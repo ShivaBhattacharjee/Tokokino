@@ -2,10 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   getShareImage: vi.fn(),
+  getShareById: vi.fn(),
 }))
 
 vi.mock("@/lib/share-storage", () => ({
   getShareImage: mocks.getShareImage,
+}))
+
+vi.mock("@/lib/share-db", () => ({
+  getShareById: mocks.getShareById,
 }))
 
 const VALID_SHARE_ID = "123e4567-e89b-42d3-a456-426614174000"
@@ -30,6 +35,7 @@ function streamFor(bytes: Uint8Array) {
 describe("GET /api/share/[id]/image", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.getShareById.mockResolvedValue(null)
   })
 
   it("rejects malformed share ids without reading storage", async () => {
@@ -63,7 +69,7 @@ describe("GET /api/share/[id]/image", () => {
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toBe("image/jpeg")
     expect(response.headers.get("content-disposition")).toBe(
-      `inline; filename="tokokino-share-${VALID_SHARE_ID}.png"`
+      `inline; filename="tokokino-share-${VALID_SHARE_ID}.jpg"`
     )
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
   })
@@ -79,7 +85,7 @@ describe("GET /api/share/[id]/image", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: "Share image not found",
+      error: "Share media not found",
     })
   })
 })

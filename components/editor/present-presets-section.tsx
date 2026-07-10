@@ -90,6 +90,16 @@ export function PresentPresetsSection({
   const setActiveCustomPresetId = useEditorStore(
     (s) => s.setActiveCustomPresetId
   )
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
+
+  /** Custom tab only lists presets matching the current editor mode. */
+  const visibleCustomPresets = React.useMemo(() => {
+    return customPresets.filter((p) => {
+      const type = p.type === "animate" ? "animate" : "style"
+      return isAnimateMode ? type === "animate" : type === "style"
+    })
+  }, [customPresets, isAnimateMode])
   const deleteScreenshotSlot = useEditorStore((s) => s.deleteScreenshotSlot)
   const [downgradeDialogOpen, setDowngradeDialogOpen] = React.useState(false)
   const [pendingTab, setPendingTab] = React.useState<PresetTab | null>(null)
@@ -349,8 +359,9 @@ export function PresentPresetsSection({
       // Geometry includes a snapshot of every styling field on the canvas
       // (background, backdrop, border, shadow, overlay, portrait, padding,
       // radius, frame, text/asset/annotation layers, etc.) — not just the
-      // tilt and scale. `applyPresetSnapshot` commits all of those in a
-      // single history entry while preserving the live screenshot pixels.
+      // tilt and scale. Animate presets also replace the timeline (clips
+      // remapped onto live slot ids). `applyPresetSnapshot` commits all of
+      // those in a single history entry while preserving screenshot pixels.
       applyPresetSnapshot(geometry)
       setActiveCustomPresetId(preset.id)
       setActiveLayoutPresetId(null)
@@ -361,6 +372,14 @@ export function PresentPresetsSection({
         activeSinglePresetId: null,
         activeCustomPresetId: preset.id,
       })
+      const animateClips = geometry.animation?.clips
+      const isAnimatePreset =
+        preset.type === "animate" ||
+        (Array.isArray(animateClips) && animateClips.length > 0)
+      if (isAnimatePreset) {
+        // Enter Animate so the timeline is visible; store selects the last clip.
+        setIsAnimateMode(true)
+      }
     },
     [
       applyPresetSnapshot,
@@ -368,6 +387,7 @@ export function PresentPresetsSection({
       setActiveCustomPresetId,
       setActiveLayoutPresetId,
       setActiveSinglePresetId,
+      setIsAnimateMode,
     ]
   )
 
@@ -507,11 +527,12 @@ export function PresentPresetsSection({
             activeSinglePresetId={displayActiveSinglePresetId}
             activeLayoutPresetId={displayActiveLayoutPresetId}
             activeCustomPresetId={displayActiveCustomPresetId}
-            customPresets={customPresets}
+            customPresets={visibleCustomPresets}
             customPresetsLoading={customPresetsLoading}
             customPresetsLoaded={customPresetsLoaded}
             isAuthPending={isAuthPending}
             userId={userId}
+            isAnimateMode={isAnimateMode}
             canvas={deferredCanvas}
             aspect={deferredAspect}
             onApplySingle={applyPreset}

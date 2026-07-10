@@ -11,9 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
  * chrome is mounted in each mode.
  */
 
-// ---------------------------------------------------------------------------
-// Store mock — a single mutable state object that selectors read from.
-// ---------------------------------------------------------------------------
 const storeMock = vi.hoisted(() => {
   const setters = {
     setIsPreviewMode: vi.fn(),
@@ -24,9 +21,18 @@ const storeMock = vi.hoisted(() => {
   const defaults = {
     isPreviewMode: false,
     isPreviewAutoScroll: false,
+    isAnimateMode: false,
     previewAutoScrollDelay: 3000,
     previewAnimation: "slide" as "slide" | "fade" | "zoom" | "flip",
-    present: { activeCanvasId: "canvas-1" },
+    // Slideshow controls only render with multiple canvases, so the mock
+    // provides two so the pill/settings tests can find them.
+    present: {
+      activeCanvasId: "canvas-1",
+      canvases: [
+        { id: "canvas-1", screenshotSlots: [] },
+        { id: "canvas-2", screenshotSlots: [] },
+      ],
+    },
     ...setters,
   }
   const holder = { current: { ...defaults } }
@@ -39,10 +45,6 @@ vi.mock("@/lib/editor/store", () => ({
     selector(storeMock.holder.current),
 }))
 
-// ---------------------------------------------------------------------------
-// `motion` mock — strip animation-only props, render plain DOM, and render
-// AnimatePresence children synchronously so conditional content is testable.
-// ---------------------------------------------------------------------------
 vi.mock("motion/react", async () => {
   const React = await import("react")
   const ANIM_PROPS = new Set([
@@ -77,11 +79,6 @@ vi.mock("motion/react", async () => {
   }
 })
 
-// ---------------------------------------------------------------------------
-// Child-component mocks — lightweight stubs keyed by data-testid. Components
-// that receive a `className` echo it so we can assert the responsive classes
-// the page passes down.
-// ---------------------------------------------------------------------------
 function stub(testid: string) {
   return function Stub({ className }: { className?: string } = {}) {
     return <div data-testid={testid} className={className} />
@@ -89,6 +86,25 @@ function stub(testid: string) {
 }
 
 vi.mock("@/components/editor/canvas", () => ({ Canvas: stub("canvas") }))
+vi.mock("@/components/editor/animate/animate-bar", () => ({
+  AnimateBar: stub("animate-bar"),
+}))
+vi.mock("@/components/editor/animate/animate-toggle", () => ({
+  AnimateToggle: stub("animate-toggle"),
+}))
+vi.mock("@/components/editor/animate/animation-layer", () => ({
+  AnimationLayer: stub("animation-layer"),
+}))
+vi.mock("@/components/editor/animate/animation-preview-controls", () => ({
+  AnimationPreviewControls: stub("animation-preview-controls"),
+}))
+vi.mock("@/hooks/use-animation-player", () => ({
+  AnimationPlayerProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+}))
+vi.mock("@/components/editor/chrome-recommended-dialog", () => ({
+  ChromeRecommendedDialog: stub("chrome-recommended-dialog"),
+}))
 vi.mock("@/components/editor/top-bar", () => ({ TopBar: stub("top-bar") }))
 vi.mock("@/components/editor/effects-sidebar", () => ({
   EffectsSidebar: stub("effects-sidebar"),

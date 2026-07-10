@@ -3,6 +3,7 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { getAuth } from "@/lib/auth"
+import { getSharePosterUrl } from "@/lib/share"
 import {
   getUserShares,
   getUserStorageUsage,
@@ -35,9 +36,12 @@ export default async function SharesPage() {
   const serialized = shares.map((s) => ({
     id: s.id,
     imageUrl: s.imageUrl,
+    posterUrl: s.posterKey ? getSharePosterUrl(s.id) : null,
     viewCount: s.viewCount,
     sizeBytes: s.sizeBytes,
     createdAt: s.createdAt.toISOString(),
+    type: s.type,
+    contentType: s.contentType,
   }))
 
   return (

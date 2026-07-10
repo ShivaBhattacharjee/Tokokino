@@ -15,6 +15,7 @@ import {
   downscaleImageFromUrl,
   seedPlaceholderUrl,
 } from "@/lib/editor/image-resize"
+import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs"
 import {
   AUTO_PLACEHOLDER_GRADIENT,
@@ -113,6 +114,16 @@ export function BackgroundSection({ flat = false }: { flat?: boolean } = {}) {
       if (thumbUrl) seedPlaceholderUrl(url, thumbUrl)
       const canvasId = useEditorStore.getState().present.activeCanvasId
       const promotionId = ++promotionIdRef.current
+
+      // Unsplash API guidelines require hotlinking `photo.urls.*` CDN URLs for
+      // all live uses — never re-host or convert them to data URLs.
+      if (isUnsplashImageUrl(url)) {
+        setBackground(
+          { type: "image", value: url, sourceUrl: url, thumbUrl },
+          canvasId
+        )
+        return
+      }
 
       // Show thumb immediately for snappy selection feedback.
       setBackground(

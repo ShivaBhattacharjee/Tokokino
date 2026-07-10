@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
 import { useEditor } from "@/lib/editor/store"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { BoxEmptyState } from "./box-empty-state"
@@ -139,7 +140,11 @@ export function CanvasEmptyState({
             }),
             transformOrigin: "center",
             transformStyle: "preserve-3d",
-            filter: shadowFilter || undefined,
+            // Read the shadow via the animation/live-preview var (falling back to
+            // the committed filter) so the shadow animates on an empty canvas the
+            // same way the mockup/frame empty states already do — without this it
+            // painted the static committed shadow and never moved during playback.
+            filter: shadowDropFilterPreviewCss(shadowFilter) || undefined,
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

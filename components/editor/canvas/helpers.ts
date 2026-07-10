@@ -8,9 +8,15 @@ import {
 } from "@/lib/browser-frame"
 import { hexToRgb } from "@/lib/editor/color-utils"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
+import {
+  LIGHTING_IMAGE_VAR,
+  LIGHTING_OPACITY_VAR,
+} from "@/components/editor/inspector/backdrop-section-parts/constants"
 import { DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
+import { overlayUrl } from "@/lib/editor/presets"
 import type {
   BackdropLighting,
+  Overlay,
   PortraitMode,
   ScreenshotLayer,
 } from "@/lib/editor/store"
@@ -80,11 +86,15 @@ export function portraitOverlayCss(
 
 function lightSourcePoint(direction: string) {
   if (direction === "center") return { x: 50, y: 50 }
-  const [row, col] = direction.split("-").map(Number)
+  const match = direction.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/)
+  const row = Number(match?.[1])
+  const col = Number(match?.[2])
   if (!Number.isFinite(row) || !Number.isFinite(col)) return { x: 50, y: 50 }
   return {
-    x: clamp(col, 0, 4) * 25,
-    y: clamp(row, 0, 4) * 25,
+    // Animate-mode lighting uses temporary off-canvas grid points so the glow can
+    // enter from the selected side instead of being clamped onto the edge.
+    x: clamp(col, -4, 8) * 25,
+    y: clamp(row, -4, 8) * 25,
   }
 }
 
@@ -94,17 +104,37 @@ function lightRgba(color: string, opacity: number) {
 }
 
 function lightGradientDirection(x: number, y: number) {
-  if (x === 50 && y === 50) return "to bottom"
-  const vertical = y <= 50 ? "bottom" : "top"
-  const horizontal = x <= 50 ? "right" : "left"
-  return `to ${vertical} ${horizontal}`
+  // The soft linear sweep should follow only the axes the light is actually off
+  // on. A deadzone (well under one grid step of 25%) keeps a pure top/bottom or
+  // left/right light from picking up a spurious diagonal — e.g. a top light
+  // (x≈50) must sweep straight down, not "to bottom right", so its animated
+  // entrance reads as top→down instead of a fixed left→right drift.
+  const DEAD = 6
+  const dx = x - 50
+  const dy = y - 50
+  const vertical = Math.abs(dy) < DEAD ? "" : dy < 0 ? "bottom" : "top"
+  const horizontal = Math.abs(dx) < DEAD ? "" : dx < 0 ? "right" : "left"
+  const parts = [vertical, horizontal].filter(Boolean)
+  if (parts.length === 0) return "to bottom"
+  return `to ${parts.join(" ")}`
 }
 
-export function lightingOverlayCss(
+/**
+ * The raw gradient image + opacity for a lighting overlay. Returns null when the
+ * light is off (zero intensity). Kept separate from `lightingOverlayCss` so the
+ * Animate-mode player can compute the SAME values for an interpolated lighting
+ * and push them into the overlay's vars each frame.
+ */
+export function lightingOverlayValues(
   lighting: BackdropLighting | undefined,
-  options: { inner?: boolean } = {}
-): React.CSSProperties | null {
-  if (!lighting || lighting.intensity <= 0) return null
+  options: { inner?: boolean; forceMount?: boolean } = {}
+): { image: string; opacity: number } | null {
+  if (!lighting) return null
+  const off = lighting.intensity <= 0
+  // Normally an off light renders nothing. In Animate mode the overlay element
+  // must still mount (`forceMount`) so the player has a node to fade in when a
+  // later keyframe lights it — it just sits at opacity 0 until then.
+  if (off && !options.forceMount) return null
 
   const intensity = clamp(lighting.intensity, 0, 100) / 100
   const { x, y } = lightSourcePoint(lighting.direction)
@@ -113,11 +143,55 @@ export function lightingOverlayCss(
   const soft = lightRgba(lighting.color, options.inner ? 0.22 : 0.26)
 
   return {
-    backgroundImage: [
+    image: [
       `radial-gradient(circle at ${x}% ${y}%, ${strong} 0%, ${mid} 22%, transparent 58%)`,
       `linear-gradient(${lightGradientDirection(x, y)}, ${soft} 0%, transparent 62%)`,
     ].join(", "),
-    opacity: 0.15 + intensity * 0.85,
+    opacity: off ? 0 : 0.15 + intensity * 0.85,
+  }
+}
+
+export function lightingOverlayCss(
+  lighting: BackdropLighting | undefined,
+  options: { inner?: boolean; active?: boolean; forceMount?: boolean } = {}
+): React.CSSProperties | null {
+  const values = lightingOverlayValues(lighting, options)
+  if (!values) return null
+
+  // In Animate mode the player overrides the image + opacity per frame (so the
+  // light chains between keyframes — its position, strength and colour easing
+  // from one to the next). At rest the vars are unset and fall back to the
+  // committed values, so the static look is untouched.
+  //
+  // `active: false` means this side (inner/outer) is not the committed target,
+  // so at rest it stays invisible — but it's still mounted so the player can
+  // crossfade the glow onto it (an inner↔outer depth shift between keyframes).
+  const suffix = options.inner ? "-in" : ""
+  const restOpacity = options.active === false ? 0 : values.opacity
+  return {
+    backgroundImage: `var(${LIGHTING_IMAGE_VAR}${suffix}, ${values.image})`,
+    opacity:
+      `var(${LIGHTING_OPACITY_VAR}${suffix}, ${restOpacity.toFixed(3)})` as unknown as number,
+  }
+}
+
+/**
+ * Style for one texture-overlay layer during Animate playback: its opacity is
+ * the layer's crossfade opacity (a var the player drives) × the overlay's own
+ * opacity. Returns null when the overlay has no texture (id null). `restOpaque`
+ * is the fallback when the var is unset (at rest).
+ */
+export function overlayLayerCss(
+  overlay: Overlay,
+  opacityVar: string,
+  restOpaque: number
+): React.CSSProperties | null {
+  if (overlay.id === null) return null
+  const own = clamp(overlay.opacity, 0, 100) / 100
+  return {
+    backgroundImage: `url("${overlayUrl(overlay.id)}")`,
+    opacity:
+      `calc(var(${opacityVar}, ${restOpaque}) * ${own})` as unknown as number,
   }
 }
 
@@ -338,18 +412,35 @@ export function framePositionTransform({
   offset,
   transform,
   rotation = 0,
+  readPreviewVars = true,
 }: {
   anchor: { x: number; y: number }
   offset: { x: number; y: number }
   transform: string
   rotation?: number
+  /**
+   * When true (default) the anchor/offset legs read the `--editor-main-*` live-
+   * preview vars (with the passed values as fallbacks) so the box tracks a drag.
+   * Set false when this element sits INSIDE a container that is itself positioned
+   * by those vars (the multi-screenshot row item and slots): reading them here
+   * too would apply the move twice — detaching the image from its box. Then only
+   * the committed anchor/offset values are used.
+   */
+  readPreviewVars?: boolean
 }) {
   const rotationTransform = rotation ? ` rotate(${rotation}deg)` : ""
 
+  const anchorLeg = readPreviewVars
+    ? `translate(var(--editor-main-anchor-x, ${frameAnchorTravel(anchor.x, "x")}), var(--editor-main-anchor-y, ${frameAnchorTravel(anchor.y, "y")}))`
+    : `translate(${frameAnchorTravel(anchor.x, "x")}, ${frameAnchorTravel(anchor.y, "y")})`
+  const offsetLeg = readPreviewVars
+    ? `translate(var(--editor-main-offset-x, ${offset.x}px), var(--editor-main-offset-y, ${offset.y}px))`
+    : `translate(${offset.x}px, ${offset.y}px)`
+
   return [
     "translate(-50%, -50%)",
-    `translate(var(--editor-main-anchor-x, ${frameAnchorTravel(anchor.x, "x")}), var(--editor-main-anchor-y, ${frameAnchorTravel(anchor.y, "y")}))`,
-    `translate(var(--editor-main-offset-x, ${offset.x}px), var(--editor-main-offset-y, ${offset.y}px))`,
+    anchorLeg,
+    offsetLeg,
     transform,
     rotationTransform,
   ].join(" ")

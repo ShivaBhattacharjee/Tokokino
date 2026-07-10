@@ -74,5 +74,15 @@ describe("GET /api/unsplash/download", () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ ok: true })
     expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.unsplash.com/photos/abc/download",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Authorization: "Client-ID test-key",
+          "Accept-Version": "v1",
+        }),
+      })
+    )
   })
 })

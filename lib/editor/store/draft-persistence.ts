@@ -51,6 +51,8 @@ export type PersistedEditorUi = {
   previewAutoScrollDelay: number
   previewAnimation: PreviewAnimation
   currentDraft: CurrentDraftInfo | null
+  /** When true, re-enter Animate mode after local draft restore. */
+  isAnimateMode?: boolean
 }
 
 export type PersistedEditorDraft = {
@@ -63,10 +65,6 @@ export type PersistedEditorDraft = {
 
 export const isBrowserIndexedDbAvailable = () =>
   typeof window !== "undefined" && "indexedDB" in window
-
-// ---------------------------------------------------------------------------
-// Blob helpers
-// ---------------------------------------------------------------------------
 
 function isDataUrl(v: string | null | undefined): v is string {
   return typeof v === "string" && v.startsWith("data:")
@@ -152,10 +150,6 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
-// ---------------------------------------------------------------------------
-// Screenshot extraction (data URLs / object URLs → Blobs) for write path
-// ---------------------------------------------------------------------------
-
 type BlobMap = Record<string, Blob>
 
 function extractField(
@@ -189,6 +183,15 @@ function extractScreenshots(state: EditorState): {
 
   const canvases = state.canvases.map((canvas) => {
     const result: CanvasState = { ...canvas }
+
+    // Audio src is a session-only object URL — persist the metadata but drop
+    // the (dead-on-reload) URL so hydration doesn't reference a stale blob.
+    if (canvas.animation?.audio?.src) {
+      result.animation = {
+        ...canvas.animation,
+        audio: { ...canvas.animation.audio, src: "" },
+      }
+    }
 
     const screenshotExtract = extractField(
       canvas.screenshot,
@@ -230,10 +233,6 @@ function extractScreenshots(state: EditorState): {
 
   return { stripped: { ...state, canvases }, blobs }
 }
-
-// ---------------------------------------------------------------------------
-// Screenshot resolution (Blobs → data URLs) for read path
-// ---------------------------------------------------------------------------
 
 function readBlobsFromDb(
   db: IDBDatabase,
@@ -338,10 +337,6 @@ async function resolveScreenshots(
   return { ...state, canvases }
 }
 
-// ---------------------------------------------------------------------------
-// DB open
-// ---------------------------------------------------------------------------
-
 function openEditorDraftDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!isBrowserIndexedDbAvailable()) {
@@ -368,10 +363,6 @@ function openEditorDraftDb(): Promise<IDBDatabase> {
     request.onsuccess = () => resolve(request.result)
   })
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export function readEditorDraft(): Promise<PersistedEditorDraft | null> {
   return openEditorDraftDb().then(async (db) => {
@@ -475,13 +466,10 @@ export function createEditorDraftSnapshot(
       previewAutoScrollDelay: state.previewAutoScrollDelay,
       previewAnimation: state.previewAnimation,
       currentDraft: state.currentDraft,
+      isAnimateMode: state.isAnimateMode,
     },
   }
 }
-
-// ---------------------------------------------------------------------------
-// State normalization (unchanged — used on hydration)
-// ---------------------------------------------------------------------------
 
 const cloneEditorState = (state: EditorState): EditorState =>
   JSON.parse(JSON.stringify(state)) as EditorState
@@ -568,6 +556,14 @@ function normalizeCanvasState(
     screenshotSlots: Array.isArray(source.screenshotSlots)
       ? source.screenshotSlots.map((slot) => migrateLegacySlot(slot))
       : fallback.screenshotSlots,
+    animation: {
+      durationMs:
+        source.animation?.durationMs ?? fallback.animation?.durationMs ?? 5000,
+      clips: Array.isArray(source.animation?.clips)
+        ? source.animation.clips
+        : [],
+      audio: source.animation?.audio ?? null,
+    },
   }
 
   return {
@@ -615,6 +611,16 @@ export function applyEditorDraft(
 ): Partial<EditorStore> {
   const present = normalizeEditorState(draft.present)
   const ui = draft.ui
+  const restoreAnimate = Boolean(ui?.isAnimateMode)
+  let selectedAnimationClipId: string | null = null
+  if (restoreAnimate) {
+    const active = present.canvases.find((c) => c.id === present.activeCanvasId)
+    const clips = active?.animation?.clips ?? []
+    if (clips.length > 0) {
+      const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+      selectedAnimationClipId = sorted[sorted.length - 1]?.id ?? null
+    }
+  }
 
   return {
     past: [],
@@ -636,5 +642,7 @@ export function applyEditorDraft(
     activeCustomPresetId: ui?.activeCustomPresetId ?? null,
     activeSinglePresetId: ui?.activeSinglePresetId ?? null,
     currentDraft: ui?.currentDraft ?? null,
+    isAnimateMode: restoreAnimate,
+    selectedAnimationClipId,
   }
 }

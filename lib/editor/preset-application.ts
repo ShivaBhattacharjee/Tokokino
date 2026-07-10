@@ -1,6 +1,5 @@
 import {
   resolveLayoutPresetGeometry,
-  resolvePresentPresetScale,
   type LayoutPreset,
   type PresentPreset,
 } from "./present-presets"
@@ -48,7 +47,11 @@ export function planSinglePreset(
   canvas: CanvasState,
   aspect: AspectState
 ): PresetPlan {
-  const scale = resolvePresentPresetScale(preset, canvas.frame)
+  // Single presets are tilt/position presets — they follow the canvas' current
+  // zoom rather than forcing a fixed scale. This keeps the preset thumbnails
+  // (and applying a preset) in sync with the Zoom / Scale sliders, and stays
+  // idempotent under repeated application and aspect changes.
+  const scale = canvas.scale
   const naturalLayout = computeRowLayout(
     [
       { id: "__main__", frame: canvas.frame },

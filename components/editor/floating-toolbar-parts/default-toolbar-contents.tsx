@@ -19,6 +19,7 @@ import {
   type PositionSwipePoint,
 } from "@/components/editor/position-swipe-field"
 import {
+  afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
@@ -107,6 +108,9 @@ export function DefaultToolbarContents() {
     : null
 
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
   const activeCanvasPosition = useActiveCanvasField((c) => c.position)
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const setCanvasPosition = useEditorStore((s) => s.setCanvasPosition)
@@ -146,9 +150,20 @@ export function DefaultToolbarContents() {
     Boolean(tweet) ||
     hasDeviceFrame ||
     screenshotSlots.length > 0
+  // In a multi-slot layout the primary/main box always renders as a positionable
+  // placeholder (CanvasEmptyState) and takes slot 0 of the row layout, even when
+  // it has no uploaded content. Group positioning must include it as a box so
+  // "group all" moves all screenshots — not just the extra slots.
+  const hasMainScreenshotBox = hasMainScreenshot || screenshotSlots.length > 0
   const screenshotBoxCount =
-    (hasMainScreenshot ? 1 : 0) + screenshotSlots.length
+    (hasMainScreenshotBox ? 1 : 0) + screenshotSlots.length
   const canGroupAllScreenshots = screenshotBoxCount > 1
+  const hasIndividualSelection =
+    Boolean(selectedText) ||
+    Boolean(selectedAsset) ||
+    Boolean(selectedAnnotation) ||
+    Boolean(selectedSlot) ||
+    (isScreenshotSelected && hasMainScreenshotTarget)
   const positionTarget: PositionTarget =
     groupAllScreenshots && canGroupAllScreenshots && hasAnyScreenshotContent
       ? "allScreenshots"
@@ -162,13 +177,17 @@ export function DefaultToolbarContents() {
               ? "slot"
               : isScreenshotSelected && hasMainScreenshotTarget
                 ? "screenshot"
-                : screenshotSlots.length > 0
-                  ? "slotGroup"
-                  : bulkEditMode
-                    ? "canvas"
-                    : screenshot || tweet || hasDeviceFrame
-                      ? "screenshot"
-                      : null
+                : // Nothing individually selected in a multi-box layout: move the
+                  // whole composition (main box + every slot), not just the slots.
+                  canGroupAllScreenshots && hasAnyScreenshotContent
+                  ? "allScreenshots"
+                  : screenshotSlots.length > 0
+                    ? "slotGroup"
+                    : bulkEditMode
+                      ? "canvas"
+                      : screenshot || tweet || hasDeviceFrame
+                        ? "screenshot"
+                        : null
 
   // The frame-less main screenshot is positioned in real stage pixels (mirroring
   // the canvas renderer's placement math), not the base-canvas space the legacy
@@ -260,7 +279,7 @@ export function DefaultToolbarContents() {
       }
     } else if (positionTarget === "allScreenshots") {
       const center = allScreenshotGroupCenter({
-        hasMainScreenshot,
+        hasMainScreenshot: hasMainScreenshotBox,
         aspect,
         frame,
         position: screenshotPosition,
@@ -305,7 +324,7 @@ export function DefaultToolbarContents() {
     screenshotPosition,
     screenshotOffset,
     activeCanvasPosition,
-    hasMainScreenshot,
+    hasMainScreenshotBox,
     isBareMainTarget,
     mainStageDims,
     scaleFactor,
@@ -436,7 +455,7 @@ export function DefaultToolbarContents() {
         }
       } else if (positionTarget === "allScreenshots") {
         const currentGroupCenter = allScreenshotGroupCenter({
-          hasMainScreenshot,
+          hasMainScreenshot: hasMainScreenshotBox,
           aspect,
           frame,
           position: screenshotPosition,
@@ -448,7 +467,7 @@ export function DefaultToolbarContents() {
         const dx = safePoint.xPct - currentGroupCenter.xPct
         const dy = safePoint.yPct - currentGroupCenter.yPct
 
-        if (hasMainScreenshot) {
+        if (hasMainScreenshotBox) {
           const mainCenter = mainScreenshotPositionPct({
             aspect,
             frame,
@@ -488,7 +507,7 @@ export function DefaultToolbarContents() {
       aspect,
       collectPositionPreviewElements,
       frame,
-      hasMainScreenshot,
+      hasMainScreenshotBox,
       isBareMainTarget,
       measureMainStageDims,
       positionTarget,
@@ -590,7 +609,7 @@ export function DefaultToolbarContents() {
       }
       if (positionTarget === "allScreenshots") {
         const currentGroupCenter = allScreenshotGroupCenter({
-          hasMainScreenshot,
+          hasMainScreenshot: hasMainScreenshotBox,
           aspect,
           frame,
           position: screenshotPosition,
@@ -602,7 +621,7 @@ export function DefaultToolbarContents() {
         const dx = safePoint.xPct - currentGroupCenter.xPct
         const dy = safePoint.yPct - currentGroupCenter.yPct
 
-        if (hasMainScreenshot) {
+        if (hasMainScreenshotBox) {
           const mainCenter = mainScreenshotPositionPct({
             aspect,
             frame,
@@ -633,7 +652,7 @@ export function DefaultToolbarContents() {
       aspect,
       frame,
       getActiveCanvasElement,
-      hasMainScreenshot,
+      hasMainScreenshotBox,
       isBareMainTarget,
       measureMainStageDims,
       positionTarget,
@@ -857,7 +876,7 @@ export function DefaultToolbarContents() {
                 <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                   Position {positionTargetLabel}
                 </span>
-                {canGroupAllScreenshots ? (
+                {canGroupAllScreenshots && hasIndividualSelection ? (
                   <button
                     type="button"
                     onClick={() => setGroupAllScreenshots((v) => !v)}
@@ -892,8 +911,23 @@ export function DefaultToolbarContents() {
                   ariaLabel={`Position ${positionTargetLabel}`}
                   disabled={isDisabled}
                   value={currentPositionPoint}
-                  onPreview={previewPositionPoint}
-                  onChange={applyPositionPoint}
+                  onPreview={(point) => {
+                    // Drop the boxes' 300ms left/top/transform easing for the
+                    // duration of the pad drag so they track the pad live instead
+                    // of easing behind it (which read as the preview landing in a
+                    // different spot than the committed result).
+                    setScreenshotPositionDragging(true)
+                    previewPositionPoint(point)
+                  }}
+                  onChange={(point) => {
+                    applyPositionPoint(point)
+                    // Reset only AFTER the preview-var clear paints, so the main
+                    // box doesn't ease between its preview and committed position
+                    // representations on release.
+                    afterPositionPreviewCleared(() =>
+                      setScreenshotPositionDragging(false)
+                    )
+                  }}
                 />
               </div>
             </ToolbarPopover>

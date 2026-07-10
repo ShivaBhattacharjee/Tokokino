@@ -2,9 +2,11 @@ import "server-only"
 
 import { and, asc, count, desc, eq, sql } from "drizzle-orm"
 
-import { drafts } from "@/lib/db/schema"
+import { drafts, type DraftType } from "@/lib/db/schema"
 import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
 import { getDraftState, uploadDraftState } from "@/lib/draft-storage"
+
+export type { DraftType }
 
 /** Per-user storage budget for saved draft state: 1 GB. */
 export const MAX_USER_DRAFT_STORAGE_BYTES = 1024 * 1024 * 1024
@@ -19,6 +21,7 @@ export type DraftRecord = {
   name: string
   canvasCount: number
   byteSize: number
+  type: DraftType
   state: unknown
   stateKey: string
   thumbnailKey: string | null
@@ -32,10 +35,15 @@ type DraftRow = {
   name: string
   canvasCount: number
   byteSize: number
+  type: DraftType | null
   stateKey: string
   thumbnailKey: string | null
   createdAt: string
   updatedAt: string
+}
+
+function normalizeDraftType(type: DraftType | null | undefined): DraftType {
+  return type === "animate" ? "animate" : "style"
 }
 
 async function readDraftState(row: DraftRow) {
@@ -56,6 +64,7 @@ function rowToDraft(row: DraftRow, state: unknown): DraftRecord {
     name: row.name,
     canvasCount: row.canvasCount,
     byteSize: row.byteSize,
+    type: normalizeDraftType(row.type),
     state,
     stateKey: row.stateKey,
     thumbnailKey: row.thumbnailKey,
@@ -70,16 +79,26 @@ function rowToDraftMetadata(row: DraftRow): DraftRecord {
 
 export async function listDrafts(
   userId: string,
-  opts: { limit?: number; offset?: number; sort?: "latest" | "oldest" } = {}
+  opts: {
+    limit?: number
+    offset?: number
+    sort?: "latest" | "oldest"
+    type?: DraftType
+  } = {}
 ) {
-  const { limit = 12, offset = 0, sort = "latest" } = opts
+  const { limit = 12, offset = 0, sort = "latest", type } = opts
   const order =
     sort === "oldest" ? asc(drafts.updatedAt) : desc(drafts.updatedAt)
+
+  const where =
+    type === "animate" || type === "style"
+      ? and(eq(drafts.userId, userId), eq(drafts.type, type))
+      : eq(drafts.userId, userId)
 
   const rows = await getDb()
     .select()
     .from(drafts)
-    .where(eq(drafts.userId, userId))
+    .where(where)
     .orderBy(order)
     .limit(limit)
     .offset(offset)
@@ -100,11 +119,19 @@ export async function getUserDraftStorageUsage(
   return Number(row?.total ?? 0)
 }
 
-export async function countDrafts(userId: string) {
+export async function countDrafts(
+  userId: string,
+  opts: { type?: DraftType } = {}
+) {
+  const where =
+    opts.type === "animate" || opts.type === "style"
+      ? and(eq(drafts.userId, userId), eq(drafts.type, opts.type))
+      : eq(drafts.userId, userId)
+
   const result = await getDb()
     .select({ count: count() })
     .from(drafts)
-    .where(eq(drafts.userId, userId))
+    .where(where)
     .get()
   return result?.count ?? 0
 }
@@ -142,6 +169,7 @@ export async function createDraft({
   name,
   canvasCount,
   byteSize,
+  type,
   stateBytes,
   thumbnailKey,
 }: {
@@ -150,6 +178,7 @@ export async function createDraft({
   name: string
   canvasCount: number
   byteSize: number
+  type: DraftType
   stateBytes: Uint8Array
   thumbnailKey: string | null
 }) {
@@ -162,6 +191,7 @@ export async function createDraft({
     name,
     canvasCount,
     byteSize,
+    type,
     stateKey,
     thumbnailKey,
     createdAt: now,
@@ -175,6 +205,7 @@ export async function updateDraft({
   name,
   canvasCount,
   byteSize,
+  type,
   stateBytes,
   thumbnailKey,
 }: {
@@ -183,6 +214,7 @@ export async function updateDraft({
   name?: string
   canvasCount: number
   byteSize: number
+  type: DraftType
   stateBytes: Uint8Array
   thumbnailKey?: string | null
 }) {
@@ -201,13 +233,21 @@ export async function updateDraft({
       name: nextName,
       canvasCount,
       byteSize,
+      type,
       stateKey,
       thumbnailKey: nextThumbnailKey,
       updatedAt: now,
     })
     .where(and(eq(drafts.id, id), eq(drafts.userId, userId)))
 
-  return getDraftMetadata({ id, userId })
+  return {
+    id,
+    name: nextName,
+    canvasCount,
+    byteSize,
+    type,
+    updatedAt: fromD1Date(now) ?? new Date(now),
+  }
 }
 
 export async function setDraftThumbnail({

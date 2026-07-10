@@ -10,23 +10,23 @@ const COMPETITOR_COMPARISONS = [
   {
     competitor: "PostSpark",
     contrast:
-      "The closest match — screenshots plus X and Bluesky posts, with video and animation extras. Strong tool, but cloud storage and the no-limits workflow sit behind Pro.",
+      "The closest match for screenshots plus X and Bluesky post mockups. Strong tool, but deeper animation workflows, no-limits usage, and cloud storage are pushed behind paid upgrades.",
     tokokino:
-      "Tokokino keeps the screenshot/post workflow lean: local editing, free high-res exports, free cloud drafts, and reusable presets without a subscription meter.",
+      "Tokokino keeps the workflow lean: local editing, free high-res exports, an editable keyframe timeline with GIF/WebM export, free cloud drafts, and reusable presets without a subscription meter.",
   },
   {
     competitor: "Pika",
     contrast:
-      "A polished browser editor with URL capture, tweet shots, and templates. The catch: 4K export, presets, annotations, WebP/SVG, and no watermark are Pro features.",
+      "A polished browser editor with URL capture, tweet shots, and templates. The catch: it is built around static assets rather than a keyframe timeline, and 4K export, presets, annotations, WebP/SVG, and no watermark are Pro features.",
     tokokino:
-      "Tokokino gives the daily launch workflow room to breathe: 4K/8K export, annotations, custom presets, and Bluesky post mockups are part of the free product.",
+      "Tokokino gives the daily launch workflow room to breathe: 4K/8K export, timeline animation, annotations, custom presets, and Bluesky post mockups are part of the free product.",
   },
   {
     competitor: "Shots.so",
     contrast:
-      "Beautiful for animated device mockups and zoom videos, but it is built around a cloud rendering/content platform and does not cover social-post mockups.",
+      "Beautiful for animated device mockups and zoom videos, with the serious motion export workflow on paid tiers. It is more about polished mockup motion than an editable multi-effect timeline, and it does not cover social-post mockups.",
     tokokino:
-      "Tokokino is the lighter, faster lane for static product shots: device frames, browser frames, multi-shot layouts, X/Bluesky posts, and local-first editing.",
+      "Tokokino is the lighter, faster lane for product motion and static shots: device frames, browser frames, multi-shot layouts, X/Bluesky posts, local-first editing, and timeline-driven scene changes in one editor.",
   },
 ] as const
 
@@ -43,6 +43,13 @@ const FEATURE_MATRIX = [
     tokokino: true,
     postspark: "paid",
     pika: "paid",
+    shots: "paid",
+  },
+  {
+    feature: "Editable motion timeline",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
     shots: "paid",
   },
   {
@@ -195,14 +202,15 @@ export function ComparisonSection() {
           {"// Comparison"}
         </span>
         <h2 className="max-w-3xl text-2xl tracking-tight sm:text-3xl lg:text-4xl">
-          The screenshot editor that does not turn every useful feature into a
-          plan upgrade.
+          The product visual editor that does not turn every useful feature into
+          a plan upgrade.
         </h2>
         <p className="max-w-2xl text-sm leading-7 text-foreground/58">
           PostSpark, Pika, and Shots all make good-looking mockups. Tokokino is
-          built for the part that should stay effortless: drag a huge
-          screenshot, tune the layout, save the project, reuse the preset, and
-          export clean 4K or 8K images without a watermark or subscription.
+          built for the part that should stay effortless: drag a huge capture,
+          tune the layout, animate the key moments, save the project, reuse the
+          preset, and export clean 4K/8K images or GIF/WebM motion without a
+          watermark or subscription.
         </p>
       </motion.div>
 
@@ -225,7 +233,7 @@ export function ComparisonSection() {
                   {item.contrast}
                 </p>
               </div>
-              <div className="bg-primary/[0.055] p-5">
+              <div className="bg-primary/5.5 p-5">
                 <p className="font-mono text-[10px] tracking-[0.24em] text-primary uppercase">
                   Tokokino
                 </p>
@@ -243,9 +251,9 @@ export function ComparisonSection() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.25 }}
         transition={{ duration: 0.65, ease, delay: 0.08 }}
-        className="mt-5 max-h-[28rem] overflow-auto rounded-md border border-border/70 bg-background/55 backdrop-blur-md sm:max-h-none sm:overflow-visible"
+        className="mt-5 max-h-112 overflow-auto rounded-md border border-border/70 bg-background/55 backdrop-blur-md sm:max-h-none sm:overflow-visible"
       >
-        <div className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(4.5rem,0.55fr))] border-b border-border/60 bg-background/70 text-center font-mono text-[10px] tracking-[0.2em] text-foreground/42 uppercase">
+        <div className="grid min-w-152 grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(4.5rem,0.55fr))] border-b border-border/60 bg-background/70 text-center font-mono text-[10px] tracking-[0.2em] text-foreground/42 uppercase">
           <div className="px-4 py-3 text-left">Feature</div>
           <div className="bg-primary/[0.07] px-3 py-3 text-primary">
             Tokokino
@@ -258,12 +266,12 @@ export function ComparisonSection() {
         {FEATURE_MATRIX.map((row) => (
           <div
             key={row.feature}
-            className="grid min-w-[38rem] grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(4.5rem,0.55fr))] border-b border-border/45 last:border-b-0"
+            className="grid min-w-152 grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(4.5rem,0.55fr))] border-b border-border/45 last:border-b-0"
           >
             <div className="px-4 py-3 text-[13px] font-medium text-foreground/78">
               {row.feature}
             </div>
-            <div className="bg-primary/[0.045] px-3 py-3 text-center">
+            <div className="bg-primary/4.5 px-3 py-3 text-center">
               <MatrixCell value={row.tokokino} featured />
             </div>
             <div className="px-3 py-3 text-center">

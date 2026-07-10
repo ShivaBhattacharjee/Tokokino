@@ -139,10 +139,6 @@ export function SettingsDialog({
   )
 }
 
-/* -------------------------------------------------------------------------- */
-/* Appearance                                                                 */
-/* -------------------------------------------------------------------------- */
-
 const THEME_OPTIONS: {
   value: string
   label: string
@@ -207,10 +203,6 @@ function AppearanceSection() {
     </div>
   )
 }
-
-/* -------------------------------------------------------------------------- */
-/* Export                                                                     */
-/* -------------------------------------------------------------------------- */
 
 const PREVIEW_SAMPLE = {
   template: "default",
@@ -438,10 +430,6 @@ function ExportSection() {
   )
 }
 
-/* -------------------------------------------------------------------------- */
-/* Shortcuts                                                                   */
-/* -------------------------------------------------------------------------- */
-
 function ShortcutsSection() {
   const [isApple, setIsApple] = React.useState(true)
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -488,8 +476,6 @@ function ShortcutsSection() {
     </div>
   )
 }
-
-/* -------------------------------------------------------------------------- */
 
 function SectionHeader({
   title,

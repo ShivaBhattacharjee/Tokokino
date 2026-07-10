@@ -384,12 +384,38 @@ export function useEditor(): EditorContext {
     setSelectedAnnotationShapeId: store.setSelectedAnnotationShapeId,
     setSelectedScreenshotSlotId: store.setSelectedScreenshotSlotId,
     setIsScreenshotSelected: store.setIsScreenshotSelected,
+    setIsAnimateMode: store.setIsAnimateMode,
+    selectAnimationClip: (id, canvasId) =>
+      store.selectAnimationClip(id, canvasId ?? targetId),
+    setAnimationDuration: (ms, canvasId) =>
+      store.setAnimationDuration(ms, canvasId ?? targetId),
+    addAnimationClip: (canvasId, atMs) =>
+      store.addAnimationClip(canvasId ?? targetId, atMs),
+    updateAnimationClip: (id, patch, canvasId) =>
+      store.updateAnimationClip(id, patch, canvasId ?? targetId),
+    clearAnimationClipEffects: (id, canvasId) =>
+      store.clearAnimationClipEffects(id, canvasId ?? targetId),
+    removeAnimationClip: (id, canvasId) =>
+      store.removeAnimationClip(id, canvasId ?? targetId),
+    moveAnimationClip: (id, startMs, canvasId) =>
+      store.moveAnimationClip(id, startMs, canvasId ?? targetId),
+    duplicateAnimationClip: (id, canvasId) =>
+      store.duplicateAnimationClip(id, canvasId ?? targetId),
+    splitAnimationClip: (id, atMs, canvasId) =>
+      store.splitAnimationClip(id, atMs, canvasId ?? targetId),
+    clearAnimationClips: (canvasId) =>
+      store.clearAnimationClips(canvasId ?? targetId),
+    setAnimationAudio: (audio, canvasId) =>
+      store.setAnimationAudio(audio, canvasId ?? targetId),
+    updateAnimationAudio: (patch, canvasId) =>
+      store.updateAnimationAudio(patch, canvasId ?? targetId),
     setIsPreviewMode: store.setIsPreviewMode,
     setIsPreviewAutoScroll: store.setIsPreviewAutoScroll,
     setPreviewAutoScrollDelay: store.setPreviewAutoScrollDelay,
     setPreviewAnimation: store.setPreviewAnimation,
     setBulkEditMode: store.setBulkEditMode,
     setBulkCanvasDragging: store.setBulkCanvasDragging,
+    setScreenshotPositionDragging: store.setScreenshotPositionDragging,
     setBulkViewportZoom: store.setBulkViewportZoom,
     setBulkScale: store.setBulkScale,
     reset: store.reset,

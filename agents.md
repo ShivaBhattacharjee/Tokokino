@@ -15,6 +15,7 @@ Tokokino is a client-heavy Next.js 15.5 app deployed to Cloudflare Workers throu
 | Task | File(s) |
 |---|---|
 | Add/change a canvas property (shadow, border, etc.) | `lib/editor/state-types.ts` (type) + `lib/editor/store.tsx` (action) + relevant inspector component |
+| Make a canvas property **animatable** (Animate mode) | See [Animate mode](#animate-mode--making-an-effect-animatable) — touches `state-types.ts`, `animation-playback.ts`, `store.tsx`, `animation-layer.tsx`, `canvas-view.tsx`/`canvas-backdrop.tsx`, `timeline-clip.tsx` |
 | Add a new store action | `lib/editor/store.tsx` — add to `EditorActions` type and implement in `createEditorStore` |
 | Change export behavior | `lib/editor/export.ts` |
 | Add a new background type | `lib/editor/state-types.ts` (`BgType`) + `lib/editor/css-utils.ts` (`backgroundCss`) + `components/inspector/background-section.tsx` |
@@ -190,6 +191,99 @@ Checklist:
 4. **CSS** — if the property affects rendering, add CSS generation in `css-utils.ts`
 5. **UI** — add control in the relevant inspector section under `components/editor/inspector/`
 6. **Validation** — add Zod range to `value-schemas.ts` if it's a numeric input
+
+---
+
+## Animate mode — making an effect animatable
+
+Animate mode is a per-canvas timeline of **clips** (keyframes). Each clip OWNS a set
+of effects (`clip.effects: AnimationEffect[]`) — the properties that were changed
+while it was the selected clip. Playback samples each owned effect independently and
+drives the live canvas through CSS variables (no store re-render per frame).
+
+Core files:
+- `lib/editor/animation-playback.ts` — interpolation helpers, stack resolvers, the `AnimationEffect`/`ClipBaseline` plumbing, `DEFAULT_BASELINE`.
+- `components/editor/animate/animation-layer.tsx` — the per-frame player: samples every owned effect at the playhead and writes CSS vars; clears them at rest.
+- `components/editor/canvas/canvas-view.tsx` + `canvas-backdrop.tsx` — read those vars via `var(--…, <committed fallback>)`.
+- `components/editor/animate/timeline-clip.tsx` — the icon shown on a clip per owned effect.
+- `lib/editor/store.tsx` — `commitCanvasEffect`, the pose helpers (`captureClipPose` / `applyPoseToCanvas` / `resolveKeyframePose`).
+
+### The non-negotiable rules (every animatable effect MUST follow these)
+
+1. **Start from the canvas's committed value, never 0/neutral.** The value an effect
+   eases FROM is the *first owning clip's baseline* (`clip.baseline`, captured when the
+   clip was created = the committed canvas pose before that clip's edits). Use the
+   `restFor(effect, extract, fallback)` helper in `animation-layer.tsx` for this — the
+   `fallback` is only used when no clip owns the effect (so it's never actually sampled).
+   A tilt that sits at −12° must animate from −12°, not from 0.
+2. **Continuous between keyframes — cross-blend, don't snap.** Back-to-back keyframes
+   must ease the previous rendered value → the next. Two DIFFERENT looks (e.g. a drop
+   shadow → a soft shadow, or a colour change) cross-blend; the old one eases OUT as the
+   new eases IN. Never let one value hard-cut to the next.
+3. **Reveal-from-nothing is a fade, not a jump.** When the committed base has the effect
+   OFF (no shadow, no border, zero-intensity lighting), the first keyframe grows/fades it
+   in from invisible — but that "invisible" is the base's own position/colour so nothing
+   travels or hue-slides on the way in. (See `lightingEntranceRest`, `INVISIBLE_BORDER`,
+   `INVISIBLE_SHADOW`.)
+4. **Hold at the end — no trailing jitter.** Past a clip's window an effect holds its
+   final value (`clipsProgressAt` clamps to 1). The last keyframe must not spring, fall,
+   or re-animate after settling.
+5. **A colour/style-only change is still a valid keyframe.** An effect can animate a
+   pure recolour or style swap with no size change; interpolate colour as RGBA (fade
+   alpha for emergence) and snap categorical fields (border style, shadow/lighting
+   target) at the midpoint since CSS can't render two at once.
+
+### Two interpolation shapes — pick the right one
+
+- **Numeric / interpolatable track** (tilt, zoom, padding, canvasRadius, shadow, border,
+  backdrop effects, lighting): sample with `sampleKeyframes<V>(framesFor(...), playhead,
+  restFor(...), lerpValue)`. Provide a `lerpValue(from, to, p)` (e.g. `borderBetween`,
+  `shadowBetween`, `lightingBetween`). Drive the result onto a CSS var each frame; the
+  renderer reads `var(--…, <committed>)`.
+- **Layered overlay stacks** (background, filter, portrait, pattern, overlay): each
+  keyframe owns its own layer; the player drives per-layer opacity vars.
+  - **Opaque layers** (background, filter — later fully covers earlier): opacity = plain
+    `clipsProgressAt([clip])`.
+  - **Additive/transparent layers** (portrait vignette, pattern, overlay texture): use
+    the **crossfade-chain** so they transition instead of accumulating:
+    `layer_i = progress(i)·(1 − progress(i+1))`, base = `1 − progress(0)`, last layer
+    holds. At rest only the selected keyframe's layer shows (`restOpaque: i === restCutoff`).
+  Stack resolvers live in `animation-playback.ts` as `resolveAnimateXStack` returning
+  `{ base, layers[] }`; render one node per layer in `canvas-backdrop.tsx` (and, for
+  effects with an over/under position like overlay, also in `canvas-view.tsx`).
+
+### Checklist to add a new animatable effect
+
+1. **`state-types.ts`** — add the key to the `AnimationEffect` union and an optional
+   `myEffect?: T` field to `ClipBaseline` (optional so older drafts hydrate cleanly).
+2. **`animation-playback.ts`** — add `myEffect: DEFAULT_CANVAS_BASE.myEffect` to
+   `DEFAULT_BASELINE`; add the interpolator (`myEffectBetween`, or a `resolveAnimateXStack`
+   for a layered stack) and an `INVISIBLE_/EMPTY_` rest constant.
+3. **`store.tsx`** — capture it in `captureClipPose`, apply it in `applyPoseToCanvas`
+   (with `?? canvas.myEffect` fallback), resolve it in `resolveKeyframePose`, and change
+   its setter from `commitCanvas` to `commitCanvasEffect(id, patch, group, "myEffect")` so
+   editing it while a clip is selected registers ownership.
+4. **`animation-layer.tsx`** — sample/drive the CSS var(s) in the player loop, and add
+   them to `SCOPE_VARS`/`CANVAS_FX_VARS` (or the per-clip clear loop) so `clearAll` resets
+   them at rest.
+5. **`canvas-view.tsx` / `canvas-backdrop.tsx`** — read the var via
+   `var(--…, <committed fallback>)`. If a clip owns the effect, mount the element even when
+   the committed value is neutral (an `xxxAnimated` flag), so it can ease in from nothing.
+6. **`timeline-clip.tsx`** — add the effect to the `ICON_FOR` map (shares the inspector
+   section's icon).
+7. Verify with `pnpm typecheck` + `npx eslint <changed files>` (the exhaustive
+   `Record<AnimationEffect, …>` in `timeline-clip.tsx` will fail typecheck until step 6).
+
+### Gotchas
+
+- **`commitCanvasEffect`, not `commitCanvas`** — plain `commitCanvas` won't register the
+  clip as owning the effect, so it silently won't animate.
+- **Stale IDE diagnostics** — after extending the `AnimationEffect` union the TS language
+  server may still flag `"myEffect" does not exist`; `pnpm typecheck` is authoritative.
+- **Main vs slots** — only effects in `SLOT_ANIMATABLE_EFFECTS` (tilt/zoom/shadow) animate
+  on extra screenshot slots; canvas-wide effects are main-only (driven on `mainScopeEl`).
+- **"Remove effects"** on a clip must revert its pose to baseline AND clear
+  `clip.effects` — see `clearAnimationClipEffects` in `store.tsx`.
 
 ---
 

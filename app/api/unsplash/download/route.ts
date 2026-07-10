@@ -42,6 +42,8 @@ export async function GET(request: Request) {
       Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
       "Accept-Version": "v1",
     },
+    // Download tracking is an analytics ping — never serve a cached response.
+    cache: "no-store",
   })
 
   if (!response.ok) {

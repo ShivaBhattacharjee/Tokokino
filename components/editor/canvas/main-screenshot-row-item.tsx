@@ -16,7 +16,11 @@ import {
   ToolbarPopover,
   ToolbarSurface,
 } from "@/components/editor/toolbar/primitives"
-import type { DeviceFrame, EditorTool } from "@/lib/editor/store"
+import {
+  useEditorStore,
+  type DeviceFrame,
+  type EditorTool,
+} from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
 
@@ -114,11 +118,37 @@ export function MainScreenshotRender({
   captureDefaultDevice,
   captureStateKey,
 }: MainScreenshotRenderProps) {
+  // In Animate mode every pose change is driven per-frame (playback) or is an
+  // intentional snap (pad drag / scrub / edit), so the easing must be OFF the
+  // whole session — otherwise a pad drag lags 300ms behind the cursor and eases
+  // to the drop point on release. Read it declaratively (not via an imperative
+  // `style.transition = none` that any re-render would clobber) so it can't be
+  // reintroduced mid-drag.
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // A position-pad / group drag drives this box via the live-preview vars while
+  // it still carries its move easing, so it would ease ~300ms behind the pad
+  // (the preview appears to land somewhere other than the committed spot). Drop
+  // the easing for the duration of that drag too, exactly like an on-canvas drag.
+  const screenshotPositionDragging = useEditorStore(
+    (s) => s.screenshotPositionDragging
+  )
   const baseTransform = style.transform ?? ""
   const mergedStyle: React.CSSProperties = {
     ...style,
     transform:
       `${baseTransform} translate(var(--editor-main-offset-x, ${offset.x}px), var(--editor-main-offset-y, ${offset.y}px))`.trim(),
+    // Match the screenshot slots' position easing so a group move animates the
+    // primary box in lockstep with the slots instead of snapping ahead of them.
+    // Position travels via left/top (anchor) and the offset translate, so both
+    // must transition. Disabled while dragging/previewing/animating for instant
+    // tracking.
+    transition:
+      previewMode ||
+      isScreenshotDragging ||
+      isAnimateMode ||
+      screenshotPositionDragging
+        ? undefined
+        : "left 300ms ease-out, top 300ms ease-out, transform 300ms ease-out",
   }
   const selectionRadius = frameSelectionRadius(
     frame.id,
@@ -164,9 +194,15 @@ export function MainScreenshotRender({
             borderRadius: selectionRadius,
           }}
         >
-          {isSelected && !previewMode ? (
+          {/* Container selection for framed/empty boxes. Bare images draw their
+              own ring on the image box in ScreenshotBare so contain doesn't
+              leave a ring around letterboxed empty space. */}
+          {isSelected &&
+          !previewMode &&
+          (frame.id !== "none" || !screenshot) ? (
             <div
               aria-hidden
+              data-selection-border="true"
               className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
               style={{
                 transform,
@@ -175,38 +211,51 @@ export function MainScreenshotRender({
               }}
             />
           ) : null}
-          <ScreenshotFrameContent
-            src={screenshot}
-            frame={frame}
-            isDragOver={isDragOver}
-            onBrowse={onBrowse}
-            imageFilter={filterChain}
-            shadowFilter={shadowFilter}
-            contentTransform={transform}
-            bareStyle={imgStyle}
-            applyTransformWhenEmpty
-            suppressEmptyTransition
-            emptyCompact={emptyCompact}
-            objectFit={objectFit}
-            activeTool={activeTool}
-            isDragging={isScreenshotDragging}
-            stageRef={stageRef}
-            imageRef={imageRef}
-            addressValue={addressValue}
-            onAddressChange={onAddressChange}
-            onSelect={onSelect}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onImageLoad={onImageLoad}
-            onCrop={onCropClick}
-            onReplaceFile={onReplaceFile}
-            onDelete={onDelete}
-            innerLightingStyle={innerLightingStyle}
-            onCapture={onCapture}
-            captureDefaultDevice={captureDefaultDevice}
-            captureStateKey={captureStateKey}
-          />
+          {/* Animate-mode wrapper. Driven by CSS vars set on the canvas node by
+              AnimationLayer; defaults make it a visual no-op everywhere else. */}
+          <div
+            className="relative h-full w-full"
+            style={{
+              transform: "var(--anim-transform, none)",
+              opacity: "var(--anim-opacity, 1)" as unknown as number,
+              filter: "var(--anim-filter, none)",
+              transformOrigin: "center",
+            }}
+          >
+            <ScreenshotFrameContent
+              src={screenshot}
+              frame={frame}
+              isDragOver={isDragOver}
+              onBrowse={onBrowse}
+              imageFilter={filterChain}
+              shadowFilter={shadowFilter}
+              contentTransform={transform}
+              bareStyle={imgStyle}
+              applyTransformWhenEmpty
+              suppressEmptyTransition
+              emptyCompact={emptyCompact}
+              objectFit={objectFit}
+              isScreenshotSelected={isSelected && !previewMode}
+              activeTool={activeTool}
+              isDragging={isScreenshotDragging}
+              stageRef={stageRef}
+              imageRef={imageRef}
+              addressValue={addressValue}
+              onAddressChange={onAddressChange}
+              onSelect={onSelect}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onImageLoad={onImageLoad}
+              onCrop={onCropClick}
+              onReplaceFile={onReplaceFile}
+              onDelete={onDelete}
+              innerLightingStyle={innerLightingStyle}
+              onCapture={onCapture}
+              captureDefaultDevice={captureDefaultDevice}
+              captureStateKey={captureStateKey}
+            />
+          </div>
 
           {showEditMenu ? (
             <div

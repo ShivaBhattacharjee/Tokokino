@@ -3,12 +3,13 @@ import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 
 import { getShareImageUrl, isValidShareId } from "@/lib/share"
-import { recordShareView } from "@/lib/share-db"
+import { getShareById, recordShareView } from "@/lib/share-db"
 import { ShareView } from "./share-view"
 
 export const metadata: Metadata = {
-  title: "Shared screenshot - Tokokino",
-  description: "View, copy, or download a shared Tokokino screenshot.",
+  title: "Shared media - Tokokino",
+  description:
+    "View, copy, or download a shared Tokokino screenshot or animation.",
 }
 
 export default async function SharePage({
@@ -27,13 +28,17 @@ export default async function SharePage({
     console.error(error)
     return null
   })
+  // Fall back to metadata-only fetch if view tracking fails.
+  const meta = share ?? (await getShareById(id).catch(() => null))
 
   return (
     <ShareView
       id={id}
       imageUrl={getShareImageUrl(id)}
-      sharedBy={share?.userName ?? null}
-      views={share?.uniqueViewCount ?? null}
+      sharedBy={meta?.userName ?? null}
+      views={meta?.uniqueViewCount ?? null}
+      contentType={meta?.contentType ?? "image/png"}
+      shareType={meta?.type ?? "style"}
     />
   )
 }

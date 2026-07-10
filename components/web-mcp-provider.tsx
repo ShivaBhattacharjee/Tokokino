@@ -25,7 +25,7 @@ export function WebMcpProvider() {
         name: "navigate-to-editor",
         title: "Open Editor",
         description:
-          "Navigate to the Tokokino screenshot editor to start creating or editing a mockup.",
+          "Navigate to the Tokokino editor to start creating or editing a screenshot, mockup, or animated demo.",
         inputSchema: { type: "object", properties: {}, required: [] },
         annotations: { readOnlyHint: false },
         execute: () => {
@@ -48,14 +48,16 @@ export function WebMcpProvider() {
           name: "Tokokino",
           url: "https://tokokino.com",
           description:
-            "Browser-based screenshot beautifier. Style screenshots with backgrounds, shadows, device frames, text layers, and annotations, then export as PNG/JPEG/WebP or share a public link.",
+            "Browser-based editor for polished product screenshots, mockups, and animated demos. Style captures with backgrounds, shadows, device frames, text layers, annotations, and timeline edits, then export stills or GIF/WebM clips.",
           features: [
             "Device and browser frames (Safari, Chrome, Arc)",
             "Gradient, solid, and image backgrounds",
             "3D tilt and shadow effects",
             "Text and annotation layers",
-            "Multi-screenshot layouts",
-            "HD / 4K / 8K export",
+            "Multi-shot layouts",
+            "Timeline animation for product demos",
+            "HD / 4K / 8K image export",
+            "GIF / WebM motion export",
             "Public share links",
           ],
           editorUrl: "https://tokokino.com/app",
@@ -69,7 +71,7 @@ export function WebMcpProvider() {
         name: "upload-screenshot",
         title: "Upload Screenshot",
         description:
-          "Open the file picker to upload a new screenshot into the editor.",
+          "Open the file picker to upload a new capture into the editor.",
         inputSchema: { type: "object", properties: {}, required: [] },
         annotations: { readOnlyHint: false },
         execute: () => {

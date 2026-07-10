@@ -16,12 +16,20 @@ import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
 import { UseCasesSection } from "@/components/landing/use-cases-section"
 import { FlickeringGrid } from "@/components/ui/flickering-grid"
 import { motion, useReducedMotion } from "motion/react"
+import { useLayoutEffect } from "react"
 
 const CONTENT_WIDTH =
   "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
 
 export default function Page() {
   const shouldReduceMotion = useReducedMotion()
+
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in history) {
+      history.scrollRestoration = "manual"
+    }
+    window.scrollTo(0, 0)
+  }, [])
 
   return (
     <main
@@ -42,18 +50,17 @@ export default function Page() {
           className="h-full w-full"
         />
       </div>
-      <div className={`sticky top-0 z-50 ${CONTENT_WIDTH}`}>
-        <Nav />
-      </div>
       <motion.div
+        className="overflow-hidden"
         initial={
-          shouldReduceMotion
-            ? false
-            : { opacity: 0.72, y: 18, filter: "blur(14px)" }
+          shouldReduceMotion ? false : { opacity: 0.72, filter: "blur(14px)" }
         }
-        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        animate={{ opacity: 1, filter: "blur(0px)" }}
         transition={{ duration: 1.45, ease, delay: 0.18 }}
       >
+        <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
+          <Nav />
+        </div>
         <DashedH />
         <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
           <Hero />
@@ -90,8 +97,8 @@ export default function Page() {
         <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
           <Footer />
         </div>
-        <ScrollToTop />
       </motion.div>
+      <ScrollToTop />
     </main>
   )
 }

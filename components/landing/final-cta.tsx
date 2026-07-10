@@ -82,13 +82,13 @@ export function FinalCta() {
           {"// Last call"}
         </span>
         <h2 className="mt-5 text-[1.65rem] leading-[1.05] font-medium tracking-[-0.04em] text-balance sm:text-4xl lg:text-[3.75rem]">
-          Screenshot and mockup
+          Screenshots and demos
           <br />
           <span className="text-primary">polish that ships.</span>
         </h2>
         <p className="mt-6 max-w-xl text-[14px] leading-relaxed text-balance text-foreground/58 sm:text-[15px]">
-          Create professional screenshot and device-mockup visuals with clean
-          framing, balanced styling, and export-ready output.
+          Create professional screenshots, device mockups, and animated product
+          demos with clean framing, timeline edits, and export-ready output.
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <Link

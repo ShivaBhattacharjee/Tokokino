@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
+import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import {
   planLayoutPreset,
   planSinglePreset,
@@ -69,6 +70,7 @@ export function PresetCardsBody({
   customPresetsLoaded,
   isAuthPending,
   userId,
+  isAnimateMode = false,
   canvas,
   aspect,
   onApplySingle,
@@ -86,6 +88,8 @@ export function PresetCardsBody({
   customPresetsLoaded: boolean
   isAuthPending: boolean
   userId: string | null
+  /** When true, Custom tab is showing animate presets only. */
+  isAnimateMode?: boolean
   canvas: CanvasState
   aspect: AspectState
   onApplySingle: (preset: PresentPreset) => void
@@ -143,6 +147,7 @@ export function PresetCardsBody({
             (Boolean(userId) && !customPresetsLoaded)
           }
           loggedIn={Boolean(userId)}
+          isAnimateMode={isAnimateMode}
           activeCustomPresetId={activeCustomPresetId}
           canvas={canvas}
           aspect={aspect}
@@ -199,6 +204,7 @@ function CustomPresetList({
   presets,
   loading,
   loggedIn,
+  isAnimateMode = false,
   activeCustomPresetId,
   canvas,
   aspect,
@@ -209,6 +215,7 @@ function CustomPresetList({
   presets: CustomPresetSummary[]
   loading: boolean
   loggedIn: boolean
+  isAnimateMode?: boolean
   activeCustomPresetId: string | null
   canvas: CanvasState
   aspect: AspectState
@@ -255,11 +262,23 @@ function CustomPresetList({
   if (presets.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
-        No custom presets yet. Use{" "}
-        <span className="font-medium text-foreground">
-          Save → Save as preset
-        </span>{" "}
-        to capture the current layout.
+        {isAnimateMode ? (
+          <>
+            No animate presets yet. Use{" "}
+            <span className="font-medium text-foreground">
+              Save → Save as preset
+            </span>{" "}
+            while Animate is on to capture the current timeline.
+          </>
+        ) : (
+          <>
+            No custom presets yet. Use{" "}
+            <span className="font-medium text-foreground">
+              Save → Save as preset
+            </span>{" "}
+            to capture the current layout.
+          </>
+        )}
       </div>
     )
   }
@@ -290,6 +309,17 @@ function previewImageAt(canvas: CanvasState, index: number) {
 
 function previewSafeBackground(bg: Background): Background {
   if (bg.type !== "image") return bg
+  // Keep Unsplash CDN hotlinks so photographer views still count in previews.
+  const hotlinkCandidate = bg.sourceUrl ?? bg.value
+  if (isUnsplashImageUrl(hotlinkCandidate)) {
+    return {
+      ...bg,
+      value:
+        bg.thumbUrl && isUnsplashImageUrl(bg.thumbUrl)
+          ? bg.thumbUrl
+          : hotlinkCandidate,
+    }
+  }
   if (bg.thumbUrl) return { ...bg, value: bg.thumbUrl }
   if (bg.sourceUrl) {
     const small = remoteImagePreviewUrl(bg.sourceUrl, {

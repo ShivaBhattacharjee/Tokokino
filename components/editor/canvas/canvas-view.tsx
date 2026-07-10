@@ -12,6 +12,11 @@ import { bulkToolbarScale } from "@/components/editor/toolbar/primitives"
 import { cn } from "@/lib/utils"
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
 import {
+  BORDER_OFFSET_PREVIEW_VAR,
+  BORDER_OUTLINE_PREVIEW_VAR,
+  borderOffsetCss,
+  borderOutlineCss,
+  SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowBoxShadowCss,
   shadowCss,
   shadowDropFilterCss,
@@ -37,6 +42,22 @@ import {
   getDeviceMockupAsset,
 } from "@/lib/mockups"
 
+import {
+  clipOwns,
+  EMPTY_BG_STACK,
+  EMPTY_FILTER_STACK,
+  EMPTY_OVERLAY_STACK,
+  EMPTY_PATTERN_STACK,
+  EMPTY_PORTRAIT_STACK,
+  lightingSidesUsed,
+  overlayLayerOpacityVar,
+  OVERLAY_BASE_OPACITY_VAR,
+  resolveAnimateBgStack,
+  resolveAnimateFilterStack,
+  resolveAnimateOverlayStack,
+  resolveAnimatePatternStack,
+  resolveAnimatePortraitStack,
+} from "@/lib/editor/animation-playback"
 import { AnnotationLayer } from "./annotation-layer"
 import { CanvasBackdrop } from "./canvas-backdrop"
 import { CanvasEmptyState } from "./canvas-empty-state"
@@ -49,8 +70,14 @@ import { MockupEmptyState } from "./mockup-empty-state"
 import {
   deviceMockupSpec,
   lightingOverlayCss,
+  overlayLayerCss,
   screenshotPlacementStyle,
 } from "./helpers"
+import { mainScreenshotPositionPct } from "@/components/editor/mobile-controls/position-math"
+import {
+  setMainScreenshotBarePreviewPx,
+  setMainScreenshotPositionPreview,
+} from "@/components/editor/position-preview-vars"
 import { MainScreenshotRowItem } from "./main-screenshot-row-item"
 import { ScreenshotBare } from "./screenshot-bare"
 import {
@@ -69,6 +96,7 @@ import {
   downscaleImageFromUrl,
   getOptimizedUrlSync,
 } from "@/lib/editor/image-resize"
+import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
 import { useImageFileIntake } from "./use-image-file-intake"
@@ -165,18 +193,96 @@ function CanvasViewInner({
   const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
   const bulkViewportZoom = useEditorStore((s) => s.bulkViewportZoom)
   const presetTab = useEditorStore((s) => s.presetTab)
+  // In Animate mode, the stacked background layers (one per background keyframe)
+  // so multiple background swaps chain bg1 → bg2 → bg3. Empty (→ committed
+  // background only) at rest or with no background keyframe.
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  const selectedAnimationClipId = useEditorStore(
+    (s) => s.selectedAnimationClipId
+  )
+  const canvasAnimation = useEditorStore(
+    (s) => s.present.canvases.find((c) => c.id === scopeId)?.animation
+  )
+  const animateBgStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimateBgStack(
+            canvasAnimation.clips,
+            background,
+            selectedAnimationClipId
+          )
+        : EMPTY_BG_STACK,
+    [isAnimateMode, canvasAnimation, background, selectedAnimationClipId]
+  )
+  const animateFilterStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimateFilterStack(
+            canvasAnimation.clips,
+            backdrop.filter ?? "none",
+            selectedAnimationClipId
+          )
+        : EMPTY_FILTER_STACK,
+    [isAnimateMode, canvasAnimation, backdrop.filter, selectedAnimationClipId]
+  )
+  const animatePortraitStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimatePortraitStack(
+            canvasAnimation.clips,
+            portrait,
+            selectedAnimationClipId
+          )
+        : EMPTY_PORTRAIT_STACK,
+    [isAnimateMode, canvasAnimation, portrait, selectedAnimationClipId]
+  )
+  const animatePatternStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimatePatternStack(
+            canvasAnimation.clips,
+            backdrop.pattern,
+            selectedAnimationClipId
+          )
+        : EMPTY_PATTERN_STACK,
+    [isAnimateMode, canvasAnimation, backdrop.pattern, selectedAnimationClipId]
+  )
+  const animateOverlayStack = React.useMemo(
+    () =>
+      isAnimateMode && canvasAnimation
+        ? resolveAnimateOverlayStack(
+            canvasAnimation.clips,
+            overlay,
+            selectedAnimationClipId
+          )
+        : EMPTY_OVERLAY_STACK,
+    [isAnimateMode, canvasAnimation, overlay, selectedAnimationClipId]
+  )
   // Downscale whenever the background sourceUrl changes (on mount/hydration,
   // and also when a custom preset applies a new image background mid-session).
+  // Unsplash CDN URLs must stay hotlinked — never convert them to data URLs.
   React.useEffect(() => {
-    if (
-      background.type !== "image" ||
-      !background.sourceUrl ||
-      background.value.startsWith("data:") ||
-      !scopeId
-    )
-      return
+    if (background.type !== "image" || !background.sourceUrl || !scopeId) return
 
     const sourceUrl = background.sourceUrl
+    if (isUnsplashImageUrl(sourceUrl)) {
+      // Restore hotlink if a previous session stored a data-URL value.
+      if (background.value !== sourceUrl) {
+        useEditorStore.getState().setBackground(
+          {
+            type: "image",
+            value: sourceUrl,
+            sourceUrl,
+            thumbUrl: background.thumbUrl ?? undefined,
+          },
+          scopeId
+        )
+      }
+      return
+    }
+
+    if (background.value.startsWith("data:")) return
+
     const thumbUrl = background.thumbUrl
     const canvasId = scopeId
     const opts = { maxDimension: 1600, jpegQuality: 0.9 }
@@ -264,7 +370,9 @@ function CanvasViewInner({
     enabled: Boolean(screenshot),
     stageRef,
     imageRef,
-    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}`,
+    // Include objectFit so contain↔cover remeasures imgW/imgH — inner lighting
+    // sizes itself from those dims and would stay at the wrong box otherwise.
+    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}`,
   })
   const selectedScreenshotSlotId = useEditorStore(
     (s) => s.selectedScreenshotSlotId
@@ -457,8 +565,11 @@ function CanvasViewInner({
     ? screenshotPlacementStyle(placementDims, scaleFactor, positionX, positionY)
     : null
   const enhanceFilter = enhanceFilterCss(enhance)
+  // Read the animated radius via a var so an Animate-mode clip can ease it,
+  // falling back to the committed value at rest / outside Animate mode.
+  const screenshotRadiusCss = `var(${SCREENSHOT_RADIUS_PREVIEW_VAR}, ${borderRadius}px)`
   const imgStyle: React.CSSProperties = {
-    borderRadius,
+    borderRadius: screenshotRadiusCss,
     transform,
     transformStyle: "preserve-3d",
     boxShadow: shadowBoxShadowCss(computedShadow),
@@ -468,14 +579,23 @@ function CanvasViewInner({
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     imgStyle.mixBlendMode = screenshotLayer.blendMode
   }
-  if (border.color && border.width > 0) {
-    imgStyle.outline = `${border.width}px ${border.style || "solid"} ${border.color}`
-    imgStyle.outlineOffset = `${border.padding || 0}px`
+  // When a clip animates the border, the outline is ALWAYS mounted (even when
+  // the committed border is invisible) so the player can ease it in from 0 /
+  // recolour it via the preview vars. Otherwise it renders only when committed.
+  const borderAnimated =
+    isAnimateMode && !!canvasAnimation?.clips.some((c) => clipOwns(c, "border"))
+  const borderVisible = Boolean(border.color) && border.width > 0
+  if (borderAnimated || borderVisible) {
+    const committedOutline = borderVisible
+      ? borderOutlineCss(border)
+      : "0px solid transparent"
+    imgStyle.outline = `var(${BORDER_OUTLINE_PREVIEW_VAR}, ${committedOutline})`
+    imgStyle.outlineOffset = `var(${BORDER_OFFSET_PREVIEW_VAR}, ${borderOffsetCss(border)})`
   }
   const emptyStateBoxStyle: React.CSSProperties = {
-    borderRadius,
+    borderRadius: screenshotRadiusCss,
   }
-  if (border.color && border.width > 0) {
+  if (borderAnimated || borderVisible) {
     emptyStateBoxStyle.outline = imgStyle.outline
     emptyStateBoxStyle.outlineOffset = imgStyle.outlineOffset
   }
@@ -483,10 +603,39 @@ function CanvasViewInner({
   const effectsFilter = effectsFilterCss(backdrop.effects)
   const noiseEnabled = backdrop.effects.noise > 0
   const noiseOpacity = noiseEnabled ? backdrop.effects.noise / 100 : 0
+  // When a clip animates lighting, mount only the side(s) the timeline actually
+  // uses. Pure-inner never mounts the canvas-level (outer) overlay — that was
+  // the "light starts on the canvas then settles on the image" bug. Both sides
+  // still mount for a real inner↔outer depth-shift crossfade.
+  const lightingAnimated =
+    isAnimateMode &&
+    !!canvasAnimation?.clips.some((c) => clipOwns(c, "lighting"))
+  const lightingSides = React.useMemo(
+    () =>
+      lightingAnimated && canvasAnimation
+        ? lightingSidesUsed(canvasAnimation.clips, backdrop.lighting)
+        : {
+            inner: backdrop.lighting.target === "inner",
+            outer: backdrop.lighting.target === "outer",
+          },
+    [lightingAnimated, canvasAnimation, backdrop.lighting]
+  )
   const innerLightingStyle =
-    backdrop.lighting.target === "inner"
-      ? lightingOverlayCss(backdrop.lighting, { inner: true })
+    backdrop.lighting.target === "inner" ||
+    (lightingAnimated && lightingSides.inner)
+      ? lightingOverlayCss(backdrop.lighting, {
+          inner: true,
+          active: backdrop.lighting.target === "inner",
+          forceMount: lightingAnimated && lightingSides.inner,
+        })
       : null
+  // When a clip animates backdrop effects, the backdrop must always carry the
+  // `--bd-fx-preview` filter var — even when the committed effects are neutral
+  // (no filter). Otherwise the player has nothing to drive when an effect eases
+  // in from / out to neutral, so it silently wouldn't animate.
+  const backdropAnimated =
+    isAnimateMode &&
+    !!canvasAnimation?.clips.some((c) => clipOwns(c, "backdrop"))
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
   const mockupRotation =
     frame.orientation === "horizontal" && mockupOrientation === "portrait"
@@ -510,6 +659,56 @@ function CanvasViewInner({
     setSelectedTextId,
   ])
 
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
+
+  // Keep Animate-mode position CSS vars in sync with the live drag so the box
+  // tracks the pointer instead of staying on AnimationLayer's last sample until
+  // mouse-up. Uses the same preview helpers the position pad / player write.
+  const previewLiveMainOffset = React.useCallback(
+    (offset: { x: number; y: number }) => {
+      const canvasEl = canvasRef.current
+      if (!canvasEl) return
+
+      // Multi-row / framed / tweet: container is % positioned. Bare single: px.
+      if (inRowMode || frame.id !== "none" || tweet) {
+        const point = mainScreenshotPositionPct({
+          aspect: { id: aspect.id, w: aw, h: ah },
+          frame,
+          position: screenshotPosition,
+          offset,
+          slots: screenshotSlots,
+        })
+        setMainScreenshotPositionPreview(canvasEl, point)
+        return
+      }
+
+      if (
+        positionedStyle &&
+        typeof positionedStyle.left === "number" &&
+        typeof positionedStyle.top === "number"
+      ) {
+        setMainScreenshotBarePreviewPx(
+          canvasEl,
+          positionedStyle.left + offset.x,
+          positionedStyle.top + offset.y
+        )
+      }
+    },
+    [
+      ah,
+      aspect.id,
+      aw,
+      frame,
+      inRowMode,
+      positionedStyle,
+      screenshotPosition,
+      screenshotSlots,
+      tweet,
+    ]
+  )
+
   const {
     isScreenshotDragging,
     liveOffset,
@@ -532,6 +731,9 @@ function CanvasViewInner({
     setIsScreenshotSelected,
     clearSelection: clearElementSelection,
     updateCenterGuides,
+    setScreenshotPositionDragging,
+    onLiveOffsetPreview: previewLiveMainOffset,
+    getPreviewCanvasElement: () => canvasRef.current,
   })
   const effectiveOffset = liveOffset ?? screenshotOffset
   const screenshotLeft =
@@ -668,6 +870,13 @@ function CanvasViewInner({
             noiseOpacity={noiseOpacity}
             portrait={portrait}
             overlay={overlay}
+            animateBgStack={animateBgStack}
+            animateFilterStack={animateFilterStack}
+            animatePortraitStack={animatePortraitStack}
+            animatePatternStack={animatePatternStack}
+            animateOverlayStack={animateOverlayStack}
+            lightingAnimated={lightingAnimated && lightingSides.outer}
+            backdropAnimated={backdropAnimated}
           />
 
           {mainScreenshotRowStyle ? (
@@ -748,7 +957,7 @@ function CanvasViewInner({
                 <TweetCardView
                   tweet={tweet}
                   transform={transform}
-                  borderRadius={borderRadius}
+                  borderRadius={screenshotRadiusCss}
                   boxShadow={shadowBoxShadowCss(computedShadow)}
                   enhanceFilter={enhanceFilter}
                   screenshotLayer={screenshotLayer}
@@ -1025,7 +1234,46 @@ function CanvasViewInner({
             </div>
           ) : null}
 
-          {overlay.id !== null && overlay.position === "overlay" ? (
+          {animateOverlayStack.layers.length > 0 ? (
+            // Animate mode with animated overlay: render the `overlay`-positioned
+            // layers (base + one per keyframe), crossfade-chained by AnimationLayer
+            // so the additive textures transition instead of accumulating. The
+            // `underlay`-positioned ones render inside CanvasBackdrop.
+            <>
+              {animateOverlayStack.base.position === "overlay"
+                ? (() => {
+                    const style = overlayLayerCss(
+                      animateOverlayStack.base,
+                      OVERLAY_BASE_OPACITY_VAR,
+                      0
+                    )
+                    return style ? (
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 bg-cover bg-center"
+                        style={{ ...style, zIndex: 200 }}
+                      />
+                    ) : null
+                  })()
+                : null}
+              {animateOverlayStack.layers.map((layer) => {
+                if (layer.overlay.position !== "overlay") return null
+                const style = overlayLayerCss(
+                  layer.overlay,
+                  overlayLayerOpacityVar(layer.id),
+                  layer.restOpaque ? 1 : 0
+                )
+                return style ? (
+                  <div
+                    key={layer.id}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 bg-cover bg-center"
+                    style={{ ...style, zIndex: 200 }}
+                  />
+                ) : null
+              })}
+            </>
+          ) : overlay.id !== null && overlay.position === "overlay" ? (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 bg-cover bg-center"

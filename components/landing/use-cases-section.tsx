@@ -12,33 +12,33 @@ import { ease } from "@/components/landing/constants"
 const USE_CASES = [
   {
     title: "Launch posts",
-    body: "Turn a raw app capture into a clean social card for X, Product Hunt, LinkedIn, or a changelog.",
+    body: "Turn a raw app capture or short motion sequence into a clean social card for X, Product Hunt, LinkedIn, or a changelog.",
     icon: RiRocketLine,
     meta: "16:9 / 1:1",
   },
   {
-    title: "App store visuals",
-    body: "Frame mobile and desktop screens with device mockups, balanced padding, and export-ready resolution.",
+    title: "Product demo clips",
+    body: "Animate zooms, tilts, lighting, backgrounds, and multi-shot transitions on a timeline for quick GIF/WebM demos.",
     icon: RiWindowLine,
-    meta: "4K / 8K",
+    meta: "GIF / WebM",
   },
   {
     title: "Feature announcements",
-    body: "Add arrows, labels, overlays, and multi-shot layouts when one screenshot needs a little narrative.",
+    body: "Add arrows, labels, overlays, multi-shot layouts, and timeline beats when one image needs a little narrative.",
     icon: RiMegaphoneLine,
-    meta: "Annotations",
+    meta: "Motion + labels",
   },
   {
     title: "Docs and guides",
-    body: "Create readable UI screenshots for help docs without dragging every image through a design file.",
+    body: "Create readable UI stills or short walkthrough animations without dragging every asset through a design file.",
     icon: RiArticleLine,
-    meta: "Clean markup",
+    meta: "Stills / demos",
   },
 ] as const
 
 const PIPELINE = [
   { label: "Capture", icon: RiCursorLine },
-  { label: "Style", icon: RiPresentationLine },
+  { label: "Animate", icon: RiPresentationLine },
   { label: "Export", icon: RiRocketLine },
 ] as const
 
@@ -60,11 +60,11 @@ export function UseCasesSection() {
             {"// Use cases"}
           </span>
           <h2 className="max-w-xl text-2xl tracking-tight sm:text-3xl lg:text-4xl">
-            Made for the screenshot jobs that keep coming back.
+            Made for product visuals that need to move or ship fast.
           </h2>
           <p className="max-w-lg text-sm leading-7 text-foreground/58">
             Tokokino keeps repeat visual work short: choose the right frame,
-            apply a sharp backdrop, add only the context that helps, then
+            apply a sharp backdrop, add context, animate the key moments, then
             export.
           </p>
 

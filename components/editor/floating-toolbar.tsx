@@ -18,10 +18,10 @@ export function FloatingToolbar() {
   return (
     <div
       className={cn(
-        "pointer-events-none absolute bottom-4 z-20 flex w-full max-w-[calc(100vw-1.5rem)] flex-col items-center gap-2 px-3 max-md:bottom-[150px] sm:w-auto sm:px-0 md:max-xl:left-[calc(50%-150px)]",
+        "pointer-events-none absolute bottom-4 z-20 flex w-full max-w-[calc(100vw-1.5rem)] flex-col items-center gap-2 px-3 max-md:bottom-[150px] sm:w-auto sm:px-0 md:max-xl:left-[calc(50%+128px)]",
         // In annotate mode on mobile, anchor left so overflow scrolls right
         isAnnotateMode
-          ? "left-3 max-md:translate-x-0 md:-translate-x-1/2 md:max-xl:left-[calc(50%-150px)] xl:left-1/2"
+          ? "left-3 max-md:translate-x-0 md:-translate-x-1/2 md:max-xl:left-[calc(50%+128px)] xl:left-1/2"
           : "left-1/2 -translate-x-1/2"
       )}
     >
@@ -46,7 +46,7 @@ export function FloatingToolbar() {
             "pointer-events-auto flex items-center gap-0.5 rounded-md border border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-md",
             "[scrollbar-width:none] overflow-x-auto [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
             isAnnotateMode &&
-              "max-w-[calc(100vw-1.5rem)] md:max-xl:max-w-[calc(100vw-340px)]"
+              "max-w-[calc(100vw-1.5rem)] md:max-xl:max-w-[calc(100vw-300px)]"
           )}
         >
           <AnimatePresence mode="wait" initial={false}>

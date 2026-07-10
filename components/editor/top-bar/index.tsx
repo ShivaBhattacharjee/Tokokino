@@ -47,15 +47,18 @@ import {
   copyCanvasAsPng,
   createImageThumbnailBlob,
 } from "@/lib/editor/export"
+import {
+  exportAnimationBlob,
+  type AnimationExportProgress,
+} from "@/lib/editor/animation-export"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { saveCurrentEditorDraft, useEditorStore } from "@/lib/editor/store"
-import { tweetSettingsFromCard } from "@/lib/editor/tweet-settings"
-import type {
-  CurrentDraftInfo,
-  CustomPresetGeometry,
-  CustomPresetSummary,
-} from "@/lib/editor/store"
-import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
+import type { CurrentDraftInfo, CustomPresetSummary } from "@/lib/editor/store"
+import {
+  captureCustomPresetGeometry,
+  resolvePresetType,
+  sanitizePresentForCloudDraft,
+} from "@/lib/editor/custom-preset-snapshot"
 import {
   DRAFT_SCHEMA_VERSION,
   type DraftPayload,
@@ -65,7 +68,13 @@ import { randomDisplayName } from "@/lib/random-name"
 
 import { ExportControls } from "./export-controls"
 import { MobileOverflowMenu } from "./mobile-overflow-menu"
-import { MobileShareDialog, ShareControls } from "./share-controls"
+import {
+  MobileShareDialog,
+  ShareControls,
+  type AnimateShareFormat,
+  type AnimateShareResolution,
+  type ShareProgressState,
+} from "./share-controls"
 import { MobileSaveDialog, SaveControls } from "./save-controls"
 import {
   DraftChoiceDialog,
@@ -83,6 +92,11 @@ import {
   type ShareDialogState,
 } from "./types"
 
+const ANIM_SHARE_WIDTHS: Record<AnimateShareResolution, number> = {
+  hd: 1080,
+  "4k": 1920,
+}
+
 export function TopBar() {
   const { data: session, isPending: isAuthPending } = useSession()
   const undo = useEditorStore((s) => s.undo)
@@ -90,11 +104,26 @@ export function TopBar() {
   const canUndo = useEditorStore((s) => s.past.length > 0)
   const canRedo = useEditorStore((s) => s.future.length > 0)
   const reset = useEditorStore((s) => s.reset)
+  const hasEditorContent = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    if (!canvas) return false
+    if (canvas.screenshot || canvas.originalScreenshot) return true
+    if (canvas.screenshotSlots.some((slot) => slot.src)) return true
+    if ((canvas.animation?.clips?.length ?? 0) > 0) return true
+    if (canvas.texts.length > 0 || canvas.assets.length > 0) return true
+    if (canvas.annotations.length > 0 || canvas.annotationShapes.length > 0)
+      return true
+    if (canvas.tweet) return true
+    return s.present.canvases.length > 1
+  })
   const setIsPreviewMode = useEditorStore((s) => s.setIsPreviewMode)
   const setTopBarPopoverOpen = useEditorStore((s) => s.setTopBarPopoverOpen)
   const removeCanvas = useEditorStore((s) => s.removeCanvas)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const setBulkEditMode = useEditorStore((s) => s.setBulkEditMode)
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
   const canvasCount = useEditorStore((s) => s.present.canvases.length)
   const [showDisableDialog, setShowDisableDialog] = React.useState(false)
   const [authDialog, setAuthDialog] = React.useState<{
@@ -107,11 +136,70 @@ export function TopBar() {
     url: null,
     signature: null,
     error: null,
+    mediaKind: "style",
+    storage: null,
   })
   const [shareSurface, setShareSurface] = React.useState<
     "desktop" | "mobile" | null
   >(null)
   const [isShareLinkCopied, setIsShareLinkCopied] = React.useState(false)
+  const [shareAnimFormat, setShareAnimFormat] =
+    React.useState<AnimateShareFormat>("mp4")
+  const [shareAnimResolution, setShareAnimResolution] =
+    React.useState<AnimateShareResolution>("hd")
+  const [shareProgress, setShareProgress] =
+    React.useState<ShareProgressState | null>(null)
+  const shareAbortRef = React.useRef<AbortController | null>(null)
+
+  const toShareProgress = React.useCallback(
+    (p: AnimationExportProgress): ShareProgressState => {
+      if (p.phase === "preparing") {
+        return {
+          phase: "preparing",
+          current: p.current,
+          total: p.total,
+          label: "Preparing canvas…",
+        }
+      }
+      if (p.phase === "capturing") {
+        return {
+          phase: "capturing",
+          current: p.current,
+          total: p.total,
+          label: "Rendering frames…",
+        }
+      }
+      if (p.phase === "encoding") {
+        return {
+          phase: "encoding",
+          current: p.current,
+          total: p.total,
+          label: "Encoding video…",
+        }
+      }
+      return {
+        phase: "finishing",
+        current: p.current,
+        total: p.total,
+        label: "Finishing encode…",
+      }
+    },
+    []
+  )
+
+  const fetchShareStorage = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/share", { credentials: "include" })
+      if (!res.ok) return null
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- res.json() is unknown under strict DOM typings
+      const data = (await res.json()) as {
+        storage?: { used: number; limit: number }
+      }
+      return data.storage ?? null
+    } catch {
+      return null
+    }
+  }, [])
   const canvasIds = useEditorStore(
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
   )
@@ -143,6 +231,8 @@ export function TopBar() {
     "auto"
   )
   const currentDraft = useEditorStore((s) => s.currentDraft)
+  const hasUnsavedWork =
+    canUndo || canRedo || Boolean(currentDraft) || hasEditorContent
   const setCurrentDraft = useEditorStore((s) => s.setCurrentDraft)
   const loadDraftState = useEditorStore((s) => s.loadDraftState)
   const addCustomPreset = useEditorStore((s) => s.addCustomPreset)
@@ -203,6 +293,30 @@ export function TopBar() {
   const handleShare = React.useCallback(async () => {
     if (shareDialog.status === "preparing") return
 
+    const mediaKind = isAnimateMode ? "animate" : "style"
+    setIsShareLinkCopied(false)
+    setShareProgress(null)
+
+    // Animate: open configure popup first (format/resolution + storage).
+    if (mediaKind === "animate") {
+      setShareDialog({
+        open: true,
+        status: "configure",
+        url: null,
+        signature: null,
+        error: null,
+        mediaKind: "animate",
+        storage: null,
+      })
+      const storage = await fetchShareStorage()
+      setShareDialog((current) =>
+        current.open && current.status === "configure"
+          ? { ...current, storage }
+          : current
+      )
+      return
+    }
+
     const skeletonStartedAt = performance.now()
     const signature = await createShareSignature(
       activeCanvasId,
@@ -213,20 +327,21 @@ export function TopBar() {
       signature &&
       shareDialog.status === "ready" &&
       shareDialog.url &&
-      shareDialog.signature === signature
+      shareDialog.signature === signature &&
+      shareDialog.mediaKind === "style"
     ) {
-      setIsShareLinkCopied(false)
       setShareDialog((current) => ({ ...current, open: true }))
       return
     }
 
-    setIsShareLinkCopied(false)
     setShareDialog({
       open: true,
       status: "preparing",
       url: null,
       signature: null,
       error: null,
+      mediaKind: "style",
+      storage: null,
     })
 
     try {
@@ -246,6 +361,7 @@ export function TopBar() {
       const result = (await response.json().catch(() => null)) as {
         url?: string
         error?: string
+        storage?: { used: number; limit: number }
       } | null
 
       if (!response.ok || !result?.url) {
@@ -259,6 +375,8 @@ export function TopBar() {
         url: result.url,
         signature,
         error: null,
+        mediaKind: "style",
+        storage: result.storage ?? null,
       })
     } catch (err) {
       const message =
@@ -275,15 +393,132 @@ export function TopBar() {
         url: null,
         signature: null,
         error: message,
+        mediaKind: "style",
+        storage: null,
       })
       toast.error(message)
     }
   }, [
     activeCanvasId,
+    fetchShareStorage,
     includeExportWatermark,
+    isAnimateMode,
+    shareDialog.mediaKind,
     shareDialog.signature,
     shareDialog.status,
     shareDialog.url,
+  ])
+
+  const handleConfirmAnimateShare = React.useCallback(async () => {
+    if (shareDialog.status === "preparing") return
+
+    shareAbortRef.current?.abort()
+    const abort = new AbortController()
+    shareAbortRef.current = abort
+
+    setShareProgress({
+      phase: "preparing",
+      current: 0,
+      total: 1,
+      label: "Preparing canvas…",
+    })
+    setShareDialog((current) => ({
+      ...current,
+      open: true,
+      status: "preparing",
+      url: null,
+      signature: null,
+      error: null,
+      mediaKind: "animate",
+    }))
+
+    try {
+      await waitForNextPaint()
+      // Grab a still of the settled canvas first — it becomes the gallery
+      // thumbnail. Best-effort: a failure just falls back to the film icon.
+      const poster = await captureCanvasThumbnail(activeCanvasId, 640).catch(
+        () => null
+      )
+      const { blob } = await exportAnimationBlob(activeCanvasId, {
+        format: shareAnimFormat,
+        fps: 30,
+        targetWidth: ANIM_SHARE_WIDTHS[shareAnimResolution],
+        watermark: includeExportWatermark,
+        capture: "auto",
+        signal: abort.signal,
+        onProgress: (p) => setShareProgress(toShareProgress(p)),
+      })
+
+      setShareProgress({
+        phase: "uploading",
+        current: 1,
+        total: 1,
+        label: "Uploading share…",
+      })
+      const form = new FormData()
+      form.append("media", blob, `animation.${shareAnimFormat}`)
+      if (poster) form.append("poster", poster, "poster.jpg")
+      const response = await fetch("/api/share", {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      })
+      const result = (await response.json().catch(() => null)) as {
+        url?: string
+        error?: string
+        storage?: { used: number; limit: number }
+      } | null
+
+      if (!response.ok || !result?.url) {
+        throw new Error(result?.error ?? "Could not prepare share link")
+      }
+
+      const signature = await createShareSignature(
+        activeCanvasId,
+        includeExportWatermark
+      )
+      setShareProgress(null)
+      setShareDialog({
+        open: true,
+        status: "ready",
+        url: result.url,
+        signature,
+        error: null,
+        mediaKind: "animate",
+        storage: result.storage ?? shareDialog.storage,
+      })
+      toast.success("Animation share link ready")
+    } catch (err) {
+      if (abort.signal.aborted) return
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : "Could not prepare share link"
+      console.error("[share-animate]", err instanceof Error ? err : String(err))
+      setShareProgress(null)
+      const storage = await fetchShareStorage()
+      setShareDialog({
+        open: true,
+        status: "error",
+        url: null,
+        signature: null,
+        error: message,
+        mediaKind: "animate",
+        storage,
+      })
+      toast.error(message)
+    }
+  }, [
+    activeCanvasId,
+    fetchShareStorage,
+    includeExportWatermark,
+    shareAnimFormat,
+    shareAnimResolution,
+    shareDialog.status,
+    shareDialog.storage,
+    toShareProgress,
   ])
 
   const handleProtectedAction = React.useCallback(
@@ -374,74 +609,10 @@ export function TopBar() {
         return false
       }
       const aspect = activeCanvas.aspect ?? state.present.aspect
-      const aw = aspect.w || 16
-      const ah = aspect.h || 10
-      const designWidth = BASE_CANVAS_WIDTH
-      const designHeight = (BASE_CANVAS_WIDTH * ah) / aw
-      const round = (n: number) => Number(n.toFixed(2))
-      const geometry: CustomPresetGeometry = {
-        canvasTilt: {
-          rx: round(activeCanvas.tilt.rx),
-          ry: round(activeCanvas.tilt.ry),
-          rz: round(activeCanvas.tilt.rz),
-        },
-        canvasScale: round(activeCanvas.scale),
-        slots: activeCanvas.screenshotSlots.map((slot) => ({
-          xPct: round(slot.xPct),
-          yPct: round(slot.yPct),
-          widthPct: round(slot.widthPct),
-          heightPct: round(slot.heightPct),
-          rotation: round(slot.rotation),
-          tilt: {
-            rx: round(slot.tilt.rx),
-            ry: round(slot.tilt.ry),
-            rz: round(slot.tilt.rz),
-          },
-          scale: round(slot.scale),
-          zIndex: slot.zIndex,
-          filter: slot.filter,
-          hidden: slot.hidden,
-          objectFit: slot.objectFit,
-          shadow: slot.shadow,
-        })),
-        mainOffset: {
-          xPct: round(
-            designWidth
-              ? (activeCanvas.screenshotOffset.x / designWidth) * 100
-              : 0
-          ),
-          yPct: round(
-            designHeight
-              ? (activeCanvas.screenshotOffset.y / designHeight) * 100
-              : 0
-          ),
-        },
-        canvasStyle: {
-          background: activeCanvas.background,
-          padding: activeCanvas.padding,
-          borderRadius: activeCanvas.borderRadius,
-          canvasBorderRadius: activeCanvas.canvasBorderRadius,
-          border: activeCanvas.border,
-          backdrop: activeCanvas.backdrop,
-          screenshotPosition: activeCanvas.screenshotPosition,
-          screenshotLayer: activeCanvas.screenshotLayer,
-          shadow: activeCanvas.shadow,
-          overlay: activeCanvas.overlay,
-          frame: activeCanvas.frame,
-          portrait: activeCanvas.portrait,
-          enhance: activeCanvas.enhance,
-          objectFit: activeCanvas.objectFit,
-          frameAddress: activeCanvas.frameAddress,
-          texts: activeCanvas.texts,
-          assets: activeCanvas.assets,
-          annotations: activeCanvas.annotations,
-          annotationShapes: activeCanvas.annotationShapes,
-          aspect: activeCanvas.aspect,
-          tweetSettings: activeCanvas.tweet
-            ? tweetSettingsFromCard(activeCanvas.tweet)
-            : undefined,
-        },
-      }
+      const type = resolvePresetType(state.isAnimateMode, activeCanvas)
+      const geometry = captureCustomPresetGeometry(activeCanvas, aspect, {
+        includeAnimation: type === "animate",
+      })
 
       setIsPresetSaving(true)
       try {
@@ -449,7 +620,7 @@ export function TopBar() {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, geometry }),
+          body: JSON.stringify({ name, type, geometry }),
         })
         const data = (await res.json().catch(() => null)) as {
           preset?: CustomPresetSummary
@@ -461,7 +632,11 @@ export function TopBar() {
         addCustomPreset(data.preset)
         setPresetTab("custom")
         setActiveCustomPresetId(data.preset.id)
-        toast.success(`Preset "${data.preset.name}" saved`)
+        toast.success(
+          type === "animate"
+            ? `Animate preset "${data.preset.name}" saved`
+            : `Preset "${data.preset.name}" saved`
+        )
         return true
       } catch (err) {
         console.error(err)
@@ -487,81 +662,17 @@ export function TopBar() {
         return false
       }
       const aspect = activeCanvas.aspect ?? state.present.aspect
-      const aw = aspect.w || 16
-      const ah = aspect.h || 10
-      const designWidth = BASE_CANVAS_WIDTH
-      const designHeight = (BASE_CANVAS_WIDTH * ah) / aw
-      const round = (n: number) => Number(n.toFixed(2))
-      const geometry: CustomPresetGeometry = {
-        canvasTilt: {
-          rx: round(activeCanvas.tilt.rx),
-          ry: round(activeCanvas.tilt.ry),
-          rz: round(activeCanvas.tilt.rz),
-        },
-        canvasScale: round(activeCanvas.scale),
-        slots: activeCanvas.screenshotSlots.map((slot) => ({
-          xPct: round(slot.xPct),
-          yPct: round(slot.yPct),
-          widthPct: round(slot.widthPct),
-          heightPct: round(slot.heightPct),
-          rotation: round(slot.rotation),
-          tilt: {
-            rx: round(slot.tilt.rx),
-            ry: round(slot.tilt.ry),
-            rz: round(slot.tilt.rz),
-          },
-          scale: round(slot.scale),
-          zIndex: slot.zIndex,
-          filter: slot.filter,
-          hidden: slot.hidden,
-          objectFit: slot.objectFit,
-          shadow: slot.shadow,
-        })),
-        mainOffset: {
-          xPct: round(
-            designWidth
-              ? (activeCanvas.screenshotOffset.x / designWidth) * 100
-              : 0
-          ),
-          yPct: round(
-            designHeight
-              ? (activeCanvas.screenshotOffset.y / designHeight) * 100
-              : 0
-          ),
-        },
-        canvasStyle: {
-          background: activeCanvas.background,
-          padding: activeCanvas.padding,
-          borderRadius: activeCanvas.borderRadius,
-          canvasBorderRadius: activeCanvas.canvasBorderRadius,
-          border: activeCanvas.border,
-          backdrop: activeCanvas.backdrop,
-          screenshotPosition: activeCanvas.screenshotPosition,
-          screenshotLayer: activeCanvas.screenshotLayer,
-          shadow: activeCanvas.shadow,
-          overlay: activeCanvas.overlay,
-          frame: activeCanvas.frame,
-          portrait: activeCanvas.portrait,
-          enhance: activeCanvas.enhance,
-          objectFit: activeCanvas.objectFit,
-          frameAddress: activeCanvas.frameAddress,
-          texts: activeCanvas.texts,
-          assets: activeCanvas.assets,
-          annotations: activeCanvas.annotations,
-          annotationShapes: activeCanvas.annotationShapes,
-          aspect: activeCanvas.aspect,
-          tweetSettings: activeCanvas.tweet
-            ? tweetSettingsFromCard(activeCanvas.tweet)
-            : undefined,
-        },
-      }
+      const type = resolvePresetType(state.isAnimateMode, activeCanvas)
+      const geometry = captureCustomPresetGeometry(activeCanvas, aspect, {
+        includeAnimation: type === "animate",
+      })
       setIsPresetSaving(true)
       try {
         const res = await fetch(`/api/presets/${id}`, {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, geometry }),
+          body: JSON.stringify({ name, type, geometry }),
         })
         const data = (await res.json().catch(() => null)) as {
           preset?: CustomPresetSummary
@@ -570,8 +681,16 @@ export function TopBar() {
         if (!res.ok) {
           throw new Error(data?.error ?? "Could not update preset")
         }
-        updateCustomPresetInStore(id, { name, geometry })
-        toast.success(`Preset "${name}" updated`)
+        updateCustomPresetInStore(id, {
+          name,
+          type,
+          geometry: data?.preset?.geometry ?? geometry,
+        })
+        toast.success(
+          type === "animate"
+            ? `Animate preset "${name}" updated`
+            : `Preset "${name}" updated`
+        )
         return true
       } catch (err) {
         console.error(err)
@@ -595,7 +714,7 @@ export function TopBar() {
       try {
         const draftState: DraftPayload = {
           schemaVersion: DRAFT_SCHEMA_VERSION,
-          present: state.present,
+          present: sanitizePresentForCloudDraft(state.present),
           ui: {
             presetTab: state.presetTab,
             activeLayoutPresetId: state.activeLayoutPresetId,
@@ -606,6 +725,7 @@ export function TopBar() {
             bulkScale: state.bulkScale,
             previewAutoScrollDelay: state.previewAutoScrollDelay,
             previewAnimation: state.previewAnimation,
+            isAnimateMode: state.isAnimateMode,
           },
         }
         const payload = {
@@ -802,10 +922,13 @@ export function TopBar() {
             icon={RiLayoutGridLine}
             variant={bulkEditMode ? "default" : "outline"}
             tooltip={
-              bulkEditMode
-                ? "Disable bulk edit"
-                : "Enable bulk edit & add canvas"
+              isAnimateMode
+                ? "Not available in animate mode"
+                : bulkEditMode
+                  ? "Disable bulk edit"
+                  : "Enable bulk edit & add canvas"
             }
+            disabled={isAnimateMode}
             onClick={handleBulkEditClick}
             className="hidden xl:inline-flex"
           />
@@ -820,6 +943,7 @@ export function TopBar() {
             open={saveOpen}
             currentDraft={currentDraft}
             isDraftSaving={isDraftSaving}
+            isAnimateMode={isAnimateMode}
             onOpenChange={(open) => {
               setTopBarPopoverOpen(open)
               if (open) {
@@ -837,14 +961,32 @@ export function TopBar() {
             url={shareDialog.url}
             error={shareDialog.error}
             copied={isShareLinkCopied}
+            mediaKind={shareDialog.mediaKind}
+            storage={shareDialog.storage}
+            format={shareAnimFormat}
+            resolution={shareAnimResolution}
+            progress={shareProgress}
             onOpenChange={(open) => {
               setTopBarPopoverOpen(open)
               setShareDialog((current) => ({ ...current, open }))
-              if (!open) setShareSurface(null)
+              if (!open) {
+                setShareSurface(null)
+                shareAbortRef.current?.abort()
+                setShareProgress(null)
+              }
             }}
             onShare={handleDesktopShareClick}
+            onFormatChange={setShareAnimFormat}
+            onResolutionChange={setShareAnimResolution}
+            onConfirmAnimateShare={() => void handleConfirmAnimateShare()}
             onCopyLink={handleCopyShareLink}
-            onRetry={handleShare}
+            onRetry={() => {
+              if (shareDialog.mediaKind === "animate") {
+                void handleConfirmAnimateShare()
+              } else {
+                void handleShare()
+              }
+            }}
           />
         </div>
 
@@ -978,6 +1120,7 @@ export function TopBar() {
           onOpenChange={setDraftChoiceOpen}
           draftName={currentDraft?.name ?? ""}
           isSaving={isDraftSaving}
+          isAnimateMode={isAnimateMode}
           onUpdateExisting={async () => {
             const ok = await handleSaveAsDraft()
             if (ok) setDraftChoiceOpen(false)
@@ -996,6 +1139,7 @@ export function TopBar() {
             customPresets.find((p) => p.id === activeCustomPresetId)?.name ?? ""
           }
           isSaving={isPresetSaving}
+          isAnimateMode={isAnimateMode}
           onUpdateExisting={async () => {
             if (!activeCustomPresetId) return
             const name =
@@ -1014,9 +1158,13 @@ export function TopBar() {
         <NameDialog
           open={presetNameOpen}
           onOpenChange={setPresetNameOpen}
-          title="Save as preset"
-          description="Capture the current layout so you can reuse it later."
-          confirmLabel="Save preset"
+          title={isAnimateMode ? "Save as animate preset" : "Save as preset"}
+          description={
+            isAnimateMode
+              ? "Capture the current timeline and look so you can reuse them later."
+              : "Capture the current layout so you can reuse it later."
+          }
+          confirmLabel={isAnimateMode ? "Save animate preset" : "Save preset"}
           loading={isPresetSaving}
           onConfirm={async (name) => {
             if (savePresetMode !== "create") return
@@ -1028,9 +1176,13 @@ export function TopBar() {
         <NameDialog
           open={draftNameOpen}
           onOpenChange={setDraftNameOpen}
-          title="Save as draft"
-          description="Save the entire project so you can resume editing later."
-          confirmLabel="Save draft"
+          title={isAnimateMode ? "Save as animate draft" : "Save as draft"}
+          description={
+            isAnimateMode
+              ? "Save the entire project and timeline so you can resume editing later."
+              : "Save the entire project so you can resume editing later."
+          }
+          confirmLabel={isAnimateMode ? "Save animate draft" : "Save draft"}
           loading={isDraftSaving}
           onConfirm={async (name) => {
             const ok = await handleSaveAsDraft(name, saveDraftMode)
@@ -1045,9 +1197,14 @@ export function TopBar() {
           open={openProjectDialogOpen}
           onOpenChange={setOpenProjectDialogOpen}
           currentDraftId={currentDraft?.id ?? null}
+          hasUnsavedWork={hasUnsavedWork}
+          defaultKind="style"
           onOpenDraft={async (id) => {
             const ok = await handleOpenDraft(id)
             if (ok) setOpenProjectDialogOpen(false)
+          }}
+          onCreateNew={() => {
+            reset()
           }}
         />
 
@@ -1055,6 +1212,7 @@ export function TopBar() {
           open={mobileSaveOpen}
           currentDraft={currentDraft}
           isDraftSaving={isDraftSaving}
+          isAnimateMode={isAnimateMode}
           onOpenChange={setMobileSaveOpen}
           onSaveAsPreset={openSavePresetFlow}
           onSaveAsDraft={openSaveDraftFlow}
@@ -1066,12 +1224,30 @@ export function TopBar() {
           url={shareDialog.url}
           error={shareDialog.error}
           copied={isShareLinkCopied}
+          mediaKind={shareDialog.mediaKind}
+          storage={shareDialog.storage}
+          format={shareAnimFormat}
+          resolution={shareAnimResolution}
+          progress={shareProgress}
           onOpenChange={(open) => {
             setShareDialog((current) => ({ ...current, open }))
-            if (!open) setShareSurface(null)
+            if (!open) {
+              setShareSurface(null)
+              shareAbortRef.current?.abort()
+              setShareProgress(null)
+            }
           }}
+          onFormatChange={setShareAnimFormat}
+          onResolutionChange={setShareAnimResolution}
+          onConfirmAnimateShare={() => void handleConfirmAnimateShare()}
           onCopyLink={handleCopyShareLink}
-          onRetry={handleShare}
+          onRetry={() => {
+            if (shareDialog.mediaKind === "animate") {
+              void handleConfirmAnimateShare()
+            } else {
+              void handleShare()
+            }
+          }}
         />
       </div>
 

@@ -37,10 +37,16 @@ import {
 import { slotBoxAspectRatio } from "@/lib/editor/screenshot-layout"
 import { computeCropTarget, type CropTarget } from "@/lib/editor/crop-utils"
 import {
+  BORDER_OFFSET_PREVIEW_VAR,
+  BORDER_OUTLINE_PREVIEW_VAR,
+  borderOffsetCss,
+  borderOutlineCss,
+  SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowBoxShadowCss,
   shadowCss,
   shadowDropFilterCss,
 } from "@/lib/editor/css-utils"
+import { clipAffectsSlot, clipOwns } from "@/lib/editor/animation-playback"
 import {
   assetFilterCss,
   type AssetBlendMode,
@@ -59,6 +65,11 @@ import {
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
+import {
+  afterPositionPreviewCleared,
+  clearPositionPreviewVarsAfterPaint,
+  setElementPositionPreview,
+} from "@/components/editor/position-preview-vars"
 import { cn } from "@/lib/utils"
 
 /**
@@ -171,9 +182,38 @@ export function ScreenshotSlotRender({
   const effectiveLighting = slot.lighting ?? shared.lighting
   const computedShadowFilter = shadowDropFilterCss(effectiveShadow)
   const enhanceFilter = enhanceFilterCss(shared.enhance)
+
+  // Whether an Animate-mode keyframe animates THIS slot's border / lighting.
+  // Like the main screenshot (canvas-view), those overlays must always mount
+  // when animated — even when the committed look is invisible — so the player
+  // has a node to ease in from 0 / recolour via the preview vars. Suppressed in
+  // preset previews (previewMode has no live animation).
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // A position-pad / group drag drives this slot via the live-preview vars while
+  // it still carries its left/top easing, so it would ease ~300ms behind the pad
+  // (preview appears offset from the committed spot). Drop the easing during that
+  // drag, exactly like the slot's own on-canvas drag (isBeingDragged).
+  const positionDragging = useEditorStore((s) => s.screenshotPositionDragging)
+  const canvasClips = useActiveCanvasField((c) => c.animation?.clips ?? [])
+  const slotOwns = React.useCallback(
+    (effect: Parameters<typeof clipOwns>[1]) =>
+      !previewMode &&
+      isAnimateMode &&
+      canvasClips.some(
+        (c) => clipAffectsSlot(c, slot.id) && clipOwns(c, effect)
+      ),
+    [canvasClips, isAnimateMode, previewMode, slot.id]
+  )
+  const borderAnimated = slotOwns("border")
+  const lightingAnimated = slotOwns("lighting")
+
   const innerLightingStyle =
-    effectiveLighting.target === "inner"
-      ? lightingOverlayCss(effectiveLighting, { inner: true })
+    effectiveLighting.target === "inner" || lightingAnimated
+      ? lightingOverlayCss(effectiveLighting, {
+          inner: true,
+          active: effectiveLighting.target === "inner",
+          forceMount: lightingAnimated,
+        })
       : null
   const filterChain = [enhanceFilter, assetFilterCss(slot.filter)]
     .filter(Boolean)
@@ -198,7 +238,7 @@ export function ScreenshotSlotRender({
     zIndex: 60 + slot.zIndex,
     display: slot.hidden ? "none" : undefined,
     transition:
-      previewMode || isBeingDragged
+      previewMode || isBeingDragged || positionDragging
         ? undefined
         : "left 300ms ease-out, top 300ms ease-out",
   }
@@ -221,15 +261,25 @@ export function ScreenshotSlotRender({
     borderRadius: selectionRadius,
   }
   const bareImgStyle: React.CSSProperties = {
-    borderRadius: bareBorderRadius,
+    // Read the radius via a var so an Animate-mode clip can ease it; falls back
+    // to the committed value at rest / outside Animate mode.
+    borderRadius: `var(${SCREENSHOT_RADIUS_PREVIEW_VAR}, ${bareBorderRadius}px)`,
     boxShadow: shadowBoxShadowCss(shadowCss(effectiveShadow)),
     filter: filterChain || undefined,
     transform: contentTransform,
     transformStyle: "preserve-3d" as const,
   }
-  if (imageBoxOutline?.color && imageBoxOutline.width > 0) {
-    bareImgStyle.outline = `${imageBoxOutline.width}px ${imageBoxOutline.style || "solid"} ${imageBoxOutline.color}`
-    bareImgStyle.outlineOffset = `${imageBoxOutline.padding || 0}px`
+  // When a clip animates this slot's border the outline is ALWAYS mounted (even
+  // when the committed border is invisible) so the player can ease it in from 0 /
+  // recolour it via the preview vars. Otherwise it renders only when committed.
+  const borderVisible =
+    Boolean(imageBoxOutline.color) && imageBoxOutline.width > 0
+  if (borderAnimated || borderVisible) {
+    const committedOutline = borderVisible
+      ? borderOutlineCss(imageBoxOutline)
+      : "0px solid transparent"
+    bareImgStyle.outline = `var(${BORDER_OUTLINE_PREVIEW_VAR}, ${committedOutline})`
+    bareImgStyle.outlineOffset = `var(${BORDER_OFFSET_PREVIEW_VAR}, ${borderOffsetCss(imageBoxOutline)})`
   }
 
   const showEditMenu = !previewMode && Boolean(slot.src)
@@ -274,9 +324,15 @@ export function ScreenshotSlotRender({
       >
         <div className="absolute inset-0" style={contentStyle}>
           <div className="relative h-full w-full" style={transformedStyle}>
-            {isSelected && !previewMode ? (
+            {/* Container selection for framed/empty boxes. Bare images draw
+                their own ring on the image box in ScreenshotBare so contain
+                doesn't leave a ring around letterboxed empty space. */}
+            {isSelected &&
+            !previewMode &&
+            (shared.frame.id !== "none" || !slot.src) ? (
               <div
                 aria-hidden
+                data-selection-border="true"
                 className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
                 style={{
                   transform: contentTransform,
@@ -285,37 +341,53 @@ export function ScreenshotSlotRender({
                 }}
               />
             ) : null}
-            <ScreenshotFrameContent
-              src={slot.src}
-              frame={shared.frame}
-              isDragOver={isDragOver}
-              onBrowse={onBrowse}
-              imageFilter={filterChain || undefined}
-              shadowFilter={computedShadowFilter}
-              contentTransform={contentTransform}
-              bareStyle={bareImgStyle}
-              applyTransformWhenEmpty
-              suppressEmptyTransition
-              emptyCompact={Boolean(rowLayout)}
-              objectFit={slot.objectFit ?? "contain"}
-              activeTool={activeTool}
-              isDragging={false}
-              stageRef={stageRef}
-              imageRef={imageRef}
-              addressValue={shared.frameAddress}
-              onAddressChange={onAddressChange}
-              onSelect={onSelect}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onCrop={onCropClick}
-              onReplaceFile={onReplaceFile}
-              onDelete={onDeleteFromMenu}
-              innerLightingStyle={innerLightingStyle}
-              onCapture={onCapture}
-              captureDefaultDevice={captureDefaultDevice}
-              captureStateKey={captureStateKey}
-            />
+            {/* Animate-mode wrapper. Reads the same CSS vars AnimationLayer sets
+                on the canvas node as the main screenshot, so every image in a
+                multi-screenshot canvas animates together instead of only the
+                main one moving (which made it look like the first image
+                disappeared). Defaults make it a no-op outside animate mode. */}
+            <div
+              className="relative h-full w-full"
+              style={{
+                transform: "var(--anim-transform, none)",
+                opacity: "var(--anim-opacity, 1)" as unknown as number,
+                filter: "var(--anim-filter, none)",
+                transformOrigin: "center",
+              }}
+            >
+              <ScreenshotFrameContent
+                src={slot.src}
+                frame={shared.frame}
+                isDragOver={isDragOver}
+                onBrowse={onBrowse}
+                imageFilter={filterChain || undefined}
+                shadowFilter={computedShadowFilter}
+                contentTransform={contentTransform}
+                bareStyle={bareImgStyle}
+                applyTransformWhenEmpty
+                suppressEmptyTransition
+                emptyCompact={Boolean(rowLayout)}
+                objectFit={slot.objectFit ?? "contain"}
+                isScreenshotSelected={isSelected && !previewMode}
+                activeTool={activeTool}
+                isDragging={false}
+                stageRef={stageRef}
+                imageRef={imageRef}
+                addressValue={shared.frameAddress}
+                onAddressChange={onAddressChange}
+                onSelect={onSelect}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onCrop={onCropClick}
+                onReplaceFile={onReplaceFile}
+                onDelete={onDeleteFromMenu}
+                innerLightingStyle={innerLightingStyle}
+                onCapture={onCapture}
+                captureDefaultDevice={captureDefaultDevice}
+                captureStateKey={captureStateKey}
+              />
+            </div>
 
             {showEditMenu ? (
               <div
@@ -580,12 +652,18 @@ export function ScreenshotSlotView({
     stageRef,
   ])
 
+  const setScreenshotPositionDragging = useEditorStore(
+    (s) => s.setScreenshotPositionDragging
+  )
+
   const startDrag = (e: React.PointerEvent<Element>) => {
     if (!canvasRef.current) return
     e.stopPropagation()
     e.preventDefault()
     select(e)
     setIsBeingDragged(true)
+    // Stop AnimationLayer from overwriting --editor-position-* while we drag.
+    setScreenshotPositionDragging(true)
     const rect = canvasRef.current.getBoundingClientRect()
     dragRef.current = {
       pointerId: e.pointerId,
@@ -629,8 +707,10 @@ export function ScreenshotSlotView({
     onCenterGuideChange?.(snap.guides)
     const el = elRef.current
     if (el) {
-      el.style.left = `${nextX}%`
-      el.style.top = `${nextY}%`
+      // Drive the same CSS vars the slot's left/top read (and AnimationLayer
+      // would write). Survives React re-renders from toolbar measure; direct
+      // style.left would get clobbered by the style prop on the next paint.
+      setElementPositionPreview(el, { xPct: nextX, yPct: nextY })
       setToolbarRect(el.getBoundingClientRect())
     }
   }
@@ -638,15 +718,23 @@ export function ScreenshotSlotView({
   const endDrag = (e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
+    const el = elRef.current
     if (drag.moved) {
-      updateScreenshotSlot(slot.id, {
-        xPct: drag.lastXPct,
-        yPct: drag.lastYPct,
-      })
+      try {
+        updateScreenshotSlot(slot.id, {
+          xPct: drag.lastXPct,
+          yPct: drag.lastYPct,
+        })
+      } finally {
+        clearPositionPreviewVarsAfterPaint([el])
+      }
     }
     dragRef.current = null
     setIsBeingDragged(false)
     onCenterGuideChange?.({ x: false, y: false })
+    // Hold the flag until after the preview-var clear paints so AnimationLayer
+    // doesn't re-apply the pre-drag sampled pose for a frame.
+    afterPositionPreviewCleared(() => setScreenshotPositionDragging(false))
   }
 
   const onBrowse = () => {

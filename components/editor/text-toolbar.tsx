@@ -614,8 +614,6 @@ function TextToolbarBody({
   )
 }
 
-/* ---- Border settings sub-component ---- */
-
 const TEXT_BORDER_PRESETS = [
   "#ffffff",
   "#000000",

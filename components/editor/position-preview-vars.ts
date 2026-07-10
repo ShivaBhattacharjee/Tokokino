@@ -35,6 +35,17 @@ export function setElementPositionPreview(
   element.style.setProperty(POSITION_Y_VAR, `${point.yPct}%`)
 }
 
+/**
+ * Live-preview the multi-row / framed main screenshot by driving its container
+ * left/top (and zeroing the offset leg so the committed px offset doesn't fight
+ * the absolute %).
+ *
+ * Intentionally does NOT set `--editor-main-bare-*`: those vars are for the
+ * free-floating single bare screenshot only. Writing them on the canvas made
+ * every nested bare image (main row content + every secondary slot) inherit a
+ * non-50% left/top during pad drag, so all three images shifted inside their
+ * boxes and the main selection outline detached from its image.
+ */
 export function setMainScreenshotPositionPreview(
   canvasElement: HTMLElement | null | undefined,
   point: PositionSwipePoint
@@ -52,16 +63,14 @@ export function setMainScreenshotPositionPreview(
   )
   canvasElement.style.setProperty(MAIN_OFFSET_X_VAR, "0px")
   canvasElement.style.setProperty(MAIN_OFFSET_Y_VAR, "0px")
-  canvasElement.style.setProperty(MAIN_BARE_LEFT_VAR, `${point.xPct}%`)
-  canvasElement.style.setProperty(MAIN_BARE_TOP_VAR, `${point.yPct}%`)
 }
 
 /**
  * Live-preview the frame-less main screenshot by driving its top-left corner in
  * stage pixels. Once a screenshot exists the image renders without a centering
  * `translate(-50%, -50%)`, so the bare vars must carry the same px box-left the
- * commit will produce — a percentage (as `setMainScreenshotPositionPreview`
- * uses) would shift the image by half its size and make it jump on release.
+ * commit will produce — a percentage would shift the image by half its size and
+ * make it jump on release.
  */
 export function setMainScreenshotBarePreviewPx(
   canvasElement: HTMLElement | null | undefined,
@@ -93,6 +102,25 @@ export function clearPositionPreviewVarsAfterPaint(
   requestAnimationFrame(() => {
     for (const element of elements) clearPositionPreviewVars(element)
   })
+}
+
+/**
+ * Run `cb` one frame AFTER {@link clearPositionPreviewVarsAfterPaint}'s clear has
+ * painted. Used to reset the "position dragging" flag (which suppresses the
+ * boxes' move easing) at drag end: the main screenshot's committed position uses
+ * a different representation (grid anchor + offset) than its live preview
+ * (`--editor-main-position-x` = the exact point), so clearing the preview var
+ * changes its `left` even though the visual position is identical. Re-enabling
+ * the transition before that clear paints makes the main ease between the two
+ * representations — the wobble slots (whose preview and committed positions share
+ * one xPct) never show. Keeping the flag set through the clear frame avoids it.
+ */
+export function afterPositionPreviewCleared(cb: () => void) {
+  if (typeof requestAnimationFrame === "undefined") {
+    cb()
+    return
+  }
+  requestAnimationFrame(() => requestAnimationFrame(cb))
 }
 
 function frameAnchorTravel(percent: number, axis: "x" | "y") {

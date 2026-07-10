@@ -2,16 +2,21 @@ import "server-only"
 
 import { and, desc, eq } from "drizzle-orm"
 
-import { customPresets, type StoredPresetGeometry } from "@/lib/db/schema"
+import {
+  customPresets,
+  type CustomPresetType,
+  type StoredPresetGeometry,
+} from "@/lib/db/schema"
 import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
 
-export type { StoredPresetGeometry } from "@/lib/db/schema"
+export type { CustomPresetType, StoredPresetGeometry } from "@/lib/db/schema"
 
 export type CustomPresetRecord = {
   id: string
   userId: string
   name: string
   slotCount: number
+  type: CustomPresetType
   geometry: StoredPresetGeometry
   createdAt: Date
   updatedAt: Date
@@ -22,6 +27,7 @@ type CustomPresetRow = {
   userId: string
   name: string
   slotCount: number
+  type: CustomPresetType | null
   geometry: StoredPresetGeometry
   createdAt: string
   updatedAt: string
@@ -33,6 +39,7 @@ function rowToPreset(row: CustomPresetRow): CustomPresetRecord {
     userId: row.userId,
     name: row.name,
     slotCount: row.slotCount,
+    type: row.type === "animate" ? "animate" : "style",
     geometry: row.geometry,
     createdAt: fromD1Date(row.createdAt) ?? new Date(row.createdAt),
     updatedAt: fromD1Date(row.updatedAt) ?? new Date(row.updatedAt),
@@ -54,12 +61,14 @@ export async function createCustomPreset({
   userId,
   name,
   slotCount,
+  type,
   geometry,
 }: {
   id: string
   userId: string
   name: string
   slotCount: number
+  type: CustomPresetType
   geometry: StoredPresetGeometry
 }) {
   const now = toD1Date(new Date())
@@ -68,6 +77,7 @@ export async function createCustomPreset({
     userId,
     name,
     slotCount,
+    type,
     geometry,
     createdAt: now,
     updatedAt: now,
@@ -79,12 +89,14 @@ export async function updateCustomPreset({
   userId,
   name,
   slotCount,
+  type,
   geometry,
 }: {
   id: string
   userId: string
   name: string
   slotCount: number
+  type: CustomPresetType
   geometry: StoredPresetGeometry
 }) {
   return getDb()
@@ -92,6 +104,7 @@ export async function updateCustomPreset({
     .set({
       name,
       slotCount,
+      type,
       geometry,
       updatedAt: toD1Date(new Date()),
     })

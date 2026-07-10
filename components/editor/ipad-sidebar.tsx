@@ -9,6 +9,7 @@ import {
   EffectsSidebar,
 } from "@/components/editor/effects-sidebar"
 import { Inspector } from "@/components/editor/inspector"
+import { useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
 type TabId = "design" | "tools"
@@ -33,6 +34,13 @@ const TAB_ORDER: TabId[] = ["design", "tools"]
 export function IpadSidebar({ className }: { className?: string }) {
   const [activeTab, setActiveTab] = React.useState<TabId>("design")
   const touchStartX = React.useRef<number | null>(null)
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+
+  // Animate mode's controls (Position etc.) live on the Tools panel, so jump to
+  // it when entering animate mode. The user can still swipe back to Design.
+  React.useEffect(() => {
+    if (isAnimateMode) setActiveTab("tools")
+  }, [isAnimateMode])
 
   const handleTabChange = (id: TabId) => {
     if (id === activeTab) return
@@ -57,7 +65,7 @@ export function IpadSidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "flex h-full min-h-0 w-[300px] shrink-0 flex-col overflow-hidden border-l border-dashed border-border/70 bg-sidebar lg:w-[320px]",
+        "flex h-full min-h-0 w-[256px] shrink-0 flex-col overflow-hidden border-r border-dashed border-border/70 bg-sidebar lg:w-[280px]",
         className
       )}
     >
