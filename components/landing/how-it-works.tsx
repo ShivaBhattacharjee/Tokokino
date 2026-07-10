@@ -37,23 +37,23 @@ const FLOW_STEPS = [
     k: "02",
     eyebrow: "Capture",
     title: "Drop a file or paste a URL",
-    body: "Focus the intake area where screenshots enter by upload, clipboard, or URL capture.",
+    body: "Focus the intake area where screenshots, post links, and website captures enter by upload, clipboard, or URL.",
     label: "CAPTURE AREA",
   },
   {
     id: "compose",
     k: "03",
     eyebrow: "Compose",
-    title: "Pick presets or go manual",
-    body: "Focus the canvas and editing surface where frames, backdrops, annotations, presets, and assets come together.",
-    label: "DESIGN CANVAS",
+    title: "Style the scene or keyframe it",
+    body: "Focus the canvas and timeline where frames, backdrops, annotations, presets, assets, and motion beats come together.",
+    label: "CANVAS + TIMELINE",
   },
   {
     id: "ship",
     k: "04",
     eyebrow: "Ship",
     title: "Export or share",
-    body: "Focus the controls used to copy, download, or share the finished screenshot.",
+    body: "Focus the controls used to copy, download, or share the finished still, mockup, or animated product demo.",
     label: "EXPORT CONTROLS",
   },
 ] as const satisfies readonly FlowStep[]
@@ -92,12 +92,13 @@ export function HowItWorks() {
             {"// How it works"}
           </span>
           <h2 className="max-w-2xl text-2xl tracking-tight sm:text-3xl lg:text-4xl">
-            A guided tour of the real editor.
+            A guided tour of the editor for stills and demos.
           </h2>
         </div>
         <p className="max-w-2xl text-sm leading-7 text-foreground/58">
-          The preview uses the same demo shot shown in the product mockup. Click
-          a step to move the spotlight over the matching part of the flow.
+          The preview uses the same editor surface behind screenshots, social
+          mockups, and timeline animations. Click a step to move the spotlight
+          over the matching part of the flow.
         </p>
       </motion.div>
 

@@ -29,9 +29,9 @@ import type { Metadata } from "next"
 
 const siteUrl = new URL("https://tokokino.com")
 const opengraphImageUrl = new URL("/opengraph.png?v=2", siteUrl)
-const siteTitle = "Tokokino - Screenshot Mockup Generator"
+const siteTitle = "Tokokino - Screenshot & Product Demo Editor"
 const siteDescription =
-  "Create polished product screenshots with browser frames, device mockups, backgrounds, shadows, annotations, and fast exports."
+  "Create polished product screenshots and animated demos with device frames, backgrounds, annotations, timeline editing, and fast image or GIF/WebM exports."
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -43,6 +43,9 @@ export const metadata: Metadata = {
   description: siteDescription,
   keywords: [
     "screenshot mockup generator",
+    "product demo editor",
+    "animated product demos",
+    "timeline video editor",
     "beautiful screenshots",
     "website screenshot mockup",
     "app screenshot mockup",
@@ -80,7 +83,7 @@ export const metadata: Metadata = {
         url: opengraphImageUrl,
         width: 1920,
         height: 1008,
-        alt: "Tokokino screenshot mockup editor preview",
+        alt: "Tokokino screenshot and animated demo editor preview",
         type: "image/png",
       },
     ],
@@ -94,7 +97,7 @@ export const metadata: Metadata = {
         url: opengraphImageUrl,
         width: 1920,
         height: 1008,
-        alt: "Tokokino screenshot mockup editor preview",
+        alt: "Tokokino screenshot and animated demo editor preview",
       },
     ],
   },

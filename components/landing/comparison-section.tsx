@@ -202,15 +202,15 @@ export function ComparisonSection() {
           {"// Comparison"}
         </span>
         <h2 className="max-w-3xl text-2xl tracking-tight sm:text-3xl lg:text-4xl">
-          The screenshot editor that does not turn every useful feature into a
-          plan upgrade.
+          The product visual editor that does not turn every useful feature into
+          a plan upgrade.
         </h2>
         <p className="max-w-2xl text-sm leading-7 text-foreground/58">
           PostSpark, Pika, and Shots all make good-looking mockups. Tokokino is
-          built for the part that should stay effortless: drag a huge
-          screenshot, tune the layout, animate the key moments, save the
-          project, reuse the preset, and export clean 4K/8K images or GIF/WebM
-          motion without a watermark or subscription.
+          built for the part that should stay effortless: drag a huge capture,
+          tune the layout, animate the key moments, save the project, reuse the
+          preset, and export clean 4K/8K images or GIF/WebM motion without a
+          watermark or subscription.
         </p>
       </motion.div>
 

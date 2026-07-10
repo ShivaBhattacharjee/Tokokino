@@ -12,7 +12,7 @@ import { ease } from "@/components/landing/constants"
 const faqs = [
   {
     q: "Do I need an account to use Tokokino?",
-    a: "No account needed to edit and export. You can drop in a screenshot, style it, and download a PNG/JPEG/WebP right away — no sign-in required. An account (email or Google) is only needed if you want to create public share links or access your share history.",
+    a: "No account needed to edit and export. You can drop in a capture, style it, animate it, and download a PNG/JPEG/WebP or GIF/WebM right away — no sign-in required. An account (email or Google) is only needed if you want to create public share links or access your share history.",
   },
   {
     q: "Is Tokokino free? Are any features paid?",
@@ -24,27 +24,31 @@ const faqs = [
   },
   {
     q: "What export formats and resolutions are supported?",
-    a: "You can export as PNG, JPEG, or WebP at HD (1920 px), 4K (3840 px), or 8K (7680 px) width. You can also copy directly to your clipboard as a PNG at 1080 px.",
+    a: "You can export stills as PNG, JPEG, or WebP at HD (1920 px), 4K (3840 px), or 8K (7680 px) width. Timeline animations can be exported as GIF or WebM, and you can copy a still directly to your clipboard as a PNG at 1080 px.",
   },
   {
-    q: "Are my screenshots sent to any server?",
-    a: "No. All editing happens locally in your browser — your images never leave your device unless you explicitly click Share. When you share, the final rendered image (not your original screenshot) is uploaded to cloud storage and a unique link is generated.",
+    q: "Are my captures sent to any server?",
+    a: "No. All editing happens locally in your browser — your images never leave your device unless you explicitly click Share. When you share, the final rendered output (not your original capture) is uploaded to cloud storage and a unique link is generated.",
   },
   {
-    q: "Are my screenshots used for AI training?",
-    a: "No. Tokokino does not use your screenshots, shared images, or editor activity to train AI models. Shared images are stored only so your public link can work, and your original screenshots stay in your browser unless you choose to share a rendered export.",
+    q: "Are my captures used for AI training?",
+    a: "No. Tokokino does not use your screenshots, shared outputs, or editor activity to train AI models. Shared files are stored only so your public link can work, and your original captures stay in your browser unless you choose to share a rendered export.",
+  },
+  {
+    q: "Can I make animated product demos?",
+    a: "Yes. Animate mode gives each canvas an editable timeline for keyframing position, zoom, tilt, shadows, lighting, backgrounds, filters, and screenshot slots. It is built for short launch demos, feature reveals, and polished GIF/WebM clips from the same editor you use for still mockups.",
   },
   {
     q: "What happens to my shared images?",
-    a: "Shared images are stored in the cloud and accessible to anyone with the link. You can view all your shares in the Gallery page. You retain ownership of your content; Tokokino only holds a limited license to host and serve it as described in the Terms.",
+    a: "Shared outputs are stored in the cloud and accessible to anyone with the link. You can view all your shares in the Gallery page. You retain ownership of your content; Tokokino only holds a limited license to host and serve it as described in the Terms.",
   },
   {
-    q: "Can I add multiple screenshots to one canvas?",
-    a: "Yes. Each canvas supports up to 3 extra screenshot slots. You can arrange them with built-in layout presets — Side by Side, Depth Duo, Fan Out, Scatter, Perspective, and more — or position them freely.",
+    q: "Can I add multiple captures to one canvas?",
+    a: "Yes. Each canvas supports up to 3 extra capture slots. You can arrange them with built-in layout presets — Side by Side, Depth Duo, Fan Out, Scatter, Perspective, and more — or position them freely.",
   },
   {
     q: "Can I turn an X (Twitter) or Bluesky post into an image?",
-    a: "Yes. Paste a post link and Tokokino fetches the post and renders a clean mockup — author, avatar, text, images, and stats — that you can style and export like any screenshot. Pick a Light, Dim, or Dark theme, choose a font, and toggle the avatar, images, stats, date, and the quoted (parent) post on or off. Single images fill the card edge to edge and quoted posts render inline.",
+    a: "Yes. Paste a post link and Tokokino fetches the post and renders a clean mockup — author, avatar, text, images, and stats — that you can style, animate, and export like any other visual. Pick a Light, Dim, or Dark theme, choose a font, and toggle the avatar, images, stats, date, and the quoted (parent) post on or off. Single images fill the card edge to edge and quoted posts render inline.",
   },
   {
     q: "What device frames are available?",
@@ -56,7 +60,7 @@ const faqs = [
   },
   {
     q: "Do you sell or share my personal data?",
-    a: "No. Tokokino does not sell your personal data to third parties. The only data processed is what's needed to run the service: account info for authentication (via Google or email), and the rendered image you explicitly choose to share. Your original screenshots never leave your browser. See the Terms for the full data practices disclosure.",
+    a: "No. Tokokino does not sell your personal data to third parties. The only data processed is what's needed to run the service: account info for authentication (via Google or email), and the rendered output you explicitly choose to share. Your original captures never leave your browser. See the Terms for the full data practices disclosure.",
   },
 ]
 

@@ -62,7 +62,7 @@ export function Hero() {
             transition={{ duration: 0.7, ease, delay: 0.1 }}
             className="mt-3 text-[2rem] leading-[1.06] font-medium tracking-[-0.03em] text-balance sm:text-5xl lg:text-[4.2rem]"
           >
-            Make every screenshot
+            Make every product visual
             <br />
             <span className="relative inline-block whitespace-nowrap">
               <span className="bg-gradient-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent">
@@ -96,8 +96,9 @@ export function Hero() {
             transition={{ duration: 0.6, ease, delay: 0.3 }}
             className="mt-6 max-w-xl text-[14px] leading-relaxed text-balance text-foreground/60 sm:text-[15px]"
           >
-            Drop in a capture. Frame it, light it, animate it, share it — fully
-            in the browser. No watermark, no upload, no compromise.
+            Drop in a capture, post, or screen flow. Frame it, light it, animate
+            key moments on a timeline, then export polished stills or GIF/WebM
+            demos — fully in the browser.
           </motion.p>
 
           <motion.div

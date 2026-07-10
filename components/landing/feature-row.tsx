@@ -168,7 +168,7 @@ export function FeatureRow() {
           {"// Features"}
         </span>
         <h2 className="text-2xl tracking-tight sm:text-3xl">
-          Screenshot polish, without opening Figma.
+          Product polish, without opening Figma.
         </h2>
       </div>
 

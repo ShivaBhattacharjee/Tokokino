@@ -3,9 +3,9 @@ export const ease = [0.22, 1, 0.36, 1] as const
 export const askPrompt = encodeURIComponent(
   `Explain what Tokokino is and why I should use it.
 
-It's a browser-based screenshot beautifier — drop a capture, add device frames (Safari, Chrome, Arc, iPhone, MacBook), pick a backdrop (or sample one from the screenshot), add annotations, animate the shot on a timeline, and export PNG/JPEG/WebP, GIF, or WebM. You can also paste an X (Twitter) or Bluesky post link to turn the post into a clean, themeable mockup.
+It's a browser-based editor for polished product visuals — drop a capture, add device frames (Safari, Chrome, Arc, iPhone, MacBook), pick a backdrop, add annotations, animate key moments on a timeline, and export PNG/JPEG/WebP stills or GIF/WebM demos. You can also paste an X (Twitter) or Bluesky post link to turn the post into a clean, themeable mockup.
 
-Pitch it to indie devs and designers who want their app screenshots to look intentional without firing up Figma.`
+Pitch it to indie devs and designers who want screenshots, launch visuals, and short product demos to look intentional without firing up Figma.`
 )
 
 export const FEATURES = [
@@ -18,7 +18,7 @@ export const FEATURES = [
   {
     k: "02",
     t: "Auto palettes",
-    d: "Backgrounds sampled directly from your screenshot. Gradients that actually belong.",
+    d: "Backgrounds sampled directly from your capture. Gradients that actually belong.",
     tone: "matcha" as const,
   },
   {
@@ -36,7 +36,7 @@ export const FEATURES = [
   {
     k: "05",
     t: "Layers & assets",
-    d: "Stack text, images, and SVGs over your screenshot. z-index, opacity, blend modes, and filters per layer.",
+    d: "Stack text, images, and SVGs over your capture. z-index, opacity, blend modes, and filters per layer.",
     tone: "primary" as const,
   },
   {
@@ -53,8 +53,8 @@ export const FEATURES = [
   },
   {
     k: "08",
-    t: "Animate mode",
-    d: "Keyframe position, zoom, tilt, shadows, lighting, backgrounds, filters, and screenshot slots on a timeline with optional audio.",
+    t: "Timeline demos",
+    d: "Keyframe position, zoom, tilt, shadows, lighting, backgrounds, filters, and screenshot slots for animated product demos with optional audio.",
     tone: "matcha" as const,
   },
   {
@@ -65,8 +65,8 @@ export const FEATURES = [
   },
   {
     k: "10",
-    t: "Multi-screenshot",
-    d: "Up to 3 extra screenshot slots per canvas with layout presets — Side by Side, Depth Duo, Fan Out, and more.",
+    t: "Multi-shot layouts",
+    d: "Up to 3 extra capture slots per canvas with layout presets — Side by Side, Depth Duo, Fan Out, and more.",
     tone: "primary" as const,
   },
   {

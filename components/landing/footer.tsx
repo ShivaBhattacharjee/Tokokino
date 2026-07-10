@@ -119,8 +119,8 @@ export function Footer({ showRail = true }: { showRail?: boolean }) {
       >
         <div className="flex flex-col gap-7">
           <h2 className="text-[1.45rem] leading-[1.12] font-medium tracking-[-0.035em] text-balance sm:text-[1.85rem] lg:text-[2rem]">
-            Turn plain screenshots into polished, ready-to-share visuals in
-            minutes.
+            Turn plain captures into polished screenshots, mockups, and animated
+            demos in minutes.
           </h2>
 
           <div className="flex flex-wrap items-center gap-2.5">
