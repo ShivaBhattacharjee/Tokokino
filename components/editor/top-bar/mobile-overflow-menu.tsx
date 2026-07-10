@@ -6,6 +6,7 @@ import {
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
   RiEyeLine,
+  RiFeedbackLine,
   RiFileCopyLine,
   RiFolderOpenLine,
   RiFileAddLine,
@@ -53,6 +54,7 @@ export function MobileOverflowMenu({
   onNewClick,
   onOpenClick,
   onOpenProjectClick,
+  onFeedbackClick,
 }: {
   bulkEditMode: boolean
   onBulkEditClick: () => void
@@ -64,6 +66,7 @@ export function MobileOverflowMenu({
   onNewClick: () => void
   onOpenClick: () => void
   onOpenProjectClick: () => void
+  onFeedbackClick: () => void
 }) {
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
   const undo = useEditorStore((s) => s.undo)
@@ -208,6 +211,15 @@ export function MobileOverflowMenu({
             {isCopyingPng ? "Copying…" : "Copy as PNG"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              setMenuOpen(false)
+              onFeedbackClick()
+            }}
+          >
+            <RiFeedbackLine />
+            Send feedback
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={(e) => {
               e.preventDefault()

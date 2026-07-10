@@ -46,7 +46,7 @@ function StarCount() {
 
 export function Hero() {
   return (
-    <section className="relative px-5 pt-14 pb-14 sm:px-8 sm:pt-20 sm:pb-20 lg:px-12 lg:pt-20 lg:pb-20">
+    <section className="relative px-4 pt-14 pb-14 sm:px-8 sm:pt-20 sm:pb-20 lg:px-12 lg:pt-20 lg:pb-20">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -60,9 +60,9 @@ export function Hero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease, delay: 0.1 }}
-            className="mt-3 text-[2rem] leading-[1.06] font-medium tracking-[-0.03em] text-balance sm:text-5xl lg:text-[4.2rem]"
+            className="mt-3 text-[clamp(1.4rem,0.85rem+3.8vw,1.625rem)] leading-[1.1] font-medium tracking-[-0.035em] sm:text-5xl sm:leading-[1.06] sm:tracking-[-0.03em] lg:text-[4.2rem]"
           >
-            Make every product visual
+            <span className="whitespace-nowrap">Make every product visual</span>
             <br />
             <span className="relative inline-block whitespace-nowrap">
               <span className="bg-gradient-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent">
@@ -94,11 +94,18 @@ export function Hero() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease, delay: 0.3 }}
-            className="mt-6 max-w-xl text-[14px] leading-relaxed text-balance text-foreground/60 sm:text-[15px]"
+            className="mt-5 max-w-xl text-[13px] leading-[1.5] text-foreground/60 sm:mt-6 sm:text-[15px] sm:leading-relaxed sm:text-balance"
           >
-            Drop in a capture, post, or screen flow. Frame it, light it, animate
-            key moments on a timeline, then export polished stills or GIF/WebM
-            demos — fully in the browser.
+            <span className="sm:hidden">
+              Drop in a capture, post, or screen flow. Frame it, light it,
+              animate key moments, then export stills or GIF/WebM — fully in the
+              browser.
+            </span>
+            <span className="hidden sm:inline">
+              Drop in a capture, post, or screen flow. Frame it, light it,
+              animate key moments on a timeline, then export polished stills or
+              GIF/WebM demos — fully in the browser.
+            </span>
           </motion.p>
 
           <motion.div

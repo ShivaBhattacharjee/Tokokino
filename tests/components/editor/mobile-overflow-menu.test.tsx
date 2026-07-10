@@ -51,6 +51,7 @@ const baseProps = {
   onNewClick: vi.fn(),
   onOpenClick: vi.fn(),
   onOpenProjectClick: vi.fn(),
+  onFeedbackClick: vi.fn(),
 }
 
 async function openMenu() {
@@ -133,5 +134,12 @@ describe("MobileOverflowMenu", () => {
     const user = await openMenu()
     await user.click(screen.getByRole("menuitem", { name: "Copy as PNG" }))
     expect(baseProps.onCopyPng).toHaveBeenCalledOnce()
+  })
+
+  it("routes Send feedback to onFeedbackClick", async () => {
+    render(<MobileOverflowMenu {...baseProps} />)
+    const user = await openMenu()
+    await user.click(screen.getByRole("menuitem", { name: "Send feedback" }))
+    expect(baseProps.onFeedbackClick).toHaveBeenCalledOnce()
   })
 })

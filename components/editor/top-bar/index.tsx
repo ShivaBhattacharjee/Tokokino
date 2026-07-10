@@ -220,6 +220,7 @@ export function TopBar() {
 
   const [showNewAlert, setShowNewAlert] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [feedbackOpen, setFeedbackOpen] = React.useState(false)
   const [saveOpen, setSaveOpen] = React.useState(false)
   const [mobileSaveOpen, setMobileSaveOpen] = React.useState(false)
   const [presetNameOpen, setPresetNameOpen] = React.useState(false)
@@ -1255,7 +1256,11 @@ export function TopBar() {
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-1.5">
-        <FeedbackDialog />
+        <FeedbackDialog
+          open={feedbackOpen}
+          onOpenChange={setFeedbackOpen}
+          triggerClassName="hidden xl:inline-flex"
+        />
 
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
@@ -1313,6 +1318,7 @@ export function TopBar() {
           onNewClick={() => setShowNewAlert(true)}
           onOpenClick={() => fileInputRef.current?.click()}
           onOpenProjectClick={() => handleProtectedAction("open")}
+          onFeedbackClick={() => setFeedbackOpen(true)}
         />
 
         <ExportControls

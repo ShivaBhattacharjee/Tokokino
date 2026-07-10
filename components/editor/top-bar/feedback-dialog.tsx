@@ -27,8 +27,19 @@ const FACES = [
   { emoji: "😍", label: "Love it" },
 ] as const
 
-export function FeedbackDialog() {
-  const [open, setOpen] = React.useState(false)
+export function FeedbackDialog({
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  triggerClassName,
+}: {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** Applied to the icon trigger — use to hide it on mobile. */
+  triggerClassName?: string
+} = {}) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
+  const setOpen = controlledOnOpenChange ?? setUncontrolledOpen
   const [rating, setRating] = React.useState<number | null>(null)
   const [message, setMessage] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
@@ -62,7 +73,7 @@ export function FeedbackDialog() {
       toast.error("Couldn't send feedback. Please try again.")
       setSubmitting(false)
     }
-  }, [canSubmit, rating, message, reset])
+  }, [canSubmit, rating, message, reset, setOpen])
 
   return (
     <Dialog
@@ -79,7 +90,10 @@ export function FeedbackDialog() {
             size="icon"
             aria-label="Send feedback"
             onClick={() => setOpen(true)}
-            className="focus-visible:ring-0 focus-visible:outline-none"
+            className={cn(
+              "focus-visible:ring-0 focus-visible:outline-none",
+              triggerClassName
+            )}
           >
             <RiFeedbackLine />
           </Button>
@@ -137,7 +151,7 @@ export function FeedbackDialog() {
             placeholder="Write your feedback..."
             maxLength={2000}
             rows={5}
-            className="w-full resize-none rounded-lg bg-secondary/50 px-3 py-2.5 text-sm text-foreground ring-1 ring-border/50 transition-colors outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="w-full resize-none rounded-lg bg-secondary/50 px-3 py-2.5 text-base text-foreground ring-1 ring-border/50 transition-colors outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/60"
           />
         </div>
 
