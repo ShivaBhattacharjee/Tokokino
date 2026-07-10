@@ -32,6 +32,7 @@ export function DraftChoiceDialog({
   onOpenChange,
   draftName,
   isSaving,
+  isAnimateMode = false,
   onUpdateExisting,
   onCreateNew,
 }: {
@@ -39,6 +40,7 @@ export function DraftChoiceDialog({
   onOpenChange: (open: boolean) => void
   draftName: string
   isSaving: boolean
+  isAnimateMode?: boolean
   onUpdateExisting: () => Promise<void>
   onCreateNew: () => void
 }) {
@@ -48,23 +50,32 @@ export function DraftChoiceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Save draft</DialogTitle>
+          <DialogTitle>
+            {isAnimateMode ? "Save animate draft" : "Save draft"}
+          </DialogTitle>
           <DialogDescription>
             You&apos;re editing &ldquo;{displayDraftName}&rdquo;. Update it or
-            save as a new draft.
+            save as a new draft
+            {isAnimateMode ? " (includes the timeline)." : "."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <SaveActionRow
             icon={RiSaveLine}
-            title="Update existing draft"
+            title={
+              isAnimateMode
+                ? "Update existing animate draft"
+                : "Update existing draft"
+            }
             description={`Overwrite "${displayDraftName}" with your current changes.`}
             loading={isSaving}
             onClick={() => void onUpdateExisting()}
           />
           <SaveActionRow
             icon={RiFileAddLine}
-            title="Save as new draft"
+            title={
+              isAnimateMode ? "Save as new animate draft" : "Save as new draft"
+            }
             description="Keep the original and create a separate copy."
             onClick={onCreateNew}
           />
@@ -89,6 +100,7 @@ export function PresetChoiceDialog({
   onOpenChange,
   presetName,
   isSaving,
+  isAnimateMode = false,
   onUpdateExisting,
   onCreateNew,
 }: {
@@ -96,6 +108,7 @@ export function PresetChoiceDialog({
   onOpenChange: (open: boolean) => void
   presetName: string
   isSaving: boolean
+  isAnimateMode?: boolean
   onUpdateExisting: () => Promise<void>
   onCreateNew: () => void
 }) {
@@ -105,23 +118,37 @@ export function PresetChoiceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Save preset</DialogTitle>
+          <DialogTitle>
+            {isAnimateMode ? "Save animate preset" : "Save preset"}
+          </DialogTitle>
           <DialogDescription>
             You&apos;re editing &ldquo;{displayPresetName}&rdquo;. Update it or
-            save as a new preset.
+            save as a new {isAnimateMode ? "animate " : ""}preset.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <SaveActionRow
             icon={RiBookmarkLine}
-            title="Update existing preset"
-            description={`Overwrite "${displayPresetName}" with the current layout.`}
+            title={
+              isAnimateMode
+                ? "Update existing animate preset"
+                : "Update existing preset"
+            }
+            description={
+              isAnimateMode
+                ? `Overwrite "${displayPresetName}" with the current timeline and look.`
+                : `Overwrite "${displayPresetName}" with the current layout.`
+            }
             loading={isSaving}
             onClick={() => void onUpdateExisting()}
           />
           <SaveActionRow
             icon={RiFileAddLine}
-            title="Save as new preset"
+            title={
+              isAnimateMode
+                ? "Save as new animate preset"
+                : "Save as new preset"
+            }
             description="Keep the original and create a separate preset."
             onClick={onCreateNew}
           />

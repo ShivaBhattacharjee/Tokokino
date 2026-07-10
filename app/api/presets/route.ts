@@ -17,6 +17,7 @@ export async function GET(request: Request) {
       id: preset.id,
       name: preset.name,
       slotCount: preset.slotCount,
+      type: preset.type,
       geometry: preset.geometry,
       createdAt: preset.createdAt,
       updatedAt: preset.updatedAt,
@@ -44,7 +45,30 @@ export async function POST(request: Request) {
     )
   }
 
-  const serialized = JSON.stringify(parsed.data.geometry)
+  const type = parsed.data.type
+  const rawGeometry = parsed.data.geometry
+
+  if (type === "animate") {
+    const clips = rawGeometry.animation?.clips
+    if (!Array.isArray(clips) || clips.length === 0) {
+      return NextResponse.json(
+        { error: "Animate presets require at least one timeline clip" },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Style presets must not carry a timeline payload.
+  const geometry =
+    type === "style"
+      ? (() => {
+          const { animation, ...rest } = rawGeometry
+          void animation
+          return rest
+        })()
+      : rawGeometry
+
+  const serialized = JSON.stringify(geometry)
   if (new TextEncoder().encode(serialized).byteLength > MAX_PRESET_BYTES) {
     return NextResponse.json(
       { error: "Preset is too large to save" },
@@ -53,7 +77,7 @@ export async function POST(request: Request) {
   }
 
   const id = crypto.randomUUID()
-  const slotCount = parsed.data.geometry.slots.length + 1
+  const slotCount = geometry.slots.length + 1
 
   try {
     await createCustomPreset({
@@ -61,7 +85,8 @@ export async function POST(request: Request) {
       userId: auth.session.user.id,
       name: parsed.data.name,
       slotCount,
-      geometry: parsed.data.geometry,
+      type,
+      geometry,
     })
   } catch (error) {
     console.error(error)
@@ -76,7 +101,8 @@ export async function POST(request: Request) {
       id,
       name: parsed.data.name,
       slotCount,
-      geometry: parsed.data.geometry,
+      type,
+      geometry,
     },
   })
 }

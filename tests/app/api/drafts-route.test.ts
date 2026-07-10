@@ -67,6 +67,22 @@ describe("GET /api/drafts", () => {
       limit: 9,
       offset: 0,
       sort: "latest",
+      type: undefined,
+    })
+  })
+
+  it("forwards type filter for present vs animate projects", async () => {
+    const { GET } = await loadRoute()
+
+    await GET(request("?type=animate"))
+    expect(mocks.listDrafts).toHaveBeenLastCalledWith("user_1", {
+      limit: 9,
+      offset: 0,
+      sort: "latest",
+      type: "animate",
+    })
+    expect(mocks.countDrafts).toHaveBeenLastCalledWith("user_1", {
+      type: "animate",
     })
   })
 
@@ -78,6 +94,7 @@ describe("GET /api/drafts", () => {
       limit: 50,
       offset: 0,
       sort: "oldest",
+      type: undefined,
     })
 
     await GET(request("?limit=abc&offset=xyz&sort=weird"))
@@ -85,6 +102,7 @@ describe("GET /api/drafts", () => {
       limit: 9,
       offset: 0,
       sort: "latest",
+      type: undefined,
     })
   })
 

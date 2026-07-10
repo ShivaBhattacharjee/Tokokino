@@ -14,6 +14,7 @@ import {
   MAX_DRAFT_BYTES,
   countCanvasesInDraftState,
   parseDraftSaveBody,
+  resolveDraftType,
 } from "@/lib/schemas/draft"
 
 export const runtime = "nodejs"
@@ -108,6 +109,7 @@ export async function PUT(
   // raw EditorState shape that older drafts may still be persisted as.
   const canvasCount =
     countCanvasesInDraftState(parsed.state) || existing.canvasCount
+  const type = resolveDraftType(parsed.state)
 
   try {
     const updated = await updateDraft({
@@ -116,6 +118,7 @@ export async function PUT(
       name: parsed.name,
       canvasCount,
       byteSize: stateBytes.byteLength,
+      type,
       stateBytes,
     })
     return NextResponse.json({
@@ -124,6 +127,7 @@ export async function PUT(
         name: updated?.name ?? existing.name,
         canvasCount,
         byteSize: stateBytes.byteLength,
+        type: updated?.type ?? type,
         updatedAt: updated?.updatedAt ?? new Date(),
       },
     })

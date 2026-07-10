@@ -6,10 +6,17 @@ import {
   text,
 } from "drizzle-orm/sqlite-core"
 
+/** User-saved custom preset kind: static look vs timeline (animate). */
+export type CustomPresetType = "style" | "animate"
+
 /**
  * Stored snapshot for a custom preset. Carries full canvas styling (every
  * inspector field, including background, border, shadow, overlay, portrait,
  * etc.) along with geometry, but never screenshot pixels.
+ *
+ * Animate presets also carry `animation` (duration + clips). Audio object URLs
+ * are never stored. Pose backgrounds may omit bulky data-URLs that match the
+ * canvas style background.
  */
 export type StoredPresetGeometry = {
   canvasTilt: { rx: number; ry: number; rz: number }
@@ -18,7 +25,16 @@ export type StoredPresetGeometry = {
   mainOffset?: { xPct: number; yPct: number }
   relativeSlotPositions?: boolean
   canvasStyle?: Record<string, unknown>
+  animation?: {
+    durationMs: number
+    clips: Array<Record<string, unknown>>
+    /** Slot ids from the source canvas at save time, in `slots` order. */
+    sourceSlotIds?: string[]
+  }
 }
+
+/** Draft / project kind for Open-project filtering. */
+export type DraftType = "style" | "animate"
 
 export const drafts = sqliteTable(
   "drafts",
@@ -28,6 +44,8 @@ export const drafts = sqliteTable(
     name: text("name").notNull(),
     canvasCount: integer("canvas_count").notNull(),
     byteSize: integer("byte_size").notNull(),
+    /** "style" = present/static edit; "animate" = timeline project. */
+    type: text("type").$type<DraftType>().notNull().default("style"),
     stateKey: text("state_key").notNull(),
     thumbnailKey: text("thumbnail_key"),
     createdAt: text("created_at").notNull(),
@@ -35,6 +53,11 @@ export const drafts = sqliteTable(
   },
   (table) => [
     index("idx_drafts_user_updated").on(table.userId, table.updatedAt),
+    index("idx_drafts_user_type_updated").on(
+      table.userId,
+      table.type,
+      table.updatedAt
+    ),
   ]
 )
 
@@ -45,6 +68,7 @@ export const customPresets = sqliteTable(
     userId: text("user_id").notNull(),
     name: text("name").notNull(),
     slotCount: integer("slot_count").notNull(),
+    type: text("type").$type<CustomPresetType>().notNull().default("style"),
     geometry: text("geometry", { mode: "json" })
       .$type<StoredPresetGeometry>()
       .notNull(),
@@ -53,6 +77,11 @@ export const customPresets = sqliteTable(
   },
   (table) => [
     index("idx_custom_presets_user_created").on(table.userId, table.createdAt),
+    index("idx_custom_presets_user_type_created").on(
+      table.userId,
+      table.type,
+      table.createdAt
+    ),
   ]
 )
 
@@ -63,6 +92,9 @@ export const userPreferences = sqliteTable("user_preferences", {
   updatedAt: text("updated_at").notNull(),
 })
 
+/** Still screenshot share vs animate (video/gif) share. */
+export type ShareType = "style" | "animate"
+
 export const shares = sqliteTable(
   "shares",
   {
@@ -71,6 +103,8 @@ export const shares = sqliteTable(
     imageUrl: text("image_url").notNull(),
     imageHash: text("image_hash"),
     sizeBytes: integer("size_bytes").notNull().default(0),
+    type: text("type").$type<ShareType>().notNull().default("style"),
+    contentType: text("content_type").notNull().default("image/png"),
     userId: text("user_id").notNull(),
     userName: text("user_name"),
     userEmail: text("user_email"),
@@ -82,6 +116,11 @@ export const shares = sqliteTable(
   },
   (table) => [
     index("idx_shares_user_created").on(table.userId, table.createdAt),
+    index("idx_shares_user_type_created").on(
+      table.userId,
+      table.type,
+      table.createdAt
+    ),
   ]
 )
 

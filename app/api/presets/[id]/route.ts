@@ -6,6 +6,12 @@ import {
   getCustomPreset,
   updateCustomPreset,
 } from "@/lib/preset-db"
+import {
+  MAX_PRESET_BYTES,
+  updatePresetBodySchema,
+  type CustomPresetType,
+} from "@/lib/schemas/preset"
+import type { StoredPresetGeometry } from "@/lib/db/schema"
 
 export const runtime = "nodejs"
 
@@ -26,30 +32,55 @@ export async function PUT(
     return NextResponse.json({ error: "Preset not found" }, { status: 404 })
   }
 
-  let body: { name?: string; geometry?: unknown }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  const raw: unknown = await request.json().catch(() => null)
+  const parsed = updatePresetBodySchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid preset payload" },
+      { status: 400 }
+    )
   }
 
-  const name =
-    typeof body.name === "string" && body.name.trim()
-      ? body.name.trim()
-      : existing.name
-  const geometry = body.geometry ?? existing.geometry
+  const name = parsed.data.name ?? existing.name
+  const type: CustomPresetType = parsed.data.type ?? existing.type
+  let geometry: StoredPresetGeometry =
+    (parsed.data.geometry as StoredPresetGeometry | undefined) ??
+    existing.geometry
+
+  if (type === "style") {
+    const { animation, ...rest } = geometry
+    void animation
+    geometry = rest
+  } else {
+    const clips = geometry.animation?.clips
+    if (!Array.isArray(clips) || clips.length === 0) {
+      return NextResponse.json(
+        { error: "Animate presets require at least one timeline clip" },
+        { status: 400 }
+      )
+    }
+  }
+
+  const serialized = JSON.stringify(geometry)
+  if (new TextEncoder().encode(serialized).byteLength > MAX_PRESET_BYTES) {
+    return NextResponse.json(
+      { error: "Preset is too large to save" },
+      { status: 413 }
+    )
+  }
+
+  const slotCount = Array.isArray(geometry.slots)
+    ? geometry.slots.length + 1
+    : existing.slotCount
 
   try {
     await updateCustomPreset({
       id,
       userId: auth.session.user.id,
       name,
-      slotCount: Array.isArray((geometry as { slots?: unknown[] }).slots)
-        ? (geometry as { slots: unknown[] }).slots.length
-        : existing.slotCount,
-      geometry: geometry as Parameters<
-        typeof updateCustomPreset
-      >[0]["geometry"],
+      slotCount,
+      type,
+      geometry,
     })
   } catch (error) {
     console.error(error)
@@ -63,8 +94,11 @@ export async function PUT(
     preset: {
       id,
       name,
-      slotCount: existing.slotCount,
+      slotCount,
+      type,
+      geometry,
       createdAt: existing.createdAt,
+      updatedAt: new Date().toISOString(),
     },
   })
 }

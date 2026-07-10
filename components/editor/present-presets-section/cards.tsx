@@ -70,6 +70,7 @@ export function PresetCardsBody({
   customPresetsLoaded,
   isAuthPending,
   userId,
+  isAnimateMode = false,
   canvas,
   aspect,
   onApplySingle,
@@ -87,6 +88,8 @@ export function PresetCardsBody({
   customPresetsLoaded: boolean
   isAuthPending: boolean
   userId: string | null
+  /** When true, Custom tab is showing animate presets only. */
+  isAnimateMode?: boolean
   canvas: CanvasState
   aspect: AspectState
   onApplySingle: (preset: PresentPreset) => void
@@ -144,6 +147,7 @@ export function PresetCardsBody({
             (Boolean(userId) && !customPresetsLoaded)
           }
           loggedIn={Boolean(userId)}
+          isAnimateMode={isAnimateMode}
           activeCustomPresetId={activeCustomPresetId}
           canvas={canvas}
           aspect={aspect}
@@ -200,6 +204,7 @@ function CustomPresetList({
   presets,
   loading,
   loggedIn,
+  isAnimateMode = false,
   activeCustomPresetId,
   canvas,
   aspect,
@@ -210,6 +215,7 @@ function CustomPresetList({
   presets: CustomPresetSummary[]
   loading: boolean
   loggedIn: boolean
+  isAnimateMode?: boolean
   activeCustomPresetId: string | null
   canvas: CanvasState
   aspect: AspectState
@@ -256,11 +262,23 @@ function CustomPresetList({
   if (presets.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
-        No custom presets yet. Use{" "}
-        <span className="font-medium text-foreground">
-          Save → Save as preset
-        </span>{" "}
-        to capture the current layout.
+        {isAnimateMode ? (
+          <>
+            No animate presets yet. Use{" "}
+            <span className="font-medium text-foreground">
+              Save → Save as preset
+            </span>{" "}
+            while Animate is on to capture the current timeline.
+          </>
+        ) : (
+          <>
+            No custom presets yet. Use{" "}
+            <span className="font-medium text-foreground">
+              Save → Save as preset
+            </span>{" "}
+            to capture the current layout.
+          </>
+        )}
       </div>
     )
   }
@@ -410,6 +428,11 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
       ? "Social posts use one content slot."
       : undefined
 
+  const animateClips = preset.geometry.animation?.clips
+  const isAnimatePreset =
+    preset.type === "animate" ||
+    (Array.isArray(animateClips) && animateClips.length > 0)
+
   return (
     <div className="group/preset relative">
       <PresetCardShell
@@ -428,6 +451,11 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
           previewId={`_preset_preview_custom_${preset.id}`}
         />
       </PresetCardShell>
+      {isAnimatePreset && (
+        <span className="pointer-events-none absolute top-3 left-3 z-[1] rounded-full border border-white/15 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground">
+          Animate
+        </span>
+      )}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <button
           type="button"

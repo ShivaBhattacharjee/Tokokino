@@ -51,6 +51,8 @@ export type PersistedEditorUi = {
   previewAutoScrollDelay: number
   previewAnimation: PreviewAnimation
   currentDraft: CurrentDraftInfo | null
+  /** When true, re-enter Animate mode after local draft restore. */
+  isAnimateMode?: boolean
 }
 
 export type PersistedEditorDraft = {
@@ -464,6 +466,7 @@ export function createEditorDraftSnapshot(
       previewAutoScrollDelay: state.previewAutoScrollDelay,
       previewAnimation: state.previewAnimation,
       currentDraft: state.currentDraft,
+      isAnimateMode: state.isAnimateMode,
     },
   }
 }
@@ -608,6 +611,16 @@ export function applyEditorDraft(
 ): Partial<EditorStore> {
   const present = normalizeEditorState(draft.present)
   const ui = draft.ui
+  const restoreAnimate = Boolean(ui?.isAnimateMode)
+  let selectedAnimationClipId: string | null = null
+  if (restoreAnimate) {
+    const active = present.canvases.find((c) => c.id === present.activeCanvasId)
+    const clips = active?.animation?.clips ?? []
+    if (clips.length > 0) {
+      const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+      selectedAnimationClipId = sorted[sorted.length - 1]?.id ?? null
+    }
+  }
 
   return {
     past: [],
@@ -629,5 +642,7 @@ export function applyEditorDraft(
     activeCustomPresetId: ui?.activeCustomPresetId ?? null,
     activeSinglePresetId: ui?.activeSinglePresetId ?? null,
     currentDraft: ui?.currentDraft ?? null,
+    isAnimateMode: restoreAnimate,
+    selectedAnimationClipId,
   }
 }

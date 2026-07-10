@@ -6,7 +6,9 @@ import {
   RiDeleteBinLine,
   RiDownloadLine,
   RiEyeLine,
+  RiFilmLine,
   RiGalleryLine,
+  RiImageLine,
   RiLinkM,
   RiSortDesc,
 } from "@remixicon/react"
@@ -59,10 +61,19 @@ export type SerializedShare = {
   viewCount: number
   sizeBytes: number
   createdAt: string
+  type?: "style" | "animate"
+  contentType?: string
 }
 
 type DateFilterId = "all" | "today" | "week" | "month" | "3months"
 type SortFilterId = "latest" | "oldest" | "mostViewed" | "leastViewed"
+type TypeFilterId = "all" | "style" | "animate"
+
+const TYPE_FILTERS: { id: TypeFilterId; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "style", label: "Present" },
+  { id: "animate", label: "Animate" },
+]
 
 type FilterRange = { from: Date; to?: Date } | undefined
 
@@ -186,14 +197,21 @@ export function SharesGallery({
   const [deletingAll, setDeletingAll] = React.useState(false)
   const [dateFilter, setDateFilter] = React.useState<DateFilterId>("all")
   const [sortFilter, setSortFilter] = React.useState<SortFilterId>("latest")
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilterId>("all")
 
   const filtered = React.useMemo(() => {
     const filterRange = DATE_FILTERS.find(
       (p) => p.id === dateFilter
     )?.getRange()
+    let list = shares.slice()
+
+    if (typeFilter === "style" || typeFilter === "animate") {
+      list = list.filter((s) => (s.type ?? "style") === typeFilter)
+    }
+
     const dateFiltered = !filterRange?.from
-      ? shares.slice()
-      : shares.filter((s) => {
+      ? list
+      : list.filter((s) => {
           const from = startOfDay(filterRange.from)
           const to = endOfDay(filterRange.to ?? filterRange.from)
           const d = new Date(s.createdAt)
@@ -218,7 +236,7 @@ export function SharesGallery({
 
       return newestFirst
     })
-  }, [shares, dateFilter, sortFilter])
+  }, [shares, dateFilter, sortFilter, typeFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -237,10 +255,17 @@ export function SharesGallery({
     setPage(1)
   }
 
+  const handleTypeFilterChange = (id: TypeFilterId) => {
+    setTypeFilter(id)
+    setPage(1)
+  }
+
   const dateFilterLabel =
     DATE_FILTERS.find((p) => p.id === dateFilter)?.label ?? "All time"
   const sortFilterLabel =
     SORT_FILTERS.find((p) => p.id === sortFilter)?.label ?? "Latest first"
+  const typeFilterLabel =
+    TYPE_FILTERS.find((p) => p.id === typeFilter)?.label ?? "All"
   const dateFilterApplied = dateFilter !== "all"
   const sortFilterApplied = sortFilter !== "latest"
 
@@ -303,10 +328,13 @@ export function SharesGallery({
   const storagePercent =
     storageLimit > 0 ? Math.min(100, (usedBytes / storageLimit) * 100) : 0
   const storageNearFull = storagePercent >= 90
-  const activeFilterDescription =
-    dateFilter === "all"
-      ? sortFilterLabel
-      : `${dateFilterLabel} · ${sortFilterLabel}`
+  const activeFilterDescription = [
+    typeFilter !== "all" ? typeFilterLabel : null,
+    dateFilter !== "all" ? dateFilterLabel : null,
+    sortFilterLabel,
+  ]
+    .filter(Boolean)
+    .join(" · ")
   const pageRange = buildPageRange(safePage, totalPages)
 
   return (
@@ -400,14 +428,39 @@ export function SharesGallery({
 
       <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
         <div className="sticky top-0 z-20 mb-4 flex flex-col gap-2.5 rounded-md border border-border/70 bg-card/80 p-2 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">
-              {filtered.length}{" "}
-              {filtered.length === 1 ? "screenshot" : "screenshots"}
-            </p>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              {activeFilterDescription}
-            </p>
+          <div className="min-w-0 space-y-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {filtered.length} {filtered.length === 1 ? "share" : "shares"}
+              </p>
+              <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                {activeFilterDescription}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {TYPE_FILTERS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleTypeFilterChange(tab.id)}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[11px] font-medium transition-colors",
+                    typeFilter === tab.id
+                      ? "border-primary/45 bg-primary/10 text-foreground"
+                      : "border-border/60 bg-background text-muted-foreground hover:border-border hover:text-foreground"
+                  )}
+                >
+                  {tab.id === "animate" ? (
+                    <RiFilmLine className="size-3" />
+                  ) : tab.id === "style" ? (
+                    <RiImageLine className="size-3" />
+                  ) : (
+                    <RiGalleryLine className="size-3" />
+                  )}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-row flex-wrap items-center gap-1.5">
@@ -531,12 +584,24 @@ export function SharesGallery({
                     rel="noopener noreferrer"
                     className="relative block overflow-hidden bg-secondary/30"
                   >
-                    <ShimmerImage
-                      src={share.imageUrl}
-                      alt="Shared screenshot"
-                      className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
-                      loading="lazy"
-                    />
+                    {(share.type ?? "style") === "animate" ? (
+                      <span className="absolute top-2 left-2 z-[1] inline-flex items-center gap-1 rounded-full border border-white/15 bg-background/85 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <RiFilmLine className="size-3" />
+                        Animate
+                      </span>
+                    ) : null}
+                    {(share.contentType ?? "").startsWith("video/") ? (
+                      <div className="flex aspect-video w-full items-center justify-center bg-secondary/50">
+                        <RiFilmLine className="size-10 text-muted-foreground/50" />
+                      </div>
+                    ) : (
+                      <ShimmerImage
+                        src={share.imageUrl}
+                        alt="Shared media"
+                        className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
+                        loading="lazy"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/[0.08]" />
                   </a>
 

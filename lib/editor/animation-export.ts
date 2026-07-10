@@ -69,6 +69,17 @@ export type AnimationExportOptions = {
   capture?: AnimationCaptureMode
   onProgress?: (progress: AnimationExportProgress) => void
   signal?: AbortSignal
+  /**
+   * When true, return the encoded blob instead of downloading it.
+   * Used by Share to upload animations without forcing a local download.
+   */
+  asBlob?: boolean
+}
+
+export type AnimationExportBlobResult = {
+  blob: Blob
+  contentType: string
+  extension: string
 }
 
 const MAX_FRAMES = 600
@@ -591,14 +602,43 @@ type CaptureCtx = {
   watermark: WatermarkAssets | null
 }
 
+function animationMimeAndExt(format: AnimationExportFormat): {
+  contentType: string
+  extension: string
+} {
+  if (format === "gif") return { contentType: "image/gif", extension: "gif" }
+  if (format === "mp4") return { contentType: "video/mp4", extension: "mp4" }
+  return { contentType: "video/webm", extension: "webm" }
+}
+
 /**
- * Render the active canvas's animation timeline to a downloadable file.
- * 100% on-device — no upload, no server round-trip.
+ * Render the active canvas's animation timeline.
+ * 100% on-device encode — download by default, or return a blob for Share.
  */
 export async function exportAnimation(
   canvasId: string,
   options: AnimationExportOptions
-): Promise<void> {
+): Promise<void | AnimationExportBlobResult> {
+  const result = await encodeAnimation(canvasId, options)
+  if (options.asBlob) return result
+  triggerDownload(
+    result.blob,
+    `tokokino-animation-${Date.now()}.${result.extension}`
+  )
+}
+
+/** Encode animation and always return the blob (for share uploads). */
+export async function exportAnimationBlob(
+  canvasId: string,
+  options: Omit<AnimationExportOptions, "asBlob">
+): Promise<AnimationExportBlobResult> {
+  return encodeAnimation(canvasId, { ...options, asBlob: true })
+}
+
+async function encodeAnimation(
+  canvasId: string,
+  options: AnimationExportOptions
+): Promise<AnimationExportBlobResult> {
   const { onProgress, signal } = options
   const progress = createProgressReporter(onProgress)
 
@@ -619,7 +659,7 @@ export async function exportAnimation(
             : clip
         )
       : animation.clips
-  if (!clips.length) throw new Error("Nothing to export")
+  if (!clips.length) throw new Error("Add at least one keyframe before sharing")
 
   const fps = Math.max(1, Math.min(60, options.fps ?? 30))
   const frameCount = Math.min(
@@ -658,18 +698,21 @@ export async function exportAnimation(
   }
 
   try {
+    let blob: Blob
     if (options.format === "gif") {
-      await encodeGif(ctx)
+      blob = await encodeGif(ctx)
     } else {
-      const usedWebCodecs = await tryEncodeWithMediabunny(ctx, options.format)
-      if (!usedWebCodecs) {
+      const encoded = await tryEncodeWithMediabunny(ctx, options.format)
+      if (encoded) {
+        blob = encoded
+      } else {
         if (options.format === "mp4") {
           throw new Error(
             "MP4 export needs WebCodecs (Chrome, Edge, or Safari 17+). Try WebM or update your browser."
           )
         }
         // WebM fallback — MediaRecorder (also fully local)
-        await encodeWebmMediaRecorder({
+        blob = await encodeWebmMediaRecorder({
           ...ctx,
           durationMs,
           audio: audio && !audio.muted && audio.src ? audio : null,
@@ -677,6 +720,13 @@ export async function exportAnimation(
       }
     }
     progress.report("finishing", 1, 1)
+    const { contentType, extension } = animationMimeAndExt(options.format)
+    // Prefer the blob's own type when the encoder set one.
+    return {
+      blob,
+      contentType: blob.type || contentType,
+      extension,
+    }
   } finally {
     clearAnimationFrameVars(capture.node, clips)
     capture.cleanup()
@@ -737,17 +787,14 @@ async function encodeGif(ctx: CaptureCtx) {
   progress.report("encoding", 0, 1)
   gif.finish()
   progress.report("encoding", 1, 1)
-  triggerDownload(
-    new Blob([new Uint8Array(gif.bytesView())], { type: "image/gif" }),
-    `tokokino-animation-${Date.now()}.gif`
-  )
+  return new Blob([new Uint8Array(gif.bytesView())], { type: "image/gif" })
 }
 
 async function tryEncodeWithMediabunny(
   ctx: CaptureCtx,
   format: "webm" | "mp4"
-): Promise<boolean> {
-  if (typeof VideoEncoder === "undefined") return false
+): Promise<Blob | null> {
+  if (typeof VideoEncoder === "undefined") return null
 
   const preferred: VideoCodec[] =
     format === "mp4"
@@ -761,7 +808,7 @@ async function tryEncodeWithMediabunny(
     height,
     bitrate: QUALITY_HIGH,
   })
-  if (!codec) return false
+  if (!codec) return null
 
   const {
     capture,
@@ -781,7 +828,7 @@ async function tryEncodeWithMediabunny(
   encodeCanvas.width = width
   encodeCanvas.height = height
   const ectx = encodeCanvas.getContext("2d")
-  if (!ectx) return false
+  if (!ectx) return null
 
   const target = new BufferTarget()
   const output = new Output({
@@ -843,12 +890,7 @@ async function tryEncodeWithMediabunny(
     }
 
     const mime = format === "mp4" ? "video/mp4" : "video/webm"
-    const ext = format === "mp4" ? "mp4" : "webm"
-    triggerDownload(
-      new Blob([buffer], { type: mime }),
-      `tokokino-animation-${Date.now()}.${ext}`
-    )
-    return true
+    return new Blob([buffer], { type: mime })
   } catch (err) {
     if (!cancelled && output.state !== "canceled") {
       try {
@@ -865,7 +907,7 @@ async function tryEncodeWithMediabunny(
     }
     // Fall through to MediaRecorder for WebM only.
     console.warn("[export] WebCodecs encode failed, trying fallback:", err)
-    return false
+    return null
   } finally {
     signal?.removeEventListener("abort", onAbort)
   }
@@ -1049,8 +1091,5 @@ async function encodeWebmMediaRecorder({
   throwIfAborted(signal)
   if (chunks.length === 0) throw new Error("WebM export produced an empty file")
 
-  triggerDownload(
-    new Blob(chunks, { type: mimeType }),
-    `tokokino-animation-${Date.now()}.webm`
-  )
+  return new Blob(chunks, { type: mimeType })
 }

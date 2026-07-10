@@ -96,5 +96,66 @@ describe("draft persistence", () => {
     expect(applied.previewAnimation).toBe("fade")
     expect(applied.selectedTextId).toBeNull()
     expect(applied.isScreenshotSelected).toBe(false)
+    expect(applied.isAnimateMode).toBe(false)
+  })
+
+  it("restores animate mode and selects the last clip when ui.isAnimateMode is set", () => {
+    const canvas = createCanvas("saved", { x: 0, y: 0 })
+    canvas.animation = {
+      durationMs: 4000,
+      clips: [
+        {
+          id: "clip-a",
+          startMs: 0,
+          durationMs: 1000,
+          effects: ["tilt"],
+        },
+        {
+          id: "clip-b",
+          startMs: 1000,
+          durationMs: 1000,
+          effects: ["zoom"],
+        },
+      ],
+      audio: null,
+    }
+
+    const draft: PersistedEditorDraft = {
+      id: EDITOR_DRAFT_KEY,
+      schemaVersion: EDITOR_DRAFT_SCHEMA_VERSION,
+      updatedAt: Date.now(),
+      present: {
+        activeTool: "pointer",
+        aspect: { id: "1-1", w: 1, h: 1 },
+        canvasZoom: 100,
+        annotation: {
+          mode: "pen",
+          color: "#111111",
+          strokeWidth: 4,
+          lineStyle: "solid",
+          blurEffect: "blur",
+          blurAmount: 0,
+        },
+        canvases: [canvas],
+        activeCanvasId: "saved",
+      },
+      ui: {
+        bulkEditMode: false,
+        bulkViewportZoom: 1,
+        bulkScale: 65,
+        presetTab: "custom",
+        activeLayoutPresetId: null,
+        activeCustomPresetId: null,
+        activeSinglePresetId: null,
+        previewAutoScrollDelay: 3000,
+        previewAnimation: "slide",
+        currentDraft: null,
+        isAnimateMode: true,
+      },
+    }
+
+    const applied = applyEditorDraft(draft)
+    expect(applied.isAnimateMode).toBe(true)
+    expect(applied.selectedAnimationClipId).toBe("clip-b")
   })
 })

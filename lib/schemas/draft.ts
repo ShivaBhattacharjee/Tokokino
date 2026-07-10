@@ -26,6 +26,8 @@ export type DraftUiState = {
   bulkScale?: number
   previewAutoScrollDelay?: number
   previewAnimation?: "slide" | "fade" | "zoom" | "flip"
+  /** When true, re-enter Animate mode after loading the project. */
+  isAnimateMode?: boolean
 }
 
 export type DraftPayload = {
@@ -61,6 +63,7 @@ export const draftUiSchema = z
     bulkScale: z.number().finite().optional(),
     previewAutoScrollDelay: z.number().finite().optional(),
     previewAnimation: previewAnimationSchema.optional(),
+    isAnimateMode: z.boolean().optional(),
   })
   .loose()
 
@@ -107,10 +110,15 @@ const clampedIntParam = (fallback: number, min: number, max: number) =>
     .catch(fallback)
     .transform((n) => Math.min(Math.max(n, min), max))
 
+export const draftTypeSchema = z.enum(["style", "animate"])
+export type DraftType = z.infer<typeof draftTypeSchema>
+
 export const draftListQuerySchema = z.object({
   limit: clampedIntParam(9, 1, 50),
   offset: clampedIntParam(0, 0, Number.MAX_SAFE_INTEGER),
   sort: z.enum(["latest", "oldest"]).catch("latest"),
+  /** Filter list by project kind; omit for all. */
+  type: draftTypeSchema.optional(),
 })
 
 /** Request body for `POST /api/drafts`. */
@@ -206,4 +214,21 @@ export function unwrapDraftState(value: unknown): {
 export function countCanvasesInDraftState(value: unknown): number {
   const { present } = unwrapDraftState(value)
   return Array.isArray(present.canvases) ? present.canvases.length : 1
+}
+
+/**
+ * Classify a saved draft as present ("style") vs animate for the Open project
+ * filter rail. Animate if the UI was saved in Animate mode OR any canvas has
+ * timeline clips.
+ */
+export function resolveDraftType(value: unknown): DraftType {
+  const { present, ui } = unwrapDraftState(value)
+  if (ui.isAnimateMode) return "animate"
+  const canvases = Array.isArray(present.canvases) ? present.canvases : []
+  for (const raw of canvases) {
+    if (!raw || typeof raw !== "object") continue
+    const anim = (raw as { animation?: { clips?: unknown } }).animation
+    if (Array.isArray(anim?.clips) && anim.clips.length > 0) return "animate"
+  }
+  return "style"
 }

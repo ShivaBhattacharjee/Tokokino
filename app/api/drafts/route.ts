@@ -14,6 +14,7 @@ import {
   countCanvasesInDraftState,
   draftListQuerySchema,
   parseDraftSaveBody,
+  resolveDraftType,
 } from "@/lib/schemas/draft"
 
 export const runtime = "nodejs"
@@ -23,32 +24,57 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response
 
   const url = new URL(request.url)
-  const { limit, offset, sort } = draftListQuerySchema.parse({
+  const { limit, offset, sort, type } = draftListQuerySchema.parse({
     limit: url.searchParams.get("limit") ?? undefined,
     offset: url.searchParams.get("offset") ?? undefined,
     sort: url.searchParams.get("sort") ?? undefined,
+    type: url.searchParams.get("type") ?? undefined,
   })
 
-  const [draftRows, total, storageUsed] = await Promise.all([
-    listDrafts(auth.session.user.id, { limit, offset, sort }),
-    countDrafts(auth.session.user.id),
-    getUserDraftStorageUsage(auth.session.user.id),
-  ])
+  try {
+    const [draftRows, total, storageUsed] = await Promise.all([
+      listDrafts(auth.session.user.id, { limit, offset, sort, type }),
+      countDrafts(auth.session.user.id, { type }),
+      getUserDraftStorageUsage(auth.session.user.id),
+    ])
 
-  return NextResponse.json({
-    drafts: draftRows.map((draft) => ({
-      id: draft.id,
-      name: draft.name,
-      canvasCount: draft.canvasCount,
-      byteSize: draft.byteSize,
-      createdAt: draft.createdAt,
-      updatedAt: draft.updatedAt,
-      thumbnailUrl: draft.thumbnailKey ? `/api/drafts/${draft.id}/thumb` : null,
-    })),
-    total,
-    hasMore: offset + draftRows.length < total,
-    storage: { used: storageUsed, limit: MAX_USER_DRAFT_STORAGE_BYTES },
-  })
+    return NextResponse.json({
+      drafts: draftRows.map((draft) => ({
+        id: draft.id,
+        name: draft.name,
+        canvasCount: draft.canvasCount,
+        byteSize: draft.byteSize,
+        type: draft.type,
+        createdAt: draft.createdAt,
+        updatedAt: draft.updatedAt,
+        thumbnailUrl: draft.thumbnailKey
+          ? `/api/drafts/${draft.id}/thumb`
+          : null,
+      })),
+      total,
+      hasMore: offset + draftRows.length < total,
+      storage: { used: storageUsed, limit: MAX_USER_DRAFT_STORAGE_BYTES },
+    })
+  } catch (error) {
+    console.error("[GET /api/drafts]", error)
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Could not load drafts"
+    // Surface a clearer hint when the draft type migration is missing.
+    const needsMigration =
+      /no such column:\s*type/i.test(message) ||
+      /type.*does not exist/i.test(message)
+    return NextResponse.json(
+      {
+        error: needsMigration
+          ? "Database is missing the draft type column. Apply migrations (0007_draft_type)."
+          : "Could not load drafts",
+        detail: message,
+      },
+      { status: 500 }
+    )
+  }
 }
 
 export async function POST(request: Request) {
@@ -106,6 +132,7 @@ export async function POST(request: Request) {
   }
 
   const canvasCount = countCanvasesInDraftState(parsed.state)
+  const type = resolveDraftType(parsed.state)
   const id = crypto.randomUUID()
 
   try {
@@ -115,6 +142,7 @@ export async function POST(request: Request) {
       name: parsed.name!,
       canvasCount,
       byteSize: stateBytes.byteLength,
+      type,
       stateBytes,
       thumbnailKey: null,
     })
@@ -133,6 +161,7 @@ export async function POST(request: Request) {
       name: parsed.name!,
       canvasCount,
       byteSize: stateBytes.byteLength,
+      type,
     },
   })
 }

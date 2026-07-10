@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
-import { isValidShareId } from "@/lib/share"
+import { isValidShareId, extensionForShareContentType } from "@/lib/share"
+import { getShareById } from "@/lib/share-db"
 import { getShareImage } from "@/lib/share-storage"
 
 export const runtime = "nodejs"
@@ -16,27 +17,31 @@ export async function GET(
   }
 
   try {
-    const object = await getShareImage(id)
+    const meta = await getShareById(id).catch(() => null)
+    const object = await getShareImage(id, meta?.key, meta?.contentType)
     const body = object.Body?.transformToWebStream()
 
     if (!body) {
       return NextResponse.json(
-        { error: "Share image not found" },
+        { error: "Share media not found" },
         { status: 404 }
       )
     }
 
+    const contentType = object.ContentType ?? meta?.contentType ?? "image/png"
+    const ext = extensionForShareContentType(contentType)
+
     return new NextResponse(body, {
       headers: {
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Disposition": `attachment; filename="tokokino-share-${id}.png"`,
-        "Content-Type": object.ContentType ?? "image/png",
+        "Content-Disposition": `attachment; filename="tokokino-share-${id}.${ext}"`,
+        "Content-Type": contentType,
       },
     })
   } catch (error) {
     console.error(error)
     return NextResponse.json(
-      { error: "Share image not found" },
+      { error: "Share media not found" },
       { status: 404 }
     )
   }

@@ -14,7 +14,10 @@ import {
   getShareObjectKey,
   isValidShareId,
 } from "@/lib/share"
-import { detectShareImageContentType } from "@/lib/share-image"
+import {
+  detectShareImageContentType,
+  shareTypeForContentType,
+} from "@/lib/share-image"
 import { enforceRateLimit } from "@/lib/rate-limit"
 import {
   deleteShareImage,
@@ -31,12 +34,25 @@ export async function GET(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "Sign in required" }, { status: 401 })
   }
+  const url = new URL(request.url)
+  const typeParam = url.searchParams.get("type")
+  const type =
+    typeParam === "animate" || typeParam === "style" ? typeParam : undefined
+
   const [shares, storageUsed] = await Promise.all([
-    getUserShares(session.user.id),
+    getUserShares(session.user.id, { type }),
     getUserStorageUsage(session.user.id),
   ])
   return NextResponse.json({
-    shares,
+    shares: shares.map((s) => ({
+      id: s.id,
+      imageUrl: s.imageUrl,
+      viewCount: s.viewCount,
+      sizeBytes: s.sizeBytes,
+      type: s.type,
+      contentType: s.contentType,
+      createdAt: s.createdAt,
+    })),
     storage: { used: storageUsed, limit: MAX_USER_SHARE_STORAGE_BYTES },
   })
 }
@@ -77,38 +93,47 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
-  const contentType = request.headers.get("content-type") ?? ""
-  const normalizedType = contentType.toLowerCase()
-  if (
-    !normalizedType.startsWith("image/png") &&
-    !normalizedType.startsWith("image/jpeg")
-  ) {
-    return NextResponse.json(
-      { error: "Share upload must be a PNG or JPEG image" },
-      { status: 415 }
-    )
-  }
-
   const contentLength = Number(request.headers.get("content-length") ?? "0")
   if (contentLength > MAX_SHARE_IMAGE_BYTES) {
-    return NextResponse.json({ error: "Image is too large" }, { status: 413 })
+    return NextResponse.json({ error: "File is too large" }, { status: 413 })
   }
 
   const image = new Uint8Array(await request.arrayBuffer())
   if (image.byteLength === 0) {
-    return NextResponse.json({ error: "Missing image" }, { status: 400 })
+    return NextResponse.json({ error: "Missing file" }, { status: 400 })
   }
   if (image.byteLength > MAX_SHARE_IMAGE_BYTES) {
-    return NextResponse.json({ error: "Image is too large" }, { status: 413 })
+    return NextResponse.json({ error: "File is too large" }, { status: 413 })
   }
+
+  const headerType = (request.headers.get("content-type") ?? "")
+    .toLowerCase()
+    .split(";")[0]
+    ?.trim()
   const detectedContentType = detectShareImageContentType(image)
   if (!detectedContentType) {
     return NextResponse.json(
-      { error: "Share upload must be a PNG or JPEG image" },
+      {
+        error: "Share upload must be PNG, JPEG, GIF, MP4, or WebM",
+      },
       { status: 415 }
     )
   }
 
+  // Prefer sniffed type; allow matching header as a soft check.
+  if (
+    headerType &&
+    headerType !== detectedContentType &&
+    !(
+      headerType.startsWith("image/") &&
+      detectedContentType.startsWith("image/")
+    )
+  ) {
+    // Still accept sniffed type — clients may send charset or codec params.
+  }
+
+  const contentType = detectedContentType
+  const type = shareTypeForContentType(contentType)
   const imageHash = createHash("sha256").update(image).digest("hex")
 
   const storageUsed = await getUserStorageUsage(session.user.id)
@@ -133,7 +158,7 @@ export async function POST(request: Request) {
     )
   }
   const imageUrl = getShareImageUrl(id, request.url)
-  const key = getShareObjectKey(id)
+  const key = getShareObjectKey(id, contentType)
   let uploaded = false
 
   try {
@@ -141,7 +166,8 @@ export async function POST(request: Request) {
       id,
       image,
       userId: session.user.id,
-      contentType: detectedContentType,
+      contentType,
+      objectKey: key,
     })
     uploaded = true
     await createShareRecord({
@@ -150,6 +176,8 @@ export async function POST(request: Request) {
       imageUrl,
       imageHash,
       sizeBytes: image.byteLength,
+      type,
+      contentType,
       user: {
         id: session.user.id,
         name: session.user.name,
@@ -159,7 +187,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error(error)
     if (uploaded) {
-      await deleteShareImage(id).catch((cleanupError) => {
+      await deleteShareImage(id, key, contentType).catch((cleanupError) => {
         console.error("Could not clean up failed share upload", cleanupError)
       })
     }
@@ -175,7 +203,13 @@ export async function POST(request: Request) {
     id,
     url: url.toString(),
     imageUrl,
+    type,
+    contentType,
     views: 0,
     reused: false,
+    storage: {
+      used: storageUsed + image.byteLength,
+      limit: MAX_USER_SHARE_STORAGE_BYTES,
+    },
   })
 }

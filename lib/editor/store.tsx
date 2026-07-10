@@ -58,6 +58,7 @@ import {
   normalizeEditorState,
   type CurrentDraftInfo,
 } from "./store/draft-persistence"
+import { remapAnimationForApply } from "./custom-preset-snapshot"
 import { FONT_FAMILIES } from "./fonts"
 import type {
   Annotation,
@@ -617,6 +618,20 @@ export type CustomPresetCanvasStyle = {
   tweetSettings?: TweetCardSettings
 }
 
+/** User-saved custom preset kind: static look vs timeline (animate). */
+export type CustomPresetType = "style" | "animate"
+
+/**
+ * Timeline payload for animate presets. Audio is never stored; clip/slot ids
+ * are remapped on apply via `sourceSlotIds` (geometry.slots order).
+ */
+export type CustomPresetAnimation = {
+  durationMs: number
+  clips: AnimationClip[]
+  /** Slot ids from the source canvas at save time, in geometry.slots order. */
+  sourceSlotIds?: string[]
+}
+
 export type CustomPresetGeometry = {
   canvasTilt: Tilt
   canvasScale: number
@@ -624,12 +639,15 @@ export type CustomPresetGeometry = {
   mainOffset?: { xPct: number; yPct: number }
   relativeSlotPositions?: boolean
   canvasStyle?: CustomPresetCanvasStyle
+  animation?: CustomPresetAnimation
 }
 
 export type CustomPresetSummary = {
   id: string
   name: string
   slotCount: number
+  /** Defaults to "style" for older presets that predate the column. */
+  type?: CustomPresetType
   geometry: CustomPresetGeometry
 }
 
@@ -643,6 +661,8 @@ export type DraftLoadUi = {
   bulkScale?: number
   previewAutoScrollDelay?: number
   previewAnimation?: "slide" | "fade" | "zoom" | "flip"
+  /** When true, re-enter Animate mode after loading the project. */
+  isAnimateMode?: boolean
 }
 
 export type EditorActions = {
@@ -1096,6 +1116,20 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     loadDraftState: (state, draft, ui) => {
       const present = normalizeEditorState(state)
       const defaultBulk = present.canvases.length > 1
+      const restoreAnimate = Boolean(ui?.isAnimateMode)
+      // When re-entering Animate, select the last clip on the active canvas so
+      // the timeline opens ready to edit (matches setIsAnimateMode(true)).
+      let selectedClipId: string | null = null
+      if (restoreAnimate) {
+        const active = present.canvases.find(
+          (c) => c.id === present.activeCanvasId
+        )
+        const clips = active?.animation?.clips ?? []
+        if (clips.length > 0) {
+          const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+          selectedClipId = sorted[sorted.length - 1]?.id ?? null
+        }
+      }
       set({
         past: [],
         present,
@@ -1114,6 +1148,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         bulkScale: ui?.bulkScale ?? 65,
         previewAutoScrollDelay: ui?.previewAutoScrollDelay ?? 3000,
         previewAnimation: ui?.previewAnimation ?? "slide",
+        isAnimateMode: restoreAnimate,
+        selectedAnimationClipId: selectedClipId,
         ...CLEAR_SELECTION,
       })
     },
@@ -1152,7 +1188,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           const offset = resolveMainOffsetPx(snapshot.mainOffset)
 
           const style = snapshot.canvasStyle
-          const next: CanvasState = {
+          let next: CanvasState = {
             ...canvas,
             // styling — only override fields the snapshot actually carries
             ...(style?.background ? { background: style.background } : {}),
@@ -1202,6 +1238,42 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             originalScreenshot: canvas.originalScreenshot,
             lastCropRegion: canvas.lastCropRegion,
           }
+
+          // Animate presets replace the timeline and fold the last clip pose
+          // into the committed canvas (matches exit-animate end-frame behavior).
+          if (
+            snapshot.animation &&
+            Array.isArray(snapshot.animation.clips) &&
+            snapshot.animation.clips.length > 0
+          ) {
+            const liveSlotIds = next.screenshotSlots.map((s) => s.id)
+            const remapped = remapAnimationForApply(
+              snapshot.animation,
+              liveSlotIds,
+              next.background
+            )
+            const sorted = [...remapped.clips].sort(
+              (a, b) => a.startMs - b.startMs
+            )
+            const last = sorted[sorted.length - 1]
+            const posePatch = last
+              ? applyPoseToCanvas(next, clipPose(last))
+              : {}
+            next = {
+              ...next,
+              ...posePatch,
+              // Pose may rewrite slots; keep ids from geometry apply.
+              screenshotSlots: (
+                posePatch.screenshotSlots ?? next.screenshotSlots
+              ).map((s, i) => ({
+                ...s,
+                id: next.screenshotSlots[i]?.id ?? s.id,
+                src: next.screenshotSlots[i]?.src ?? s.src,
+              })),
+              animation: remapped,
+            }
+          }
+
           return next
         })
         return { canvases }

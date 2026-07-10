@@ -96,14 +96,16 @@ describe("/api/share", () => {
     expect(mocks.enforceRateLimit).not.toHaveBeenCalled()
   })
 
-  it("rejects unsupported upload content types", async () => {
+  it("rejects unsupported media payloads", async () => {
     const { POST } = await loadRoute()
 
-    const response = await POST(imageRequest(PNG_BYTES, "image/webp"))
+    // Real WEBP/unsupported body (not a PNG/JPEG/GIF/MP4/WebM magic header).
+    const webpLike = new TextEncoder().encode("RIFF....WEBP")
+    const response = await POST(imageRequest(webpLike, "image/webp"))
 
     expect(response.status).toBe(415)
     await expect(response.json()).resolves.toEqual({
-      error: "Share upload must be a PNG or JPEG image",
+      error: "Share upload must be PNG, JPEG, GIF, MP4, or WebM",
     })
     expect(mocks.uploadShareImage).not.toHaveBeenCalled()
   })
@@ -117,7 +119,7 @@ describe("/api/share", () => {
 
     expect(response.status).toBe(415)
     await expect(response.json()).resolves.toEqual({
-      error: "Share upload must be a PNG or JPEG image",
+      error: "Share upload must be PNG, JPEG, GIF, MP4, or WebM",
     })
     expect(mocks.uploadShareImage).not.toHaveBeenCalled()
   })
@@ -134,12 +136,15 @@ describe("/api/share", () => {
       imageUrl: `http://localhost:3000/api/share/${VALID_SHARE_ID}/image`,
       views: 0,
       reused: false,
+      type: "style",
+      contentType: "image/png",
     })
     expect(mocks.uploadShareImage).toHaveBeenCalledWith({
       id: VALID_SHARE_ID,
       image: PNG_BYTES,
       userId: SESSION.user.id,
       contentType: "image/png",
+      objectKey: `shares/${VALID_SHARE_ID}.png`,
     })
     expect(mocks.createShareRecord).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -147,6 +152,8 @@ describe("/api/share", () => {
         key: `shares/${VALID_SHARE_ID}.png`,
         imageHash: expect.any(String) as string,
         sizeBytes: PNG_BYTES.byteLength,
+        type: "style",
+        contentType: "image/png",
         user: SESSION.user,
       })
     )
@@ -163,7 +170,11 @@ describe("/api/share", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Could not prepare share link",
     })
-    expect(mocks.deleteShareImage).toHaveBeenCalledWith(VALID_SHARE_ID)
+    expect(mocks.deleteShareImage).toHaveBeenCalledWith(
+      VALID_SHARE_ID,
+      `shares/${VALID_SHARE_ID}.png`,
+      "image/png"
+    )
     consoleError.mockRestore()
   })
 

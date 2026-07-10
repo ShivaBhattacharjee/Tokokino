@@ -4,11 +4,13 @@ import { createHash } from "node:crypto"
 
 import { and, desc, eq, sql } from "drizzle-orm"
 
-import { shares, shareViews } from "@/lib/db/schema"
+import { shares, shareViews, type ShareType } from "@/lib/db/schema"
 import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
 import { env } from "./env"
 
-/** Per-user storage budget for shared images: 1 GB. */
+export type { ShareType }
+
+/** Per-user storage budget for shared media: 1 GB. */
 export const MAX_USER_SHARE_STORAGE_BYTES = 1024 * 1024 * 1024
 
 export type ShareRecord = {
@@ -17,6 +19,8 @@ export type ShareRecord = {
   imageUrl: string
   imageHash?: string
   sizeBytes: number
+  type: ShareType
+  contentType: string
   userId: string
   userName: string | null
   userEmail: string | null
@@ -33,6 +37,8 @@ type ShareRow = {
   imageUrl: string
   imageHash: string | null
   sizeBytes: number
+  type: ShareType | null
+  contentType: string | null
   userId: string
   userName: string | null
   userEmail: string | null
@@ -49,6 +55,10 @@ type ShareUser = {
   email?: string | null
 }
 
+function normalizeShareType(type: ShareType | null | undefined): ShareType {
+  return type === "animate" ? "animate" : "style"
+}
+
 function rowToShare(row: ShareRow): ShareRecord {
   return {
     id: row.id,
@@ -56,6 +66,8 @@ function rowToShare(row: ShareRow): ShareRecord {
     imageUrl: row.imageUrl,
     imageHash: row.imageHash ?? undefined,
     sizeBytes: row.sizeBytes ?? 0,
+    type: normalizeShareType(row.type),
+    contentType: row.contentType ?? "image/png",
     userId: row.userId,
     userName: row.userName,
     userEmail: row.userEmail,
@@ -69,18 +81,28 @@ function rowToShare(row: ShareRow): ShareRecord {
 
 export async function getUserShares(
   userId: string,
-  limit = 50,
-  offset = 0
+  opts: { limit?: number; offset?: number; type?: ShareType | "all" } = {}
 ): Promise<ShareRecord[]> {
+  const { limit = 50, offset = 0, type } = opts
+  const where =
+    type === "animate" || type === "style"
+      ? and(eq(shares.userId, userId), eq(shares.type, type))
+      : eq(shares.userId, userId)
+
   const rows = await getDb()
     .select()
     .from(shares)
-    .where(eq(shares.userId, userId))
+    .where(where)
     .orderBy(desc(shares.createdAt))
     .limit(limit)
     .offset(offset)
     .all()
   return rows.map(rowToShare)
+}
+
+export async function getShareById(id: string): Promise<ShareRecord | null> {
+  const row = await getDb().select().from(shares).where(eq(shares.id, id)).get()
+  return row ? rowToShare(row) : null
 }
 
 export async function getUserStorageUsage(userId: string): Promise<number> {
@@ -117,6 +139,8 @@ export async function createShareRecord({
   imageUrl,
   imageHash,
   sizeBytes,
+  type,
+  contentType,
   user,
 }: {
   id: string
@@ -124,6 +148,8 @@ export async function createShareRecord({
   imageUrl: string
   imageHash: string
   sizeBytes: number
+  type: ShareType
+  contentType: string
   user: ShareUser
 }) {
   const now = toD1Date(new Date())
@@ -135,6 +161,8 @@ export async function createShareRecord({
       imageUrl,
       imageHash,
       sizeBytes,
+      type,
+      contentType,
       userId: user.id,
       userName: user.name ?? null,
       userEmail: user.email ?? null,
@@ -191,7 +219,6 @@ export async function recordShareView(id: string, requestHeaders: Headers) {
     .where(eq(shares.id, id))
 
   const updated = await db.select().from(shares).where(eq(shares.id, id)).get()
-
   return updated ? rowToShare(updated) : rowToShare(share)
 }
 

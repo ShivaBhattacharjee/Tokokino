@@ -38,6 +38,8 @@ export default async function SharesPage() {
     viewCount: s.viewCount,
     sizeBytes: s.sizeBytes,
     createdAt: s.createdAt.toISOString(),
+    type: s.type,
+    contentType: s.contentType,
   }))
 
   return (
