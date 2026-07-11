@@ -69,6 +69,12 @@ vi.mock(
   })
 )
 
+// Renders null for non-video canvases in real use; stub it so the store mock
+// here doesn't need the full useEditorStore surface it depends on.
+vi.mock("@/components/editor/video-control-bar", () => ({
+  VideoControlBar: () => null,
+}))
+
 import { FloatingToolbar } from "@/components/editor/floating-toolbar"
 
 beforeEach(() => {
