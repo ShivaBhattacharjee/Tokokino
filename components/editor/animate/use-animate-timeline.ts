@@ -13,9 +13,11 @@ import {
   MAX_PX_PER_SECOND,
   MIN_CLIP_MS,
   MIN_DURATION_MS,
+  MIN_HANDLE_TRAILING_PX,
   MIN_PX_PER_SECOND,
   PX_PER_SECOND,
   RULER_TRAILING_PX,
+  timelineEndFor,
 } from "@/lib/editor/animation-timeline"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { isApplePlatform } from "@/lib/editor/shortcuts"
@@ -46,6 +48,19 @@ export function useAnimateTimeline() {
     ],
     [screenshot, screenshotSlots]
   )
+
+  // The furthest clip end drives how far the track extends (with headroom).
+  const lastClipEnd = clips.reduce(
+    (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
+    0
+  )
+  // Dynamic timeline length — grows with the set duration and clips instead of a
+  // fixed 1-minute cap. Drives the RENDERED track (ruler width, ticks) and the
+  // add-clip ghost. Drag CLAMPS use the constant MAX_DURATION_MS ceiling instead,
+  // so a single drag/hold can extend far past the current end in one motion (the
+  // track then grows to follow); clamping the drag to this dynamic value would
+  // cap each drag at ~duration+headroom and stall when held still.
+  const timelineEndMs = timelineEndFor(durationMs, lastClipEnd)
 
   const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
   const setScreenshot = useEditorStore((s) => s.setScreenshot)
@@ -123,7 +138,13 @@ export function useAnimateTimeline() {
   // The ruler always spans the full extendable range (up to the 60s max) so the
   // whole timeline is visible/scrollable and the duration handle can be dragged
   // anywhere in one motion. Ticks past the current duration are dimmed.
-  const contentWidth = pxFor(MAX_DURATION_MS) + RULER_TRAILING_PX
+  // Extend the scrollable content past the dynamic end, but also guarantee a
+  // minimum pixel gap to the right of the duration handle so it never jams
+  // against the scroll/panel edge when zoomed out (where the time headroom is
+  // only a few pixels wide).
+  const contentWidth =
+    Math.max(pxFor(timelineEndMs), pxFor(durationMs) + MIN_HANDLE_TRAILING_PX) +
+    RULER_TRAILING_PX
 
   // Raw pointer position in ms (unclamped), relative to the track's left edge.
   const rawMsFromClientX = React.useCallback((clientX: number) => {
@@ -453,14 +474,6 @@ export function useAnimateTimeline() {
   const durationDraggingRef = React.useRef(false)
   const [isDurationDragging, setIsDurationDragging] = React.useState(false)
 
-  // The furthest clip end — informational (shown as the slider's aria min).
-  // The duration is NOT forced to cover it: clips can sit past the set duration
-  // (rendered faded), so the handle is free to move down to MIN_DURATION_MS.
-  const lastClipEnd = clips.reduce(
-    (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
-    0
-  )
-
   const applyDurationDrag = React.useCallback(
     (clientX: number) => {
       // Snap to 100ms so the readout stays tidy while dragging.
@@ -649,7 +662,7 @@ export function useAnimateTimeline() {
     // Use the max range as the bound so the gap after the last clip extends past
     // the set duration — a slot can be added near the end even if it spills into
     // the dimmed region.
-    const start = findGhostSlot(cursorMs, clipsRef.current, MAX_DURATION_MS)
+    const start = findGhostSlot(cursorMs, clipsRef.current, timelineEndMs)
     if (start == null) {
       setGhostVisible(false)
       return
@@ -657,7 +670,7 @@ export function useAnimateTimeline() {
     ghostStartMsRef.current = start
     node.style.transform = `translate3d(${(start / 1000) * pps}px,0,0)`
     setGhostVisible(true)
-  }, [durationMs])
+  }, [durationMs, timelineEndMs])
 
   const scheduleGhost = React.useCallback(() => {
     if (ghostRafRef.current == null) {
@@ -782,11 +795,11 @@ export function useAnimateTimeline() {
         0,
         Math.min(durationMs, ((e.clientX - rect.left) / pps) * 1000)
       )
-      const start = findGhostSlot(cursorMs, clipsRef.current, MAX_DURATION_MS)
+      const start = findGhostSlot(cursorMs, clipsRef.current, timelineEndMs)
       if (start == null) return
       selectAnimationClip(addAnimationClip(undefined, start))
     },
-    [addAnimationClip, durationMs, selectAnimationClip]
+    [addAnimationClip, durationMs, selectAnimationClip, timelineEndMs]
   )
 
   const onClipMenuOpenChange = React.useCallback((open: boolean) => {
@@ -1016,7 +1029,7 @@ export function useAnimateTimeline() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [toggleRazor])
 
-  const ticks = computeTicks(MAX_DURATION_MS, pxPerSecond)
+  const ticks = computeTicks(timelineEndMs, pxPerSecond)
 
   // Resolve a clip's bound screenshot(s) into the thumbnail(s) shown on the clip
   // — the preview alone tells the user which screenshot(s) it animates (no text

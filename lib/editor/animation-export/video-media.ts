@@ -91,19 +91,47 @@ function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
   })
 }
 
-/** Seek the clone video and wait for the frame to be ready to draw. */
-function seekTo(video: HTMLVideoElement, timeSec: number): Promise<void> {
-  return new Promise<void>((resolve) => {
+/**
+ * Seek the clone video and wait for the frame to be ready to draw. Rejects on a
+ * decode error (surfaces to the outer catch) or when the export is aborted — a
+ * `"seeked"` that never fires would otherwise hang the whole render loop, and
+ * the between-frames abort check can't interrupt a stuck seek.
+ */
+export function seekTo(
+  video: HTMLVideoElement,
+  timeSec: number,
+  signal?: AbortSignal
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const clamped = Math.max(0, Math.min(timeSec, (video.duration || 0) - 1e-3))
+    const cleanup = () => {
+      video.removeEventListener("seeked", onSeeked)
+      video.removeEventListener("error", onError)
+      signal?.removeEventListener("abort", onAbort)
+    }
+    const onSeeked = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error("Video decode failed during seek"))
+    }
+    const onAbort = () => {
+      cleanup()
+      reject(new AnimationExportAbortedError())
+    }
+    if (signal?.aborted) {
+      reject(new AnimationExportAbortedError())
+      return
+    }
     if (Math.abs(video.currentTime - clamped) < 1e-3) {
       resolve()
       return
     }
-    const onSeeked = () => {
-      video.removeEventListener("seeked", onSeeked)
-      resolve()
-    }
     video.addEventListener("seeked", onSeeked)
+    video.addEventListener("error", onError)
+    signal?.addEventListener("abort", onAbort, { once: true })
     video.currentTime = clamped
   })
 }
@@ -114,17 +142,17 @@ type FramePlan = {
   timeForFrame: (i: number) => number
 }
 
-// A high safety ceiling only guards against runaway loops; realistic clips stay
-// well under it. Frames are rasterized (not buffered for video), so length is
-// bounded by export time, which the user has accepted.
-const MAX_COMPOSITOR_FRAMES = 36000 // 10 min at 60fps
-
-/** Sample times honoring the exact fps (constant 1/fps cadence → smooth). */
-function planFrames(durationSec: number, fps: number): FramePlan {
-  const frameCount = Math.min(
-    MAX_COMPOSITOR_FRAMES,
-    Math.max(1, Math.round(durationSec * fps))
-  )
+/**
+ * Frame plan for the export. Count is simply the clip's real length × fps — no
+ * arbitrary ceiling, so a 20-minute clip exports all 20 minutes. It's inherently
+ * bounded by the video's actual duration (both encoders stream frames, so a high
+ * count doesn't blow up memory); the only guard is against a non-finite duration
+ * so the loop can't run away. Cadence is a constant 1/fps → smooth, correct speed.
+ */
+export function planFrames(durationSec: number, fps: number): FramePlan {
+  const safeDuration =
+    Number.isFinite(durationSec) && durationSec > 0 ? durationSec : 0
+  const frameCount = Math.max(1, Math.round(safeDuration * fps))
   return {
     frameCount,
     frameDurationSec: 1 / fps,
@@ -202,7 +230,7 @@ async function encodeVideoMedia(
     if (!ctx) throw new Error("Could not get 2d context")
 
     const renderFrame = async (i: number): Promise<HTMLCanvasElement> => {
-      await seekTo(cloneVideo, plan.timeForFrame(i))
+      await seekTo(cloneVideo, plan.timeForFrame(i), signal)
       if (capture.needsPaint) await waitForPaint()
       return capture.captureFrame()
     }

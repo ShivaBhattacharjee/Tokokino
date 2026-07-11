@@ -279,6 +279,7 @@ export function MainScreenshotRender({
             >
               <ScreenshotEditMenu
                 open={editOpen}
+                allowVideo={false}
                 onOpenChange={(open) => {
                   if (bulkCanvasDragging || isScreenshotDragging) {
                     onEditOpenChange(false)

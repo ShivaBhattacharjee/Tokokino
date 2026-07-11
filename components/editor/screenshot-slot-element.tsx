@@ -408,6 +408,7 @@ export function ScreenshotSlotRender({
               >
                 <ScreenshotEditMenu
                   open={editOpen}
+                  allowVideo={false}
                   onOpenChange={(open) => {
                     if (bulkCanvasDragging) {
                       onEditOpenChange(false)
