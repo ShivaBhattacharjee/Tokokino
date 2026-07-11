@@ -62,6 +62,7 @@ import { AnnotationLayer } from "./annotation-layer"
 import { CanvasBackdrop } from "./canvas-backdrop"
 import { CanvasEmptyState } from "./canvas-empty-state"
 import { CenterGuides, useCenterGuides } from "./center-guides"
+import { MediaPreparingState } from "./media-preparing-state"
 import {
   computeRowLayout,
   slotBoxAspectRatio,
@@ -425,11 +426,15 @@ function CanvasViewInner({
       if (scopeId && !isCanvasPreview) registerVideo(scopeId, null)
     }
   }, [isCanvasPreview, registerVideo, scopeId])
+  // True while an incoming GIF is transcoding to video — drives the canvas
+  // skeleton so the user sees progress instead of a frozen empty box.
+  const [preparingMedia, setPreparingMedia] = React.useState(false)
   const { fileInputRef, fileInputProps, isDragOver, readFile, dropHandlers } =
     useImageFileIntake(handleImageFile, {
       // A video may only be the sole screenshot — once extra slots exist, block
       // dropping/pasting one into the main box (and route slots reject it too).
       allowVideo: screenshotSlots.length === 0,
+      onPreparingChange: setPreparingMedia,
     })
 
   const handleCaptureWebsite = React.useCallback(
@@ -1179,6 +1184,16 @@ function CanvasViewInner({
                     onMediaElement={handleMediaElement}
                   />
                 )
+              ) : preparingMedia ? (
+                <MediaPreparingState
+                  label="Preparing GIF…"
+                  screenshotAnchor={screenshotAnchor}
+                  screenshotOffset={effectiveOffset}
+                  transform={transform}
+                  shadowFilter={computedShadowFilter}
+                  boxStyle={emptyStateBoxStyle}
+                  innerLightingStyle={innerLightingStyle}
+                />
               ) : browserFrame ? (
                 <BrowserFrameEmptyState
                   frameId={frame.id}

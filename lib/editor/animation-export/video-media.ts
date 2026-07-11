@@ -336,6 +336,26 @@ async function encodeMp4OrWebm(
   }
 }
 
+// Cap on GIF output volume = frames × pixels-per-frame. gifenc buffers the
+// whole compressed stream in memory, so this bounds peak usage regardless of
+// clip length or resolution. ~350M keeps the buffer comfortably under ~300 MB
+// even for poorly-compressing footage, while still allowing ~20 s at 1080p or
+// much longer at smaller sizes.
+export const MAX_GIF_TOTAL_PIXELS = 350_000_000
+
+/**
+ * True when a GIF export of this many frames at this size would risk exhausting
+ * memory (gifenc holds the entire compressed stream in RAM until finish()).
+ * Callers should fail fast with a clear message rather than crash the tab.
+ */
+export function gifExportExceedsMemory(
+  frameCount: number,
+  width: number,
+  height: number
+): boolean {
+  return frameCount * width * height > MAX_GIF_TOTAL_PIXELS
+}
+
 async function encodeGif(
   ctx: CanvasRenderingContext2D,
   encodeCanvas: HTMLCanvasElement,
@@ -347,6 +367,18 @@ async function encodeGif(
 ): Promise<Blob> {
   const w = encodeCanvas.width
   const h = encodeCanvas.height
+
+  // gifenc keeps every compressed frame in one growing in-memory buffer until
+  // finish() — nothing streams out. Videos can now be up to 60 min, so a long or
+  // high-res clip would silently balloon that buffer (hundreds of MB → tab OOM).
+  // Guard on total output volume (frames × area) and fail fast with a clear,
+  // actionable message. MP4/WebM stream through the WebCodecs encoder and have
+  // no such ceiling, so we point the user there.
+  if (gifExportExceedsMemory(plan.frameCount, w, h)) {
+    throw new Error(
+      "This clip is too long or too large for GIF export. Trim it, lower the resolution, or export as MP4/WebM instead."
+    )
+  }
 
   // Pass 1 — build ONE shared 256-color palette (kills frame-to-frame color
   // shimmer) from a handful of evenly-spaced frames. We re-render for these

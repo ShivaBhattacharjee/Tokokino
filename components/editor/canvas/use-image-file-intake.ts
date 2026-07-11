@@ -3,11 +3,13 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { transcodeGifToVideo } from "@/lib/editor/gif-to-video"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import {
   createVideoObjectUrl,
   isGifFile,
   isVideoFile,
+  registerObjectUrl,
 } from "@/lib/editor/media-type"
 
 // Only re-encode screenshots when they're truly oversized — leaves typical
@@ -32,9 +34,13 @@ export function useImageFileIntake(
      * allowed as the sole screenshot (no extra slots), so callers pass false
      * once a multi-screenshot composition exists. Defaults to true. */
     allowVideo?: boolean
+    /** Fired around async media preparation (GIF→video transcode) so the caller
+     * can show a skeleton/placeholder in the canvas while it runs. */
+    onPreparingChange?: (preparing: boolean) => void
   }
 ) {
   const allowVideo = options?.allowVideo ?? true
+  const onPreparingChange = options?.onPreparingChange
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
 
@@ -59,9 +65,25 @@ export function useImageFileIntake(
         return
       }
 
-      // GIFs must skip the canvas re-encode or they'd freeze on frame one.
+      // A GIF is animated media, so treat it like a video: transcode to WebM so
+      // it plays through the video control bar (play/pause/scrub) and exports as
+      // animated. Videos are single-screenshot only, so we only do this where a
+      // video is allowed; in slot/multi contexts the GIF stays a native animated
+      // <img>. Static GIFs and browsers without WebCodecs fall back to the same
+      // <img> path (transcodeGifToVideo returns null).
       if (isGifFile(file)) {
-        readRawDataUrl(file, onImage)
+        if (!allowVideo) {
+          readRawDataUrl(file, onImage)
+          return
+        }
+        onPreparingChange?.(true)
+        transcodeGifToVideo(file)
+          .then((blob) => {
+            if (blob) onImage(registerObjectUrl(blob))
+            else readRawDataUrl(file, onImage)
+          })
+          .catch(() => readRawDataUrl(file, onImage))
+          .finally(() => onPreparingChange?.(false))
         return
       }
 
@@ -75,7 +97,7 @@ export function useImageFileIntake(
           readRawDataUrl(file, onImage)
         })
     },
-    [onImage, allowVideo]
+    [onImage, allowVideo, onPreparingChange]
   )
 
   React.useEffect(() => {

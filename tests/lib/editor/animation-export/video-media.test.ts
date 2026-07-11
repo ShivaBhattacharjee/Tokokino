@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
 import {
+  MAX_GIF_TOTAL_PIXELS,
   canvasIsVideoMedia,
+  gifExportExceedsMemory,
   planFrames,
   seekTo,
 } from "@/lib/editor/animation-export/video-media"
@@ -126,6 +128,28 @@ describe("seekTo — resolves, and can't hang", () => {
     await expect(p).rejects.toThrow(AnimationExportAbortedError)
     expect(v.listenerCount("seeked")).toBe(0)
     expect(v.listenerCount("error")).toBe(0)
+  })
+})
+
+describe("gifExportExceedsMemory — guards against OOM", () => {
+  it("allows a short, typical-resolution clip", () => {
+    // ~10s at 30fps, 1080x608 ≈ 197M px — well under the cap.
+    expect(gifExportExceedsMemory(300, 1080, 608)).toBe(false)
+  })
+
+  it("blocks a long clip that would balloon gifenc's in-memory buffer", () => {
+    // ~60s at 30fps, 1080x608 ≈ 1.18B px — would reach hundreds of MB.
+    expect(gifExportExceedsMemory(1800, 1080, 608)).toBe(true)
+  })
+
+  it("blocks a short but very high-resolution clip", () => {
+    // Only 60 frames, but 4K each — area, not just length, drives memory.
+    expect(gifExportExceedsMemory(60, 3840, 2160)).toBe(true)
+  })
+
+  it("sits right at the boundary", () => {
+    expect(gifExportExceedsMemory(MAX_GIF_TOTAL_PIXELS, 1, 1)).toBe(false)
+    expect(gifExportExceedsMemory(MAX_GIF_TOTAL_PIXELS + 1, 1, 1)).toBe(true)
   })
 })
 

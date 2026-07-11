@@ -177,7 +177,8 @@ export function TopBar() {
           phase: "encoding",
           current: p.current,
           total: p.total,
-          label: "Encoding video…",
+          label:
+            shareAnimFormat === "gif" ? "Encoding GIF…" : "Encoding video…",
         }
       }
       return {
@@ -187,7 +188,7 @@ export function TopBar() {
         label: "Finishing encode…",
       }
     },
-    []
+    [shareAnimFormat]
   )
 
   const fetchShareStorage = React.useCallback(async () => {

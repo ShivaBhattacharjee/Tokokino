@@ -125,15 +125,48 @@ const ANIMATION_CAPTURE_MODE_LABELS: Record<AnimationCaptureMode, string> = {
 }
 const ANIMATION_BUTTON_MAX_LABEL = `Export ${ANIMATION_RESOLUTION_LABELS.fullhd} • ${ANIMATION_FORMAT_LABELS.webm}`
 
-const ANIMATION_EXPORT_PHASE_LABELS: Record<
-  AnimationExportProgress["phase"] | "idle",
-  string
-> = {
-  idle: "Starting export",
-  preparing: "Preparing canvas",
-  capturing: "Rendering frames",
-  encoding: "Encoding video",
-  finishing: "Finishing download",
+/** Phase copy — GIF encode is palette work, not "video". */
+function animationExportPhaseLabel(
+  phase: AnimationExportProgress["phase"] | "idle" | undefined,
+  format: AnimationExportFormat
+): string {
+  switch (phase) {
+    case "preparing":
+      return "Preparing canvas"
+    case "capturing":
+      return "Rendering frames"
+    case "encoding":
+      return format === "gif" ? "Encoding GIF" : "Encoding video"
+    case "finishing":
+      return "Finishing download"
+    default:
+      return "Starting export"
+  }
+}
+
+/**
+ * Map phase-local counters onto one continuous bar so GIF (and video) don't
+ * jump back to 0% when capture ends and encode begins.
+ * Preparing stays at 0 (no fake "4%"); capture then encode share the bar.
+ */
+function overallExportProgressRatio(
+  progress: AnimationExportProgress | null
+): number {
+  if (!progress) return 0
+  const { phase, current, total } = progress
+  const phaseRatio = total > 0 ? Math.min(1, Math.max(0, current / total)) : 0
+  switch (phase) {
+    case "preparing":
+      return 0
+    case "capturing":
+      return phaseRatio * 0.7
+    case "encoding":
+      return 0.7 + phaseRatio * 0.28
+    case "finishing":
+      return 0.98 + phaseRatio * 0.02
+    default:
+      return 0
+  }
 }
 
 /** Friendly ETA like "< 5 min", "~30s", "Almost done". */
@@ -156,32 +189,35 @@ function formatExportEta(etaMs: number | null | undefined): string | null {
 function AnimationExportProgressDialog({
   open,
   progress,
+  format,
   formatLabel,
   onCancel,
 }: {
   open: boolean
   progress: AnimationExportProgress | null
+  format: AnimationExportFormat
   formatLabel: string
   onCancel: () => void
 }) {
   const current = progress?.current ?? 0
   const total = Math.max(1, progress?.total ?? 1)
-  const progressRatio =
-    progress == null ? 0 : Math.min(1, Math.max(0, current / total))
+  const progressRatio = overallExportProgressRatio(progress)
   const pct = Math.round(progressRatio * 100)
+  // Frame counter only while rendering — encode reuses the same N frames and
+  // used to look like a second full pass ("0 of 150" again).
   const showFrames =
-    progress != null &&
-    (progress.phase === "capturing" || progress.phase === "encoding") &&
-    progress.total > 1
+    progress != null && progress.phase === "capturing" && progress.total > 1
   const etaLabel = formatExportEta(progress?.etaMs)
-  const phaseLabel =
-    ANIMATION_EXPORT_PHASE_LABELS[progress?.phase ?? "idle"] ??
-    ANIMATION_EXPORT_PHASE_LABELS.idle
-  const frameLabel = showFrames
-    ? `${Math.min(current, total)} of ${total} frames`
-    : progress
-      ? `${pct}% complete`
-      : "Waiting to start"
+  const phaseLabel = animationExportPhaseLabel(progress?.phase, format)
+  const frameLabel = !progress
+    ? "Waiting to start"
+    : progress.phase === "preparing"
+      ? "Getting ready…"
+      : showFrames
+        ? `${Math.min(current, total)} of ${total} frames`
+        : progress.phase === "finishing"
+          ? "Almost done"
+          : `${pct}% complete`
 
   return (
     <Dialog
@@ -797,6 +833,7 @@ export function ExportControls({
       <AnimationExportProgressDialog
         open={isExporting && showVideoFormats}
         progress={animProgress}
+        format={animFormat}
         formatLabel={ANIMATION_FORMAT_LABELS[animFormat]}
         onCancel={cancelAnimExport}
       />
