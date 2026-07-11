@@ -48,6 +48,8 @@ import {
   type ExportFormat,
   type ExportResolution,
 } from "@/lib/editor/export"
+import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import { useEditorStore } from "@/lib/editor/store"
 import type { CanvasState } from "@/lib/editor/store"
 import { usePersistentState } from "@/hooks/use-persistent-state"
@@ -541,6 +543,16 @@ export function ExportControls({
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // A plain video canvas (not in Animate mode) exports as a real video via the
+  // compositor; it reuses the same format/resolution/fps UI as animate export.
+  const isVideoCanvas = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas ? isVideoSrc(canvas.screenshot) : false
+  })
+  const videoExportMode = isVideoCanvas && !isAnimateMode
+  const showVideoFormats = isAnimateMode || videoExportMode
   const setTopBarPopoverOpen = useEditorStore((s) => s.setTopBarPopoverOpen)
   // Sticky export preferences — persisted so a chosen format/resolution/fps
   // survives reloads instead of snapping back to the default each session.
@@ -615,6 +627,63 @@ export function ExportControls({
 
   const handleExport = React.useCallback(async () => {
     if (isExporting) return
+    if (videoExportMode) {
+      const abort = new AbortController()
+      animAbortRef.current = abort
+      lastUiPushRef.current = 0
+      lastUiSnapshotRef.current = ""
+      setIsExporting(true)
+      setAnimProgress({ phase: "preparing", current: 0, total: 1, etaMs: null })
+      setOpen(false)
+      try {
+        await exportVideoMedia(activeCanvasId, {
+          format: animFormat,
+          fps: effectiveAnimFps,
+          targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
+          watermark: includeWatermark,
+          signal: abort.signal,
+          onProgress: (p) => {
+            const now = performance.now()
+            const isPhaseChange =
+              p.phase !== lastUiSnapshotRef.current.split("|")[0]
+            const isDone = p.current >= p.total && p.total > 0
+            if (
+              !isPhaseChange &&
+              !isDone &&
+              now - lastUiPushRef.current < 100
+            ) {
+              return
+            }
+            lastUiPushRef.current = now
+            lastUiSnapshotRef.current = `${p.phase}|${p.current}|${p.total}`
+            setAnimProgress(p)
+          },
+        })
+        toast.success(
+          `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
+        )
+      } catch (err) {
+        if (
+          err instanceof AnimationExportAbortedError ||
+          (err instanceof DOMException && err.name === "AbortError") ||
+          (err instanceof Error && err.name === "AnimationExportAbortedError")
+        ) {
+          toast.message("Export cancelled")
+        } else {
+          console.error(err)
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Video export failed. Please try again."
+          )
+        }
+      } finally {
+        animAbortRef.current = null
+        setAnimProgress(null)
+        setIsExporting(false)
+      }
+      return
+    }
     if (isAnimateMode) {
       const abort = new AbortController()
       animAbortRef.current = abort
@@ -705,12 +774,13 @@ export function ExportControls({
     format,
     includeWatermark,
     isAnimateMode,
+    videoExportMode,
     resolution,
     isExporting,
   ])
 
   const dims = open
-    ? isAnimateMode
+    ? showVideoFormats
       ? animationOutputDims(activeCanvasId, animResolution)
       : getOutputDims(activeCanvasId, resolution)
     : null
@@ -718,14 +788,14 @@ export function ExportControls({
 
   const buttonLabel = isExporting
     ? "Exporting…"
-    : isAnimateMode
+    : showVideoFormats
       ? `Export ${ANIMATION_RESOLUTION_LABELS[animResolution]} • ${ANIMATION_FORMAT_LABELS[animFormat]}`
       : `Export ${EXPORT_RESOLUTION_LABELS[resolution]} • ${EXPORT_FORMAT_LABELS[format]}`
 
   return (
     <>
       <AnimationExportProgressDialog
-        open={isExporting && isAnimateMode}
+        open={isExporting && showVideoFormats}
         progress={animProgress}
         formatLabel={ANIMATION_FORMAT_LABELS[animFormat]}
         onCancel={cancelAnimExport}
@@ -746,7 +816,7 @@ export function ExportControls({
                   className="invisible pr-0.5 whitespace-nowrap"
                   aria-hidden
                 >
-                  {isAnimateMode
+                  {showVideoFormats
                     ? ANIMATION_BUTTON_MAX_LABEL
                     : EXPORT_BUTTON_MAX_LABEL}
                 </span>
@@ -766,7 +836,11 @@ export function ExportControls({
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {isAnimateMode ? "Export animation" : "Export screenshot"}
+            {isAnimateMode
+              ? "Export animation"
+              : videoExportMode
+                ? "Export video"
+                : "Export screenshot"}
           </TooltipContent>
         </Tooltip>
 
@@ -800,7 +874,7 @@ export function ExportControls({
             sideOffset={8}
             className="w-64 gap-3 rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
           >
-            {isAnimateMode ? (
+            {showVideoFormats ? (
               <>
                 <SegmentedRow
                   options={ANIMATION_FORMATS.map((f) => ({
@@ -847,19 +921,23 @@ export function ExportControls({
                     onCheckedChange={onIncludeWatermarkChange}
                   />
                 </div>
-                <div className="flex flex-col gap-1 px-1">
-                  <span className="px-1 text-[11px] text-muted-foreground">
-                    Capture engine
-                  </span>
-                  <SegmentedRow
-                    options={ANIMATION_CAPTURE_MODES.map((m) => ({
-                      value: m,
-                      label: ANIMATION_CAPTURE_MODE_LABELS[m],
-                    }))}
-                    value={animCapture}
-                    onChange={(v) => setAnimCapture(v as AnimationCaptureMode)}
-                  />
-                </div>
+                {isAnimateMode && (
+                  <div className="flex flex-col gap-1 px-1">
+                    <span className="px-1 text-[11px] text-muted-foreground">
+                      Capture engine
+                    </span>
+                    <SegmentedRow
+                      options={ANIMATION_CAPTURE_MODES.map((m) => ({
+                        value: m,
+                        label: ANIMATION_CAPTURE_MODE_LABELS[m],
+                      }))}
+                      value={animCapture}
+                      onChange={(v) =>
+                        setAnimCapture(v as AnimationCaptureMode)
+                      }
+                    />
+                  </div>
+                )}
               </>
             ) : (
               <>

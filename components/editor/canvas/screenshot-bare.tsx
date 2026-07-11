@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
@@ -314,6 +315,14 @@ export function ScreenshotBare({
           draggable={false}
           onLoadedMetadata={(e) =>
             onImageLoad(e as unknown as React.SyntheticEvent<HTMLImageElement>)
+          }
+          onError={() =>
+            toast.error(
+              "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
+              {
+                id: "video-load-error",
+              }
+            )
           }
           onClick={(e) =>
             onSelect(e as unknown as React.MouseEvent<HTMLImageElement>)

@@ -692,6 +692,13 @@ export type EditorActions = {
     region: CropRegion,
     canvasId?: string
   ) => void
+  // Non-destructive crop: stores a render-time crop region without re-encoding
+  // or replacing the screenshot src. Used for video, which can't be re-encoded
+  // client-side; passing null clears the crop.
+  setScreenshotCropRegion: (
+    region: CropRegion | null,
+    canvasId?: string
+  ) => void
   setAspect: (a: AspectState) => void
   setCanvasAspect: (canvasId: string, a: AspectState) => void
   setBackground: (b: Background, canvasId?: string) => void
@@ -1389,6 +1396,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         { screenshot: s, lastCropRegion: region },
         "applyCroppedScreenshot"
+      ),
+    setScreenshotCropRegion: (region, canvasId) =>
+      commitCanvas(
+        canvasId,
+        { lastCropRegion: region },
+        "setScreenshotCropRegion"
       ),
     setAspect: (a) => {
       const snapshot = get()

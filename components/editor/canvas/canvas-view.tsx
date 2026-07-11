@@ -97,7 +97,7 @@ import {
   getOptimizedUrlSync,
 } from "@/lib/editor/image-resize"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
-import { revokeVideoObjectUrl } from "@/lib/editor/media-type"
+import { isVideoSrc, revokeObjectUrl } from "@/lib/editor/media-type"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
@@ -161,6 +161,7 @@ function CanvasViewInner({
     canvasBorderRadius,
     setScreenshot,
     applyCroppedScreenshot,
+    setScreenshotCropRegion,
     setScreenshotOffset,
     setScreenshotPlacement,
     texts,
@@ -381,11 +382,18 @@ function CanvasViewInner({
   )
   const setMainScreenshotImage = React.useCallback(
     (src: string) => {
-      // Free the outgoing video's object URL so replacing videos doesn't leak.
-      const prev = useEditorStore
-        .getState()
-        .present.canvases.find((c) => c.id === scopeId)?.screenshot
-      if (prev && prev !== src) revokeVideoObjectUrl(prev)
+      // Free the outgoing image/video object URL so replacements don't leak —
+      // unless another canvas still references it (e.g. after duplicate).
+      const canvases = useEditorStore.getState().present.canvases
+      const prev = canvases.find((c) => c.id === scopeId)?.screenshot
+      if (prev && prev !== src) {
+        const stillUsed = canvases.some(
+          (c) =>
+            c.id !== scopeId &&
+            (c.screenshot === prev || c.originalScreenshot === prev)
+        )
+        if (!stillUsed) revokeObjectUrl(prev)
+      }
       setScreenshot(src)
       setNaturalDims(null)
     },
@@ -605,6 +613,19 @@ function CanvasViewInner({
   }
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     imgStyle.mixBlendMode = screenshotLayer.blendMode
+  }
+  // Video crop is non-destructive: the src stays the full clip and we crop at
+  // render time with object-view-box, which retargets the replaced element's
+  // intrinsic box so object-fit re-shrink-wraps to the cropped aspect (border,
+  // shadow, lighting and placement all follow for free). Images are cropped
+  // destructively (the src is already the cropped bitmap), so they never get it.
+  const videoCropRegion =
+    lastCropRegion && isVideoSrc(screenshot) ? lastCropRegion : null
+  if (videoCropRegion) {
+    const { x, y, width, height } = videoCropRegion
+    // object-view-box isn't in React's CSSProperties typing yet.
+    ;(imgStyle as Record<string, string>).objectViewBox =
+      `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`
   }
   // When a clip animates the border, the outline is ALWAYS mounted (even when
   // the committed border is invisible) so the player can ease it in from 0 /
@@ -1407,7 +1428,12 @@ function CanvasViewInner({
           screenshotUrl={originalScreenshot ?? screenshot}
           initialRegion={mainCropRequest?.initialRegion}
           targetAspect={mainCropRequest?.aspect}
-          onCrop={applyCroppedScreenshot}
+          onCrop={(cropped, region) => {
+            // Video can't be re-encoded client-side — store a non-destructive
+            // render-time crop region instead of a baked bitmap.
+            if (isVideoSrc(screenshot)) setScreenshotCropRegion(region)
+            else applyCroppedScreenshot(cropped, region)
+          }}
         />
       )}
 

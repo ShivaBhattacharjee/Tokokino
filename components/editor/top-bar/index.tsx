@@ -52,6 +52,7 @@ import {
   exportAnimationBlob,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { saveCurrentEditorDraft, useEditorStore } from "@/lib/editor/store"
 import type { CurrentDraftInfo, CustomPresetSummary } from "@/lib/editor/store"
@@ -206,6 +207,14 @@ export function TopBar() {
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
   )
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  // Clipboard can't hold a video, and a "Copy" that silently grabs a single
+  // still frame is misleading — hide it entirely for video canvases.
+  const isVideoCanvas = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas ? isVideoSrc(canvas.screenshot) : false
+  })
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
 
@@ -1265,46 +1274,48 @@ export function TopBar() {
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => void handleCopyPng()}
-                disabled={isCopyingPng}
-              >
-                <RiFileCopyLine />
-                <span className="relative hidden xl:inline-grid [&>span]:col-start-1 [&>span]:row-start-1">
-                  <span className="invisible whitespace-nowrap" aria-hidden>
-                    Copying…
-                  </span>
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.span
-                      key={
-                        isCopyingPng
-                          ? "copying"
+          {!isVideoCanvas && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => void handleCopyPng()}
+                  disabled={isCopyingPng}
+                >
+                  <RiFileCopyLine />
+                  <span className="relative hidden xl:inline-grid [&>span]:col-start-1 [&>span]:row-start-1">
+                    <span className="invisible whitespace-nowrap" aria-hidden>
+                      Copying…
+                    </span>
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={
+                          isCopyingPng
+                            ? "copying"
+                            : isCopiedPng
+                              ? "copied"
+                              : "copy"
+                        }
+                        className="whitespace-nowrap"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.1 }}
+                      >
+                        {isCopyingPng
+                          ? "Copying…"
                           : isCopiedPng
-                            ? "copied"
-                            : "copy"
-                      }
-                      className="whitespace-nowrap"
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      transition={{ duration: 0.1 }}
-                    >
-                      {isCopyingPng
-                        ? "Copying…"
-                        : isCopiedPng
-                          ? "Copied!"
-                          : "Copy"}
-                    </motion.span>
-                  </AnimatePresence>
-                </span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Copy as PNG</TooltipContent>
-          </Tooltip>
+                            ? "Copied!"
+                            : "Copy"}
+                      </motion.span>
+                    </AnimatePresence>
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Copy as PNG</TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         <MobileOverflowMenu

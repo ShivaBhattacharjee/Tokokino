@@ -55,6 +55,19 @@ export function revokeVideoObjectUrl(src: string | null | undefined) {
   URL.revokeObjectURL(src)
 }
 
+/**
+ * Release ANY registered object URL — image or video — when it's replaced.
+ * Image blob URLs minted during hydration (via registerObjectUrl) aren't in
+ * videoObjectUrls, so revokeVideoObjectUrl skips them and they'd otherwise leak.
+ * A no-op for data: URLs and anything we never registered.
+ */
+export function revokeObjectUrl(src: string | null | undefined) {
+  if (!src || !objectUrlBlobs.has(src)) return
+  videoObjectUrls.delete(src)
+  objectUrlBlobs.delete(src)
+  URL.revokeObjectURL(src)
+}
+
 /** True when the given screenshot src should render as a <video>. */
 export function isVideoSrc(src: string | null | undefined): boolean {
   if (!src) return false

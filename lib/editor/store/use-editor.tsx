@@ -308,6 +308,8 @@ export function useEditor(): EditorContext {
       store.setScreenshot(s, canvasId ?? targetId),
     applyCroppedScreenshot: (s, region, canvasId) =>
       store.applyCroppedScreenshot(s, region, canvasId ?? targetId),
+    setScreenshotCropRegion: (region, canvasId) =>
+      store.setScreenshotCropRegion(region, canvasId ?? targetId),
     setAspect: store.setAspect,
     setCanvasAspect: store.setCanvasAspect,
     setBackground: (b, canvasId) =>
