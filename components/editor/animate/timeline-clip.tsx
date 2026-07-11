@@ -47,6 +47,13 @@ type TimelineClipProps = {
   left: number
   width: number
   selected: boolean
+  /** How many clips a context-menu action will affect (this clip alone = 1, or
+   * the whole selection when this clip is part of a multi-select). */
+  selectedCount: number
+  /** How many of the selected clips own effects — shown as "Remove effects (n)"
+   * and gates the item when several clips are selected (a lone clip uses its own
+   * `iconKeys` instead). */
+  selectionEffectCount: number
   dragging: boolean
   interacting: boolean
   /** Clip sits past the set timeline duration — rendered faded + blurred. */
@@ -113,6 +120,8 @@ export function TimelineClip({
   left,
   width,
   selected,
+  selectedCount,
+  selectionEffectCount,
   dragging,
   interacting,
   beyond,
@@ -140,6 +149,8 @@ export function TimelineClip({
     const Icon = ICON_FOR[key]
     if (!uniqueIcons.includes(Icon)) uniqueIcons.push(Icon)
   }
+  // Whether context-menu actions will hit several clips (a multi-select).
+  const multi = selectedCount > 1
   return (
     <ContextMenu onOpenChange={onMenuOpenChange}>
       <ContextMenuTrigger asChild>
@@ -275,26 +286,33 @@ export function TimelineClip({
       <ContextMenuContent className="w-52">
         <ContextMenuItem onSelect={onDuplicate}>
           <RiFileCopyLine />
-          Duplicate
+          {multi ? `Duplicate ${selectedCount} clips` : "Duplicate"}
           <ContextMenuShortcut>{dupShortcut}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={onClearEffects}
-          disabled={iconKeys.length === 0}
+          // Alone → gate on this clip's own effects. In a multi-select, gate on
+          // how many selected clips own effects (this clip may own none while
+          // another does, or vice versa).
+          disabled={multi ? selectionEffectCount === 0 : iconKeys.length === 0}
         >
           <RiEraserLine />
-          Remove effects
+          {/* Count reflects clips that actually have effects, not the whole
+              selection — clearing a clip with none is a no-op. */}
+          {multi
+            ? `Remove effects (${selectionEffectCount})`
+            : "Remove effects"}
           <ContextMenuShortcut>{clearEffectsShortcut}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem onSelect={onDeselect}>
           <RiCheckboxBlankLine />
-          Deselect
+          {multi ? "Deselect all" : "Deselect"}
           <ContextMenuShortcut>{deselectShortcut}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onSelect={onDelete}>
           <RiDeleteBinLine />
-          Delete
+          {multi ? `Delete ${selectedCount} clips` : "Delete"}
           <ContextMenuShortcut className="text-destructive/70">
             Del
           </ContextMenuShortcut>

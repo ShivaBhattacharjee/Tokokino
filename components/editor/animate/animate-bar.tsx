@@ -47,11 +47,14 @@ export function AnimateBar() {
     onClipsRowMove,
     onClipsRowLeave,
     onClipsRowClick,
+    onClipsRowPointerDown,
+    onClipsRowPointerUp,
+    marqueeRect,
     ghostVisible,
     ghostRef,
     ghostWidthPx,
     clips,
-    selectedClipId,
+    highlightedClipIds,
     selectedClip,
     updateAnimationClip,
     draggingClipId,
@@ -75,6 +78,13 @@ export function AnimateBar() {
     layers,
     onLayerClick,
   } = useAnimateTimeline()
+
+  // How many of the selected clips actually own effects — drives both the count
+  // shown on "Remove effects (n)" and whether it's enabled (a single clip uses
+  // its own effect icons instead).
+  const selectionEffectCount = clips.filter(
+    (c) => highlightedClipIds.includes(c.id) && (c.effects?.length ?? 0) > 0
+  ).length
 
   return (
     <motion.div
@@ -206,14 +216,15 @@ export function AnimateBar() {
             {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
             <div
               ref={clipsRowRef}
-              onPointerDown={(e) => e.stopPropagation()}
+              onPointerDown={onClipsRowPointerDown}
               onPointerMove={onClipsRowMove}
+              onPointerUp={onClipsRowPointerUp}
               onPointerLeave={onClipsRowLeave}
               onClick={onClipsRowClick}
               className={cn(
                 // overflow-visible so clips appended past the set duration can
                 // render out into the dimmed region to the right.
-                "relative h-11 overflow-visible rounded-lg border border-border/50 bg-background/40",
+                "relative h-11 touch-none overflow-visible rounded-lg border border-border/50 bg-background/40",
                 ghostVisible && "cursor-copy"
               )}
               style={{
@@ -221,6 +232,18 @@ export function AnimateBar() {
                 ...(razorMode ? { cursor: RAZOR_CURSOR } : null),
               }}
             >
+              {/* Marquee (rubber-band) selection band — a full-height tint over
+                  the dragged time range, lighting up the clips it covers. */}
+              {marqueeRect && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 z-0 rounded-md border border-primary/70 bg-primary/15"
+                  style={{
+                    left: marqueeRect.left,
+                    width: marqueeRect.width,
+                  }}
+                />
+              )}
               {/* Cursor-following add affordance (position written via transform
                   in the move handler — no React re-render, so it can't lag). */}
               <div
@@ -245,7 +268,13 @@ export function AnimateBar() {
                     clip={clip}
                     left={pxFor(clip.startMs)}
                     width={pxFor(clip.durationMs)}
-                    selected={clip.id === selectedClipId}
+                    selected={highlightedClipIds.includes(clip.id)}
+                    selectedCount={
+                      highlightedClipIds.includes(clip.id)
+                        ? highlightedClipIds.length
+                        : 1
+                    }
+                    selectionEffectCount={selectionEffectCount}
                     dragging={clip.id === draggingClipId}
                     beyond={clip.startMs >= durationMs}
                     razorMode={razorMode}

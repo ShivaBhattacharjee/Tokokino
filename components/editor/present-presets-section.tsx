@@ -27,6 +27,7 @@ import {
   useActiveCanvasField,
   useActiveCanvasId,
   useEditorStore,
+  type CanvasState,
   type CustomPresetSummary,
 } from "@/lib/editor/store"
 import { useSession } from "@/lib/auth-client"
@@ -53,12 +54,31 @@ export function PresentPresetsSection({
   horizontal?: boolean
   showPresetHeading?: boolean
 }) {
-  const canvas = useActiveCanvasField((c) => c)
-  const canvasRef = React.useRef(canvas)
-  React.useLayoutEffect(() => {
-    canvasRef.current = canvas
-  })
+  // Render subscription: styling fields ONLY — deliberately drop `animation`.
+  // Adding/removing/moving a timeline clip swaps `canvas.animation` but touches
+  // nothing else, so excluding it here stops this whole presets UI (and its
+  // preview cards) from re-rendering on every animation-layer edit. Nothing in
+  // the render path reads animation — the previews are static styled thumbnails.
+  const canvas = useActiveCanvasField(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ({ animation, ...styling }) => styling
+  )
   const activeCanvasId = useActiveCanvasId()
+  // The imperative preset handlers (apply / save-as-custom) DO need the full
+  // canvas, animation included, so keep a ref synced straight from the store.
+  // Subscribing here — rather than mirroring `canvas` each render — means the
+  // ref still tracks animation edits even though they no longer re-render us.
+  const canvasRef = React.useRef<CanvasState>(canvas)
+  React.useEffect(() => {
+    const sync = () => {
+      const s = useEditorStore.getState()
+      const id = activeCanvasId ?? s.present.activeCanvasId
+      const full = s.present.canvases.find((c) => c.id === id)
+      if (full) canvasRef.current = full
+    }
+    sync()
+    return useEditorStore.subscribe(sync)
+  }, [activeCanvasId])
   const globalAspect = useEditorStore((s) => s.present.aspect)
   const canvasAspect = useActiveCanvasField((c) => c.aspect)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)

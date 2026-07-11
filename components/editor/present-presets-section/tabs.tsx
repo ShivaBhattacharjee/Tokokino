@@ -42,6 +42,64 @@ const TAB_LABELS: Record<PresetTab, string> = {
   custom: "Custom",
 }
 
+function PresetTabButton({
+  t,
+  active,
+  disabled,
+  disabledReason,
+  onSelect,
+}: {
+  t: PresetTab
+  active: boolean
+  disabled: boolean
+  disabledReason: string
+  onSelect: () => void
+}) {
+  // The tooltip only exists to explain a disabled tab. Keep it controlled for
+  // its whole lifetime (own hover state, forced shut when the tab is enabled) so
+  // it never flips between controlled/uncontrolled — which Radix warns about.
+  const [tooltipOpen, setTooltipOpen] = React.useState(false)
+  return (
+    <Tooltip
+      open={disabled ? tooltipOpen : false}
+      onOpenChange={setTooltipOpen}
+    >
+      <TooltipTrigger asChild>
+        <button
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) return
+            onSelect()
+          }}
+          className={cn(
+            "flex flex-1 flex-col items-center gap-2 rounded-lg border p-2.5 transition-colors",
+            active
+              ? "border-primary bg-primary/10"
+              : disabled
+                ? "cursor-not-allowed border-border/30 bg-secondary/15 opacity-40"
+                : "border-border/50 bg-secondary/30 hover:bg-secondary/60"
+          )}
+        >
+          <TabIcon t={t} active={active} />
+          <span
+            className={cn(
+              "text-[11px] font-medium",
+              active ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            {TAB_LABELS[t]}
+          </span>
+        </button>
+      </TooltipTrigger>
+      {disabled && (
+        <TooltipContent side="bottom" sideOffset={6}>
+          {disabledReason}
+        </TooltipContent>
+      )}
+    </Tooltip>
+  )
+}
+
 function TabIcon({ t, active }: { t: PresetTab; active: boolean }) {
   const fill = active ? "text-primary/40" : "text-foreground/20"
   const stroke = active ? "text-primary/70" : "text-foreground/30"
@@ -298,43 +356,17 @@ export function TabTriggerRow({
                           ? "Multi supports up to 2 screenshot boxes. Delete slots to switch."
                           : "Triple supports up to 3 screenshot boxes. Delete a slot to switch."
                     return (
-                      <Tooltip key={t} open={disabled ? undefined : false}>
-                        <TooltipTrigger asChild>
-                          <button
-                            disabled={disabled}
-                            onClick={() => {
-                              if (disabled) return
-                              setOpen(false)
-                              onTabChange(t)
-                            }}
-                            className={cn(
-                              "flex flex-1 flex-col items-center gap-2 rounded-lg border p-2.5 transition-colors",
-                              tab === t
-                                ? "border-primary bg-primary/10"
-                                : disabled
-                                  ? "cursor-not-allowed border-border/30 bg-secondary/15 opacity-40"
-                                  : "border-border/50 bg-secondary/30 hover:bg-secondary/60"
-                            )}
-                          >
-                            <TabIcon t={t} active={tab === t} />
-                            <span
-                              className={cn(
-                                "text-[11px] font-medium",
-                                tab === t
-                                  ? "text-primary"
-                                  : "text-muted-foreground"
-                              )}
-                            >
-                              {TAB_LABELS[t]}
-                            </span>
-                          </button>
-                        </TooltipTrigger>
-                        {disabled && (
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {disabledReason}
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
+                      <PresetTabButton
+                        key={t}
+                        t={t}
+                        active={tab === t}
+                        disabled={disabled}
+                        disabledReason={disabledReason}
+                        onSelect={() => {
+                          setOpen(false)
+                          onTabChange(t)
+                        }}
+                      />
                     )
                   })}
                 </div>

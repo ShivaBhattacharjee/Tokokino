@@ -344,7 +344,6 @@ function CanvasPreviewTile({
 function BulkExportDialog({
   open,
   onOpenChange,
-  canvases,
   format,
   setFormat,
   resolution,
@@ -353,13 +352,16 @@ function BulkExportDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  canvases: CanvasState[]
   format: ExportFormat
   setFormat: (f: ExportFormat) => void
   resolution: ExportResolution
   setResolution: (r: ExportResolution) => void
   includeWatermark: boolean
 }) {
+  // Subscribe to the canvases list here (only the bulk dialog needs it) instead
+  // of in the parent ExportControls — otherwise the always-visible Export button
+  // re-rendered on every canvas change, including animation-timeline edits.
+  const canvases = useEditorStore(useShallow((s) => s.present.canvases))
   const globalAspect = useEditorStore((s) => s.present.aspect)
   const [selected, setSelected] = React.useState<Set<string>>(
     () => new Set(canvases.map((c) => c.id))
@@ -539,7 +541,6 @@ export function ExportControls({
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
-  const canvases = useEditorStore(useShallow((s) => s.present.canvases))
   const setTopBarPopoverOpen = useEditorStore((s) => s.setTopBarPopoverOpen)
   // Sticky export preferences — persisted so a chosen format/resolution/fps
   // survives reloads instead of snapping back to the default each session.
@@ -596,6 +597,9 @@ export function ExportControls({
   )
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
+  // Own hover state for the settings tooltip so it stays controlled for its
+  // whole lifetime — forced shut while the popover is open (see below).
+  const [settingsTooltipOpen, setSettingsTooltipOpen] = React.useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = React.useState(false)
   const [animProgress, setAnimProgress] =
     React.useState<AnimationExportProgress | null>(null)
@@ -775,7 +779,10 @@ export function ExportControls({
             setTopBarPopoverOpen(o)
           }}
         >
-          <Tooltip open={open ? false : undefined}>
+          <Tooltip
+            open={open ? false : settingsTooltipOpen}
+            onOpenChange={setSettingsTooltipOpen}
+          >
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
                 <button
@@ -895,7 +902,6 @@ export function ExportControls({
       <BulkExportDialog
         open={bulkDialogOpen}
         onOpenChange={setBulkDialogOpen}
-        canvases={canvases}
         format={format}
         setFormat={setFormat}
         resolution={resolution}

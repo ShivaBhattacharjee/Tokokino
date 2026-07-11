@@ -430,9 +430,12 @@ export function ShareControls({
   onCopyLink: (url: string) => Promise<void>
   onRetry: () => void
 }) {
+  // Controlled tooltip (own hover state), forced shut while the popover is open,
+  // so it never flips between controlled/uncontrolled and warns.
+  const [tooltipOpen, setTooltipOpen] = React.useState(false)
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tooltip open={open ? false : undefined}>
+      <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
             <Button

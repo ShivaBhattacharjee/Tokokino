@@ -170,7 +170,45 @@ export function useEditor(): EditorContext {
   const aspect = canvasAspectOverride ?? globalAspect
   const canvasZoom = useEditorStore((s) => s.present.canvasZoom)
   const annotation = useEditorStore((s) => s.present.annotation)
-  const canvas = useActiveCanvasField((c) => c)
+  // Subscribe to ONLY the canvas fields this hook flattens out — deliberately
+  // excluding `animation`. `useEditor` exposes animation *actions* (stable store
+  // methods) but no animation *state*, so a clip add/delete/move (which only
+  // swaps `canvas.animation`) must not re-render the 16 components that read
+  // this hook. Every other field keeps its reference across a commit
+  // (`commitCanvas` spreads `{ ...canvas, ...patch }`), so useShallow stays equal
+  // and skips the render. Selecting the whole canvas here re-rendered the entire
+  // editor on every timeline edit.
+  const canvas = useActiveCanvasField((c) => ({
+    id: c.id,
+    position: c.position,
+    screenshot: c.screenshot,
+    originalScreenshot: c.originalScreenshot,
+    lastCropRegion: c.lastCropRegion,
+    background: c.background,
+    padding: c.padding,
+    borderRadius: c.borderRadius,
+    canvasBorderRadius: c.canvasBorderRadius,
+    border: c.border,
+    backdrop: c.backdrop,
+    tilt: c.tilt,
+    scale: c.scale,
+    screenshotPosition: c.screenshotPosition,
+    screenshotOffset: c.screenshotOffset,
+    screenshotLayer: c.screenshotLayer,
+    shadow: c.shadow,
+    overlay: c.overlay,
+    frame: c.frame,
+    frameAddress: c.frameAddress,
+    portrait: c.portrait,
+    texts: c.texts,
+    assets: c.assets,
+    enhance: c.enhance,
+    annotations: c.annotations,
+    annotationShapes: c.annotationShapes,
+    screenshotSlots: c.screenshotSlots,
+    objectFit: c.objectFit,
+    tweet: c.tweet,
+  }))
   const topBarPopoverOpen = useEditorStore((s) => s.topBarPopoverOpen)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const isPreviewAutoScroll = useEditorStore((s) => s.isPreviewAutoScroll)
@@ -401,6 +439,14 @@ export function useEditor(): EditorContext {
       store.moveAnimationClip(id, startMs, canvasId ?? targetId),
     duplicateAnimationClip: (id, canvasId) =>
       store.duplicateAnimationClip(id, canvasId ?? targetId),
+    setAnimationClipSelection: (ids, canvasId) =>
+      store.setAnimationClipSelection(ids, canvasId ?? targetId),
+    removeAnimationClips: (ids, canvasId) =>
+      store.removeAnimationClips(ids, canvasId ?? targetId),
+    clearAnimationClipsEffects: (ids, canvasId) =>
+      store.clearAnimationClipsEffects(ids, canvasId ?? targetId),
+    duplicateAnimationClips: (ids, canvasId) =>
+      store.duplicateAnimationClips(ids, canvasId ?? targetId),
     splitAnimationClip: (id, atMs, canvasId) =>
       store.splitAnimationClip(id, atMs, canvasId ?? targetId),
     clearAnimationClips: (canvasId) =>

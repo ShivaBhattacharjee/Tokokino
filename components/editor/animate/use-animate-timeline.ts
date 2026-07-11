@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { toast } from "sonner"
+import { useShallow } from "zustand/react/shallow"
 
 import { useAnimationPlayer } from "@/hooks/use-animation-player"
 import {
@@ -51,13 +52,18 @@ export function useAnimateTimeline() {
   const setScreenshotSlotImage = useEditorStore((s) => s.setScreenshotSlotImage)
   const addAnimationClip = useEditorStore((s) => s.addAnimationClip)
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
-  const clearAnimationClipEffects = useEditorStore(
-    (s) => s.clearAnimationClipEffects
-  )
   const moveAnimationClip = useEditorStore((s) => s.moveAnimationClip)
-  const removeAnimationClip = useEditorStore((s) => s.removeAnimationClip)
-  const duplicateAnimationClip = useEditorStore((s) => s.duplicateAnimationClip)
   const splitAnimationClip = useEditorStore((s) => s.splitAnimationClip)
+  const setAnimationClipSelection = useEditorStore(
+    (s) => s.setAnimationClipSelection
+  )
+  const removeAnimationClips = useEditorStore((s) => s.removeAnimationClips)
+  const clearAnimationClipsEffects = useEditorStore(
+    (s) => s.clearAnimationClipsEffects
+  )
+  const duplicateAnimationClips = useEditorStore(
+    (s) => s.duplicateAnimationClips
+  )
   const setAnimationAudio = useEditorStore((s) => s.setAnimationAudio)
   const updateAnimationAudio = useEditorStore((s) => s.updateAnimationAudio)
   const setAnimationDuration = useEditorStore((s) => s.setAnimationDuration)
@@ -65,7 +71,16 @@ export function useAnimateTimeline() {
   // Clip selection lives in the store so selecting a clip can load its keyframe
   // pose onto the canvas (and save the previously-open clip's edits).
   const selectedClipId = useEditorStore((s) => s.selectedAnimationClipId)
+  const selectedClipIds = useEditorStore(
+    useShallow((s) => s.selectedAnimationClipIds)
+  )
   const selectAnimationClip = useEditorStore((s) => s.selectAnimationClip)
+  // Live selection set for the pointer/keyboard callbacks (kept out of their
+  // dependency lists so they stay stable).
+  const selectedIdsRef = React.useRef(selectedClipIds)
+  React.useEffect(() => {
+    selectedIdsRef.current = selectedClipIds
+  }, [selectedClipIds])
   // Platform-aware label for the duplicate shortcut shown in the context menu.
   const [dupShortcut, setDupShortcut] = React.useState("⌘D")
   const [clearEffectsShortcut, setClearEffectsShortcut] = React.useState("⌘⇧⌫")
@@ -313,7 +328,14 @@ export function useAnimateTimeline() {
       mode: ClipDragMode
     ) => {
       // Let right-click through so the context menu can open instead of dragging.
-      if (e.button !== 0) return
+      if (e.button !== 0) {
+        // If this clip isn't already selected, make it the sole selection so the
+        // context menu acts on it. If it's part of a multi-selection, leave the
+        // selection intact so the menu acts on the whole group.
+        if (!selectedIdsRef.current.includes(clip.id))
+          selectAnimationClip(clip.id)
+        return
+      }
       e.stopPropagation()
       // Razor tool active → this click cuts the clip at the pointer instead of
       // selecting/dragging it. Keep the piece under the cut (the new second half)
@@ -544,6 +566,57 @@ export function useAnimateTimeline() {
   const ghostHoveringRef = React.useRef(false)
   // While a clip's right-click menu is open, suppress the add affordance.
   const menuOpenRef = React.useRef(false)
+  // Timestamp of the last menu close. Radix fires the item's selecting click
+  // through to the clips row after the menu closes, so a right-click → "Delete"
+  // would otherwise re-add a clip at the click point. We ignore row clicks for a
+  // brief window after any clip menu closes to swallow that fall-through click.
+  const menuClosedAtRef = React.useRef(0)
+
+  // Marquee (rubber-band) multi-select. A drag across empty lane space draws a
+  // band and selects every clip whose footprint it overlaps; a plain click (no
+  // drag) still adds a clip. The band's pixel geometry drives the overlay; the
+  // hovered ids drive the live highlight until the drag commits on pointer-up.
+  const marqueeRef = React.useRef<{ startX: number; active: boolean } | null>(
+    null
+  )
+  const marqueeActiveRef = React.useRef(false)
+  const suppressRowClickRef = React.useRef(false)
+  const [marqueeRect, setMarqueeRect] = React.useState<{
+    left: number
+    width: number
+  } | null>(null)
+  const [marqueeIds, setMarqueeIds] = React.useState<string[]>([])
+  // Mirror of the hovered ids for the pointer-up commit (kept out of the up
+  // handler's deps so it doesn't rebind every marquee frame).
+  const marqueeIdsRef = React.useRef<string[]>([])
+  // Highlighted set = the committed selection plus any clips under an in-progress
+  // marquee, so the band lights clips up live before you release.
+  const highlightedClipIds = React.useMemo(() => {
+    if (marqueeIds.length === 0) return selectedClipIds
+    return Array.from(new Set([...selectedClipIds, ...marqueeIds]))
+  }, [selectedClipIds, marqueeIds])
+
+  const applyMarquee = React.useCallback((clientX: number) => {
+    const drag = marqueeRef.current
+    const el = clipsRowRef.current
+    if (!drag || !el) return
+    const rect = el.getBoundingClientRect()
+    const pps = pxPerSecondRef.current
+    // No upper clamp: dragging into the dimmed post-duration region (where clips
+    // can still sit, rendered faded via overflow-visible) should catch them too.
+    const curX = Math.max(0, clientX - rect.left)
+    const left = Math.min(drag.startX, curX)
+    const right = Math.max(drag.startX, curX)
+    setMarqueeRect({ left, width: right - left })
+    const minMs = (left / pps) * 1000
+    const maxMs = (right / pps) * 1000
+    // A clip is caught when its [start, end] footprint overlaps the band.
+    const ids = clipsRef.current
+      .filter((c) => c.startMs <= maxMs && c.startMs + c.durationMs >= minMs)
+      .map((c) => c.id)
+    marqueeIdsRef.current = ids
+    setMarqueeIds(ids)
+  }, [])
 
   const writeGhost = React.useCallback(() => {
     ghostRafRef.current = null
@@ -555,6 +628,8 @@ export function useAnimateTimeline() {
       menuOpenRef.current ||
       dragRef.current ||
       scrubbingRef.current ||
+      // A marquee drag owns the lane — no "add clip" ghost while selecting.
+      marqueeActiveRef.current ||
       // Razor tool owns the lane — no "add clip" ghost while cutting.
       razorModeRef.current
     ) {
@@ -613,10 +688,69 @@ export function useAnimateTimeline() {
     []
   )
 
+  // Pointer-down on empty lane space starts a marquee candidate. Clips capture
+  // their own pointer (and stopPropagation), so any pointerdown reaching the row
+  // is on empty space. Left-button only; razor / open-menu keep their behaviour.
+  const onClipsRowPointerDown = React.useCallback((e: React.PointerEvent) => {
+    e.stopPropagation()
+    if (e.button !== 0 || razorModeRef.current || menuOpenRef.current) return
+    const el = clipsRowRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    marqueeRef.current = {
+      startX: Math.max(0, Math.min(rect.width, e.clientX - rect.left)),
+      active: false,
+    }
+    el.setPointerCapture(e.pointerId)
+    pointerXRef.current = e.clientX
+  }, [])
+
   const onClipsRowMove = React.useCallback(
-    (e: React.PointerEvent) => positionGhost(e.clientX),
-    [positionGhost]
+    (e: React.PointerEvent) => {
+      const drag = marqueeRef.current
+      if (drag) {
+        // Past the click threshold this becomes a marquee, not a tap-to-add.
+        if (!drag.active && Math.abs(e.clientX - pointerXRef.current) <= 4) {
+          // Not yet a drag — still let the add-ghost track the cursor.
+          positionGhost(e.clientX)
+          return
+        }
+        if (!drag.active) {
+          drag.active = true
+          marqueeActiveRef.current = true
+          ghostHoveringRef.current = false
+          setGhostVisible(false)
+          startAutoScroll(applyMarquee)
+        }
+        pointerXRef.current = e.clientX
+        applyMarquee(e.clientX)
+        return
+      }
+      positionGhost(e.clientX)
+    },
+    [applyMarquee, positionGhost, startAutoScroll]
   )
+
+  const onClipsRowPointerUp = React.useCallback(
+    (e: React.PointerEvent) => {
+      const drag = marqueeRef.current
+      if (!drag) return
+      marqueeRef.current = null
+      e.currentTarget.releasePointerCapture?.(e.pointerId)
+      if (drag.active) {
+        // Commit the band's selection and swallow the click that follows so the
+        // release doesn't also add a clip.
+        stopAutoScroll()
+        marqueeActiveRef.current = false
+        suppressRowClickRef.current = true
+        setAnimationClipSelection(marqueeIdsRef.current)
+        setMarqueeRect(null)
+        setMarqueeIds([])
+      }
+    },
+    [setAnimationClipSelection, stopAutoScroll]
+  )
+
   const onClipsRowLeave = React.useCallback(() => {
     ghostHoveringRef.current = false
     setGhostVisible(false)
@@ -630,6 +764,15 @@ export function useAnimateTimeline() {
       // pointer position here makes tap-to-add work without a preceding hover
       // while desktop still gets the ghost preview.
       if (razorModeRef.current || menuOpenRef.current || dragRef.current) return
+      // A marquee drag just finished — swallow the click it produces so the
+      // release doesn't also add a clip.
+      if (suppressRowClickRef.current) {
+        suppressRowClickRef.current = false
+        return
+      }
+      // Swallow the fall-through click Radix fires right after a clip's context
+      // menu closes (e.g. after "Delete"), which would otherwise add a new clip.
+      if (Date.now() - menuClosedAtRef.current < 350) return
       const el = clipsRowRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
@@ -651,6 +794,10 @@ export function useAnimateTimeline() {
     if (open) {
       ghostHoveringRef.current = false
       setGhostVisible(false)
+    } else {
+      // Record the close so the following fall-through click on the row is
+      // ignored (see menuClosedAtRef).
+      menuClosedAtRef.current = Date.now()
     }
   }, [])
 
@@ -659,52 +806,59 @@ export function useAnimateTimeline() {
     [addAnimationClip, selectAnimationClip]
   )
 
-  const duplicateClip = React.useCallback(
-    (id: string) => {
-      const newId = duplicateAnimationClip(id)
-      if (newId) selectAnimationClip(newId)
-    },
-    [duplicateAnimationClip, selectAnimationClip]
-  )
+  // The clips a context-menu / keyboard action targets: the whole selection when
+  // the acted-on clip is part of it, otherwise just that clip. (Right-clicking a
+  // clip already makes it the selection, so the menu always includes it.)
+  const resolveTargetIds = React.useCallback((id: string) => {
+    const sel = selectedIdsRef.current
+    return sel.includes(id) && sel.length > 0 ? sel : [id]
+  }, [])
 
-  // Strips the effects a keyframe owns, turning it back into a passive clip
-  // that holds the previous keyframe's values. Reverts the clip's pose to its
-  // baseline so the committed canvas also drops the effect (e.g. lighting) when
-  // this clip is the one open for editing — only this clip is affected.
-  const clearClipEffects = React.useCallback(
-    (id: string) => {
-      clearAnimationClipEffects(id)
-    },
-    [clearAnimationClipEffects]
-  )
-
-  // After deleting the open clip, open the last remaining clip so the canvas
-  // falls back to a valid keyframe (or deselect when none are left).
-  const fallbackAfterDelete = React.useCallback(
-    (deletedId: string) => {
-      const remaining = clips
-        .filter((c) => c.id !== deletedId)
+  // After deleting clips, open the last remaining clip so the canvas falls back
+  // to a valid keyframe (or deselect when none are left).
+  const reselectAfterDelete = React.useCallback(
+    (removed: string[]) => {
+      const removedSet = new Set(removed)
+      const remaining = clipsRef.current
+        .filter((c) => !removedSet.has(c.id))
         .sort((a, b) => a.startMs - b.startMs)
       selectAnimationClip(
         remaining.length ? remaining[remaining.length - 1].id : null
       )
     },
-    [clips, selectAnimationClip]
+    [selectAnimationClip]
+  )
+
+  const duplicateClip = React.useCallback(
+    (id: string) => {
+      const newIds = duplicateAnimationClips(resolveTargetIds(id))
+      if (newIds.length) setAnimationClipSelection(newIds)
+    },
+    [duplicateAnimationClips, resolveTargetIds, setAnimationClipSelection]
+  )
+
+  // Strips the effects the targeted keyframe(s) own, reverting each to its
+  // baseline so the committed canvas also drops those effects.
+  const clearClipEffects = React.useCallback(
+    (id: string) => clearAnimationClipsEffects(resolveTargetIds(id)),
+    [clearAnimationClipsEffects, resolveTargetIds]
   )
 
   const deleteClip = React.useCallback(
     (id: string) => {
-      removeAnimationClip(id)
-      if (selectedClipId === id) fallbackAfterDelete(id)
+      const ids = resolveTargetIds(id)
+      removeAnimationClips(ids)
+      reselectAfterDelete(ids)
     },
-    [removeAnimationClip, selectedClipId, fallbackAfterDelete]
+    [removeAnimationClips, resolveTargetIds, reselectAfterDelete]
   )
 
   const deleteSelectedClip = React.useCallback(() => {
-    if (!selectedClipId) return
-    removeAnimationClip(selectedClipId)
-    fallbackAfterDelete(selectedClipId)
-  }, [removeAnimationClip, selectedClipId, fallbackAfterDelete])
+    const ids = selectedIdsRef.current
+    if (ids.length === 0) return
+    removeAnimationClips(ids)
+    reselectAfterDelete(ids)
+  }, [removeAnimationClips, reselectAfterDelete])
 
   const deselectClip = React.useCallback(
     () => selectAnimationClip(null),
@@ -759,11 +913,13 @@ export function useAnimateTimeline() {
     return () => window.removeEventListener("keydown", onKeyDown, true)
   }, [requestExit])
 
-  // Clip shortcuts: Delete/Backspace removes the selected clip, ⌘/Ctrl+D
-  // duplicates it (no copy/paste yet, so duplicate stands in for it).
+  // Clip shortcuts: Delete/Backspace removes the selected clip(s), ⌘/Ctrl+D
+  // duplicates them (no copy/paste yet, so duplicate stands in for it). Every
+  // shortcut acts on the whole selection set (one clip or a marquee group).
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!selectedClipId) return
+      const ids = selectedIdsRef.current
+      if (ids.length === 0) return
       const t = e.target as HTMLElement | null
       if (
         t &&
@@ -778,13 +934,13 @@ export function useAnimateTimeline() {
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey
       ) {
-        // ⌘/Ctrl+Shift+Delete — clear this clip's effects (this clip only).
+        // ⌘/Ctrl+Shift+Delete — clear the selected clips' effects.
         e.preventDefault()
-        clearAnimationClipEffects(selectedClipId)
+        clearAnimationClipsEffects(ids)
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault()
-        removeAnimationClip(selectedClipId)
-        fallbackAfterDelete(selectedClipId)
+        removeAnimationClips(ids)
+        reselectAfterDelete(ids)
       } else if (
         (e.key === "d" || e.key === "D") &&
         (e.metaKey || e.ctrlKey) &&
@@ -792,15 +948,15 @@ export function useAnimateTimeline() {
         !e.shiftKey
       ) {
         e.preventDefault()
-        const newId = duplicateAnimationClip(selectedClipId)
-        if (newId) selectAnimationClip(newId)
+        const newIds = duplicateAnimationClips(ids)
+        if (newIds.length) setAnimationClipSelection(newIds)
       } else if (
         (e.key === "a" || e.key === "A") &&
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey &&
         !e.altKey
       ) {
-        // ⌘/Ctrl+Shift+A — deselect the clip (mirrors design-tool convention).
+        // ⌘/Ctrl+Shift+A — deselect (mirrors design-tool convention).
         e.preventDefault()
         selectAnimationClip(null)
       }
@@ -808,13 +964,12 @@ export function useAnimateTimeline() {
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [
-    selectedClipId,
-    removeAnimationClip,
-    duplicateAnimationClip,
-    updateAnimationClip,
-    clearAnimationClipEffects,
+    removeAnimationClips,
+    duplicateAnimationClips,
+    clearAnimationClipsEffects,
+    setAnimationClipSelection,
     selectAnimationClip,
-    fallbackAfterDelete,
+    reselectAfterDelete,
   ])
 
   // Spacebar toggles playback (like a video editor). Ignored while typing in a
@@ -923,6 +1078,8 @@ export function useAnimateTimeline() {
 
     // selection / labels
     selectedClipId,
+    selectedClipIds,
+    highlightedClipIds,
     selectedClip,
     updateAnimationClip,
     draggingClipId,
@@ -963,6 +1120,8 @@ export function useAnimateTimeline() {
     onClipsRowMove,
     onClipsRowLeave,
     onClipsRowClick,
+    onClipsRowPointerDown,
+    onClipsRowPointerUp,
     onClipPointerDown,
     onClipPointerMove,
     onClipPointerUp,
@@ -971,6 +1130,9 @@ export function useAnimateTimeline() {
     duplicateClip,
     clearClipEffects,
     deleteClip,
+
+    // marquee multi-select overlay
+    marqueeRect,
 
     // controls
     addClip,

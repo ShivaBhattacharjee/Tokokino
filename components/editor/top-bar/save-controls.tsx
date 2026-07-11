@@ -74,10 +74,14 @@ export function SaveControls({
   onSaveAsDraft: () => void
 }) {
   const copy = saveCopy(isAnimateMode, currentDraft)
+  // Keep the tooltip controlled for its whole lifetime (own hover state) and
+  // force it shut while the popover is open — flipping between a boolean and
+  // undefined would make Radix warn about switching controlled/uncontrolled.
+  const [tooltipOpen, setTooltipOpen] = React.useState(false)
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tooltip open={open ? false : undefined}>
+      <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
             <Button variant="outline" size="lg">

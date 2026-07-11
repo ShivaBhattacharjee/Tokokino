@@ -823,6 +823,18 @@ export type EditorActions = {
   moveAnimationClip: (id: string, startMs: number, canvasId?: string) => void
   duplicateAnimationClip: (id: string, canvasId?: string) => string | null
   /**
+   * Replace the timeline selection with `ids` (a marquee drag). One id behaves
+   * exactly like `selectAnimationClip`; several select a group for bulk actions
+   * and open no single keyframe for editing.
+   */
+  setAnimationClipSelection: (ids: string[], canvasId?: string) => void
+  /** Bulk-delete every clip in `ids` in a single history entry. */
+  removeAnimationClips: (ids: string[], canvasId?: string) => void
+  /** Bulk "remove effects" — strip animated effects from every clip in `ids`. */
+  clearAnimationClipsEffects: (ids: string[], canvasId?: string) => void
+  /** Bulk-duplicate every clip in `ids`; returns the new clip ids. */
+  duplicateAnimationClips: (ids: string[], canvasId?: string) => string[]
+  /**
    * Cut a clip in two at `atMs` (like a razor tool). The first half keeps the
    * original id/pose; the second half is a new clip holding the same target
    * keyframe. Together they fill the original clip's exact footprint, so each
@@ -917,6 +929,13 @@ export type EditorStore = {
   isScreenshotSelected: boolean
   /** Timeline clip currently open for editing in Animate mode (its keyframe). */
   selectedAnimationClipId: string | null
+  /**
+   * Every clip selected in the timeline — the set bulk context-menu / keyboard
+   * actions operate on. Contains `selectedAnimationClipId` when a single clip is
+   * open; a marquee drag can select several (then no single clip is "open" for
+   * editing, so `selectedAnimationClipId` is null).
+   */
+  selectedAnimationClipIds: string[]
   presetTab: PresetTab
   activeLayoutPresetId: string | null
   activeCustomPresetId: string | null
@@ -925,6 +944,68 @@ export type EditorStore = {
   customPresetsLoaded: boolean
   currentDraft: CurrentDraftInfo | null
 } & EditorActions
+
+/**
+ * Insert a copy of `sourceId` right after it in the array, rippling later clips
+ * right just enough to open a gap (preserving their spacing). Shared by single-
+ * and bulk-duplicate.
+ */
+const insertClipCopy = (
+  clips: AnimationClip[],
+  sourceId: string,
+  newId: string
+): AnimationClip[] => {
+  const source = clips.find((c) => c.id === sourceId)
+  if (!source) return clips
+  const dur = source.durationMs
+  const insertStart = Math.min(
+    source.startMs + dur,
+    Math.max(0, MAX_DURATION_MS - dur)
+  )
+  const nextStart = clips
+    .filter((clip) => clip.id !== source.id && clip.startMs >= insertStart)
+    .reduce((min, clip) => Math.min(min, clip.startMs), Infinity)
+  const shift = Number.isFinite(nextStart)
+    ? Math.max(0, insertStart + dur - nextStart)
+    : 0
+  const shifted = clips.map((clip) =>
+    clip.id !== source.id && clip.startMs >= insertStart
+      ? {
+          ...clip,
+          startMs: Math.min(
+            clip.startMs + shift,
+            Math.max(0, MAX_DURATION_MS - clip.durationMs)
+          ),
+        }
+      : clip
+  )
+  const copy: AnimationClip = { ...source, id: newId, startMs: insertStart }
+  const sourceIndex = shifted.findIndex((cl) => cl.id === source.id)
+  return [
+    ...shifted.slice(0, sourceIndex + 1),
+    copy,
+    ...shifted.slice(sourceIndex + 1),
+  ]
+}
+
+/**
+ * Strip a clip's animated effects in-array: reverts its pose to its captured
+ * baseline and clears `effects`. Returns the same array reference when the clip
+ * owns nothing (so callers can detect a no-op). Shared by single- and bulk-clear.
+ */
+const clearClipEffectsInArray = (
+  clips: AnimationClip[],
+  id: string
+): AnimationClip[] => {
+  const clip = clips.find((c) => c.id === id)
+  if (!clip || (clip.effects ?? []).length === 0) return clips
+  const cleared: AnimationClip = {
+    ...clip,
+    effects: [],
+    pose: { ...DEFAULT_BASELINE, ...clipBaseline(clip) },
+  }
+  return clips.map((c) => (c.id === id ? cleared : c))
+}
 
 export const useEditorStore = create<EditorStore>((set, get) => {
   const commit = (patch: SetPatch, group: string | null) => {
@@ -1080,6 +1161,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     selectedScreenshotSlotId: null,
     isScreenshotSelected: false,
     selectedAnimationClipId: null,
+    selectedAnimationClipIds: [],
     presetTab: "single",
     activeLayoutPresetId: null,
     activeCustomPresetId: null,
@@ -1150,6 +1232,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewAnimation: ui?.previewAnimation ?? "slide",
         isAnimateMode: restoreAnimate,
         selectedAnimationClipId: selectedClipId,
+        selectedAnimationClipIds: selectedClipId ? [selectedClipId] : [],
         ...CLEAR_SELECTION,
       })
     },
@@ -2082,7 +2165,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         (c) => c.id === state.present.activeCanvasId
       )
       if (!canvas) {
-        set({ isAnimateMode: a, selectedAnimationClipId: null })
+        set({
+          isAnimateMode: a,
+          selectedAnimationClipId: null,
+          selectedAnimationClipIds: [],
+        })
         return
       }
       const animation = getCanvasAnimation(canvas)
@@ -2093,7 +2180,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         // made outside Animate mode into the last clip's pose and open it for
         // editing. (No pose is loaded — the canvas already shows the end state.)
         if (!last) {
-          set({ isAnimateMode: true, selectedAnimationClipId: null })
+          set({
+            isAnimateMode: true,
+            selectedAnimationClipId: null,
+            selectedAnimationClipIds: [],
+          })
           return
         }
         const pose = captureClipPose(canvas)
@@ -2109,6 +2200,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           present: { ...state.present, canvases },
           isAnimateMode: true,
           selectedAnimationClipId: last.id,
+          selectedAnimationClipIds: [last.id],
         })
         return
       }
@@ -2139,18 +2231,30 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         present: { ...state.present, canvases },
         isAnimateMode: false,
         selectedAnimationClipId: null,
+        selectedAnimationClipIds: [],
       })
     },
     selectAnimationClip: (id, canvasId) => {
       const state = get()
-      // Re-selecting the already-open clip is a no-op: its live edits are in the
-      // committed canvas; reloading its (not-yet-saved) stored pose would wipe
-      // them. onClipPointerDown re-selects on every click, so this matters.
-      if (id === state.selectedAnimationClipId) return
+      // Re-selecting the already-open clip is a no-op for the canvas: its live
+      // edits are in the committed canvas; reloading its (not-yet-saved) stored
+      // pose would wipe them. onClipPointerDown re-selects on every click, so
+      // this matters. Still collapse any multi-selection down to just this clip.
+      if (id === state.selectedAnimationClipId) {
+        const next = id ? [id] : []
+        const cur = state.selectedAnimationClipIds
+        if (cur.length !== next.length || cur[0] !== next[0]) {
+          set({ selectedAnimationClipIds: next })
+        }
+        return
+      }
       const targetCanvasId = canvasId ?? state.present.activeCanvasId
       const canvas = state.present.canvases.find((c) => c.id === targetCanvasId)
       if (!canvas) {
-        set({ selectedAnimationClipId: id })
+        set({
+          selectedAnimationClipId: id,
+          selectedAnimationClipIds: id ? [id] : [],
+        })
         return
       }
       const animation = getCanvasAnimation(canvas)
@@ -2201,6 +2305,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set({
         present: { ...state.present, canvases },
         selectedAnimationClipId: id,
+        selectedAnimationClipIds: id ? [id] : [],
         ...(opened ? targetSelection : {}),
       })
     },
@@ -2300,31 +2405,21 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         (canvas) => {
           const animation = getCanvasAnimation(canvas)
-          const clip = animation.clips.find((c) => c.id === id)
-          // Nothing owned → nothing to strip (and no canvas revert needed).
-          if (!clip || (clip.effects ?? []).length === 0) return {}
-          // Revert the clip to its captured start: pose = baseline, owns nothing.
-          // Merge over DEFAULT_BASELINE so older clips missing newer pose fields
-          // (e.g. lighting) still reset those to neutral instead of leaking the
-          // committed value back through resolveKeyframePose's fallback.
-          const cleared: AnimationClip = {
-            ...clip,
-            effects: [],
-            pose: { ...DEFAULT_BASELINE, ...clipBaseline(clip) },
-          }
-          const nextClips = animation.clips.map((c) =>
-            c.id === id ? cleared : c
-          )
+          const nextClips = clearClipEffectsInArray(animation.clips, id)
+          // Same array back → nothing owned, nothing to strip.
+          if (nextClips === animation.clips) return {}
+          const cleared = nextClips.find((c) => c.id === id)
           // If this clip is open for editing, the committed canvas is showing its
           // (now-removed) effects — reload the resolved look WITHOUT this clip so
           // the canvas reflects the strip (e.g. the lit backdrop goes dark).
           const isOpen = get().selectedAnimationClipId === id
-          const canvasPatch = isOpen
-            ? applyPoseToCanvas(
-                canvas,
-                resolveKeyframePose(canvas, nextClips, cleared)
-              )
-            : {}
+          const canvasPatch =
+            isOpen && cleared
+              ? applyPoseToCanvas(
+                  canvas,
+                  resolveKeyframePose(canvas, nextClips, cleared)
+                )
+              : {}
           return {
             ...canvasPatch,
             animation: { ...animation, clips: nextClips },
@@ -2412,55 +2507,144 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         (c) => {
           const animation = getCanvasAnimation(c)
-          const dur = source.durationMs
           // The copy sits immediately after the original (clamped to the max
-          // range; it may land past the set duration and render faded).
-          const insertStart = Math.min(
-            source.startMs + dur,
-            Math.max(0, MAX_DURATION_MS - dur)
-          )
-          // Push clips at/after the insertion point to the right, but only far
-          // enough to open a gap for the copy — this preserves the spacing
-          // between the shifted clips instead of scattering them.
-          const nextStart = animation.clips
-            .filter(
-              (clip) => clip.id !== source.id && clip.startMs >= insertStart
-            )
-            .reduce((min, clip) => Math.min(min, clip.startMs), Infinity)
-          const shift = Number.isFinite(nextStart)
-            ? Math.max(0, insertStart + dur - nextStart)
-            : 0
-          const shifted = animation.clips.map((clip) =>
-            clip.id !== source.id && clip.startMs >= insertStart
-              ? {
-                  ...clip,
-                  startMs: Math.min(
-                    clip.startMs + shift,
-                    Math.max(0, MAX_DURATION_MS - clip.durationMs)
-                  ),
-                }
-              : clip
-          )
-          const clip: AnimationClip = {
-            ...source,
-            id: newId,
-            startMs: insertStart,
+          // range; it may land past the set duration and render faded). Duration
+          // is user-controlled — the copy never grows it.
+          return {
+            animation: {
+              ...animation,
+              clips: insertClipCopy(animation.clips, source.id, newId),
+            },
           }
-          // Insert the copy right after the original in the array so it renders
-          // between the two, not appended at the end.
-          const sourceIndex = shifted.findIndex((cl) => cl.id === source.id)
-          const clips = [
-            ...shifted.slice(0, sourceIndex + 1),
-            clip,
-            ...shifted.slice(sourceIndex + 1),
-          ]
-          // Duration is user-controlled — the copy never grows it; a copy past
-          // the duration is just shown faded.
-          return { animation: { ...animation, clips } }
         },
         null
       )
       return newId
+    },
+    setAnimationClipSelection: (ids, canvasId) => {
+      const unique = Array.from(new Set(ids))
+      // 0 or 1 clip → identical to a normal single select (loads its pose so the
+      // inspector edits that keyframe, or deselects on empty).
+      if (unique.length <= 1) {
+        get().selectAnimationClip(unique[0] ?? null, canvasId)
+        return
+      }
+      const state = get()
+      const targetCanvasId = canvasId ?? state.present.activeCanvasId
+      const canvas = state.present.canvases.find((c) => c.id === targetCanvasId)
+      if (!canvas) {
+        set({ selectedAnimationClipIds: unique, selectedAnimationClipId: null })
+        return
+      }
+      const animation = getCanvasAnimation(canvas)
+      const openId = state.selectedAnimationClipId
+      let nextClips = animation.clips
+      // Persist the currently-open clip's live edits before clearing the primary.
+      if (openId && nextClips.some((c) => c.id === openId)) {
+        const pose = captureClipPose(canvas)
+        nextClips = nextClips.map((c) => (c.id === openId ? { ...c, pose } : c))
+      }
+      const canvases = state.present.canvases.map((c) =>
+        c.id === canvas.id
+          ? { ...c, animation: { ...animation, clips: nextClips } }
+          : c
+      )
+      // A multi-selection opens no single keyframe for editing (primary = null)
+      // so inspector edits can't mis-route; bulk actions read the id set.
+      set({
+        present: { ...state.present, canvases },
+        selectedAnimationClipIds: unique,
+        selectedAnimationClipId: null,
+      })
+    },
+    removeAnimationClips: (ids, canvasId) => {
+      if (ids.length === 0) return
+      const idSet = new Set(ids)
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          return {
+            animation: {
+              ...animation,
+              clips: animation.clips.filter((clip) => !idSet.has(clip.id)),
+            },
+          }
+        },
+        null
+      )
+      // Drop the removed ids from the selection.
+      set((s) => ({
+        selectedAnimationClipIds: s.selectedAnimationClipIds.filter(
+          (id) => !idSet.has(id)
+        ),
+        selectedAnimationClipId:
+          s.selectedAnimationClipId && idSet.has(s.selectedAnimationClipId)
+            ? null
+            : s.selectedAnimationClipId,
+      }))
+    },
+    clearAnimationClipsEffects: (ids, canvasId) => {
+      if (ids.length === 0) return
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const animation = getCanvasAnimation(canvas)
+          let nextClips = animation.clips
+          for (const id of ids)
+            nextClips = clearClipEffectsInArray(nextClips, id)
+          // No clip owned anything → nothing changed.
+          if (nextClips === animation.clips) return {}
+          // If the open clip was among those cleared, reload its resolved look
+          // so the committed canvas reflects the strip.
+          const openId = get().selectedAnimationClipId
+          const opened =
+            openId && ids.includes(openId)
+              ? nextClips.find((c) => c.id === openId)
+              : undefined
+          const canvasPatch = opened
+            ? applyPoseToCanvas(
+                canvas,
+                resolveKeyframePose(canvas, nextClips, opened)
+              )
+            : {}
+          return {
+            ...canvasPatch,
+            animation: { ...animation, clips: nextClips },
+          }
+        },
+        null
+      )
+    },
+    duplicateAnimationClips: (ids, canvasId) => {
+      if (ids.length === 0) return []
+      const state = get().present
+      const resolvedId = canvasId ?? state.activeCanvasId
+      const canvas = state.canvases.find((c) => c.id === resolvedId)
+      if (!canvas) return []
+      const existing = getCanvasAnimation(canvas).clips
+      // Duplicate in timeline order so each copy lands right after its original.
+      const sources = ids
+        .map((id) => existing.find((c) => c.id === id))
+        .filter((c): c is AnimationClip => Boolean(c))
+        .sort((a, b) => a.startMs - b.startMs)
+      if (sources.length === 0) return []
+      const newIds: string[] = []
+      commitCanvas(
+        canvasId,
+        (c) => {
+          const animation = getCanvasAnimation(c)
+          let clips = animation.clips
+          for (const source of sources) {
+            const newId = makeId()
+            newIds.push(newId)
+            clips = insertClipCopy(clips, source.id, newId)
+          }
+          return { animation: { ...animation, clips } }
+        },
+        null
+      )
+      return newIds
     },
     splitAnimationClip: (id, atMs, canvasId) => {
       const state = get().present
