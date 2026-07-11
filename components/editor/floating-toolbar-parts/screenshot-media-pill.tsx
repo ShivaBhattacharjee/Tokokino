@@ -16,6 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import {
   MAX_SCREENSHOT_SLOTS,
   useEditor,
@@ -62,18 +63,23 @@ export function ScreenshotMediaPill() {
     : Boolean(screenshot)
   const currentFit = selectedSlot?.objectFit ?? objectFit ?? "cover"
 
+  // A video must be the only screenshot, so extra slots can't be added to it.
+  const mainIsVideo = isVideoSrc(screenshot)
   const isDisabled =
     presetTab === "multi" ||
     presetTab === "triple" ||
     Boolean(tweet) ||
+    mainIsVideo ||
     screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
 
   const slotTooltip = isDisabled
     ? tweet
       ? "Disabled for social posts"
-      : presetTab === "multi" || presetTab === "triple"
-        ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
-        : `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
+      : mainIsVideo
+        ? "Not available for videos"
+        : presetTab === "multi" || presetTab === "triple"
+          ? `Disabled in ${presetTab === "triple" ? "Triple" : "Multi"} preset mode`
+          : `Maximum ${MAX_SCREENSHOT_SLOTS} screenshot boxes`
     : "Add a screenshot slot"
 
   const hasDeviceFrame = frame.id !== "none"

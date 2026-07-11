@@ -27,6 +27,9 @@ type BoxEmptyStateProps = {
   contentRotation?: number
   /** Static visual only — no popovers, inputs, or click handlers. */
   presentational?: boolean
+  /** Whether videos are accepted (false for extra-slot / multi-screenshot
+   * boxes). Forwarded to UploadCard for its label. Defaults to true. */
+  allowVideo?: boolean
   /** Use the normal fixed-size upload card instead of cqw fluid sizing. */
   plainWideCard?: boolean
   /** Default capture device for the inner UploadCard (e.g. "mobile" when the canvas frame is a phone). */
@@ -45,6 +48,7 @@ export function BoxEmptyState({
   contentRotation = 0,
   presentational = false,
   plainWideCard = false,
+  allowVideo = true,
   defaultCaptureDevice,
   defaultCaptureOrientation,
   captureStateKey,
@@ -92,6 +96,7 @@ export function BoxEmptyState({
             onCapture={handleCapture}
             onLoadTweet={onLoadTweet}
             showHint
+            allowVideo={allowVideo}
             defaultDevice={defaultCaptureDevice}
             defaultOrientation={defaultCaptureOrientation}
             captureStateKey={captureStateKey}
@@ -114,6 +119,7 @@ export function BoxEmptyState({
               onCapture={handleCapture}
               onLoadTweet={onLoadTweet}
               showHint
+              allowVideo={allowVideo}
               defaultDevice={defaultCaptureDevice}
               defaultOrientation={defaultCaptureOrientation}
               captureStateKey={captureStateKey}
@@ -132,6 +138,7 @@ export function BoxEmptyState({
               onCapture={handleCapture}
               onLoadTweet={onLoadTweet}
               showHint
+              allowVideo={allowVideo}
               defaultDevice={defaultCaptureDevice}
               defaultOrientation={defaultCaptureOrientation}
               captureStateKey={captureStateKey}

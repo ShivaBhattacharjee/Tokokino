@@ -227,6 +227,9 @@ export function MainScreenshotRender({
               frame={frame}
               isDragOver={isDragOver}
               onBrowse={onBrowse}
+              // Row mode = multiple screenshots, so the main box can't take a
+              // video either (a video must be the sole screenshot).
+              allowVideo={false}
               imageFilter={filterChain}
               shadowFilter={shadowFilter}
               contentTransform={transform}

@@ -1,3 +1,4 @@
+import { getBlobForObjectUrl, registerObjectUrl } from "../media-type"
 import { BACKGROUND_LIBRARY } from "../presets"
 import type { Background, CanvasState, EditorState } from "../state-types"
 
@@ -78,23 +79,15 @@ function isSentinel(v: string | null | undefined): v is string {
   return typeof v === "string" && v.startsWith(BLOB_SENTINEL_PREFIX)
 }
 
-// Tracks every Object URL we mint during hydration so the save path can look
-// the original Blob back up cheaply. Without this we'd lose the blob on
-// reload (Object URLs can't be serialised) or be forced to fetch them
-// through XHR on every save, which defeats the point. The map is bounded by
-// the number of distinct screenshots/backgrounds in the active project, so
-// memory is fine — we drop entries when explicitly revoked.
-const objectUrlBlobs = new Map<string, Blob>()
+// The Object-URL → Blob registry lives in media-type.ts so both this save path
+// and the video intake share one map: minting through registerObjectUrl lets
+// the save path look a blob back up cheaply (Object URLs can't be serialised),
+// and video-typed blobs get flagged so isVideoSrc() recognises restored ones.
 
-function blobToObjectUrl(blob: Blob): string {
-  const url = URL.createObjectURL(blob)
-  objectUrlBlobs.set(url, blob)
-  return url
-}
-
-function getBlobFromObjectUrl(url: string): Blob | null {
-  return objectUrlBlobs.get(url) ?? null
-}
+// Ledger of blobs already written to IndexedDB this session, keyed by sentinel
+// key. Lets writeEditorDraft skip re-putting a blob whose reference hasn't
+// changed (see the upsert loop) so large videos aren't rewritten on every save.
+const persistedBlobs = new Map<string, Blob>()
 
 // Safari/WebKit only guarantees that a Blob read from IndexedDB stays readable
 // while the source database connection is open — once we `db.close()`, the
@@ -166,7 +159,7 @@ function extractField(
     // of re-decoding from the rendered DOM. If the entry has gone missing
     // (e.g. user revoked the URL manually), fall through to "no extract"
     // so we don't accidentally write a stale blob entry.
-    const blob = getBlobFromObjectUrl(value)
+    const blob = getBlobForObjectUrl(value)
     if (blob) {
       blobs[key] = blob
       return { sentinel: `${BLOB_SENTINEL_PREFIX}${key}` }
@@ -299,13 +292,26 @@ async function resolveScreenshots(
   // hydration setState cheap and stops the post-refresh thundering herd
   // where every canvas re-rendered with a giant data URL at once.
   //
-  // Materialize each Blob into memory *before* the caller closes the DB so the
-  // Object URLs survive on Safari (see materializeBlob). Done in parallel to
-  // keep hydration fast.
+  // Images are materialized into memory *before* the caller closes the DB so the
+  // Object URLs survive on Safari (see materializeBlob). Videos are NOT — reading
+  // a whole multi-minute file into an ArrayBuffer would blow memory and stall (or
+  // crash) the restore. IDB blobs are disk-backed, so we mint the URL straight
+  // from the stored video blob and let the browser stream it on demand.
   const objectUrls: Record<string, string> = {}
   await Promise.all(
     Object.entries(blobMap).map(async ([key, blob]) => {
-      objectUrls[key] = blobToObjectUrl(await materializeBlob(blob))
+      try {
+        const source = blob.type.startsWith("video/")
+          ? blob
+          : await materializeBlob(blob)
+        objectUrls[key] = registerObjectUrl(source)
+        // This blob is already on disk (we just read it): seed the write ledger
+        // so the first autosave after a reload doesn't rewrite it needlessly.
+        persistedBlobs.set(key, source)
+      } catch {
+        // Skip a blob that fails to resolve rather than failing the whole draft
+        // restore; that key falls back to the canvas empty-state below.
+      }
     })
   )
 
@@ -414,8 +420,12 @@ export function writeEditorDraft(draft: PersistedEditorDraft): Promise<void> {
       // Write the slim JSON draft
       draftsStore.put(slimDraft)
 
-      // Upsert current blobs
+      // Upsert current blobs, but skip any whose exact Blob reference we already
+      // wrote this session. A blob's reference only changes when the underlying
+      // media is replaced, so this stops a large (e.g. video) blob from being
+      // rewritten to disk on every 250ms autosave — the JSON draft still saves.
       for (const [key, blob] of Object.entries(blobs)) {
+        if (persistedBlobs.get(key) === blob) continue
         blobsStore.put(blob, key)
       }
 
@@ -428,6 +438,14 @@ export function writeEditorDraft(draft: PersistedEditorDraft): Promise<void> {
       }
 
       tx.oncomplete = () => {
+        // Sync the ledger with what's now on disk: forget orphaned keys, record
+        // the current blob reference for each surviving key.
+        for (const key of Array.from(persistedBlobs.keys())) {
+          if (!validKeys.has(key)) persistedBlobs.delete(key)
+        }
+        for (const [key, blob] of Object.entries(blobs)) {
+          persistedBlobs.set(key, blob)
+        }
         db.close()
         resolve()
       }

@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
@@ -51,6 +52,8 @@ type ScreenshotBareProps = {
   shadowBoxTarget?: boolean
   objectFit?: "contain" | "cover" | "fill"
   innerLightingStyle?: React.CSSProperties | null
+  /** Receives the <video> DOM node (or null) when the screenshot is a video. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
 }
 
 /**
@@ -109,8 +112,22 @@ export function ScreenshotBare({
   shadowBoxTarget = false,
   objectFit = "cover",
   innerLightingStyle,
+  onMediaElement,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
+  const isVideo = isVideoSrc(screenshot)
+
+  // Feed the same element the parent measures (imageRef) and the video registry
+  // (which the docked control bar reads) off a single node, so placement
+  // measurement keeps working and the bar can drive playback.
+  const setMediaRef = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      imageRef.current = node as unknown as HTMLImageElement | null
+      onMediaElement?.(node)
+    },
+    [imageRef, onMediaElement]
+  )
+
   // Measured size of a nested-contain image so the empty lighting layer can
   // match the shrink-wrapped box (it has no intrinsic size of its own).
   const [nestedContainSize, setNestedContainSize] = React.useState<{
@@ -255,49 +272,86 @@ export function ScreenshotBare({
               transformStyle: "preserve-3d",
             }
 
+  const mediaClassName = cn(
+    "pointer-events-auto absolute select-none",
+    // Nested cover/fill fills the parent slot/row box.
+    isNested && !isNestedContain && "inset-0 h-full w-full",
+    !isNested && objectFit === "cover" && "h-full w-full object-cover",
+    !isNested && objectFit === "fill" && "h-full w-full object-fill",
+    // contain: shrink-wrap to the image's aspect (max bounds = stage/parent).
+    // Outline/radius/shadow then hug the image; lighting uses measured size.
+    (isNestedContain || (!isNested && objectFit === "contain")) &&
+      "max-h-full max-w-full object-contain",
+    isNested && objectFit === "cover" && "object-cover",
+    isNested && objectFit === "fill" && "object-fill",
+    screenshotLayer.hidden && "pointer-events-none",
+    isScreenshotDragging || suppressTransition || activeTool === "position"
+      ? "cursor-grabbing transition-none"
+      : "transition-all duration-300 ease-out",
+    activeTool === "pointer" && "cursor-grab",
+    isScreenshotSelected && activeTool === "pointer" && "outline-none"
+  )
+
   return (
     <div
       ref={stageRef}
       className="group/screenshot pointer-events-none relative h-full w-full overflow-visible"
       onPointerDown={onContainerPointerDown}
     >
-      <ShimmerImage
-        ref={imageRef}
-        shimmer={false}
-        data-box-hover-target
-        data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
-        src={screenshot}
-        alt="Screenshot"
-        draggable={false}
-        onLoad={onImageLoad}
-        onClick={onSelect}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        style={imagePositionStyle}
-        className={cn(
-          "pointer-events-auto absolute select-none",
-          // Nested cover/fill fills the parent slot/row box.
-          isNested && !isNestedContain && "inset-0 h-full w-full",
-          !isNested && objectFit === "cover" && "h-full w-full object-cover",
-          !isNested && objectFit === "fill" && "h-full w-full object-fill",
-          // contain: shrink-wrap to the image's aspect (max bounds = stage/parent).
-          // Outline/radius/shadow then hug the image; lighting uses measured size.
-          (isNestedContain || (!isNested && objectFit === "contain")) &&
-            "max-h-full max-w-full object-contain",
-          isNested && objectFit === "cover" && "object-cover",
-          isNested && objectFit === "fill" && "object-fill",
-          screenshotLayer.hidden && "pointer-events-none",
-          isScreenshotDragging ||
-            suppressTransition ||
-            activeTool === "position"
-            ? "cursor-grabbing transition-none"
-            : "transition-all duration-300 ease-out",
-          activeTool === "pointer" && "cursor-grab",
-          isScreenshotSelected && activeTool === "pointer" && "outline-none"
-        )}
-      />
+      {isVideo ? (
+        <video
+          ref={setMediaRef}
+          data-box-hover-target
+          data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
+          src={screenshot}
+          muted
+          loop
+          playsInline
+          // Only fetch metadata + the poster frame up front; the browser streams
+          // the rest on demand (range requests) once it plays. Avoids buffering
+          // a whole multi-minute video just to show it sitting on the canvas.
+          preload="metadata"
+          draggable={false}
+          onLoadedMetadata={(e) =>
+            onImageLoad(e as unknown as React.SyntheticEvent<HTMLImageElement>)
+          }
+          onClick={(e) =>
+            onSelect(e as unknown as React.MouseEvent<HTMLImageElement>)
+          }
+          onPointerDown={(e) =>
+            onPointerDown(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+          onPointerMove={(e) =>
+            onPointerMove(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+          onPointerUp={(e) =>
+            onPointerUp(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+          onPointerCancel={(e) =>
+            onPointerUp(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+          style={imagePositionStyle}
+          className={mediaClassName}
+        />
+      ) : (
+        <ShimmerImage
+          ref={imageRef}
+          shimmer={false}
+          data-box-hover-target
+          data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
+          src={screenshot}
+          alt="Screenshot"
+          draggable={false}
+          onLoad={onImageLoad}
+          onClick={onSelect}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          style={imagePositionStyle}
+          className={mediaClassName}
+        />
+      )}
 
       {innerLightingStyle && !screenshotLayer.hidden ? (
         <div

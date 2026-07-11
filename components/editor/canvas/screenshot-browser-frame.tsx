@@ -99,6 +99,9 @@ type BrowserFrameEmptyStateProps = {
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   innerLightingStyle?: React.CSSProperties | null
+  /** Whether videos are accepted (false for multi-screenshot boxes). Forwarded
+   * to the upload card for its label. Defaults to true. */
+  allowVideo?: boolean
 }
 
 export function ScreenshotBrowserFrame({
@@ -301,6 +304,7 @@ export function BrowserFrameEmptyState({
   defaultCaptureDevice,
   captureStateKey,
   innerLightingStyle,
+  allowVideo = true,
 }: BrowserFrameEmptyStateProps) {
   const [url, setUrl] = React.useState("")
   const frame = getBrowserFrame(frameId)
@@ -351,6 +355,7 @@ export function BrowserFrameEmptyState({
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
+              allowVideo={allowVideo}
             />
           </Arc>
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
@@ -369,6 +374,7 @@ export function BrowserFrameEmptyState({
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
+              allowVideo={allowVideo}
             />
           </Chrome>
         ) : (
@@ -387,6 +393,7 @@ export function BrowserFrameEmptyState({
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
+              allowVideo={allowVideo}
             />
           </Safari>
         )}
@@ -417,6 +424,7 @@ export function BrowserFrameEmptyState({
             onCapture={onCapture}
             defaultCaptureDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
+            allowVideo={allowVideo}
           />
         </div>
       ) : null}
@@ -435,6 +443,7 @@ function BrowserFrameEmptyContent({
   defaultCaptureDevice,
   captureStateKey,
   compact = false,
+  allowVideo = true,
 }: {
   isDragOver: boolean
   url: string
@@ -444,6 +453,7 @@ function BrowserFrameEmptyContent({
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   compact?: boolean
+  allowVideo?: boolean
 }) {
   return (
     <div className="relative size-full">
@@ -462,6 +472,7 @@ function BrowserFrameEmptyContent({
             onCapture={onCapture}
             defaultDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
+            allowVideo={allowVideo}
             showHint
             className="w-full max-w-[400px]"
           />
@@ -477,12 +488,14 @@ function BrowserFrameCompactUpload({
   onCapture,
   defaultCaptureDevice,
   captureStateKey,
+  allowVideo = true,
 }: {
   isDragOver: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
+  allowVideo?: boolean
 }) {
   const stopPointer = (e: React.PointerEvent) => e.stopPropagation()
 
@@ -500,6 +513,7 @@ function BrowserFrameCompactUpload({
         onCapture={onCapture}
         defaultDevice={defaultCaptureDevice}
         captureStateKey={captureStateKey}
+        allowVideo={allowVideo}
         showHint
       />
     </div>

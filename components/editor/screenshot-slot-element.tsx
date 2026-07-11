@@ -360,6 +360,8 @@ export function ScreenshotSlotRender({
                 frame={shared.frame}
                 isDragOver={isDragOver}
                 onBrowse={onBrowse}
+                // Extra slots are never the sole screenshot, so no video here.
+                allowVideo={false}
                 imageFilter={filterChain || undefined}
                 shadowFilter={computedShadowFilter}
                 contentTransform={contentTransform}

@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { AnnotationToolbar } from "@/components/editor/annotation-toolbar"
 import { findAspectOption } from "@/components/editor/aspect-popover"
 import { MobileFramePicker } from "@/components/editor/frame-popover"
+import { VideoControlBar } from "@/components/editor/video-control-bar"
 import {
   Drawer,
   DrawerContent,
@@ -37,6 +38,7 @@ import {
 import type { AspectState, DeviceFrame } from "@/lib/editor/store"
 import { editorValueSchemas } from "@/lib/editor/value-schemas"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import { getFrameAspectCompatibilityWarning } from "@/lib/editor/frame-aspect-compatibility"
 import { cn } from "@/lib/utils"
 
@@ -316,6 +318,10 @@ export function MobileControls({
       toast.error("Social posts use one content slot")
       return
     }
+    if (isVideoSrc(screenshot)) {
+      toast.error("Extra screenshots aren't available for videos")
+      return
+    }
     const id = addScreenshotSlot()
     if (!id) {
       toast.error(`Screenshot box limit reached (${MAX_SCREENSHOT_SLOTS})`)
@@ -331,6 +337,7 @@ export function MobileControls({
   }, [
     addScreenshotSlot,
     tweet,
+    screenshot,
     setActiveTool,
     setIsScreenshotSelected,
     setSelectedAnnotationShapeId,
@@ -502,6 +509,15 @@ export function MobileControls({
           ) : null}
         </AnimatePresence>
 
+        {/* Video play/pause + scrubber — shown when the active canvas is a video
+            and no panel is open. Animate isn't offered on phones, so the compact
+            bar drops it (see VideoControlBar). Returns null for non-video canvases. */}
+        {isVideoSrc(screenshot) && !inlineActive && !annotationOpen ? (
+          <div className="pointer-events-auto w-[min(340px,calc(100vw-3.5rem))]">
+            <VideoControlBar compact />
+          </div>
+        ) : null}
+
         {/* Category chips — flat, horizontal overflow-x scroll for the active tab */}
         <div className="pointer-events-auto flex max-w-full [scrollbar-width:none] items-center gap-0.5 overflow-x-auto px-1 [&::-webkit-scrollbar]:hidden">
           <MobileHistoryButton
@@ -608,6 +624,7 @@ export function MobileControls({
                         icon={RiGalleryLine}
                         disabled={
                           Boolean(tweet) ||
+                          isVideoSrc(screenshot) ||
                           screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
                         }
                         onClick={addSlot}

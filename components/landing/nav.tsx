@@ -39,7 +39,7 @@ export function Nav() {
         initial={showRails ? false : { opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease }}
-        className="relative z-50 flex h-12 w-full shrink-0 items-center justify-between px-5 backdrop-blur-xl sm:px-8 lg:px-12"
+        className="relative z-50 flex h-12 w-full shrink-0 items-center justify-between px-5 sm:px-8 lg:px-12"
       >
         <BrandLogo />
 
@@ -110,13 +110,7 @@ export function Nav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.28, ease }}
-            className="fixed inset-x-0 top-12 bottom-0 z-40 overflow-y-auto xl:hidden"
-            style={{
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              backgroundColor:
-                "color-mix(in oklch, var(--background) 58%, transparent)",
-            }}
+            className="fixed inset-x-0 top-[calc(3rem+1px)] bottom-0 z-40 overflow-y-auto bg-background xl:hidden"
           >
             <div
               className="mx-auto flex min-h-full w-[calc(100%-1rem)] max-w-[76rem] flex-col px-5 pt-8 pb-12 sm:w-[calc(100%-2rem)] sm:px-8 md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] lg:px-12"
@@ -169,10 +163,17 @@ export function Nav() {
                 }}
                 className="mt-auto flex flex-col gap-3"
               >
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={toggleTheme}
-                  className="flex w-full items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition hover:border-foreground/40"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      toggleTheme()
+                    }
+                  }}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition hover:border-foreground/40"
                 >
                   <span className="font-mono text-sm font-bold text-foreground/70 uppercase">
                     Theme
@@ -180,7 +181,7 @@ export function Nav() {
                   <span className="pointer-events-none">
                     <ThemeToggle />
                   </span>
-                </button>
+                </div>
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}

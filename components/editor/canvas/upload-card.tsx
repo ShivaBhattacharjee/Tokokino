@@ -403,6 +403,10 @@ type UploadCardProps = {
   fluid?: boolean
   /** Render only a small trigger icon; full upload UI opens in a popover */
   compact?: boolean
+  /** Whether videos are accepted here. False for extra-slot / multi-screenshot
+   * boxes (a video must be the sole screenshot); changes the button label from
+   * "Upload Screenshot/Media" to "Upload Screenshot". Defaults to true. */
+  allowVideo?: boolean
   /** Seed capture settings for the active frame (e.g. "mobile" when the canvas has a phone frame). */
   defaultDevice?: CaptureDevice
   /** Frame orientation, used to seed a tablet capture as portrait (3:4) vs landscape (4:3). */
@@ -420,6 +424,7 @@ export function UploadCard({
   className,
   fluid = false,
   compact = false,
+  allowVideo = true,
   defaultDevice,
   defaultOrientation,
   captureStateKey,
@@ -646,6 +651,7 @@ export function UploadCard({
               onCapture={onCapture}
               onLoadTweet={onLoadTweet}
               showHint={showHint}
+              allowVideo={allowVideo}
               defaultDevice={defaultDevice}
               defaultOrientation={defaultOrientation}
               captureStateKey={captureStateKey}
@@ -675,7 +681,7 @@ export function UploadCard({
         )}
       >
         <RiUploadLine className={cn(sizing.icon, "shrink-0")} />
-        Upload Screenshot
+        {allowVideo ? "Upload Screenshot/Media" : "Upload Screenshot"}
       </button>
       <div className={sizing.urlRow}>
         <label

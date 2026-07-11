@@ -77,7 +77,7 @@ export function ScreenshotEditMenu({
       <input
         ref={replaceInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0]

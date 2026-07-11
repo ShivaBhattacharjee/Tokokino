@@ -97,6 +97,8 @@ import {
   getOptimizedUrlSync,
 } from "@/lib/editor/image-resize"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
+import { revokeVideoObjectUrl } from "@/lib/editor/media-type"
+import { useVideoRegistry } from "@/lib/editor/video-registry"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
 import { useImageFileIntake } from "./use-image-file-intake"
@@ -379,10 +381,15 @@ function CanvasViewInner({
   )
   const setMainScreenshotImage = React.useCallback(
     (src: string) => {
+      // Free the outgoing video's object URL so replacing videos doesn't leak.
+      const prev = useEditorStore
+        .getState()
+        .present.canvases.find((c) => c.id === scopeId)?.screenshot
+      if (prev && prev !== src) revokeVideoObjectUrl(prev)
       setScreenshot(src)
       setNaturalDims(null)
     },
-    [setScreenshot]
+    [scopeId, setScreenshot]
   )
   const handleImageFile = React.useCallback(
     (src: string) => {
@@ -394,8 +401,28 @@ function CanvasViewInner({
     },
     [selectedScreenshotSlotId, setMainScreenshotImage, setScreenshotSlotImage]
   )
+
+  // Register the main <video> element so the docked control bar can drive it.
+  // Preview/thumbnail scopes never register — only the real editable canvas.
+  const registerVideo = useVideoRegistry((s) => s.registerVideo)
+  const handleMediaElement = React.useCallback(
+    (el: HTMLVideoElement | null) => {
+      if (!scopeId || isCanvasPreview) return
+      registerVideo(scopeId, el)
+    },
+    [isCanvasPreview, registerVideo, scopeId]
+  )
+  React.useEffect(() => {
+    return () => {
+      if (scopeId && !isCanvasPreview) registerVideo(scopeId, null)
+    }
+  }, [isCanvasPreview, registerVideo, scopeId])
   const { fileInputRef, fileInputProps, isDragOver, readFile, dropHandlers } =
-    useImageFileIntake(handleImageFile)
+    useImageFileIntake(handleImageFile, {
+      // A video may only be the sole screenshot — once extra slots exist, block
+      // dropping/pasting one into the main box (and route slots reject it too).
+      allowVideo: screenshotSlots.length === 0,
+    })
 
   const handleCaptureWebsite = React.useCallback(
     async (rawUrl: string, settings: CaptureSettings) => {
@@ -789,9 +816,13 @@ function CanvasViewInner({
   }
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const el = e.currentTarget
-    if (!inRowMode) {
-      setNaturalDims({ w: el.naturalWidth, h: el.naturalHeight })
+    // Also fires from a <video>'s onLoadedMetadata for video screenshots, where
+    // intrinsic size lives on videoWidth/videoHeight instead of naturalWidth.
+    const el = e.currentTarget as HTMLImageElement & Partial<HTMLVideoElement>
+    const w = el.naturalWidth || el.videoWidth || 0
+    const h = el.naturalHeight || el.videoHeight || 0
+    if (!inRowMode && w > 0 && h > 0) {
+      setNaturalDims({ w, h })
     }
     measurePlacement()
   }
@@ -1124,6 +1155,7 @@ function CanvasViewInner({
                     captureDefaultDevice={captureDefaultDevice}
                     captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
+                    onMediaElement={handleMediaElement}
                   />
                 )
               ) : browserFrame ? (

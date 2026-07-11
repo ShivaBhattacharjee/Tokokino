@@ -71,6 +71,9 @@ type ScreenshotFrameContentProps = {
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
+  /** Whether videos may be uploaded here (false for extra slots / multi-shot
+   * boxes). Forwarded to the empty-state upload card. Defaults to true. */
+  allowVideo?: boolean
 }
 
 const CENTER_ANCHOR = { x: 50, y: 50 }
@@ -127,6 +130,7 @@ export function ScreenshotFrameContent({
   onCapture,
   captureDefaultDevice,
   captureStateKey,
+  allowVideo = true,
 }: ScreenshotFrameContentProps) {
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
@@ -296,6 +300,7 @@ export function ScreenshotFrameContent({
         onCapture={onCapture}
         defaultCaptureDevice={captureDefaultDevice}
         captureStateKey={captureStateKey}
+        allowVideo={allowVideo}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -309,6 +314,7 @@ export function ScreenshotFrameContent({
     return (
       <MockupEmptyState
         compact={emptyCompact}
+        allowVideo={allowVideo}
         scopeToMinSide={mockupScopeToMinSide}
         mockupAsset={mockupAsset}
         mockupSpec={mockupSpec}
@@ -362,6 +368,7 @@ export function ScreenshotFrameContent({
           onCapture={onCapture}
           defaultCaptureDevice={captureDefaultDevice}
           captureStateKey={captureStateKey}
+          allowVideo={allowVideo}
           compact={emptyCompact}
           previewStyle={emptyPreviewStyle}
           aspectW={aspectW}
@@ -378,6 +385,7 @@ export function ScreenshotFrameContent({
             onCapture={onCapture}
             defaultCaptureDevice={captureDefaultDevice}
             captureStateKey={captureStateKey}
+            allowVideo={allowVideo}
             compact={emptyCompact}
           />
         </>
