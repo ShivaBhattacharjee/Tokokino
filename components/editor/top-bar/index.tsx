@@ -1274,7 +1274,7 @@ export function TopBar() {
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
 
-          {!isVideoCanvas && (
+          {!isVideoCanvas && !isAnimateMode && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

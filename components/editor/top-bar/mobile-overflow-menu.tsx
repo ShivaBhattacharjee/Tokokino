@@ -208,7 +208,7 @@ export function MobileOverflowMenu({
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          {!isVideoCanvas && (
+          {!isVideoCanvas && !isAnimateMode && (
             <DropdownMenuItem
               onClick={() => {
                 setMenuOpen(false)
