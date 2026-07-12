@@ -35,7 +35,10 @@ function streamFor(bytes: Uint8Array) {
 describe("GET /api/share/[id]/image", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.getShareById.mockResolvedValue(null)
+    mocks.getShareById.mockResolvedValue({
+      key: `shares/${VALID_SHARE_ID}.png`,
+      contentType: "image/png",
+    })
   })
 
   it("rejects malformed share ids without reading storage", async () => {
@@ -72,6 +75,22 @@ describe("GET /api/share/[id]/image", () => {
       `inline; filename="tokokino-share-${VALID_SHARE_ID}.jpg"`
     )
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
+  })
+
+  it("does not expose an object that has no completed share record", async () => {
+    mocks.getShareById.mockResolvedValue(null)
+    const { GET } = await loadRoute()
+
+    const response = await GET(
+      new Request("http://localhost:3000"),
+      params(VALID_SHARE_ID)
+    )
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: "Share media not found",
+    })
+    expect(mocks.getShareImage).not.toHaveBeenCalled()
   })
 
   it("returns 404 when storage has no readable body", async () => {
