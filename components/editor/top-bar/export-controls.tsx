@@ -39,6 +39,7 @@ import {
   type AnimationExportFormat,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
+import { animationExportErrorMessage } from "@/lib/editor/animation-export/error-message"
 import {
   exportCanvas,
   getCanvasRenderedDims,
@@ -51,6 +52,7 @@ import {
 } from "@/lib/editor/export"
 import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
 import { isVideoSrc } from "@/lib/editor/media-type"
+import { shouldUseVideoMediaShareExport } from "@/lib/editor/share-export-choice"
 import { useEditorStore } from "@/lib/editor/store"
 import type { CanvasState } from "@/lib/editor/store"
 import { usePersistentState } from "@/hooks/use-persistent-state"
@@ -588,7 +590,17 @@ export function ExportControls({
     )
     return canvas ? isVideoSrc(canvas.screenshot) : false
   })
-  const videoExportMode = isVideoCanvas && !isAnimateMode
+  const animationKeyframeCount = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas?.animation?.clips.length ?? 0
+  })
+  const videoExportMode = shouldUseVideoMediaShareExport({
+    isVideoCanvas,
+    isAnimateMode,
+    keyframeCount: animationKeyframeCount,
+  })
   const showVideoFormats = isAnimateMode || videoExportMode
   const setTopBarPopoverOpen = useEditorStore((s) => s.setTopBarPopoverOpen)
   // Sticky export preferences — persisted so a chosen format/resolution/fps
@@ -727,9 +739,10 @@ export function ExportControls({
         } else {
           console.error(err)
           toast.error(
-            err instanceof Error
-              ? err.message
-              : "Video export failed. Please try again."
+            animationExportErrorMessage(
+              err,
+              "Video export failed. Please try again."
+            )
           )
         }
       } finally {
@@ -791,11 +804,7 @@ export function ExportControls({
           toast.message("Export cancelled")
         } else {
           console.error(err)
-          toast.error(
-            err instanceof Error && err.message === "Nothing to export"
-              ? "Nothing to export — add a keyframe first."
-              : "Animation export failed. Please try again."
-          )
+          toast.error(animationExportErrorMessage(err))
         }
       } finally {
         animAbortRef.current = null
