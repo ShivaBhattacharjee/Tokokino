@@ -54,6 +54,7 @@ import {
 } from "@/lib/editor/animation-export"
 import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
 import { isVideoSrc } from "@/lib/editor/media-type"
+import { shouldUseVideoMediaShareExport } from "@/lib/editor/share-export-choice"
 import {
   createResumableShareUpload,
   listPendingResumableShareUploads,
@@ -224,6 +225,17 @@ export function TopBar() {
     )
     return canvas ? isVideoSrc(canvas.screenshot) : false
   })
+  const animationKeyframeCount = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas?.animation?.clips.length ?? 0
+  })
+  const useVideoMediaShareExport = shouldUseVideoMediaShareExport({
+    isVideoCanvas,
+    isAnimateMode,
+    keyframeCount: animationKeyframeCount,
+  })
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
 
@@ -314,10 +326,10 @@ export function TopBar() {
   const handleShare = React.useCallback(async () => {
     if (shareDialog.status === "preparing") return
 
-    const mediaKind = isAnimateMode
-      ? "animate"
-      : isVideoCanvas
-        ? "video"
+    const mediaKind = useVideoMediaShareExport
+      ? "video"
+      : isAnimateMode
+        ? "animate"
         : "style"
     setIsShareLinkCopied(false)
     setShareProgress(null)
@@ -429,6 +441,7 @@ export function TopBar() {
     includeExportWatermark,
     isAnimateMode,
     isVideoCanvas,
+    useVideoMediaShareExport,
     shareDialog.mediaKind,
     shareDialog.signature,
     shareDialog.status,
@@ -455,11 +468,11 @@ export function TopBar() {
       url: null,
       signature: null,
       error: null,
-      mediaKind: isVideoCanvas && !isAnimateMode ? "video" : "animate",
+      mediaKind: useVideoMediaShareExport ? "video" : "animate",
     }))
 
     try {
-      const isPlainVideoCanvas = isVideoCanvas && !isAnimateMode
+      const isPlainVideoCanvas = useVideoMediaShareExport
       const recovered =
         pendingShareUploadRef.current ??
         (await listPendingResumableShareUploads()).find(
@@ -596,6 +609,7 @@ export function TopBar() {
     shareAnimResolution,
     shareDialog.status,
     toShareProgress,
+    useVideoMediaShareExport,
   ])
 
   React.useEffect(() => {
