@@ -72,6 +72,7 @@ export function AnimateBar() {
     selectedVideoClipIds,
     videoSelected,
     trimmingVideo,
+    draggingVideoClipIds,
     updateAnimationClip,
     draggingClipId,
     interactingClipId,
@@ -388,6 +389,7 @@ export function AnimateBar() {
                           width={clipWidth}
                           selected={selectedVideoClipIds.includes(clip.id)}
                           trimming={trimmingVideo && videoSelected}
+                          dragging={draggingVideoClipIds.includes(clip.id)}
                           razorMode={razorMode}
                           muted={clip.muted ?? getVideoMutedPreferenceSync()}
                           onPointerDownClip={(event, mode) =>

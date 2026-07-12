@@ -30,6 +30,7 @@ type TimelineVideoClipProps = {
   width: number
   selected: boolean
   trimming: boolean
+  dragging: boolean
   razorMode: boolean
   muted: boolean
   children: React.ReactNode
@@ -58,6 +59,7 @@ export function TimelineVideoClip({
   width,
   selected,
   trimming,
+  dragging,
   razorMode,
   muted,
   children,
@@ -89,10 +91,16 @@ export function TimelineVideoClip({
             trimming && "z-30"
           )}
           initial={{ opacity: 0, scale: 0.8, left, width }}
-          animate={{ opacity: 1, scale: 1, left, width }}
+          animate={{
+            opacity: dragging ? 0.72 : 1,
+            scale: 1,
+            left,
+            width,
+            y: dragging ? -3 : 0,
+          }}
           exit={{ opacity: 0, scale: 0.8 }}
           transition={
-            trimming
+            trimming || dragging
               ? { duration: 0 }
               : { duration: 0.22, ease: [0.4, 0, 0.2, 1] }
           }

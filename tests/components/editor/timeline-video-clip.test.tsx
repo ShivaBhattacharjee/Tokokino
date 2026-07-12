@@ -11,6 +11,7 @@ const renderClip = (
     width: 160,
     selected: false,
     trimming: false,
+    dragging: false,
     razorMode: false,
     muted: false,
     onPointerDownClip: vi.fn(),

@@ -489,8 +489,14 @@ export function useAnimateTimeline() {
     movingClips: { id: string; timelineStartMs: number }[]
     captureTarget: Element
     pointerId: number
+    wasSelected: boolean
+    downX: number
+    moved: boolean
   } | null>(null)
   const [trimmingVideo, setTrimmingVideo] = React.useState(false)
+  const [draggingVideoClipIds, setDraggingVideoClipIds] = React.useState<
+    string[]
+  >([])
 
   const applyVideoTrim = React.useCallback(
     (clientX: number) => {
@@ -581,6 +587,9 @@ export function useAnimateTimeline() {
           })),
         captureTarget: event.currentTarget,
         pointerId: event.pointerId,
+        wasSelected: selectedVideoClipIds.includes(id),
+        downX: event.clientX,
+        moved: false,
       }
       setTrimmingVideo(true)
       pointerXRef.current = event.clientX
@@ -602,7 +611,14 @@ export function useAnimateTimeline() {
 
   const onVideoPointerMove = React.useCallback(
     (event: React.PointerEvent) => {
-      if (!videoDragRef.current) return
+      const drag = videoDragRef.current
+      if (!drag) return
+      if (!drag.moved && Math.abs(event.clientX - drag.downX) > 4) {
+        drag.moved = true
+        if (drag.mode === "move") {
+          setDraggingVideoClipIds(drag.movingClips.map((clip) => clip.id))
+        }
+      }
       pointerXRef.current = event.clientX
       applyVideoTrim(event.clientX)
     },
@@ -673,8 +689,10 @@ export function useAnimateTimeline() {
           })
         }
       }
+      if (!drag.moved && drag.wasSelected) setSelectedVideoClipIds([])
       videoDragRef.current = null
       setTrimmingVideo(false)
+      setDraggingVideoClipIds([])
       stopAutoScroll()
     },
     [clipMsFromClientX, resolvedVideoClips, stopAutoScroll, updateVideoClip]
@@ -1215,6 +1233,7 @@ export function useAnimateTimeline() {
       }
       videoDragRef.current = null
       setTrimmingVideo(false)
+      setDraggingVideoClipIds([])
       stopAutoScroll()
     },
     [onClipMenuOpenChange, stopAutoScroll]
@@ -1496,6 +1515,7 @@ export function useAnimateTimeline() {
     selectedVideoClipIds,
     videoSelected,
     trimmingVideo,
+    draggingVideoClipIds,
     updateAnimationClip,
     draggingClipId,
     interactingClipId,
