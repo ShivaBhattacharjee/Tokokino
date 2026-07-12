@@ -6,7 +6,6 @@ import {
   getExportFilenameFormat,
   getExportTemplateLabel,
 } from "./export-filename"
-import { useEditorStore } from "./store"
 
 export { shouldProxyAssetUrl } from "./export-assets"
 

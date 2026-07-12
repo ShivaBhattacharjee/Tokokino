@@ -40,6 +40,7 @@ describe("TimelineVideoClip", () => {
   it("keeps filmstrip imagery from taking pointer events away from the menu trigger", () => {
     const { container } = renderClip({
       children: (
+        // eslint-disable-next-line @next/next/no-img-element
         <img className="pointer-events-none" src="/filmstrip.jpg" alt="" />
       ),
     })

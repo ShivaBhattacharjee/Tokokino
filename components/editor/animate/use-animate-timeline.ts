@@ -166,6 +166,7 @@ export function useAnimateTimeline() {
   const selectedVideoClipId = selectedVideoClipIds.at(-1) ?? null
   const videoSelected = selectedVideoClipIds.length > 0
   React.useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!mainIsVideo) {
       if (selectedVideoClipIds.length > 0) setSelectedVideoClipIds([])
       return
@@ -176,6 +177,7 @@ export function useAnimateTimeline() {
     if (validIds.length !== selectedVideoClipIds.length) {
       setSelectedVideoClipIds(validIds)
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [mainIsVideo, resolvedVideoClips, selectedVideoClipIds])
   const selectedIdsRef = React.useRef(selectedClipIds)
   React.useEffect(() => {
@@ -592,6 +594,7 @@ export function useAnimateTimeline() {
       resolvedVideoClips,
       selectAnimationClip,
       selectedVideoClipIds,
+      setSelectedVideoClipIds,
       splitVideoClip,
       startAutoScroll,
     ]
@@ -674,13 +677,7 @@ export function useAnimateTimeline() {
       setTrimmingVideo(false)
       stopAutoScroll()
     },
-    [
-      clipMsFromClientX,
-      resolvedVideoClips,
-      resolveRippleDrop,
-      stopAutoScroll,
-      updateVideoClip,
-    ]
+    [clipMsFromClientX, resolvedVideoClips, stopAutoScroll, updateVideoClip]
   )
 
   const videoRowRef = React.useRef<HTMLDivElement | null>(null)
@@ -738,7 +735,7 @@ export function useAnimateTimeline() {
           .map((clip) => clip.id)
       )
     },
-    [resolvedVideoClips]
+    [resolvedVideoClips, setSelectedVideoClipIds]
   )
 
   const onVideoRowPointerUp = React.useCallback((event: React.PointerEvent) => {
@@ -760,7 +757,12 @@ export function useAnimateTimeline() {
       else setScreenshot(null)
       setSelectedVideoClipIds([])
     },
-    [removeVideoClips, selectedVideoClipIds, setScreenshot]
+    [
+      removeVideoClips,
+      selectedVideoClipIds,
+      setScreenshot,
+      setSelectedVideoClipIds,
+    ]
   )
 
   const duplicateVideo = React.useCallback(
@@ -770,7 +772,7 @@ export function useAnimateTimeline() {
       const newId = duplicateVideoClip(id, clip.endMs - clip.startMs)
       if (newId) setSelectedVideoClipIds([newId])
     },
-    [duplicateVideoClip, resolvedVideoClips]
+    [duplicateVideoClip, resolvedVideoClips, setSelectedVideoClipIds]
   )
 
   const copyVideoClip = React.useCallback(
@@ -968,6 +970,7 @@ export function useAnimateTimeline() {
     if (selectedVideoClip) {
       const next = !videoMuted
       updateVideoClip(selectedVideoClip.id, { muted: next })
+      // eslint-disable-next-line react-hooks/immutability
       el.muted = next
       setVideoElementMuted(next)
       return
@@ -984,6 +987,7 @@ export function useAnimateTimeline() {
       const muted = !(clip.muted ?? getVideoMutedPreferenceSync())
       updateVideoClip(id, { muted })
       if (id === selectedVideoClipId && videoEl) {
+        // eslint-disable-next-line react-hooks/immutability
         videoEl.muted = muted
         setVideoElementMuted(muted)
       }
@@ -1283,6 +1287,7 @@ export function useAnimateTimeline() {
   const canRazor = clips.length > 0 || resolvedVideoClips.length > 0
   React.useEffect(() => {
     if (clips.length === 0 && resolvedVideoClips.length === 0)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRazorMode(false)
   }, [clips.length, resolvedVideoClips.length])
 

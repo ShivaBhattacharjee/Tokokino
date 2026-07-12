@@ -69,7 +69,6 @@ export function AnimateBar() {
     highlightedClipIds,
     selectedClip,
     selectedClipIds,
-    selectedVideoClipId,
     selectedVideoClipIds,
     videoSelected,
     trimmingVideo,
