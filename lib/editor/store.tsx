@@ -66,7 +66,6 @@ import type {
   AnnotationPoint,
   AnnotationShape,
   AnnotationStroke,
-  AnimationAudio,
   AnimationClip,
   AnimationClipTarget,
   AnimationEffect,
@@ -121,7 +120,7 @@ const SLOT_ANIMATABLE_EFFECTS: AnimationEffect[] = [
 
 /** Canvas.animation is optional (older drafts) — always read through this. */
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
-  canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
+  canvas.animation ?? { durationMs: 5000, clips: [] }
 
 /** Snapshot the canvas's animatable state as a clip's target keyframe (pose). */
 export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
@@ -855,11 +854,6 @@ export type EditorActions = {
     canvasId?: string
   ) => string | null
   clearAnimationClips: (canvasId?: string) => void
-  setAnimationAudio: (audio: AnimationAudio | null, canvasId?: string) => void
-  updateAnimationAudio: (
-    patch: Partial<AnimationAudio>,
-    canvasId?: string
-  ) => void
   setIsPreviewMode: (p: boolean) => void
   setIsPreviewAutoScroll: (a: boolean) => void
   setPreviewAutoScrollDelay: (d: number) => void
@@ -2787,29 +2781,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           animation: { ...getCanvasAnimation(canvas), clips: [] },
         }),
         null
-      ),
-    setAnimationAudio: (audio, canvasId) =>
-      commitCanvas(
-        canvasId,
-        (canvas) => ({
-          animation: { ...getCanvasAnimation(canvas), audio },
-        }),
-        null
-      ),
-    updateAnimationAudio: (patch, canvasId) =>
-      commitCanvas(
-        canvasId,
-        (canvas) => {
-          const animation = getCanvasAnimation(canvas)
-          if (!animation.audio) return {}
-          return {
-            animation: {
-              ...animation,
-              audio: { ...animation.audio, ...patch },
-            },
-          }
-        },
-        "animation-audio"
       ),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
     setIsPreviewAutoScroll: (a) => set({ isPreviewAutoScroll: a }),

@@ -545,24 +545,10 @@ export type AnimationClip = {
   speed?: number
 }
 
-/**
- * Background audio attached to the animation. `src` is an in-session object URL
- * and is intentionally NOT persisted (dropped on serialize); the rest of the
- * metadata survives so the UI can show the track name after reload.
- */
-export type AnimationAudio = {
-  src: string
-  name: string
-  /** 0..1 */
-  volume: number
-  muted: boolean
-}
-
 export type CanvasAnimation = {
   /** Total timeline length in ms. */
   durationMs: number
   clips: AnimationClip[]
-  audio: AnimationAudio | null
 }
 
 export type TweetAuthor = {

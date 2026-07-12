@@ -117,7 +117,6 @@ describe("draft persistence", () => {
           effects: ["zoom"],
         },
       ],
-      audio: null,
     }
 
     const draft: PersistedEditorDraft = {
@@ -173,7 +172,6 @@ describe("draft persistence", () => {
           speed: 3,
         },
       ],
-      audio: null,
     }
 
     const draft: PersistedEditorDraft = {

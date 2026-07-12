@@ -20,17 +20,25 @@ import {
   timelineEndFor,
 } from "@/lib/editor/animation-timeline"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
+import {
+  createVideoObjectUrl,
+  isVideoFile,
+  isVideoSrc,
+  VIDEO_SIZE_LIMIT,
+  videoElementHasAudio,
+} from "@/lib/editor/media-type"
 import { isApplePlatform } from "@/lib/editor/shortcuts"
 import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
+import { useVideoFilmstrip } from "@/lib/editor/video-filmstrip"
+import {
+  applyVideoMutedToAll,
+  getVideoMutedPreferenceSync,
+  setVideoMutedPreference,
+} from "@/lib/editor/video-mute-preference"
+import { useVideoRegistry } from "@/lib/editor/video-registry"
 
 import type { ClipDragMode, ClipIconKey } from "./timeline-clip"
 
-/**
- * All Animate-mode timeline interaction: zoom/scroll, clip drag + trim,
- * playhead scrubbing, duration resize, the hover-to-add ghost, audio, keyboard
- * shortcuts and the exit guard. Kept out of the component so the view stays a
- * thin render layer over this state.
- */
 export function useAnimateTimeline() {
   const { playheadMs, durationMs, isPlaying, toggle, reset, seek } =
     useAnimationPlayer()
@@ -38,28 +46,33 @@ export function useAnimateTimeline() {
   const screenshot = useActiveCanvasField((c) => c.screenshot) ?? null
   const screenshotSlots = useActiveCanvasField((c) => c.screenshotSlots ?? [])
   const clips = useActiveCanvasField((c) => c.animation?.clips ?? [])
-  const audio = useActiveCanvasField((c) => c.animation?.audio ?? null)
-  // One base-layer row per image on the canvas: the main screenshot plus each
-  // extra screenshot slot. Drives the stacked rows under the motion lane.
+
+  const mainIsVideo = isVideoSrc(screenshot)
+  const mainFilmstrip = useVideoFilmstrip(mainIsVideo ? screenshot : null)
+
   const layers = React.useMemo(
     () => [
-      { id: "main" as const, src: screenshot },
-      ...screenshotSlots.map((slot) => ({ id: slot.id, src: slot.src })),
+      {
+        id: "main" as const,
+        src: screenshot,
+        isVideo: mainIsVideo,
+        filmstrip: mainIsVideo ? mainFilmstrip : null,
+      },
+      ...screenshotSlots.map((slot) => ({
+        id: slot.id,
+        src: slot.src,
+        isVideo: false,
+        filmstrip: null,
+      })),
     ],
-    [screenshot, screenshotSlots]
+    [screenshot, screenshotSlots, mainIsVideo, mainFilmstrip]
   )
 
-  // The furthest clip end drives how far the track extends (with headroom).
   const lastClipEnd = clips.reduce(
     (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
-    0
+    mainFilmstrip?.durationMs ?? 0
   )
-  // Dynamic timeline length — grows with the set duration and clips instead of a
-  // fixed 1-minute cap. Drives the RENDERED track (ruler width, ticks) and the
-  // add-clip ghost. Drag CLAMPS use the constant MAX_DURATION_MS ceiling instead,
-  // so a single drag/hold can extend far past the current end in one motion (the
-  // track then grows to follow); clamping the drag to this dynamic value would
-  // cap each drag at ~duration+headroom and stall when held still.
+
   const timelineEndMs = timelineEndFor(durationMs, lastClipEnd)
 
   const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
@@ -79,30 +92,38 @@ export function useAnimateTimeline() {
   const duplicateAnimationClips = useEditorStore(
     (s) => s.duplicateAnimationClips
   )
-  const setAnimationAudio = useEditorStore((s) => s.setAnimationAudio)
-  const updateAnimationAudio = useEditorStore((s) => s.updateAnimationAudio)
   const setAnimationDuration = useEditorStore((s) => s.setAnimationDuration)
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
 
-  // Clip selection lives in the store so selecting a clip can load its keyframe
-  // pose onto the canvas (and save the previously-open clip's edits).
+  const appliedVideoDurationRef = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    const videoDurationMs = mainFilmstrip?.durationMs
+    if (!mainIsVideo || !screenshot || !videoDurationMs) return
+    if (appliedVideoDurationRef.current === screenshot) return
+    if (durationMs !== 5000) return
+    appliedVideoDurationRef.current = screenshot
+    setAnimationDuration(
+      Math.max(
+        MIN_DURATION_MS,
+        Math.min(MAX_DURATION_MS, Math.round(videoDurationMs / 100) * 100)
+      )
+    )
+  }, [mainIsVideo, screenshot, mainFilmstrip, durationMs, setAnimationDuration])
+
   const selectedClipId = useEditorStore((s) => s.selectedAnimationClipId)
   const selectedClipIds = useEditorStore(
     useShallow((s) => s.selectedAnimationClipIds)
   )
   const selectAnimationClip = useEditorStore((s) => s.selectAnimationClip)
-  // Live selection set for the pointer/keyboard callbacks (kept out of their
-  // dependency lists so they stay stable).
   const selectedIdsRef = React.useRef(selectedClipIds)
   React.useEffect(() => {
     selectedIdsRef.current = selectedClipIds
   }, [selectedClipIds])
-  // Platform-aware label for the duplicate shortcut shown in the context menu.
+
   const [dupShortcut, setDupShortcut] = React.useState("⌘D")
   const [clearEffectsShortcut, setClearEffectsShortcut] = React.useState("⌘⇧⌫")
   const [deselectShortcut, setDeselectShortcut] = React.useState("⌘⇧A")
   React.useEffect(() => {
-    // Platform detection reads navigator, so it must run client-side after mount
-    // to keep SSR output deterministic (avoids a hydration mismatch on the label).
     /* eslint-disable react-hooks/set-state-in-effect */
     const apple = isApplePlatform()
     setDupShortcut(apple ? "⌘D" : "Ctrl+D")
@@ -112,21 +133,16 @@ export function useAnimateTimeline() {
   }, [])
   const trackRef = React.useRef<HTMLDivElement | null>(null)
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
-  const audioInputRef = React.useRef<HTMLInputElement | null>(null)
   const screenshotInputRef = React.useRef<HTMLInputElement | null>(null)
 
-  // Timeline zoom in pixels per second. Trackpad pinch / ctrl+wheel changes it,
-  // like the zoom in a real video editor. The track always scrolls horizontally.
   const [pxPerSecond, setPxPerSecond] = React.useState(PX_PER_SECOND)
   const pxPerSecondRef = React.useRef(pxPerSecond)
   React.useEffect(() => {
     pxPerSecondRef.current = pxPerSecond
   }, [pxPerSecond])
-  // Scroll offset to apply after a zoom so the point under the cursor stays put
-  // (contentWidth only reflects the new scale after the re-render).
+
   const pendingScrollRef = React.useRef<number | null>(null)
-  // Clip slide-animations are disabled while zooming so they don't rubber-band
-  // behind the scale change; re-enabled shortly after the last wheel event.
+
   const [clipsAnimated, setClipsAnimated] = React.useState(true)
   const zoomIdleRef = React.useRef<number | null>(null)
 
@@ -135,18 +151,10 @@ export function useAnimateTimeline() {
     [pxPerSecond]
   )
 
-  // The ruler always spans the full extendable range (up to the 60s max) so the
-  // whole timeline is visible/scrollable and the duration handle can be dragged
-  // anywhere in one motion. Ticks past the current duration are dimmed.
-  // Extend the scrollable content past the dynamic end, but also guarantee a
-  // minimum pixel gap to the right of the duration handle so it never jams
-  // against the scroll/panel edge when zoomed out (where the time headroom is
-  // only a few pixels wide).
   const contentWidth =
     Math.max(pxFor(timelineEndMs), pxFor(durationMs) + MIN_HANDLE_TRAILING_PX) +
     RULER_TRAILING_PX
 
-  // Raw pointer position in ms (unclamped), relative to the track's left edge.
   const rawMsFromClientX = React.useCallback((clientX: number) => {
     const el = trackRef.current
     if (!el) return 0
@@ -160,8 +168,6 @@ export function useAnimateTimeline() {
     [durationMs, rawMsFromClientX]
   )
 
-  // Clip drags (move/trim) may extend past the set duration into the max range —
-  // the boundary only marks playback length, not where clips can live.
   const clipMsFromClientX = React.useCallback(
     (clientX: number) =>
       Math.max(0, Math.min(MAX_DURATION_MS, rawMsFromClientX(clientX))),
@@ -217,7 +223,6 @@ export function useAnimateTimeline() {
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
-        // Pinch / ctrl+wheel → zoom around the cursor.
         e.preventDefault()
         setClipsAnimated(false)
         if (zoomIdleRef.current) window.clearTimeout(zoomIdleRef.current)
@@ -238,7 +243,6 @@ export function useAnimateTimeline() {
           return next
         })
       } else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        // Vertical wheel → horizontal scroll (there's no vertical overflow).
         el.scrollLeft += e.deltaY
         e.preventDefault()
       }
@@ -250,7 +254,6 @@ export function useAnimateTimeline() {
     }
   }, [])
 
-  // Restore the anchored scroll offset once the zoomed content width is live.
   React.useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el || pendingScrollRef.current === null) return
@@ -258,8 +261,6 @@ export function useAnimateTimeline() {
     pendingScrollRef.current = null
   }, [pxPerSecond])
 
-  // Keep the playhead within the timeline — if the duration is dragged shorter
-  // than the current position, snap the playhead to the new end.
   React.useEffect(() => {
     if (playheadMs > durationMs) seek(durationMs)
   }, [playheadMs, durationMs, seek])
@@ -270,23 +271,19 @@ export function useAnimateTimeline() {
     grabOffsetMs: number
     startMs: number
     durationMs: number
-    // Was this clip already selected when the gesture began? A plain click
-    // (no drag) on an already-selected clip deselects it.
     wasSelected: boolean
-    // Pointer x at press + whether it has moved past the click threshold.
     downX: number
     moved: boolean
   } | null>(null)
-  // Which clip is actively being moved — drives the little "picked up" lift.
+
   const [draggingClipId, setDraggingClipId] = React.useState<string | null>(
     null
   )
-  // Which clip is under any direct interaction (move OR trim). Its position/size
-  // must track the pointer instantly, so we skip the slide animation for it.
+
   const [interactingClipId, setInteractingClipId] = React.useState<
     string | null
   >(null)
-  // Live clip list for the drag math (kept out of the drag callback's deps).
+
   const clipsRef = React.useRef(clips)
   React.useEffect(() => {
     clipsRef.current = clips
@@ -302,7 +299,6 @@ export function useAnimateTimeline() {
         .sort((a, b) => a.startMs - b.startMs)
 
       if (drag.mode === "move") {
-        // Free movement (may go past the duration); overlap is validated on drop.
         const nextStart = Math.max(
           0,
           Math.min(
@@ -312,8 +308,6 @@ export function useAnimateTimeline() {
         )
         updateAnimationClip(drag.id, { startMs: nextStart })
       } else if (drag.mode === "trim-start") {
-        // Drag the left edge; the right edge (end) stays pinned. Can't cross
-        // into the previous clip.
         const end = drag.startMs + drag.durationMs
         const prevEnd = others
           .filter((o) => o.startMs + o.durationMs <= end)
@@ -327,8 +321,6 @@ export function useAnimateTimeline() {
           durationMs: end - nextStart,
         })
       } else {
-        // Trim the right edge; can grow past the duration, but not into the next
-        // clip or beyond the max range.
         const nextClipStart = others
           .filter((o) => o.startMs >= drag.startMs)
           .reduce((min, o) => Math.min(min, o.startMs), MAX_DURATION_MS)
@@ -348,19 +340,13 @@ export function useAnimateTimeline() {
       clip: (typeof clips)[number],
       mode: ClipDragMode
     ) => {
-      // Let right-click through so the context menu can open instead of dragging.
       if (e.button !== 0) {
-        // If this clip isn't already selected, make it the sole selection so the
-        // context menu acts on it. If it's part of a multi-selection, leave the
-        // selection intact so the menu acts on the whole group.
         if (!selectedIdsRef.current.includes(clip.id))
           selectAnimationClip(clip.id)
         return
       }
       e.stopPropagation()
-      // Razor tool active → this click cuts the clip at the pointer instead of
-      // selecting/dragging it. Keep the piece under the cut (the new second half)
-      // selected so a follow-up edit lands on it.
+
       if (razorModeRef.current) {
         const newId = splitAnimationClip(clip.id, clipMsFromClientX(e.clientX))
         if (newId) selectAnimationClip(newId)
@@ -398,8 +384,7 @@ export function useAnimateTimeline() {
   const onClipPointerMove = React.useCallback(
     (e: React.PointerEvent) => {
       if (!dragRef.current) return
-      // Past the click threshold this is a drag, not a click — so pointer-up
-      // won't treat it as a deselect tap.
+
       if (Math.abs(e.clientX - dragRef.current.downX) > 4)
         dragRef.current.moved = true
       pointerXRef.current = e.clientX
@@ -413,17 +398,14 @@ export function useAnimateTimeline() {
       const drag = dragRef.current
       if (!drag) return
       e.currentTarget.releasePointerCapture?.(e.pointerId)
-      // On a move, ripple-insert the clip at the drop point: clips after it slide
-      // right to open a gap, so dropping between two clips lands it there instead
-      // of snapping it to the end.
+
       if (drag.mode === "move") {
         const dropped =
           clipsRef.current.find((c) => c.id === drag.id)?.startMs ??
           drag.startMs
         moveAnimationClip(drag.id, dropped)
       }
-      // A plain click (no drag) on a clip that was already selected toggles it
-      // off — clicking it again deselects.
+
       if (!drag.moved && drag.wasSelected) selectAnimationClip(null)
       dragRef.current = null
       setDraggingClipId(null)
@@ -442,7 +424,7 @@ export function useAnimateTimeline() {
 
   const onScrubDown = React.useCallback(
     (e: React.PointerEvent) => {
-      if (dragRef.current) return // a clip drag owns this gesture
+      if (dragRef.current) return
       e.currentTarget.setPointerCapture(e.pointerId)
       scrubbingRef.current = true
       pointerXRef.current = e.clientX
@@ -476,7 +458,6 @@ export function useAnimateTimeline() {
 
   const applyDurationDrag = React.useCallback(
     (clientX: number) => {
-      // Snap to 100ms so the readout stays tidy while dragging.
       const snapped = Math.round(rawMsFromClientX(clientX) / 100) * 100
       const next = Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, snapped))
       setAnimationDuration(next)
@@ -516,18 +497,6 @@ export function useAnimateTimeline() {
     [stopAutoScroll]
   )
 
-  const onPickAudio = React.useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      e.target.value = ""
-      if (!file) return
-      const src = URL.createObjectURL(file)
-      setAnimationAudio({ src, name: file.name, volume: 1, muted: false })
-    },
-    [setAnimationAudio]
-  )
-
-  // Which layer the shared file input targets: "main" or a slot id.
   const pickTargetRef = React.useRef<string>("main")
 
   const onLayerClick = React.useCallback((target: string) => {
@@ -540,11 +509,23 @@ export function useAnimateTimeline() {
       const file = e.target.files?.[0]
       e.target.value = ""
       if (!file) return
-      if (!file.type.startsWith("image/")) {
-        toast.error("Please select an image file")
+      const target = pickTargetRef.current
+      if (isVideoFile(file)) {
+        if (target !== "main" || screenshotSlots.length > 0) {
+          toast.error("Videos can only be used as a single screenshot")
+          return
+        }
+        if (file.size > VIDEO_SIZE_LIMIT) {
+          toast.error("Video is too large (max 1 GB)")
+          return
+        }
+        setScreenshot(createVideoObjectUrl(file))
         return
       }
-      const target = pickTargetRef.current
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image or video file")
+        return
+      }
       void readImageFileAsDataUrl(file, {
         downscaleAbove: 10 * 1024 * 1024,
         maxDimension: 2400,
@@ -555,19 +536,50 @@ export function useAnimateTimeline() {
         })
         .catch(() => toast.error("Could not read image"))
     },
-    [setScreenshot, setScreenshotSlotImage]
+    [setScreenshot, setScreenshotSlotImage, screenshotSlots.length]
   )
 
-  const onAudioButton = React.useCallback(() => {
-    if (!audio || !audio.src) {
-      audioInputRef.current?.click()
-      return
-    }
-    updateAnimationAudio({ muted: !audio.muted })
-  }, [audio, updateAnimationAudio])
+  const videoEl = useVideoRegistry((s) =>
+    activeCanvasId ? (s.videos[activeCanvasId] ?? null) : null
+  )
+  const [videoMuted, setVideoMuted] = React.useState(() =>
+    getVideoMutedPreferenceSync()
+  )
+  const [videoHasAudio, setVideoHasAudio] = React.useState(false)
 
-  // Position is written straight to the DOM node (no React re-render per pointer
-  // move) so it never lags; an rAF coalesces bursts into one write per frame.
+  React.useEffect(() => {
+    const el = videoEl
+    if (!el) return
+    const sync = () => {
+      setVideoMuted(el.muted)
+      setVideoHasAudio(videoElementHasAudio(el))
+    }
+    const boot = requestAnimationFrame(sync)
+    el.addEventListener("volumechange", sync)
+    el.addEventListener("loadedmetadata", sync)
+    el.addEventListener("loadeddata", sync)
+    el.addEventListener("play", sync)
+    el.addEventListener("timeupdate", sync)
+    return () => {
+      cancelAnimationFrame(boot)
+      el.removeEventListener("volumechange", sync)
+      el.removeEventListener("loadedmetadata", sync)
+      el.removeEventListener("loadeddata", sync)
+      el.removeEventListener("play", sync)
+      el.removeEventListener("timeupdate", sync)
+    }
+  }, [videoEl])
+
+  const canMuteVideo = Boolean(videoEl) && videoHasAudio
+
+  const onToggleVideoMute = React.useCallback(() => {
+    const el = videoEl
+    if (!el) return
+    const next = !el.muted
+    applyVideoMutedToAll(useVideoRegistry.getState().videos, next)
+    setVideoMutedPreference(next)
+  }, [videoEl])
+
   const clipsRowRef = React.useRef<HTMLDivElement | null>(null)
   const ghostRef = React.useRef<HTMLDivElement | null>(null)
   const ghostStartMsRef = React.useRef(0)
@@ -577,18 +589,9 @@ export function useAnimateTimeline() {
   const ghostRafRef = React.useRef<number | null>(null)
   const ghostClientXRef = React.useRef(0)
   const ghostHoveringRef = React.useRef(false)
-  // While a clip's right-click menu is open, suppress the add affordance.
   const menuOpenRef = React.useRef(false)
-  // Timestamp of the last menu close. Radix fires the item's selecting click
-  // through to the clips row after the menu closes, so a right-click → "Delete"
-  // would otherwise re-add a clip at the click point. We ignore row clicks for a
-  // brief window after any clip menu closes to swallow that fall-through click.
   const menuClosedAtRef = React.useRef(0)
 
-  // Marquee (rubber-band) multi-select. A drag across empty lane space draws a
-  // band and selects every clip whose footprint it overlaps; a plain click (no
-  // drag) still adds a clip. The band's pixel geometry drives the overlay; the
-  // hovered ids drive the live highlight until the drag commits on pointer-up.
   const marqueeRef = React.useRef<{ startX: number; active: boolean } | null>(
     null
   )
@@ -599,11 +602,7 @@ export function useAnimateTimeline() {
     width: number
   } | null>(null)
   const [marqueeIds, setMarqueeIds] = React.useState<string[]>([])
-  // Mirror of the hovered ids for the pointer-up commit (kept out of the up
-  // handler's deps so it doesn't rebind every marquee frame).
   const marqueeIdsRef = React.useRef<string[]>([])
-  // Highlighted set = the committed selection plus any clips under an in-progress
-  // marquee, so the band lights clips up live before you release.
   const highlightedClipIds = React.useMemo(() => {
     if (marqueeIds.length === 0) return selectedClipIds
     return Array.from(new Set([...selectedClipIds, ...marqueeIds]))
@@ -615,15 +614,12 @@ export function useAnimateTimeline() {
     if (!drag || !el) return
     const rect = el.getBoundingClientRect()
     const pps = pxPerSecondRef.current
-    // No upper clamp: dragging into the dimmed post-duration region (where clips
-    // can still sit, rendered faded via overflow-visible) should catch them too.
     const curX = Math.max(0, clientX - rect.left)
     const left = Math.min(drag.startX, curX)
     const right = Math.max(drag.startX, curX)
     setMarqueeRect({ left, width: right - left })
     const minMs = (left / pps) * 1000
     const maxMs = (right / pps) * 1000
-    // A clip is caught when its [start, end] footprint overlaps the band.
     const ids = clipsRef.current
       .filter((c) => c.startMs <= maxMs && c.startMs + c.durationMs >= minMs)
       .map((c) => c.id)
@@ -641,9 +637,7 @@ export function useAnimateTimeline() {
       menuOpenRef.current ||
       dragRef.current ||
       scrubbingRef.current ||
-      // A marquee drag owns the lane — no "add clip" ghost while selecting.
       marqueeActiveRef.current ||
-      // Razor tool owns the lane — no "add clip" ghost while cutting.
       razorModeRef.current
     ) {
       setGhostVisible(false)
@@ -659,9 +653,6 @@ export function useAnimateTimeline() {
       0,
       Math.min(durationMs, ((ghostClientXRef.current - rect.left) / pps) * 1000)
     )
-    // Use the max range as the bound so the gap after the last clip extends past
-    // the set duration — a slot can be added near the end even if it spills into
-    // the dimmed region.
     const start = findGhostSlot(cursorMs, clipsRef.current, timelineEndMs)
     if (start == null) {
       setGhostVisible(false)
@@ -688,8 +679,6 @@ export function useAnimateTimeline() {
     [scheduleGhost]
   )
 
-  // Re-place the ghost when zoomed: the pointer may be stationary (no move
-  // event), but pxPerSecond and the lane width change.
   React.useEffect(() => {
     if (ghostHoveringRef.current) scheduleGhost()
   }, [pxPerSecond, scheduleGhost])
@@ -701,9 +690,6 @@ export function useAnimateTimeline() {
     []
   )
 
-  // Pointer-down on empty lane space starts a marquee candidate. Clips capture
-  // their own pointer (and stopPropagation), so any pointerdown reaching the row
-  // is on empty space. Left-button only; razor / open-menu keep their behaviour.
   const onClipsRowPointerDown = React.useCallback((e: React.PointerEvent) => {
     e.stopPropagation()
     if (e.button !== 0 || razorModeRef.current || menuOpenRef.current) return
@@ -722,9 +708,7 @@ export function useAnimateTimeline() {
     (e: React.PointerEvent) => {
       const drag = marqueeRef.current
       if (drag) {
-        // Past the click threshold this becomes a marquee, not a tap-to-add.
         if (!drag.active && Math.abs(e.clientX - pointerXRef.current) <= 4) {
-          // Not yet a drag — still let the add-ghost track the cursor.
           positionGhost(e.clientX)
           return
         }
@@ -751,8 +735,6 @@ export function useAnimateTimeline() {
       marqueeRef.current = null
       e.currentTarget.releasePointerCapture?.(e.pointerId)
       if (drag.active) {
-        // Commit the band's selection and swallow the click that follows so the
-        // release doesn't also add a clip.
         stopAutoScroll()
         marqueeActiveRef.current = false
         suppressRowClickRef.current = true
@@ -771,20 +753,11 @@ export function useAnimateTimeline() {
 
   const onClipsRowClick = React.useCallback(
     (e: React.MouseEvent) => {
-      // Compute the insertion slot straight from the click position rather than
-      // gating on the hover ghost. Touch devices (iPad) don't hover, so the
-      // ghost never becomes visible before the tap's click fires — reading the
-      // pointer position here makes tap-to-add work without a preceding hover
-      // while desktop still gets the ghost preview.
       if (razorModeRef.current || menuOpenRef.current || dragRef.current) return
-      // A marquee drag just finished — swallow the click it produces so the
-      // release doesn't also add a clip.
       if (suppressRowClickRef.current) {
         suppressRowClickRef.current = false
         return
       }
-      // Swallow the fall-through click Radix fires right after a clip's context
-      // menu closes (e.g. after "Delete"), which would otherwise add a new clip.
       if (Date.now() - menuClosedAtRef.current < 350) return
       const el = clipsRowRef.current
       if (!el) return
@@ -808,8 +781,6 @@ export function useAnimateTimeline() {
       ghostHoveringRef.current = false
       setGhostVisible(false)
     } else {
-      // Record the close so the following fall-through click on the row is
-      // ignored (see menuClosedAtRef).
       menuClosedAtRef.current = Date.now()
     }
   }, [])
@@ -819,16 +790,11 @@ export function useAnimateTimeline() {
     [addAnimationClip, selectAnimationClip]
   )
 
-  // The clips a context-menu / keyboard action targets: the whole selection when
-  // the acted-on clip is part of it, otherwise just that clip. (Right-clicking a
-  // clip already makes it the selection, so the menu always includes it.)
   const resolveTargetIds = React.useCallback((id: string) => {
     const sel = selectedIdsRef.current
     return sel.includes(id) && sel.length > 0 ? sel : [id]
   }, [])
 
-  // After deleting clips, open the last remaining clip so the canvas falls back
-  // to a valid keyframe (or deselect when none are left).
   const reselectAfterDelete = React.useCallback(
     (removed: string[]) => {
       const removedSet = new Set(removed)
@@ -850,8 +816,6 @@ export function useAnimateTimeline() {
     [duplicateAnimationClips, resolveTargetIds, setAnimationClipSelection]
   )
 
-  // Strips the effects the targeted keyframe(s) own, reverting each to its
-  // baseline so the committed canvas also drops those effects.
   const clearClipEffects = React.useCallback(
     (id: string) => clearAnimationClipsEffects(resolveTargetIds(id)),
     [clearAnimationClipsEffects, resolveTargetIds]
@@ -878,24 +842,15 @@ export function useAnimateTimeline() {
     [selectAnimationClip]
   )
 
-  // Razor (cut) tool — a persistent mode like Photoshop/After Effects, not a
-  // one-shot action. While on, the timeline shows a scissor cursor and clicking
-  // a clip splits it at that point. The button (and "S") toggle it. A ref mirrors
-  // it so the clip pointer handlers can read it without widening their deps.
   const [razorMode, setRazorMode] = React.useState(false)
   const razorModeRef = React.useRef(false)
   React.useEffect(() => {
-    // Mirror razorMode into a ref so the clip pointer handlers can read it
-    // without widening their dependency lists.
     // eslint-disable-next-line react-hooks/immutability
     razorModeRef.current = razorMode
   }, [razorMode])
 
-  // There must be at least one clip to cut. When the last clip goes away, drop
-  // out of razor mode so the cursor/button don't linger with nothing to act on.
   const canRazor = clips.length > 0
   React.useEffect(() => {
-    // Drop out of razor mode once the last clip is gone (nothing left to cut).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (clips.length === 0) setRazorMode(false)
   }, [clips.length])
@@ -904,8 +859,6 @@ export function useAnimateTimeline() {
     setRazorMode((m) => (clipsRef.current.length > 0 ? !m : false))
   }, [])
 
-  // Leaving animate mode keeps the timeline — it's part of the saved canvas and
-  // the user comes back to it. No confirmation, no discard.
   const requestExit = React.useCallback(() => {
     setIsAnimateMode(false)
   }, [setIsAnimateMode])
@@ -914,8 +867,6 @@ export function useAnimateTimeline() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return
       e.stopPropagation()
-      // Escape first drops the razor tool (like putting the tool down); only a
-      // second press leaves animate mode.
       if (razorModeRef.current) {
         setRazorMode(false)
         return
@@ -926,9 +877,6 @@ export function useAnimateTimeline() {
     return () => window.removeEventListener("keydown", onKeyDown, true)
   }, [requestExit])
 
-  // Clip shortcuts: Delete/Backspace removes the selected clip(s), ⌘/Ctrl+D
-  // duplicates them (no copy/paste yet, so duplicate stands in for it). Every
-  // shortcut acts on the whole selection set (one clip or a marquee group).
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const ids = selectedIdsRef.current
@@ -947,7 +895,6 @@ export function useAnimateTimeline() {
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey
       ) {
-        // ⌘/Ctrl+Shift+Delete — clear the selected clips' effects.
         e.preventDefault()
         clearAnimationClipsEffects(ids)
       } else if (e.key === "Delete" || e.key === "Backspace") {
@@ -969,7 +916,6 @@ export function useAnimateTimeline() {
         e.shiftKey &&
         !e.altKey
       ) {
-        // ⌘/Ctrl+Shift+A — deselect (mirrors design-tool convention).
         e.preventDefault()
         selectAnimationClip(null)
       }
@@ -985,9 +931,6 @@ export function useAnimateTimeline() {
     reselectAfterDelete,
   ])
 
-  // Spacebar toggles playback (like a video editor). Ignored while typing in a
-  // field; preventDefault stops page scroll and a focused button from also
-  // firing, so it's always a single play/pause.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat) return
@@ -1007,8 +950,6 @@ export function useAnimateTimeline() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [toggle])
 
-  // "S" toggles the razor/cut tool (video-editor convention). Ignored while
-  // typing and when a modifier is held (so it never clashes with ⌘S and friends).
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "s" && e.key !== "S") return
@@ -1029,50 +970,60 @@ export function useAnimateTimeline() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [toggleRazor])
 
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "m" && e.key !== "M") return
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      onToggleVideoMute()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [onToggleVideoMute])
+
   const ticks = computeTicks(timelineEndMs, pxPerSecond)
 
-  // Resolve a clip's bound screenshot(s) into the thumbnail(s) shown on the clip
-  // — the preview alone tells the user which screenshot(s) it animates (no text
-  // label). A "slot" clip shows that slot's image; "main" the main image; "all"
-  // shows every image on the canvas as a small grid so it reads as "all of them".
+  const mainThumbSrc = mainIsVideo
+    ? (mainFilmstrip?.frames[0] ?? null)
+    : screenshot
   const resolveClipImages = React.useCallback(
     (clip: (typeof clips)[number]): string[] => {
       const target = clip.target ?? { scope: "all" as const }
       if (target.scope === "slot") {
         const slot = screenshotSlots.find((s) => s.id === target.slotId)
-        // Slot deleted after the clip was made → fall back to the main image.
-        const src = slot?.src ?? screenshot
+        const src = slot?.src ?? mainThumbSrc
         return src ? [src] : []
       }
       if (target.scope === "main") {
-        return screenshot ? [screenshot] : []
+        return mainThumbSrc ? [mainThumbSrc] : []
       }
-      // "all" → main + every slot image (skip empties). One image renders as a
-      // single thumbnail; multiple render as a grid.
-      return [screenshot, ...screenshotSlots.map((s) => s.src)].filter(
+      return [mainThumbSrc, ...screenshotSlots.map((s) => s.src)].filter(
         (src): src is string => Boolean(src)
       )
     },
-    [screenshot, screenshotSlots]
+    [mainThumbSrc, screenshotSlots]
   )
 
-  // Icons a clip shows = exactly the effects that keyframe OWNS (the ones you
-  // changed while it was selected) — for the main screenshot AND slots alike.
-  // This is the same owned set the on-canvas animation reads, so icons and motion
-  // always agree.
   const resolveClipIcons = React.useCallback(
     (clip: (typeof clips)[number]): ClipIconKey[] => clip.effects ?? [],
     []
   )
 
-  // The selected clip's data, surfaced for the floating transition toolbar.
   const selectedClip = React.useMemo(
     () => clips.find((c) => c.id === selectedClipId) ?? null,
     [clips, selectedClipId]
   )
 
   return {
-    // playback + data
     playheadMs,
     durationMs,
     isPlaying,
@@ -1081,15 +1032,12 @@ export function useAnimateTimeline() {
     screenshot,
     layers,
     clips,
-    audio,
 
-    // layout
     pxFor,
     contentWidth,
     ticks,
     lastClipEnd,
 
-    // selection / labels
     selectedClipId,
     selectedClipIds,
     highlightedClipIds,
@@ -1102,34 +1050,27 @@ export function useAnimateTimeline() {
     clearEffectsShortcut,
     deselectShortcut,
 
-    // refs
     scrollRef,
     trackRef,
     clipsRowRef,
     ghostRef,
-    audioInputRef,
     screenshotInputRef,
 
-    // clip target resolution (thumbnail images + animated-property icons)
     resolveClipImages,
     resolveClipIcons,
 
-    // ghost
     ghostVisible,
     ghostWidthPx,
 
-    // duration handle
     isDurationDragging,
     onDurationHandleDown,
     onDurationHandleMove,
     onDurationHandleUp,
 
-    // scrubbing
     onScrubDown,
     onScrubMove,
     onScrubUp,
 
-    // clip lane
     onClipsRowMove,
     onClipsRowLeave,
     onClipsRowClick,
@@ -1144,23 +1085,20 @@ export function useAnimateTimeline() {
     clearClipEffects,
     deleteClip,
 
-    // marquee multi-select overlay
     marqueeRect,
 
-    // controls
     addClip,
     deleteSelectedClip,
     razorMode,
     canRazor,
     toggleRazor,
-    onAudioButton,
-    onPickAudio,
+    videoMuted,
+    canMuteVideo,
+    onToggleVideoMute,
 
-    // base image layers
     onLayerClick,
     onPickScreenshot,
 
-    // exit
     requestExit,
   }
 }

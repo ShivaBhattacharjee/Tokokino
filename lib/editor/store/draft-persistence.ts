@@ -177,15 +177,6 @@ function extractScreenshots(state: EditorState): {
   const canvases = state.canvases.map((canvas) => {
     const result: CanvasState = { ...canvas }
 
-    // Audio src is a session-only object URL — persist the metadata but drop
-    // the (dead-on-reload) URL so hydration doesn't reference a stale blob.
-    if (canvas.animation?.audio?.src) {
-      result.animation = {
-        ...canvas.animation,
-        audio: { ...canvas.animation.audio, src: "" },
-      }
-    }
-
     const screenshotExtract = extractField(
       canvas.screenshot,
       `screenshot:${canvas.id}`,
@@ -580,7 +571,6 @@ function normalizeCanvasState(
       clips: Array.isArray(source.animation?.clips)
         ? source.animation.clips
         : [],
-      audio: source.animation?.audio ?? null,
     },
   }
 

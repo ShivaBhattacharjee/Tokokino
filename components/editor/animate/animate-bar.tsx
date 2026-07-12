@@ -5,6 +5,7 @@ import {
   RiAddCircleLine,
   RiDeleteBinLine,
   RiImageAddLine,
+  RiVidiconFill,
 } from "@remixicon/react"
 
 import {
@@ -29,14 +30,13 @@ export function AnimateBar() {
     pxFor,
     durationMs,
     playheadMs,
-    audio,
     isPlaying,
     canRazor,
     razorMode,
     requestExit,
-    onAudioButton,
-    onPickAudio,
-    audioInputRef,
+    videoMuted,
+    canMuteVideo,
+    onToggleVideoMute,
     addClip,
     toggle,
     toggleRazor,
@@ -112,16 +112,15 @@ export function AnimateBar() {
       className="pointer-events-auto absolute right-3 bottom-3 left-3 z-30 rounded-2xl border border-border/70 bg-popover/95 p-3 shadow-2xl backdrop-blur-xl"
     >
       <AnimateControls
-        audio={audio}
         isPlaying={isPlaying}
         playheadMs={playheadMs}
         durationMs={durationMs}
         canRazor={canRazor}
         razorActive={razorMode}
+        canMuteVideo={canMuteVideo}
+        videoMuted={videoMuted}
+        onToggleVideoMute={onToggleVideoMute}
         onExit={requestExit}
-        onToggleAudio={onAudioButton}
-        onPickAudio={onPickAudio}
-        audioInputRef={audioInputRef}
         onAddClip={addClip}
         onTogglePlay={toggle}
         onToggleRazor={toggleRazor}
@@ -352,17 +351,83 @@ export function AnimateBar() {
             <input
               ref={screenshotInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               className="hidden"
               onChange={onPickScreenshot}
             />
             {layers.map((layer, i) => {
+              const strip = layer.isVideo ? layer.filmstrip : null
+              // A video row spans the video's real length on the timeline (its
+              // filmstrip is time-accurate); image rows span the set duration.
+              const rowWidth = strip
+                ? pxFor(strip.durationMs)
+                : pxFor(durationMs)
+
+              if (layer.isVideo) {
+                // Tiles keep the frame's natural aspect at the 44px row height,
+                // so frames are never stretched; each tile shows the sampled
+                // frame nearest to its position (repeats while frames stream in).
+                const tileWidth = Math.max(
+                  24,
+                  Math.round(44 * (strip?.aspect ?? 16 / 9))
+                )
+                const tileCount = strip
+                  ? Math.max(1, Math.ceil(rowWidth / tileWidth))
+                  : 0
+                return (
+                  <div
+                    key={layer.id}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="relative mt-1 flex h-11 items-center overflow-hidden rounded-lg border border-border/50 bg-background/40"
+                    style={{ width: rowWidth }}
+                  >
+                    {strip && strip.frames.length > 0 ? (
+                      <>
+                        <div aria-hidden className="absolute inset-0 flex">
+                          {Array.from({ length: tileCount }, (_, idx) => {
+                            const frameIdx = Math.min(
+                              strip.frames.length - 1,
+                              Math.floor(
+                                ((idx + 0.5) / tileCount) * strip.targetFrames
+                              )
+                            )
+                            return (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={idx}
+                                src={strip.frames[frameIdx]}
+                                alt=""
+                                draggable={false}
+                                className="h-full shrink-0 object-cover"
+                                style={{ width: tileWidth }}
+                              />
+                            )
+                          })}
+                        </div>
+                        {/* Right-edge badge over a fade: icon + total length. */}
+                        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center gap-1.5 bg-linear-to-l from-black/70 via-black/40 to-transparent pr-3 pl-14 text-white">
+                          <RiVidiconFill className="size-4 shrink-0" />
+                          <span className="text-[12px] font-medium whitespace-nowrap">
+                            Video {(strip.durationMs / 1000).toFixed(1)}s
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div
+                        aria-hidden
+                        className="absolute inset-0 animate-pulse bg-foreground/5"
+                      />
+                    )}
+                  </div>
+                )
+              }
+
               return (
                 <div
                   key={layer.id}
                   onPointerDown={(e) => e.stopPropagation()}
                   className="relative mt-1 flex h-11 items-center rounded-lg border border-border/50 bg-background/40"
-                  style={{ width: pxFor(durationMs) }}
+                  style={{ width: rowWidth }}
                 >
                   {/* Sticky label — follows the horizontal scroll's left edge. */}
                   <div className="sticky left-0 z-10 flex items-center gap-2 px-2">

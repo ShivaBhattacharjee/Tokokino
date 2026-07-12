@@ -12,21 +12,20 @@ import {
   RiVolumeUpLine,
 } from "@remixicon/react"
 
-import type { AnimationAudio } from "@/lib/editor/state-types"
 import { formatShort, formatTime } from "@/lib/editor/animation-timeline"
 import { cn } from "@/lib/utils"
 
 type AnimateControlsProps = {
-  audio: AnimationAudio | null
   isPlaying: boolean
   playheadMs: number
   durationMs: number
   canRazor: boolean
   razorActive: boolean
+  /** Whether the canvas video exists and carries an audio track. */
+  canMuteVideo: boolean
+  videoMuted: boolean
+  onToggleVideoMute: () => void
   onExit: () => void
-  onToggleAudio: () => void
-  onPickAudio: (e: React.ChangeEvent<HTMLInputElement>) => void
-  audioInputRef: React.RefObject<HTMLInputElement | null>
   onAddClip: () => void
   onTogglePlay: () => void
   onToggleRazor: () => void
@@ -39,16 +38,15 @@ const iconButton =
   "flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors"
 
 export function AnimateControls({
-  audio,
   isPlaying,
   playheadMs,
   durationMs,
   canRazor,
   razorActive,
+  canMuteVideo,
+  videoMuted,
+  onToggleVideoMute,
   onExit,
-  onToggleAudio,
-  onPickAudio,
-  audioInputRef,
   onAddClip,
   onTogglePlay,
   onToggleRazor,
@@ -60,14 +58,6 @@ export function AnimateControls({
     // cells hold, so the transition button appearing on the right never shifts
     // the play controls (a plain flex + mx-auto re-centered on every toggle).
     <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
-      <input
-        ref={audioInputRef}
-        type="file"
-        accept="audio/*"
-        className="hidden"
-        onChange={onPickAudio}
-      />
-
       <div className="flex items-center justify-self-start">
         <button
           type="button"
@@ -85,20 +75,29 @@ export function AnimateControls({
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={onToggleAudio}
-          aria-label={audio ? (audio.muted ? "Unmute" : "Mute") : "Add music"}
-          title={audio ? audio.name : "Add music"}
+          onClick={onToggleVideoMute}
+          disabled={!canMuteVideo}
+          aria-label={videoMuted ? "Unmute video" : "Mute video"}
+          title={
+            canMuteVideo
+              ? videoMuted
+                ? "Unmute video"
+                : "Mute video"
+              : "No audio"
+          }
           className={cn(
             iconButton,
-            audio && !audio.muted
-              ? "bg-foreground/8 text-foreground hover:bg-foreground/15"
-              : "text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+            !canMuteVideo
+              ? "cursor-not-allowed text-muted-foreground/40"
+              : videoMuted
+                ? "text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+                : "bg-foreground/8 text-foreground hover:bg-foreground/15"
           )}
         >
-          {audio && !audio.muted ? (
-            <RiVolumeUpLine className="size-[18px]" />
-          ) : (
+          {!canMuteVideo || videoMuted ? (
             <RiVolumeMuteLine className="size-[18px]" />
+          ) : (
+            <RiVolumeUpLine className="size-[18px]" />
           )}
         </button>
 

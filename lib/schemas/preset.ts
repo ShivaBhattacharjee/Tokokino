@@ -13,7 +13,7 @@ import { percentOffsetSchema, tiltSchema } from "@/lib/schemas/common"
  * applied to any project.
  *
  * Animate presets (`type: "animate"`) also carry a timeline under
- * `geometry.animation` (duration + clips). Audio is never persisted.
+ * `geometry.animation` (duration + clips).
  *
  * Slot configs, `canvasStyle`, and `animation` are intentionally `.loose()` /
  * open records: the client owns those shapes and the server only needs to

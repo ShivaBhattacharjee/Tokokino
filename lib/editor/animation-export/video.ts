@@ -181,11 +181,9 @@ export async function encodeWebmMediaRecorder({
   signal,
   durationMs,
   fps,
-  audio,
   watermark,
 }: CaptureCtx & {
   durationMs: number
-  audio: { src: string; volume: number } | null
 }) {
   // Safari's MediaRecorder records no WebM (MP4/H.264 only) and its WebCodecs
   // can't encode VP8/VP9, so we reach here with nothing able to produce WebM.
@@ -231,23 +229,6 @@ export async function encodeWebmMediaRecorder({
   if (watermark) drawWatermark(octx, out.width, out.height, watermark)
 
   const stream = out.captureStream(fps)
-  let audioEl: HTMLAudioElement | null = null
-  let audioCtx: AudioContext | null = null
-  if (audio) {
-    try {
-      audioEl = new Audio(audio.src)
-      audioEl.volume = audio.volume
-      audioCtx = new AudioContext()
-      const srcNode = audioCtx.createMediaElementSource(audioEl)
-      const dest = audioCtx.createMediaStreamDestination()
-      srcNode.connect(dest)
-      const track = dest.stream.getAudioTracks()[0]
-      if (track) stream.addTrack(track)
-    } catch {
-      audioEl = null
-    }
-  }
-
   const recorder = new MediaRecorder(stream, { mimeType })
   const chunks: Blob[] = []
   recorder.ondataavailable = (e) => {
@@ -270,9 +251,7 @@ export async function encodeWebmMediaRecorder({
     let lastReportedIdx = -1
 
     const cleanupMedia = () => {
-      audioEl?.pause()
       stream.getTracks().forEach((t) => t.stop())
-      void audioCtx?.close()
     }
 
     const finish = () => {
@@ -324,7 +303,6 @@ export async function encodeWebmMediaRecorder({
       )
       return
     }
-    if (audioEl) void audioEl.play().catch(() => {})
 
     const start = performance.now()
     const safeDuration = Math.max(frameDurationMs, durationMs)

@@ -104,7 +104,7 @@ export const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   screenshotSlots: [],
   frameAddress: "",
   tweet: null,
-  animation: { durationMs: 5000, clips: [], audio: null },
+  animation: { durationMs: 5000, clips: [] },
 }
 
 export const createCanvas = (

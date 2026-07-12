@@ -59,7 +59,6 @@ import type { CurrentDraftInfo, CustomPresetSummary } from "@/lib/editor/store"
 import {
   captureCustomPresetGeometry,
   resolvePresetType,
-  sanitizePresentForCloudDraft,
 } from "@/lib/editor/custom-preset-snapshot"
 import {
   DRAFT_SCHEMA_VERSION,
@@ -728,7 +727,7 @@ export function TopBar() {
       try {
         const draftState: DraftPayload = {
           schemaVersion: DRAFT_SCHEMA_VERSION,
-          present: sanitizePresentForCloudDraft(state.present),
+          present: state.present,
           ui: {
             presetTab: state.presetTab,
             activeLayoutPresetId: state.activeLayoutPresetId,

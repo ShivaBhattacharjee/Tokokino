@@ -10,14 +10,12 @@ import {
   isGifFile,
   isVideoFile,
   registerObjectUrl,
+  VIDEO_SIZE_LIMIT,
 } from "@/lib/editor/media-type"
 
 // Only re-encode screenshots when they're truly oversized — leaves typical
 // 1–5 MB phone screenshots untouched and pixel-perfect.
 const SCREENSHOT_DOWNSCALE_THRESHOLD = 10 * 1024 * 1024
-// Videos play from a blob object URL (no base64 inflation, GPU-decoded), so the
-// only real ceiling is RAM/decode — keep a generous 1 GB guard.
-const VIDEO_SIZE_LIMIT = 1024 * 1024 * 1024
 
 function readRawDataUrl(file: File, onImage: (src: string) => void) {
   const reader = new FileReader()

@@ -88,7 +88,7 @@ async function encodeAnimation(
   const animation = canvas?.animation
   if (!canvas || !animation) throw new Error("Nothing to export")
 
-  const { durationMs, audio } = animation
+  const { durationMs } = animation
   const clips =
     state.isAnimateMode && state.selectedAnimationClipId
       ? animation.clips.map((clip) =>
@@ -163,7 +163,6 @@ async function encodeAnimation(
         blob = await encodeWebmMediaRecorder({
           ...ctx,
           durationMs,
-          audio: audio && !audio.muted && audio.src ? audio : null,
         })
       }
     }

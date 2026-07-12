@@ -9,7 +9,6 @@ import type {
   CanvasState,
   ClipBaseline,
   ClipSlotPose,
-  EditorState,
 } from "./state-types"
 import type {
   CustomPresetAnimation,
@@ -289,7 +288,7 @@ function remapPose(
 
 /**
  * Remap a saved animation onto the destination canvas's slot ids and mint
- * fresh clip ids. Drops audio (session-only).
+ * fresh clip ids.
  */
 export function remapAnimationForApply(
   animation: CustomPresetAnimation,
@@ -322,31 +321,5 @@ export function remapAnimationForApply(
         ? animation.durationMs
         : 5000,
     clips: remapped,
-    audio: null,
   }
-}
-
-/**
- * Strip session-only animation audio object URLs from a draft's present state
- * before cloud upload (mirrors local IndexedDB extract).
- */
-export function sanitizePresentForCloudDraft(
-  present: EditorState
-): EditorState {
-  let changed = false
-  const canvases = present.canvases.map((canvas) => {
-    const audio = canvas.animation?.audio
-    if (!audio?.src) return canvas
-    changed = true
-    const animation = canvas.animation
-    if (!animation) return canvas
-    return {
-      ...canvas,
-      animation: {
-        ...animation,
-        audio: { ...audio, src: "" },
-      },
-    }
-  })
-  return changed ? { ...present, canvases } : present
 }

@@ -453,10 +453,6 @@ export function useEditor(): EditorContext {
       store.splitAnimationClip(id, atMs, canvasId ?? targetId),
     clearAnimationClips: (canvasId) =>
       store.clearAnimationClips(canvasId ?? targetId),
-    setAnimationAudio: (audio, canvasId) =>
-      store.setAnimationAudio(audio, canvasId ?? targetId),
-    updateAnimationAudio: (patch, canvasId) =>
-      store.updateAnimationAudio(patch, canvasId ?? targetId),
     setIsPreviewMode: store.setIsPreviewMode,
     setIsPreviewAutoScroll: store.setIsPreviewAutoScroll,
     setPreviewAutoScrollDelay: store.setPreviewAutoScrollDelay,

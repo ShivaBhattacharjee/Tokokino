@@ -73,42 +73,62 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
 
   React.useEffect(() => {
     if (!el) return
+    let rafId = 0
+    const readTime = () => {
+      if (!scrubbingRef.current) setCurrentTime(el.currentTime)
+    }
+    const tick = () => {
+      readTime()
+      if (!el.paused && !el.ended) {
+        rafId = requestAnimationFrame(tick)
+      } else {
+        rafId = 0
+      }
+    }
+    const startClock = () => {
+      if (rafId !== 0) return
+      rafId = requestAnimationFrame(tick)
+    }
+    const stopClock = () => {
+      if (rafId === 0) return
+      cancelAnimationFrame(rafId)
+      rafId = 0
+      readTime()
+    }
     const syncState = () => {
       setIsPlaying(!el.paused)
       setMuted(el.muted)
       setDuration(Number.isFinite(el.duration) ? el.duration : 0)
+      if (el.paused || el.ended) stopClock()
+      else startClock()
     }
-    const onTime = () => {
-      if (!scrubbingRef.current) setCurrentTime(el.currentTime)
-    }
-    // Defer the initial read so it lands outside the effect body (no cascade).
-    const raf = requestAnimationFrame(() => {
+
+    const boot = requestAnimationFrame(() => {
       syncState()
-      if (!scrubbingRef.current) setCurrentTime(el.currentTime)
+      readTime()
     })
     el.addEventListener("play", syncState)
     el.addEventListener("pause", syncState)
+    el.addEventListener("ended", syncState)
     el.addEventListener("volumechange", syncState)
     el.addEventListener("durationchange", syncState)
     el.addEventListener("loadedmetadata", syncState)
-    el.addEventListener("timeupdate", onTime)
+    el.addEventListener("timeupdate", readTime)
+    el.addEventListener("seeked", readTime)
     return () => {
-      cancelAnimationFrame(raf)
+      cancelAnimationFrame(boot)
+      if (rafId !== 0) cancelAnimationFrame(rafId)
       el.removeEventListener("play", syncState)
       el.removeEventListener("pause", syncState)
+      el.removeEventListener("ended", syncState)
       el.removeEventListener("volumechange", syncState)
       el.removeEventListener("durationchange", syncState)
       el.removeEventListener("loadedmetadata", syncState)
-      el.removeEventListener("timeupdate", onTime)
+      el.removeEventListener("timeupdate", readTime)
+      el.removeEventListener("seeked", readTime)
     }
   }, [el])
 
-  // Global shortcuts in the normal editor: Space toggles play/pause, M toggles
-  // mute — matching what most video tools do. Registered only on the non-compact
-  // bar so the two mounted instances (desktop + the hidden phone one) don't both
-  // listen and cancel each other out; it's a window listener, so it still works
-  // at phone widths where this instance is display:none. (Animate mode unmounts
-  // this bar, so it can't clash with the timeline's own Space handler.)
   React.useEffect(() => {
     if (compact || !isVideo) return
     const onKey = (e: KeyboardEvent) => {
@@ -167,15 +187,10 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
   const max = duration > 0 ? duration : 0
 
   return (
-    // Row: the Play bar plus, on desktop only, the Animate trigger inline to its
-    // right. On iPad the Animate trigger floats at the top instead, and phones
-    // don't support animate at all — so the inline one is desktop-only (xl).
-    // `compact` stretches the bar to fill its container (used on phones).
     <div
       className={cn(
         "flex items-center gap-2",
-        // Non-compact bar is the iPad/desktop one; the phone gets the compact
-        // bar from MobileControls instead, so hide this at phone widths.
+
         compact ? "w-full" : "max-md:hidden"
       )}
     >
@@ -240,8 +255,6 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
         </span>
       </div>
 
-      {/* Desktop only: on iPad/phone the Animate trigger lives elsewhere.
-          self-stretch + stretch make it match the Play bar's exact height. */}
       <div className="hidden self-stretch xl:flex">
         <AnimateTriggerButton stretch />
       </div>
