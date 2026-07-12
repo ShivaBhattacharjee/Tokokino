@@ -1,8 +1,17 @@
 "use client"
 
 import { AnimatePresence, motion } from "motion/react"
-import { RiAddCircleLine, RiImageAddLine } from "@remixicon/react"
+import {
+  RiAddCircleLine,
+  RiDeleteBinLine,
+  RiImageAddLine,
+} from "@remixicon/react"
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   MAX_DURATION_MS,
   MIN_DURATION_MS,
@@ -56,6 +65,7 @@ export function AnimateBar() {
     clips,
     highlightedClipIds,
     selectedClip,
+    selectedClipIds,
     updateAnimationClip,
     draggingClipId,
     interactingClipId,
@@ -72,6 +82,7 @@ export function AnimateBar() {
     clearClipEffects,
     deselectClip,
     deleteClip,
+    deleteSelectedClip,
     onClipMenuOpenChange,
     screenshotInputRef,
     onPickScreenshot,
@@ -85,6 +96,10 @@ export function AnimateBar() {
   const selectionEffectCount = clips.filter(
     (c) => highlightedClipIds.includes(c.id) && (c.effects?.length ?? 0) > 0
   ).length
+  const selectedCount = selectedClipIds.length
+  const hasSelection = selectedCount > 0
+  const deleteLabel =
+    selectedCount > 1 ? `Delete ${selectedCount} keyframes` : "Delete keyframe"
 
   return (
     <motion.div
@@ -112,12 +127,40 @@ export function AnimateBar() {
         onToggleRazor={toggleRazor}
         onReset={reset}
         transitionControl={
-          selectedClip ? (
-            <ClipTransitionButton
-              clip={selectedClip}
-              onUpdate={(patch) => updateAnimationClip(selectedClip.id, patch)}
-              disabled={isPlaying}
-            />
+          hasSelection ? (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={deleteLabel}
+                    disabled={isPlaying}
+                    onClick={deleteSelectedClip}
+                    className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <RiDeleteBinLine className="size-[18px]" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={8}>
+                  {deleteLabel}
+                  <kbd
+                    data-slot="kbd"
+                    className="rounded border border-border/60 bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                  >
+                    del
+                  </kbd>
+                </TooltipContent>
+              </Tooltip>
+              {selectedClip ? (
+                <ClipTransitionButton
+                  clip={selectedClip}
+                  onUpdate={(patch) =>
+                    updateAnimationClip(selectedClip.id, patch)
+                  }
+                  disabled={isPlaying}
+                />
+              ) : null}
+            </>
           ) : null
         }
       />
