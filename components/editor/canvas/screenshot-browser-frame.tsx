@@ -21,6 +21,7 @@ import {
   resolveBrowserFrameColor,
   type BrowserFrameColor,
 } from "@/lib/browser-frame"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 import {
@@ -75,6 +76,10 @@ type ScreenshotBrowserFrameProps = {
   captureStateKey?: string
   showHoverActions?: boolean
   innerLightingStyle?: React.CSSProperties | null
+  /** Register the framed <video> with the docked control bar. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
+  /** Crop / view-box styles applied to the media element. */
+  mediaStyle?: React.CSSProperties
 }
 
 type BrowserFrameEmptyStateProps = {
@@ -137,6 +142,8 @@ export function ScreenshotBrowserFrame({
   captureStateKey,
   showHoverActions = true,
   innerLightingStyle,
+  onMediaElement,
+  mediaStyle,
 }: ScreenshotBrowserFrameProps) {
   const frameRef = React.useRef<HTMLDivElement>(null)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -152,6 +159,9 @@ export function ScreenshotBrowserFrame({
     enhanceFilter,
     layer: screenshotLayer,
   })
+  const isVideo = isVideoSrc(screenshot)
+  const imageSrc = isVideo ? undefined : screenshot
+  const videoSrc = isVideo ? screenshot : undefined
   return (
     <div
       data-box-hover-target
@@ -188,37 +198,46 @@ export function ScreenshotBrowserFrame({
       >
         {frameId === ARC_BROWSER_FRAME_ID ? (
           <Arc
-            imageSrc={screenshot}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             colorMode={color === "dark" ? "dark" : "light"}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            onMediaElement={onMediaElement}
+            mediaStyle={mediaStyle}
             imageFit={objectFit}
             shimmer={false}
             className="h-full w-full"
           />
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
           <Chrome
-            imageSrc={screenshot}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             colorMode={color === "dark" ? "dark" : "light"}
             addressValue={addressValue}
             onAddressChange={onAddressChange}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            onMediaElement={onMediaElement}
+            mediaStyle={mediaStyle}
             imageFit={objectFit}
             shimmer={false}
             className="h-full w-full"
           />
         ) : (
           <Safari
-            imageSrc={screenshot}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             colorMode={color === "dark" ? "dark" : "light"}
             addressValue={addressValue}
             onAddressChange={onAddressChange}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            onMediaElement={onMediaElement}
+            mediaStyle={mediaStyle}
             imageFit={objectFit}
             shimmer={false}
             className="h-full w-full"

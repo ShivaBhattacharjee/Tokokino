@@ -62,6 +62,7 @@ import { AnnotationLayer } from "./annotation-layer"
 import { CanvasBackdrop } from "./canvas-backdrop"
 import { CanvasEmptyState } from "./canvas-empty-state"
 import { CenterGuides, useCenterGuides } from "./center-guides"
+import { GifTranscodeDialog } from "./gif-transcode-dialog"
 import { MediaPreparingState } from "./media-preparing-state"
 import {
   computeRowLayout,
@@ -429,13 +430,21 @@ function CanvasViewInner({
   // True while an incoming GIF is transcoding to video — drives the canvas
   // skeleton so the user sees progress instead of a frozen empty box.
   const [preparingMedia, setPreparingMedia] = React.useState(false)
-  const { fileInputRef, fileInputProps, isDragOver, readFile, dropHandlers } =
-    useImageFileIntake(handleImageFile, {
-      // A video may only be the sole screenshot — once extra slots exist, block
-      // dropping/pasting one into the main box (and route slots reject it too).
-      allowVideo: screenshotSlots.length === 0,
-      onPreparingChange: setPreparingMedia,
-    })
+  const {
+    fileInputRef,
+    fileInputProps,
+    isDragOver,
+    readFile,
+    dropHandlers,
+    pendingGif,
+    confirmGifTranscode,
+    cancelGifTranscode,
+  } = useImageFileIntake(handleImageFile, {
+    // A video may only be the sole screenshot — once extra slots exist, block
+    // dropping/pasting one into the main box (and route slots reject it too).
+    allowVideo: screenshotSlots.length === 0,
+    onPreparingChange: setPreparingMedia,
+  })
 
   const handleCaptureWebsite = React.useCallback(
     async (rawUrl: string, settings: CaptureSettings) => {
@@ -626,11 +635,12 @@ function CanvasViewInner({
   // destructively (the src is already the cropped bitmap), so they never get it.
   const videoCropRegion =
     lastCropRegion && isVideoSrc(screenshot) ? lastCropRegion : null
+  let videoMediaStyle: React.CSSProperties | undefined
   if (videoCropRegion) {
     const { x, y, width, height } = videoCropRegion
-    // object-view-box isn't in React's CSSProperties typing yet.
-    ;(imgStyle as Record<string, string>).objectViewBox =
-      `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`
+    const objectViewBox = `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`
+    imgStyle.objectViewBox = objectViewBox
+    videoMediaStyle = { objectViewBox }
   }
   // When a clip animates the border, the outline is ALWAYS mounted (even when
   // the committed border is invisible) so the player can ease it in from 0 /
@@ -871,6 +881,11 @@ function CanvasViewInner({
   return (
     <>
       <input {...fileInputProps} />
+      <GifTranscodeDialog
+        open={pendingGif !== null}
+        onConfirm={confirmGifTranscode}
+        onCancel={cancelGifTranscode}
+      />
 
       <div
         className="flex items-center justify-center"
@@ -1090,6 +1105,8 @@ function CanvasViewInner({
                     captureDefaultDevice={captureDefaultDevice}
                     captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
+                    onMediaElement={handleMediaElement}
+                    mediaStyle={videoMediaStyle}
                   />
                 ) : mockupAsset && mockupSpec ? (
                   <ScreenshotMockup
@@ -1133,6 +1150,8 @@ function CanvasViewInner({
                       setScreenshot(null)
                     }}
                     innerLightingStyle={innerLightingStyle}
+                    onMediaElement={handleMediaElement}
+                    mediaStyle={videoMediaStyle}
                   />
                 ) : (
                   <ScreenshotBare

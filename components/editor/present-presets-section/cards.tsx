@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import {
   planLayoutPreset,
@@ -426,7 +427,11 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   const disabledReason =
     canvas.tweet && preset.geometry.slots.length > 0
       ? "Social posts use one content slot."
-      : undefined
+      : canvas.screenshot &&
+          isVideoSrc(canvas.screenshot) &&
+          preset.geometry.slots.length > 0
+        ? "Videos can only use a single slot."
+        : undefined
 
   return (
     <div className="group/preset relative">
@@ -729,7 +734,9 @@ const LayoutPresetCard = React.memo(function LayoutPresetCard({
   )
   const disabledReason = canvas.tweet
     ? "Social posts use one content slot."
-    : undefined
+    : canvas.screenshot && isVideoSrc(canvas.screenshot)
+      ? "Videos can only use a single slot."
+      : undefined
 
   return (
     <PresetCardShell

@@ -74,6 +74,10 @@ type ScreenshotFrameContentProps = {
   /** Whether videos may be uploaded here (false for extra slots / multi-shot
    * boxes). Forwarded to the empty-state upload card. Defaults to true. */
   allowVideo?: boolean
+  /** Register the framed <video> with the docked control bar. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
+  /** Crop / view-box styles applied to the media element. */
+  mediaStyle?: React.CSSProperties
 }
 
 const CENTER_ANCHOR = { x: 50, y: 50 }
@@ -131,6 +135,8 @@ export function ScreenshotFrameContent({
   captureDefaultDevice,
   captureStateKey,
   allowVideo = true,
+  onMediaElement,
+  mediaStyle,
 }: ScreenshotFrameContentProps) {
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
@@ -184,6 +190,8 @@ export function ScreenshotFrameContent({
           captureStateKey={captureStateKey}
           showHoverActions={false}
           innerLightingStyle={innerLightingStyle}
+          onMediaElement={onMediaElement}
+          mediaStyle={mediaStyle}
         />
       )
     }
@@ -223,6 +231,8 @@ export function ScreenshotFrameContent({
           showHoverActions={false}
           scopeToMinSide={mockupScopeToMinSide}
           innerLightingStyle={innerLightingStyle}
+          onMediaElement={onMediaElement}
+          mediaStyle={mediaStyle}
         />
       )
     }
@@ -276,6 +286,7 @@ export function ScreenshotFrameContent({
           captureDefaultDevice={captureDefaultDevice}
           captureStateKey={captureStateKey}
           innerLightingStyle={innerLightingStyle}
+          onMediaElement={onMediaElement}
         />
       </div>
     )

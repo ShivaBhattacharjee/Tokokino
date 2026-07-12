@@ -6,6 +6,7 @@ import {
   type SyntheticEvent,
 } from "react"
 
+import { assignMediaRef } from "@/components/ui/browser-frame-media"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 
 const CHROME_WIDTH = 1202
@@ -36,6 +37,10 @@ export interface ChromeProps extends HTMLAttributes<HTMLDivElement> {
   screenRef?: Ref<HTMLDivElement>
   imageRef?: Ref<HTMLImageElement>
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
+  /** Called with the <video> node so the editor can register playback controls. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
+  /** Extra styles for the media element (e.g. object-view-box crop). */
+  mediaStyle?: CSSProperties
   imageFit?: ImageFit
   frameBorderRadius?: string | number
   screenBorderRadius?: string | number
@@ -54,6 +59,8 @@ export function Chrome({
   screenRef,
   imageRef,
   onImageLoad,
+  onMediaElement,
+  mediaStyle,
   imageFit = "cover",
   frameBorderRadius = "8px",
   screenBorderRadius = "0 0 8px 8px",
@@ -167,13 +174,20 @@ export function Chrome({
 
   const screen = hasVideo ? (
     <video
-      className="block size-full object-cover"
+      ref={(node) => {
+        assignMediaRef(imageRef, node as unknown as HTMLImageElement | null)
+        onMediaElement?.(node)
+      }}
+      className={`block size-full ${imageFitClassName(imageFit)}`}
       src={videoSrc}
-      autoPlay
-      loop
       muted
+      loop
       playsInline
       preload="metadata"
+      style={mediaStyle}
+      onLoadedMetadata={(e) =>
+        onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
+      }
     />
   ) : imageSrc ? (
     <ShimmerImage
@@ -183,6 +197,7 @@ export function Chrome({
       alt=""
       onLoad={onImageLoad}
       className={`block size-full ${imageFitClassName(imageFit)}`}
+      style={mediaStyle}
     />
   ) : (
     children
@@ -220,7 +235,7 @@ export function Chrome({
       {...props}
     >
       <div
-        ref={hasVideo ? undefined : screenRef}
+        ref={screenRef}
         className={`absolute z-0 overflow-hidden ${screenBg}`}
         style={{
           left: `${LEFT_PCT}%`,

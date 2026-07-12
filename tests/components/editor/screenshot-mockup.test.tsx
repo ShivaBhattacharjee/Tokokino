@@ -94,4 +94,21 @@ describe("ScreenshotMockup", () => {
     )
     expect(screen.queryByTestId("edit-menu")).not.toBeInTheDocument()
   })
+
+  it("renders a video element when the screenshot is a video src", () => {
+    const { container } = render(
+      <ScreenshotMockup
+        {...baseProps({ screenshot: "data:video/mp4;base64,AAAA" })}
+      />
+    )
+    const video = container.querySelector("video")
+    expect(video).toBeTruthy()
+    expect(video?.getAttribute("src")).toBe("data:video/mp4;base64,AAAA")
+    // Frame PNG still renders as an image overlay.
+    expect(
+      Array.from(container.querySelectorAll("img")).map((i) =>
+        i.getAttribute("src")
+      )
+    ).toContain("frame.png")
+  })
 })

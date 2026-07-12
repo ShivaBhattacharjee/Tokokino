@@ -43,6 +43,21 @@ export function useImageFileIntake(
   const onPreparingChange = options?.onPreparingChange
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
+  const [pendingGif, setPendingGif] = React.useState<File | null>(null)
+
+  const runGifTranscode = React.useCallback(
+    (file: File) => {
+      onPreparingChange?.(true)
+      transcodeGifToVideo(file)
+        .then((blob) => {
+          if (blob) onImage(registerObjectUrl(blob))
+          else readRawDataUrl(file, onImage)
+        })
+        .catch(() => readRawDataUrl(file, onImage))
+        .finally(() => onPreparingChange?.(false))
+    },
+    [onImage, onPreparingChange]
+  )
 
   const readFile = React.useCallback(
     (file: File) => {
@@ -76,14 +91,7 @@ export function useImageFileIntake(
           readRawDataUrl(file, onImage)
           return
         }
-        onPreparingChange?.(true)
-        transcodeGifToVideo(file)
-          .then((blob) => {
-            if (blob) onImage(registerObjectUrl(blob))
-            else readRawDataUrl(file, onImage)
-          })
-          .catch(() => readRawDataUrl(file, onImage))
-          .finally(() => onPreparingChange?.(false))
+        setPendingGif(file)
         return
       }
 
@@ -97,7 +105,7 @@ export function useImageFileIntake(
           readRawDataUrl(file, onImage)
         })
     },
-    [onImage, allowVideo, onPreparingChange]
+    [onImage, allowVideo]
   )
 
   React.useEffect(() => {
@@ -146,11 +154,21 @@ export function useImageFileIntake(
     },
   }
 
+  const confirmGifTranscode = React.useCallback(() => {
+    if (pendingGif) runGifTranscode(pendingGif)
+    setPendingGif(null)
+  }, [pendingGif, runGifTranscode])
+
+  const cancelGifTranscode = React.useCallback(() => setPendingGif(null), [])
+
   return {
     fileInputRef,
     fileInputProps,
     isDragOver,
     readFile,
     dropHandlers,
+    pendingGif,
+    confirmGifTranscode,
+    cancelGifTranscode,
   }
 }

@@ -1,9 +1,11 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import type { DeviceMockupAsset, DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
 
@@ -68,6 +70,10 @@ type ScreenshotMockupProps = {
   /** Cap the frame to min(cqw, cqh) so it doesn't fill tall canvases. */
   scopeToMinSide?: boolean
   innerLightingStyle?: React.CSSProperties | null
+  /** Register the framed <video> with the docked control bar. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
+  /** Crop / view-box styles applied to the media element. */
+  mediaStyle?: React.CSSProperties
 }
 
 export function ScreenshotMockup({
@@ -104,6 +110,8 @@ export function ScreenshotMockup({
   showHoverActions = true,
   scopeToMinSide = false,
   innerLightingStyle,
+  onMediaElement,
+  mediaStyle,
 }: ScreenshotMockupProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const [measuredStageWidth, setMeasuredStageWidth] = React.useState<
@@ -117,6 +125,24 @@ export function ScreenshotMockup({
   const horizontalScreenStyle = mockupRotation
     ? rotatedScreenContentStyle(mockupSpec.screen.aspectRatio, -mockupRotation)
     : undefined
+  const isVideo = isVideoSrc(screenshot)
+
+  // Feed imageRef + the video registry from one node (same as ScreenshotBare).
+  const setMediaRef = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      imageRef.current = node as unknown as HTMLImageElement | null
+      onMediaElement?.(node)
+    },
+    [imageRef, onMediaElement]
+  )
+
+  const mediaClassName = cn(
+    "pointer-events-none h-full w-full max-w-none object-center select-none",
+    objectFit === "contain" && "relative z-10 object-contain",
+    objectFit === "cover" && "object-cover",
+    objectFit === "fill" && "object-fill",
+    mockupRotation && "absolute top-1/2 left-1/2"
+  )
 
   React.useLayoutEffect(() => {
     const node = stageRef.current
@@ -182,7 +208,7 @@ export function ScreenshotMockup({
             }}
           >
             {/* Blurred backdrop — fills letterbox/pillarbox areas in contain mode */}
-            {objectFit === "contain" && (
+            {objectFit === "contain" && !isVideo && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={screenshot}
@@ -196,22 +222,41 @@ export function ScreenshotMockup({
                 }}
               />
             )}
-            <ShimmerImage
-              ref={imageRef}
-              shimmer={false}
-              src={screenshot}
-              alt="Screenshot"
-              draggable={false}
-              onLoad={onImageLoad}
-              className={cn(
-                "pointer-events-none h-full w-full max-w-none object-center select-none",
-                objectFit === "contain" && "relative z-10 object-contain",
-                objectFit === "cover" && "object-cover",
-                objectFit === "fill" && "object-fill",
-                mockupRotation && "absolute top-1/2 left-1/2"
-              )}
-              style={horizontalScreenStyle}
-            />
+            {isVideo ? (
+              <video
+                ref={setMediaRef}
+                src={screenshot}
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                draggable={false}
+                onLoadedMetadata={(e) =>
+                  onImageLoad(
+                    e as unknown as React.SyntheticEvent<HTMLImageElement>
+                  )
+                }
+                onError={() =>
+                  toast.error(
+                    "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
+                    { id: "video-load-error" }
+                  )
+                }
+                className={mediaClassName}
+                style={{ ...horizontalScreenStyle, ...mediaStyle }}
+              />
+            ) : (
+              <ShimmerImage
+                ref={imageRef}
+                shimmer={false}
+                src={screenshot}
+                alt="Screenshot"
+                draggable={false}
+                onLoad={onImageLoad}
+                className={mediaClassName}
+                style={{ ...horizontalScreenStyle, ...mediaStyle }}
+              />
+            )}
             <InnerLightingOverlay style={innerLightingStyle} />
           </div>
         </div>

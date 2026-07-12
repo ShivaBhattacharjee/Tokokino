@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/editor/store", () => ({
   useActiveCanvasField: (selector: (c: unknown) => unknown) =>
-    selector({ screenshot: null }),
+    selector({
+      screenshot: "data:video/mp4;base64,AAAA",
+      objectFit: "cover",
+    }),
 }))
 
 vi.mock("motion/react", async () => {
@@ -70,5 +73,17 @@ describe("MobileFramePicker", () => {
     render(<MobileFramePicker value={frame} onChange={() => {}} />)
     await user.type(screen.getByPlaceholderText("Search devices…"), "zzqqxx")
     expect(screen.getByText(/No matches/)).toBeInTheDocument()
+  })
+
+  it("renders video elements in device tiles when the canvas has a video", async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <MobileFramePicker value={frame} onChange={() => {}} />
+    )
+    // Open enough of the list that lazy tiles mount; Safari is near the top.
+    await user.click(screen.getByText("Safari"))
+    const videos = container.querySelectorAll("video")
+    expect(videos.length).toBeGreaterThan(0)
+    expect(videos[0]?.getAttribute("src")).toBe("data:video/mp4;base64,AAAA")
   })
 })

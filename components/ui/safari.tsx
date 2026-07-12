@@ -8,6 +8,7 @@ import {
 } from "react"
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { assignMediaRef } from "@/components/ui/browser-frame-media"
 
 const SAFARI_WIDTH = 1203
 const SAFARI_HEIGHT = 753
@@ -40,6 +41,10 @@ export interface SafariProps extends HTMLAttributes<HTMLDivElement> {
   screenRef?: Ref<HTMLDivElement>
   imageRef?: Ref<HTMLImageElement>
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
+  /** Called with the <video> node so the editor can register playback controls. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
+  /** Extra styles for the media element (e.g. object-view-box crop). */
+  mediaStyle?: CSSProperties
   imageFit?: ImageFit
   screenBorderRadius?: string | number
   addressValue?: string
@@ -58,6 +63,8 @@ export function Safari({
   screenRef,
   imageRef,
   onImageLoad,
+  onMediaElement,
+  mediaStyle,
   imageFit = "cover",
   screenBorderRadius = "0 0 11px 11px",
   addressValue,
@@ -97,6 +104,14 @@ export function Safari({
     : "fill-white dark:fill-[#262626]"
   const screenBg = screenBgClass(colorMode)
   const screenBgStyle = screenBgCss(colorMode)
+  const screenBoxStyle: CSSProperties = {
+    left: `${LEFT_PCT}%`,
+    top: `${TOP_PCT}%`,
+    width: `${WIDTH_PCT}%`,
+    height: `${HEIGHT_PCT}%`,
+    borderRadius: screenBorderRadius,
+    ...screenBgStyle,
+  }
 
   return (
     <div
@@ -108,41 +123,37 @@ export function Safari({
       }}
       {...props}
     >
-      {hasVideo && (
-        <div
-          className={`pointer-events-none absolute z-0 overflow-hidden ${screenBg}`}
-          style={{
-            left: `${LEFT_PCT}%`,
-            top: `${TOP_PCT}%`,
-            width: `${WIDTH_PCT}%`,
-            height: `${HEIGHT_PCT}%`,
-            ...screenBgStyle,
-          }}
-        >
-          <video
-            className="block size-full object-cover"
-            src={videoSrc}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-          />
-        </div>
-      )}
-
-      {!hasVideo && imageSrc && (
+      {hasVideo ? (
         <div
           ref={screenRef}
           className={`pointer-events-none absolute z-0 overflow-hidden ${screenBg}`}
-          style={{
-            left: `${LEFT_PCT}%`,
-            top: `${TOP_PCT}%`,
-            width: `${WIDTH_PCT}%`,
-            height: `${HEIGHT_PCT}%`,
-            borderRadius: screenBorderRadius,
-            ...screenBgStyle,
-          }}
+          style={screenBoxStyle}
+        >
+          <video
+            ref={(node) => {
+              assignMediaRef(
+                imageRef,
+                node as unknown as HTMLImageElement | null
+              )
+              onMediaElement?.(node)
+            }}
+            className={`block size-full ${imageFitClassName(imageFit)}`}
+            src={videoSrc}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            style={mediaStyle}
+            onLoadedMetadata={(e) =>
+              onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
+            }
+          />
+        </div>
+      ) : imageSrc ? (
+        <div
+          ref={screenRef}
+          className={`pointer-events-none absolute z-0 overflow-hidden ${screenBg}`}
+          style={screenBoxStyle}
         >
           <ShimmerImage
             ref={imageRef}
@@ -151,22 +162,14 @@ export function Safari({
             alt=""
             onLoad={onImageLoad}
             className={`block size-full ${imageFitClassName(imageFit)}`}
+            style={mediaStyle}
           />
         </div>
-      )}
-
-      {!hasMedia && children ? (
+      ) : children ? (
         <div
           ref={screenRef}
           className={`absolute z-0 overflow-hidden ${screenBg}`}
-          style={{
-            left: `${LEFT_PCT}%`,
-            top: `${TOP_PCT}%`,
-            width: `${WIDTH_PCT}%`,
-            height: `${HEIGHT_PCT}%`,
-            borderRadius: screenBorderRadius,
-            ...screenBgStyle,
-          }}
+          style={screenBoxStyle}
         >
           {children}
         </div>

@@ -13,6 +13,7 @@ import {
   REST_LIGHTING,
 } from "./animation-playback"
 import { MAX_DURATION_MS } from "./animation-timeline"
+import { isVideoSrc } from "./media-type"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import { screenshotPositionAnchor } from "./presets"
 import type { TweetCardSettings } from "./tweet-settings"
@@ -2974,6 +2975,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (
         !target ||
         target.tweet ||
+        (target.screenshot && isVideoSrc(target.screenshot)) ||
         target.screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
       ) {
         return null
