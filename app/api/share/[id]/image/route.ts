@@ -18,6 +18,12 @@ export async function GET(
 
   try {
     const meta = await getShareById(id).catch(() => null)
+    if (!meta) {
+      return NextResponse.json(
+        { error: "Share media not found" },
+        { status: 404 }
+      )
+    }
     const object = await getShareImage(id, meta?.key, meta?.contentType)
     const body = object.Body?.transformToWebStream()
 

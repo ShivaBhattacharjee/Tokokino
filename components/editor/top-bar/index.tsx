@@ -52,7 +52,14 @@ import {
   exportAnimationBlob,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
+import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
 import { isVideoSrc } from "@/lib/editor/media-type"
+import {
+  createResumableShareUpload,
+  listPendingResumableShareUploads,
+  resumeResumableShareUpload,
+  type PendingShareUpload,
+} from "@/lib/share-upload-client"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { saveCurrentEditorDraft, useEditorStore } from "@/lib/editor/store"
 import type { CurrentDraftInfo, CustomPresetSummary } from "@/lib/editor/store"
@@ -152,6 +159,8 @@ export function TopBar() {
   const [shareProgress, setShareProgress] =
     React.useState<ShareProgressState | null>(null)
   const shareAbortRef = React.useRef<AbortController | null>(null)
+  const pendingShareUploadRef = React.useRef<PendingShareUpload | null>(null)
+  const recoveryStartedRef = React.useRef(false)
 
   const toShareProgress = React.useCallback(
     (p: AnimationExportProgress): ShareProgressState => {
@@ -305,19 +314,23 @@ export function TopBar() {
   const handleShare = React.useCallback(async () => {
     if (shareDialog.status === "preparing") return
 
-    const mediaKind = isAnimateMode ? "animate" : "style"
+    const mediaKind = isAnimateMode
+      ? "animate"
+      : isVideoCanvas
+        ? "video"
+        : "style"
     setIsShareLinkCopied(false)
     setShareProgress(null)
 
     // Animate: open configure popup first (format/resolution + storage).
-    if (mediaKind === "animate") {
+    if (mediaKind !== "style") {
       setShareDialog({
         open: true,
         status: "configure",
         url: null,
         signature: null,
         error: null,
-        mediaKind: "animate",
+        mediaKind,
         storage: null,
       })
       const storage = await fetchShareStorage()
@@ -415,6 +428,7 @@ export function TopBar() {
     fetchShareStorage,
     includeExportWatermark,
     isAnimateMode,
+    isVideoCanvas,
     shareDialog.mediaKind,
     shareDialog.signature,
     shareDialog.status,
@@ -441,55 +455,100 @@ export function TopBar() {
       url: null,
       signature: null,
       error: null,
-      mediaKind: "animate",
+      mediaKind: isVideoCanvas && !isAnimateMode ? "video" : "animate",
     }))
 
     try {
+      const isPlainVideoCanvas = isVideoCanvas && !isAnimateMode
+      const recovered =
+        pendingShareUploadRef.current ??
+        (await listPendingResumableShareUploads()).find(
+          (upload) => upload.canvasId === activeCanvasId
+        ) ??
+        null
+      if (recovered) {
+        pendingShareUploadRef.current = recovered
+        setShareAnimFormat(recovered.format)
+        setShareAnimResolution(recovered.resolution)
+        setShareProgress({
+          phase: "uploading",
+          current: 0,
+          total: recovered.sizeBytes,
+          label: "Recovering saved upload…",
+        })
+        const result = await resumeResumableShareUpload(recovered, (progress) =>
+          setShareProgress(progress)
+        )
+        pendingShareUploadRef.current = null
+        setShareProgress(null)
+        setShareDialog({
+          open: true,
+          status: "ready",
+          url: result.url,
+          signature: recovered.signature,
+          error: null,
+          mediaKind: recovered.mediaKind ?? "animate",
+          storage: await fetchShareStorage(),
+        })
+        toast.success(
+          isPlainVideoCanvas
+            ? "Video share link ready"
+            : "Animation share link ready"
+        )
+        return
+      }
       await waitForNextPaint()
       // Grab a still of the settled canvas first — it becomes the gallery
       // thumbnail. Best-effort: a failure just falls back to the film icon.
       const poster = await captureCanvasThumbnail(activeCanvasId, 640).catch(
         () => null
       )
-      const { blob } = await exportAnimationBlob(activeCanvasId, {
+      const exportOptions = {
         format: shareAnimFormat,
         // GIF delays are whole centiseconds; 25fps (4cs) plays cleaner than 30.
         fps: shareAnimFormat === "gif" ? 25 : 30,
         targetWidth: ANIM_SHARE_WIDTHS[shareAnimResolution],
         watermark: includeExportWatermark,
-        capture: "auto",
         signal: abort.signal,
-        onProgress: (p) => setShareProgress(toShareProgress(p)),
-      })
-
-      setShareProgress({
-        phase: "uploading",
-        current: 1,
-        total: 1,
-        label: "Uploading share…",
-      })
-      const form = new FormData()
-      form.append("media", blob, `animation.${shareAnimFormat}`)
-      if (poster) form.append("poster", poster, "poster.jpg")
-      const response = await fetch("/api/share", {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      })
-      const result = (await response.json().catch(() => null)) as {
-        url?: string
-        error?: string
-        storage?: { used: number; limit: number }
-      } | null
-
-      if (!response.ok || !result?.url) {
-        throw new Error(result?.error ?? "Could not prepare share link")
+        onProgress: (p: AnimationExportProgress) =>
+          setShareProgress(toShareProgress(p)),
       }
+      const videoResult = isPlainVideoCanvas
+        ? await exportVideoMedia(activeCanvasId, {
+            ...exportOptions,
+            asBlob: true,
+          })
+        : null
+      const animationResult = isPlainVideoCanvas
+        ? null
+        : await exportAnimationBlob(activeCanvasId, {
+            ...exportOptions,
+            capture: "auto",
+          })
+      const blob = videoResult?.blob ?? animationResult?.blob
+      if (!blob) throw new Error("Could not encode video share")
 
       const signature = await createShareSignature(
         activeCanvasId,
         includeExportWatermark
       )
+      if (!signature) throw new Error("Could not prepare share link")
+      setShareProgress({
+        phase: "uploading",
+        current: 0,
+        total: blob.size,
+        label: "Saving upload for recovery…",
+      })
+      const result = await createResumableShareUpload({
+        canvasId: activeCanvasId,
+        signature,
+        mediaKind: isPlainVideoCanvas ? "video" : "animate",
+        format: shareAnimFormat,
+        resolution: shareAnimResolution,
+        media: blob,
+        poster,
+        onProgress: (progress) => setShareProgress(progress),
+      })
       setShareProgress(null)
       setShareDialog({
         open: true,
@@ -497,10 +556,14 @@ export function TopBar() {
         url: result.url,
         signature,
         error: null,
-        mediaKind: "animate",
-        storage: result.storage ?? shareDialog.storage,
+        mediaKind: isPlainVideoCanvas ? "video" : "animate",
+        storage: await fetchShareStorage(),
       })
-      toast.success("Animation share link ready")
+      toast.success(
+        isPlainVideoCanvas
+          ? "Video share link ready"
+          : "Animation share link ready"
+      )
     } catch (err) {
       if (abort.signal.aborted) return
       const message =
@@ -527,12 +590,91 @@ export function TopBar() {
     activeCanvasId,
     fetchShareStorage,
     includeExportWatermark,
+    isAnimateMode,
+    isVideoCanvas,
     shareAnimFormat,
     shareAnimResolution,
     shareDialog.status,
-    shareDialog.storage,
     toShareProgress,
   ])
+
+  React.useEffect(() => {
+    if (!session || recoveryStartedRef.current) return
+    recoveryStartedRef.current = true
+    let active = true
+
+    void (async () => {
+      let pending: PendingShareUpload | undefined
+      try {
+        pending = (await listPendingResumableShareUploads()).at(0)
+      } catch (error) {
+        console.error(
+          "[share-upload-recovery] Could not access local upload storage",
+          error
+        )
+        return
+      }
+      if (!pending || !active) return
+      pendingShareUploadRef.current = pending
+      setShareDialog({
+        open: false,
+        status: "preparing",
+        url: null,
+        signature: null,
+        error: null,
+        mediaKind: pending.mediaKind ?? "animate",
+        storage: null,
+      })
+      setShareProgress({
+        phase: "uploading",
+        current: 0,
+        total: pending.sizeBytes,
+        label: "Recovering saved upload…",
+      })
+      try {
+        const result = await resumeResumableShareUpload(pending, (progress) => {
+          if (active) setShareProgress(progress)
+        })
+        if (!active) return
+        pendingShareUploadRef.current = null
+        setShareProgress(null)
+        setShareDialog({
+          open: false,
+          status: "ready",
+          url: result.url,
+          signature: pending.signature,
+          error: null,
+          mediaKind: pending.mediaKind ?? "animate",
+          storage: await fetchShareStorage(),
+        })
+        toast.success(
+          pending.mediaKind === "video"
+            ? "Video share upload resumed"
+            : "Animation share upload resumed"
+        )
+      } catch (error) {
+        if (!active) return
+        console.error("[share-upload-recovery]", error)
+        setShareProgress(null)
+        setShareDialog({
+          open: false,
+          status: "error",
+          url: null,
+          signature: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not recover saved upload",
+          mediaKind: pending.mediaKind ?? "animate",
+          storage: await fetchShareStorage(),
+        })
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [fetchShareStorage, session])
 
   const handleProtectedAction = React.useCallback(
     (action: ProtectedTopBarAction) => {
@@ -994,7 +1136,7 @@ export function TopBar() {
             onConfirmAnimateShare={() => void handleConfirmAnimateShare()}
             onCopyLink={handleCopyShareLink}
             onRetry={() => {
-              if (shareDialog.mediaKind === "animate") {
+              if (shareDialog.mediaKind !== "style") {
                 void handleConfirmAnimateShare()
               } else {
                 void handleShare()
@@ -1255,7 +1397,7 @@ export function TopBar() {
           onConfirmAnimateShare={() => void handleConfirmAnimateShare()}
           onCopyLink={handleCopyShareLink}
           onRetry={() => {
-            if (shareDialog.mediaKind === "animate") {
+            if (shareDialog.mediaKind !== "style") {
               void handleConfirmAnimateShare()
             } else {
               void handleShare()

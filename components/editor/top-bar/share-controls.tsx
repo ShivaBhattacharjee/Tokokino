@@ -65,6 +65,9 @@ function progressPercent(progress: ShareProgressState | null): number {
   if (phase === "encoding" && total > 0) {
     return Math.min(92, 75 + (current / Math.max(total, 1)) * 17)
   }
+  if (phase === "uploading" && total > 0) {
+    return Math.min(100, 92 + (current / total) * 8)
+  }
   return Math.round((PHASE_STEP[phase] ?? 0.1) * 100)
 }
 
@@ -177,7 +180,8 @@ function ShareContent({
   const isPreparing = status === "preparing"
   const storageFull =
     storage != null && storage.limit > 0 && storage.used >= storage.limit
-  const isAnimateConfigure = mediaKind === "animate" && status === "configure"
+  const isMotionMedia = mediaKind === "animate" || mediaKind === "video"
+  const isAnimateConfigure = isMotionMedia && status === "configure"
   const percent = progressPercent(progress)
   const frameDetail =
     progress && progress.phase === "capturing" && progress.total > 0
@@ -188,11 +192,15 @@ function ShareContent({
     <>
       <div className="px-1">
         <p className="text-sm font-medium">
-          {mediaKind === "animate" ? "Share animation" : "Share screenshot"}
+          {mediaKind === "video"
+            ? "Share video"
+            : mediaKind === "animate"
+              ? "Share animation"
+              : "Share screenshot"}
         </p>
         <p className="mt-1 text-xs/relaxed text-muted-foreground">
           {isPreparing
-            ? mediaKind === "animate"
+            ? isMotionMedia
               ? "Encoding on your device, then uploading the share link."
               : "Preparing your public link…"
             : status === "ready"
@@ -307,10 +315,14 @@ function ShareContent({
                 <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
                   {frameDetail}
                 </p>
-              ) : mediaKind === "animate" ? (
+              ) : isMotionMedia ? (
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   {format.toUpperCase()} ·{" "}
-                  {resolution === "fullhd" ? "1920px" : "1080px"}
+                  {resolution === "4k"
+                    ? "3840px"
+                    : resolution === "fullhd"
+                      ? "1920px"
+                      : "1080px"}
                 </p>
               ) : null}
             </div>
@@ -336,7 +348,9 @@ function ShareContent({
           <div className="flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
             <span>
               {progress?.phase === "uploading"
-                ? "Almost done"
+                ? progress.total > 1
+                  ? `${formatBytes(progress.current)} / ${formatBytes(progress.total)}`
+                  : "Almost done"
                 : progress?.phase === "encoding"
                   ? "Encoding"
                   : progress?.phase === "capturing"
@@ -451,7 +465,11 @@ export function ShareControls({
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {mediaKind === "animate" ? "Share animation" : "Share screenshot"}
+          {mediaKind === "video"
+            ? "Share video"
+            : mediaKind === "animate"
+              ? "Share animation"
+              : "Share screenshot"}
         </TooltipContent>
       </Tooltip>
       <PopoverContent
@@ -519,7 +537,11 @@ export function MobileShareDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(calc(100vw-2rem),380px)] gap-3 rounded-md p-3 md:hidden">
         <DialogTitle className="sr-only">
-          {mediaKind === "animate" ? "Share animation" : "Share screenshot"}
+          {mediaKind === "video"
+            ? "Share video"
+            : mediaKind === "animate"
+              ? "Share animation"
+              : "Share screenshot"}
         </DialogTitle>
         <DialogDescription className="sr-only">
           Create and copy a public link for this canvas.
