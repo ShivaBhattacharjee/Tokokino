@@ -1282,7 +1282,6 @@ export function useAnimateTimeline() {
 
   const canRazor = clips.length > 0 || resolvedVideoClips.length > 0
   React.useEffect(() => {
-     
     if (clips.length === 0 && resolvedVideoClips.length === 0)
       setRazorMode(false)
   }, [clips.length, resolvedVideoClips.length])
