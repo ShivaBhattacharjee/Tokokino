@@ -8,13 +8,11 @@ export default function ShareLoading() {
       <div className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dashed border-border/70 pb-4">
           <div className="min-w-0 space-y-2">
-            <Skeleton className="h-2.5 w-28" />
             <Skeleton className="h-5 w-40" />
             <Skeleton className="h-3 w-52" />
           </div>
           <div className="flex items-center gap-2">
-            <Skeleton className="h-10 w-44 rounded-lg" />
-            <Skeleton className="h-10 w-44 rounded-lg" />
+            <Skeleton className="h-8 w-44 rounded-md" />
           </div>
         </header>
 

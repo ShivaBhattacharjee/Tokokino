@@ -44,6 +44,7 @@ import {
   PaginationEllipsis,
   PaginationItem,
 } from "@/components/ui/pagination"
+import { buildPageItems } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 
 export type DraftListItem = {
@@ -65,31 +66,6 @@ const PAGE_SIZE = 9
 /** Fixed shell size so Present/Animate switch never shifts layout. */
 const DIALOG_SHELL =
   "flex h-[min(720px,calc(100dvh-1.5rem))] w-[min(calc(100vw-1.5rem),1040px)] flex-col gap-0 overflow-hidden rounded-md bg-popover p-0 sm:max-w-[1040px]"
-
-/**
- * Compact page window: 1 … 4 5 6 … 50
- * Always includes first/last and a small neighborhood around the current page.
- */
-export function buildPageItems(
-  page: number,
-  totalPages: number
-): Array<number | "ellipsis"> {
-  if (totalPages <= 0) return []
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1)
-  }
-
-  const current = Math.min(Math.max(1, page), totalPages)
-  const items: Array<number | "ellipsis"> = [1]
-  const left = Math.max(2, current - 1)
-  const right = Math.min(totalPages - 1, current + 1)
-
-  if (left > 2) items.push("ellipsis")
-  for (let p = left; p <= right; p += 1) items.push(p)
-  if (right < totalPages - 1) items.push("ellipsis")
-  items.push(totalPages)
-  return items
-}
 
 function formatRelativeDate(iso: string) {
   const date = new Date(iso)
@@ -138,7 +114,7 @@ function DraftCard({
         onClick={onOpen}
         disabled={isOpening}
         className={cn(
-          "flex w-full flex-col overflow-hidden rounded-xl border bg-secondary/30 text-left transition-colors",
+          "flex w-full flex-col overflow-hidden rounded-md border bg-secondary/30 text-left transition-colors",
           isCurrent
             ? "border-primary"
             : "border-border/50 hover:border-primary/55",
@@ -213,7 +189,7 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("style")}
           className={cn(
-            "flex items-start gap-2.5 rounded-lg border px-2.5 py-2.5 text-left transition-colors",
+            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
             kind === "style"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
@@ -231,7 +207,7 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("animate")}
           className={cn(
-            "flex items-start gap-2.5 rounded-lg border px-2.5 py-2.5 text-left transition-colors",
+            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
             kind === "animate"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
@@ -273,7 +249,7 @@ function DraftGridSkeleton() {
     >
       {SKELETON_KEYS.map((key) => (
         <div key={key} className="flex flex-col gap-2">
-          <Skeleton className="aspect-[16/10] w-full rounded-xl" />
+          <Skeleton className="aspect-[16/10] w-full rounded-md" />
           <Skeleton className="h-3 w-28" />
           <Skeleton className="h-2.5 w-20" />
         </div>

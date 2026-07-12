@@ -98,7 +98,7 @@ export function AnimateToggle() {
   return (
     <div
       className={cn(
-        "pointer-events-none absolute top-4 left-1/2 z-30 -translate-x-1/2 max-md:hidden xl:top-auto xl:bottom-20",
+        "pointer-events-none absolute top-4 left-1/2 z-30 -translate-x-1/2 max-md:hidden xl:top-auto xl:bottom-18",
         activeCanvasHasVideo && "xl:hidden"
       )}
     >

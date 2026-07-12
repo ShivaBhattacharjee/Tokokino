@@ -1,7 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { RiCheckLine, RiDownloadLine, RiImageLine } from "@remixicon/react"
+import {
+  RiCheckLine,
+  RiDownloadLine,
+  RiImageLine,
+  RiLoader4Line,
+} from "@remixicon/react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -26,6 +31,7 @@ export function ShareView({
 }) {
   const [imageCopied, setImageCopied] = React.useState(false)
   const [imageFailed, setImageFailed] = React.useState(false)
+  const [downloading, setDownloading] = React.useState(false)
   const isVideo = isVideoShareContentType(contentType)
   const isGif = contentType.toLowerCase() === "image/gif"
   const isAnimate = shareType === "animate" || isVideo || isGif
@@ -73,17 +79,46 @@ export function ShareView({
     }
   }, [id, isVideo])
 
+  const handleDownload = React.useCallback(async () => {
+    if (downloading) return
+    setDownloading(true)
+    const toastId = toast.loading("Preparing download…")
+    try {
+      const res = await fetch(`/api/share/${id}/download`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const ext = blob.type.includes("webm")
+        ? "webm"
+        : blob.type.includes("mp4")
+          ? "mp4"
+          : blob.type.includes("gif")
+            ? "gif"
+            : blob.type.includes("jpeg")
+              ? "jpg"
+              : "png"
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `tokokino-share-${id}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast.success("Download started", { id: toastId })
+    } catch (error) {
+      console.error(error)
+      toast.error("Could not download", { id: toastId })
+    } finally {
+      setDownloading(false)
+    }
+  }, [id, downloading])
+
   return (
     <main className="min-h-svh bg-background text-foreground">
       <div className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dashed border-border/70 pb-4">
           <div className="min-w-0">
-            <p className="label-eyebrow">
-              {isAnimate ? "Shared animation" : "Shared screenshot"}
-            </p>
-            <h1 className="mt-1 truncate text-lg font-medium">
-              Tokokino share
-            </h1>
+            <h1 className="truncate text-lg font-medium">Tokokino share</h1>
             <p className="mt-1 text-xs text-muted-foreground">
               {sharedBy ? `Shared by ${sharedBy}` : "Shared with Tokokino"}
               {views === null
@@ -103,11 +138,18 @@ export function ShareView({
                 <span>{imageCopied ? "Copied" : "Copy"}</span>
               </Button>
             ) : null}
-            <Button className="w-44" asChild size="lg">
-              <a href={`/api/share/${id}/download`}>
+            <Button
+              className="w-44"
+              size="lg"
+              disabled={downloading}
+              onClick={() => void handleDownload()}
+            >
+              {downloading ? (
+                <RiLoader4Line className="animate-spin" />
+              ) : (
                 <RiDownloadLine />
-                <span>Download</span>
-              </a>
+              )}
+              <span>{downloading ? "Downloading…" : "Download"}</span>
             </Button>
           </div>
         </header>

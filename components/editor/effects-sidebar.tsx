@@ -324,19 +324,19 @@ export function AccountTile() {
           align="start"
           sideOffset={8}
           onOpenAutoFocus={(event) => event.preventDefault()}
-          className="w-[236px] rounded-lg border border-border/70 bg-card/95 p-2 shadow-xl"
+          className="w-[236px] gap-1 rounded-lg border border-border/70 bg-card/95 p-2 shadow-xl"
         >
           <Link
             href="/app/shares"
             onClick={() => setExpanded(false)}
-            className="flex h-8 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
+            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
           >
             <RiGalleryLine className="size-4 shrink-0 text-muted-foreground" />
             My Shares
           </Link>
           <button
             type="button"
-            className="flex h-8 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
+            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
             onClick={() => {
               setExpanded(false)
               setStorageOpen(true)
@@ -347,7 +347,7 @@ export function AccountTile() {
           </button>
           <button
             type="button"
-            className="flex h-8 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
+            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
             onClick={() => {
               setExpanded(false)
               setSettingsOpen(true)
@@ -359,7 +359,7 @@ export function AccountTile() {
           <button
             type="button"
             disabled={isSigningOut}
-            className="flex h-8 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-destructive transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-destructive/10 focus:ring-0 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-60 sm:focus-visible:ring-2 sm:focus-visible:ring-destructive/30"
+            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-destructive transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-destructive/10 focus:ring-0 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-60 sm:focus-visible:ring-2 sm:focus-visible:ring-destructive/30"
             onClick={() => void handleSignOut()}
           >
             <RiLogoutBoxRLine className="size-4 shrink-0" />

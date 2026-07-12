@@ -2,10 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import {
-  OpenProjectDialog,
-  buildPageItems,
-} from "@/components/editor/top-bar/open-project-dialog"
+import { OpenProjectDialog } from "@/components/editor/top-bar/open-project-dialog"
+import { buildPageItems } from "@/lib/pagination"
 
 /**
  * `OpenProjectDialog` — lists saved drafts fetched from /api/drafts and opens

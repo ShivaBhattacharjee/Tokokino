@@ -909,7 +909,7 @@ export function ExportControls({
           <PopoverContent
             align="end"
             sideOffset={8}
-            className="w-64 gap-3 rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
+            className="w-64 gap-3 rounded-md border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
           >
             {showVideoFormats ? (
               <>
