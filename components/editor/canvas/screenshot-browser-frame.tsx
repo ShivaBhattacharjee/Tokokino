@@ -178,7 +178,7 @@ export function ScreenshotBrowserFrame({
           screenshotLayer.hidden && "pointer-events-none",
           isScreenshotDragging || activeTool === "position"
             ? "cursor-grabbing transition-none"
-            : "transition-all duration-300 ease-out",
+            : "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
           activeTool === "pointer" && "cursor-grab"
         )}
         style={positionedStyle}
@@ -351,7 +351,7 @@ export function BrowserFrameEmptyState({
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
           isScreenshotDragging || activeTool === "position"
             ? "cursor-grabbing transition-none"
-            : "transition-all duration-300 ease-out",
+            : "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
           activeTool === "pointer" && !isScreenshotDragging && "cursor-grab"
         )}
         style={positionedStyle}

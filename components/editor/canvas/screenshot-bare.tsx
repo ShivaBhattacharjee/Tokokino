@@ -134,6 +134,15 @@ export function ScreenshotBare({
   const isVideo = isVideoSrc(screenshot)
   const activeCrop =
     isVideo && isActiveCropRegion(cropRegion) ? cropRegion : null
+  // Safari/Firefox report 0×0 until metadata — without a fallback the contain
+  // shell collapses to a speck then jumps to full size. Fill the stage until
+  // we know the real aspect, then shrink-wrap.
+  const [videoAspectState, setVideoAspectState] = React.useState<{
+    src: string
+    aspect: string | null
+  }>({ src: screenshot, aspect: null })
+  const videoIntrinsicAspect =
+    videoAspectState.src === screenshot ? videoAspectState.aspect : null
 
   // Feed the same element the parent measures (imageRef) and the video registry
   // (which the docked control bar reads) off a single node, so placement
@@ -312,7 +321,9 @@ export function ScreenshotBare({
     screenshotLayer.hidden && "pointer-events-none",
     isScreenshotDragging || suppressTransition || activeTool === "position"
       ? "cursor-grabbing transition-none"
-      : "transition-all duration-300 ease-out",
+      : // Never transition layout (left/top/size) — first measure after load would
+        // otherwise look like a zoom/slide-in. Transform/opacity still ease.
+        "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
     activeTool === "pointer" && "cursor-grab",
     isScreenshotSelected && activeTool === "pointer" && "outline-none"
   )
@@ -321,11 +332,8 @@ export function ScreenshotBare({
     ? {
         ...imagePositionStyle,
         overflow: "hidden",
-        // Drop object-fit on the frame — the inner video is positioned to fill.
         objectFit: undefined,
         ...(cropAspectRatio ? { aspectRatio: cropAspectRatio } : null),
-        // Absolute children don't size the frame. Give contain-mode a definite
-        // width so aspect-ratio can resolve height (otherwise the box is 0×0).
         ...((isNestedContain || (!isNested && objectFit === "contain")) &&
         cropAspectRatio
           ? {
@@ -338,6 +346,55 @@ export function ScreenshotBare({
       }
     : undefined
 
+  const resolvedVideoAspect = cropAspectRatio ?? videoIntrinsicAspect
+
+  // Video contain shells must never rely on the <video> intrinsic box — Safari
+  // reports 0×0 until metadata, and width/height:auto + aspect-ratio alone can
+  // stay 0×0 after metadata too. Always give a definite width (or fill stage).
+  const videoShellStyle: React.CSSProperties = (() => {
+    if (activeCrop) return cropFrameStyle ?? imagePositionStyle
+    if (objectFit !== "contain") return imagePositionStyle
+
+    // After placement is measured, pin to that box (same as images).
+    if (placementDims && isFreePlaced) {
+      return {
+        ...imagePositionStyle,
+        width: placementDims.imgW,
+        height: placementDims.imgH,
+      }
+    }
+
+    if (!resolvedVideoAspect) {
+      return {
+        ...imagePositionStyle,
+        inset: 0,
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "100%",
+        height: "100%",
+        maxWidth: "100%",
+        maxHeight: "100%",
+        transform: contentTransform || imagePositionStyle.transform,
+      }
+    }
+
+    return {
+      ...imagePositionStyle,
+      aspectRatio: resolvedVideoAspect,
+      // Definite width so aspect-ratio can resolve height (auto/auto → 0 in Safari).
+      width: "100%",
+      height: "auto",
+      maxWidth: "100%",
+      maxHeight: "100%",
+      left: "50%",
+      top: "50%",
+      transform:
+        `translate(-50%, -50%) ${contentTransform || transform}`.trim(),
+    }
+  })()
+
   const videoInner = (
     <video
       ref={setMediaRef}
@@ -349,9 +406,16 @@ export function ScreenshotBare({
       // show a black play poster instead until the user hits play.
       preload="metadata"
       draggable={false}
-      onLoadedMetadata={(e) =>
+      onLoadedMetadata={(e) => {
+        const el = e.currentTarget
+        if (el.videoWidth > 0 && el.videoHeight > 0) {
+          setVideoAspectState({
+            src: screenshot,
+            aspect: `${el.videoWidth} / ${el.videoHeight}`,
+          })
+        }
         onImageLoad(e as unknown as React.SyntheticEvent<HTMLImageElement>)
-      }
+      }}
       onError={() =>
         toast.error(
           "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
@@ -367,12 +431,8 @@ export function ScreenshotBare({
           }
         : {
             className: cn(
-              "pointer-events-none",
-              // Cover/fill: fill the shell. Contain: keep intrinsic aspect so the
-              // shell shrink-wraps (absolute would collapse the shell to 0×0).
-              objectFit === "contain" || isNestedContain
-                ? "block max-h-full max-w-full object-contain"
-                : "absolute inset-0 h-full w-full",
+              "pointer-events-none absolute inset-0 h-full w-full",
+              objectFit === "contain" && "object-contain",
               objectFit === "cover" && "object-cover",
               objectFit === "fill" && "object-fill"
             ),
@@ -392,8 +452,12 @@ export function ScreenshotBare({
           ref={setVideoShellRef}
           data-box-hover-target
           data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
-          style={activeCrop ? cropFrameStyle : imagePositionStyle}
-          className={cn(mediaClassName, "overflow-hidden bg-black")}
+          style={videoShellStyle}
+          className={cn(
+            mediaClassName,
+            "overflow-hidden bg-black",
+            !resolvedVideoAspect && "transition-none"
+          )}
           onClick={(e) =>
             onSelect(e as unknown as React.MouseEvent<HTMLImageElement>)
           }
@@ -411,7 +475,7 @@ export function ScreenshotBare({
           }
         >
           {videoInner}
-          <VideoIdlePoster />
+          <VideoIdlePoster src={screenshot} />
         </div>
       ) : (
         <ShimmerImage
@@ -442,7 +506,7 @@ export function ScreenshotBare({
               suppressTransition ||
               activeTool === "position"
               ? "transition-none"
-              : "transition-all duration-300 ease-out"
+              : "transition-[transform,opacity,filter] duration-300 ease-out"
           )}
           style={{
             ...innerLightingStyle,
@@ -469,7 +533,7 @@ export function ScreenshotBare({
               suppressTransition ||
               activeTool === "position"
               ? "transition-none"
-              : "transition-all duration-300 ease-out"
+              : "transition-[transform,opacity,filter] duration-300 ease-out"
           )}
           style={{
             ...lightSizeStyle,

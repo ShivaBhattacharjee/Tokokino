@@ -113,7 +113,7 @@ export function Arc({
           onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
         }
       />
-      <VideoIdlePoster />
+      <VideoIdlePoster src={videoSrc} />
     </div>
   ) : imageSrc ? (
     <>

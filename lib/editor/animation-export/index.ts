@@ -32,6 +32,7 @@ import { encodeWebmMediaRecorder, tryEncodeWithMediabunny } from "./video"
 import { loadWatermarkLogo, resolveWatermarkFontStack } from "./watermark"
 
 export { AnimationExportAbortedError } from "./utils"
+export { isWebmExportSupported } from "./video"
 export type {
   AnimationCaptureMode,
   AnimationExportBlobResult,

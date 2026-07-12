@@ -34,6 +34,7 @@ import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import {
   AnimationExportAbortedError,
   exportAnimation,
+  isWebmExportSupported,
   type AnimationCaptureMode,
   type AnimationExportFormat,
   type AnimationExportProgress,
@@ -643,6 +644,23 @@ export function ExportControls({
     () => snapFpsToOptions(animFps, animFpsOptions),
     [animFps, animFpsOptions]
   )
+  // WebM has no encoder path in some browsers (Safari): disable the option there
+  // rather than let the export fail. Assume supported until the async probe says
+  // otherwise so the option isn't briefly disabled on capable browsers.
+  const [webmSupported, setWebmSupported] = React.useState(true)
+  React.useEffect(() => {
+    let cancelled = false
+    void isWebmExportSupported().then((ok) => {
+      if (!cancelled) setWebmSupported(ok)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  React.useEffect(() => {
+    // Move off a persisted WebM selection when this browser can't produce it.
+    if (!webmSupported && animFormat === "webm") setAnimFormat("mp4")
+  }, [webmSupported, animFormat, setAnimFormat])
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   // Own hover state for the settings tooltip so it stays controlled for its
@@ -917,6 +935,11 @@ export function ExportControls({
                   options={ANIMATION_FORMATS.map((f) => ({
                     value: f,
                     label: ANIMATION_FORMAT_LABELS[f],
+                    disabled: f === "webm" && !webmSupported,
+                    tooltip:
+                      f === "webm" && !webmSupported
+                        ? "WebM isn't supported in this browser (e.g. Safari). Use MP4 or GIF."
+                        : undefined,
                   }))}
                   value={animFormat}
                   onChange={(v) => setAnimFormat(v as AnimationExportFormat)}

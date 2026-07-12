@@ -1005,7 +1005,7 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
                     imageFitClassName(imageFit)
                   )}
                 />
-                <VideoIdlePoster interactive={false} />
+                <VideoIdlePoster src={screenshot} interactive={false} />
               </div>
             ) : (
               <>

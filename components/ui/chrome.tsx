@@ -191,7 +191,7 @@ export function Chrome({
           onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
         }
       />
-      <VideoIdlePoster />
+      <VideoIdlePoster src={videoSrc} />
     </div>
   ) : imageSrc ? (
     <ShimmerImage

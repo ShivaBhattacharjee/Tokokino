@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   MAX_GIF_TOTAL_PIXELS,
   canvasIsVideoMedia,
   gifExportExceedsMemory,
+  measureVideoRegion,
   planFrames,
   seekTo,
 } from "@/lib/editor/animation-export/video-media"
@@ -150,6 +151,196 @@ describe("gifExportExceedsMemory — guards against OOM", () => {
   it("sits right at the boundary", () => {
     expect(gifExportExceedsMemory(MAX_GIF_TOTAL_PIXELS, 1, 1)).toBe(false)
     expect(gifExportExceedsMemory(MAX_GIF_TOTAL_PIXELS + 1, 1, 1)).toBe(true)
+  })
+})
+
+describe("measureVideoRegion — object-fit → composite geometry", () => {
+  type Rect = { left: number; top: number; width: number; height: number }
+  type FakeStyle = Partial<{
+    objectFit: string
+    objectPosition: string
+    overflowX: string
+    borderTopLeftRadius: string
+    borderTopRightRadius: string
+    borderBottomRightRadius: string
+    borderBottomLeftRadius: string
+  }>
+
+  const styles = new Map<Element, FakeStyle>()
+
+  const setRect = (el: HTMLElement, r: Rect) => {
+    el.getBoundingClientRect = () =>
+      ({
+        ...r,
+        right: r.left + r.width,
+        bottom: r.top + r.height,
+        x: r.left,
+        y: r.top,
+        toJSON: () => "",
+      })
+  }
+
+  const fakeStyle = (overrides: FakeStyle): FakeStyle => ({
+    objectFit: "fill",
+    objectPosition: "50% 50%",
+    overflowX: "visible",
+    borderTopLeftRadius: "0px",
+    borderTopRightRadius: "0px",
+    borderBottomRightRadius: "0px",
+    borderBottomLeftRadius: "0px",
+    ...overrides,
+  })
+
+  /** root(1000×800 at 0,0) > shell(overflow hidden, 800×450 at 100,100) > video */
+  const buildScene = ({
+    naturalW,
+    naturalH,
+    fit,
+    videoRect,
+    shellRadius = "0px",
+  }: {
+    naturalW: number
+    naturalH: number
+    fit: string
+    videoRect?: Rect
+    shellRadius?: string
+  }) => {
+    const root = document.createElement("div")
+    const shell = document.createElement("div")
+    const video = document.createElement("video")
+    shell.appendChild(video)
+    root.appendChild(shell)
+    setRect(root, { left: 0, top: 0, width: 1000, height: 800 })
+    setRect(shell, { left: 100, top: 100, width: 800, height: 450 })
+    setRect(
+      video,
+      videoRect ?? { left: 100, top: 100, width: 800, height: 450 }
+    )
+    Object.defineProperty(video, "videoWidth", { value: naturalW })
+    Object.defineProperty(video, "videoHeight", { value: naturalH })
+    styles.set(video, fakeStyle({ objectFit: fit }))
+    styles.set(
+      shell,
+      fakeStyle({
+        overflowX: "hidden",
+        borderTopLeftRadius: shellRadius,
+        borderTopRightRadius: shellRadius,
+        borderBottomRightRadius: shellRadius,
+        borderBottomLeftRadius: shellRadius,
+      })
+    )
+    return { root, video }
+  }
+
+  beforeEach(() => {
+    vi.spyOn(window, "getComputedStyle").mockImplementation(
+      (el) => (styles.get(el) ?? fakeStyle({})) as CSSStyleDeclaration
+    )
+  })
+
+  afterEach(() => {
+    styles.clear()
+    vi.restoreAllMocks()
+  })
+
+  it("fill + crop polyfill: oversized video clipped by the shell", () => {
+    // Crop polyfill: object-fit fill, video box 2× the shell, offset so the
+    // shell shows the video's center-ish region.
+    const { root, video } = buildScene({
+      naturalW: 1600,
+      naturalH: 900,
+      fit: "fill",
+      videoRect: { left: -300, top: -125, width: 1600, height: 900 },
+    })
+    const region = measureVideoRegion(root, video)
+    expect(region).not.toBeNull()
+    expect(region).toMatchObject({
+      destX: 100,
+      destY: 100,
+      destW: 800,
+      destH: 450,
+    })
+    expect(region!.srcXFrac).toBeCloseTo(400 / 1600, 10)
+    expect(region!.srcYFrac).toBeCloseTo(225 / 900, 10)
+    expect(region!.srcWFrac).toBeCloseTo(0.5, 10)
+    expect(region!.srcHFrac).toBeCloseTo(0.5, 10)
+  })
+
+  it("cover: crops the source, fills the whole box (uncropped Safari path)", () => {
+    // Square 400×400 frame covering a 800×450 box → content is 800×800
+    // centered, so the top/bottom of the source are cropped away.
+    const { root, video } = buildScene({
+      naturalW: 400,
+      naturalH: 400,
+      fit: "cover",
+    })
+    const region = measureVideoRegion(root, video)
+    expect(region).not.toBeNull()
+    expect(region).toMatchObject({
+      destX: 100,
+      destY: 100,
+      destW: 800,
+      destH: 450,
+    })
+    expect(region!.srcXFrac).toBeCloseTo(0, 10)
+    expect(region!.srcWFrac).toBeCloseTo(1, 10)
+    expect(region!.srcYFrac).toBeCloseTo(175 / 800, 10)
+    expect(region!.srcHFrac).toBeCloseTo(450 / 800, 10)
+  })
+
+  it("contain: letterboxes — dest shrinks to the content, source is whole frame", () => {
+    // Square 400×400 frame contained in a 800×450 box → content 450×450
+    // centered horizontally; the letterbox bands stay template pixels.
+    const { root, video } = buildScene({
+      naturalW: 400,
+      naturalH: 400,
+      fit: "contain",
+    })
+    const region = measureVideoRegion(root, video)
+    expect(region).not.toBeNull()
+    expect(region!.destX).toBeCloseTo(275, 6)
+    expect(region!.destY).toBeCloseTo(100, 6)
+    expect(region!.destW).toBeCloseTo(450, 6)
+    expect(region!.destH).toBeCloseTo(450, 6)
+    expect(region!.srcXFrac).toBeCloseTo(0, 10)
+    expect(region!.srcYFrac).toBeCloseTo(0, 10)
+    expect(region!.srcWFrac).toBeCloseTo(1, 10)
+    expect(region!.srcHFrac).toBeCloseTo(1, 10)
+  })
+
+  it("carries the shell's rounded-corner clip box", () => {
+    const { root, video } = buildScene({
+      naturalW: 1600,
+      naturalH: 900,
+      fit: "cover",
+      shellRadius: "24px",
+    })
+    const region = measureVideoRegion(root, video)
+    expect(region?.clip).toEqual({
+      x: 100,
+      y: 100,
+      w: 800,
+      h: 450,
+      radii: [24, 24, 24, 24],
+    })
+  })
+
+  it("omits the clip box for square shells", () => {
+    const { root, video } = buildScene({
+      naturalW: 1600,
+      naturalH: 900,
+      fit: "cover",
+    })
+    expect(measureVideoRegion(root, video)?.clip).toBeNull()
+  })
+
+  it("returns null before video metadata (0×0 natural size)", () => {
+    const { root, video } = buildScene({
+      naturalW: 0,
+      naturalH: 0,
+      fit: "cover",
+    })
+    expect(measureVideoRegion(root, video)).toBeNull()
   })
 })
 

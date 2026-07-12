@@ -2,28 +2,44 @@
  * Video-media export — turns a canvas whose main content is a *video* into a
  * downloadable video (MP4/WebM) or GIF, with all styling applied.
  *
- * It reuses the animation export's frame pipeline: an offscreen clone of the
- * canvas is rasterized per frame via html-to-image, so background, shadow,
- * frame, border, 3D tilt, crop and other layers all render exactly as on canvas
- * — the only thing we add is seeking the clone's <video> to each output time so
- * the clip actually moves. (The earlier hand-rolled 2D compositor couldn't
- * reproduce 3D tilt and stretched the frame; this doesn't have that problem.)
+ * The styled scene (background, shadow, frame, border, tilt, crop…) always
+ * comes from an offscreen clone rasterized with html-to-image; how the moving
+ * video pixels get in depends on the engine:
+ *
+ * 1. Chromium: seek the clone's <video> to each output time and rasterize the
+ *    whole scene per frame — its foreignObject rendering is reliable.
+ * 2. Safari/Firefox: per-frame foreignObject rasterization is flaky (stale /
+ *    first-frame captures) and a paused offscreen <video> doesn't decode on
+ *    seek. Instead, decode frames with WebCodecs (mediabunny), rasterize the
+ *    scene ONCE with the video hidden, and composite each decoded frame onto
+ *    that template with 2D drawImage (`measureVideoRegion` supplies the
+ *    geometry). Requires an untilted video whose box maps linearly to the
+ *    frame.
+ * 3. Fallbacks, in order: decoded frames painted into an overlay <canvas> in
+ *    the clone + per-frame rasterization (3D-tilted videos), then DOM seek +
+ *    rVFC wait (codec not WebCodecs-decodable) — best-effort quality.
  *
  * v1 caveat: no audio track.
  */
 
 import {
+  ALL_FORMATS,
+  BlobSource,
   BufferTarget,
+  CanvasSink,
   CanvasSource,
+  Input,
   Mp4OutputFormat,
   Output,
   QUALITY_HIGH,
   WebMOutputFormat,
   getFirstEncodableVideoCodec,
   type VideoCodec,
+  type WrappedCanvas,
 } from "mediabunny"
 import { GIFEncoder, quantize, applyPalette } from "gifenc"
 
+import { supportsObjectViewBox } from "../crop-utils"
 import { prepareAnimationCapture } from "../export"
 import { isVideoSrc } from "../media-type"
 import { useEditorStore } from "../store"
@@ -136,6 +152,318 @@ export function seekTo(
   })
 }
 
+/**
+ * Wait until the just-seeked frame is actually decoded and drawable to a canvas.
+ *
+ * Safari fires `seeked` *before* the new frame is presentable to `drawImage`, so
+ * a capture taken right after the seek rasterizes a black/stale frame and only
+ * occasionally catches the real one — the "black video, clip glitching through"
+ * symptom. `requestVideoFrameCallback` resolves only once a frame has actually
+ * been presented, closing that race. Falls back to a short delay where rVFC is
+ * unavailable, and is bounded by a timeout so a build that never fires it for a
+ * paused seek can't hang the export.
+ */
+function waitForVideoFrame(video: HTMLVideoElement): Promise<void> {
+  const rvfc = (
+    video as HTMLVideoElement & {
+      requestVideoFrameCallback?: (cb: () => void) => number
+    }
+  ).requestVideoFrameCallback
+  if (typeof rvfc !== "function") {
+    return new Promise((resolve) => setTimeout(resolve, 30))
+  }
+  return new Promise<void>((resolve) => {
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      resolve()
+    }
+    // Safety net: rVFC isn't guaranteed to fire for a paused seek in every build.
+    const timer = window.setTimeout(done, 100)
+    rvfc.call(video, done)
+  })
+}
+
+type DecodedFrameSource = {
+  /** Decoded frame whose start timestamp is ≤ `t` seconds, or null if none. */
+  getFrameAt: (t: number) => Promise<CanvasImageSource | null>
+  cleanup: () => void
+}
+
+/**
+ * Decode the source clip's frames with mediabunny (WebCodecs `VideoDecoder`)
+ * instead of seeking a DOM `<video>`.
+ *
+ * Safari won't reliably decode a paused, offscreen `<video>` on seek: every
+ * intermediate seek yields no new frame, so the export gets the first frame,
+ * then black, then the last — the reported flicker. WebCodecs decodes any
+ * timestamp deterministically, with no dependency on the element being on-screen
+ * or played, killing the whole class of Safari video-capture bugs.
+ *
+ * Returns null when decoding isn't possible (no WebCodecs, or the container's
+ * codec isn't decodable here — e.g. VP9 on Safari); the caller then falls back
+ * to the DOM-video path.
+ */
+async function createDecodedFrameSource(
+  src: string,
+  signal?: AbortSignal
+): Promise<DecodedFrameSource | null> {
+  if (typeof VideoDecoder === "undefined") return null
+  let input: Input | null = null
+  try {
+    throwIfAborted(signal)
+    const res = await fetch(src)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) })
+    const track = await input.getPrimaryVideoTrack()
+    if (!track || !(await track.canDecode())) {
+      input.dispose()
+      return null
+    }
+    const boundInput = input
+    // poolSize 0 → each yielded frame is its own canvas, so holding a reference
+    // to the last one across calls is safe (a pooled canvas would be overwritten).
+    const sink = new CanvasSink(track, { poolSize: 0 })
+
+    // Walk the decoder's frames in presentation order (each packet decoded once)
+    // and return, for each requested output time, the latest frame at or before
+    // it. getCanvas() per-frame doesn't advance the decoder reliably for every
+    // container — it froze on frame 0 — so drive the sequential iterator instead.
+    const EPS = 1e-4
+    let frames = sink.canvases()
+    let buffered: WrappedCanvas | null = null
+    let chosen: WrappedCanvas | null = null
+    let lastT = -Infinity
+
+    return {
+      getFrameAt: async (t) => {
+        // A backward jump (e.g. GIF's palette pass restarting at 0) can't be
+        // served by the forward-only iterator, so restart it from that time —
+        // closing the old one first to release its decoder.
+        if (t + EPS < lastT) {
+          void frames.return(undefined)
+          frames = sink.canvases(Math.max(0, t))
+          buffered = null
+          chosen = null
+        }
+        lastT = t
+        for (;;) {
+          if (!buffered) {
+            const next = await frames.next()
+            if (next.done) break
+            buffered = next.value
+          }
+          if (buffered.timestamp <= t + EPS) {
+            chosen = buffered
+            buffered = null
+          } else break
+        }
+        return chosen?.canvas ?? null
+      },
+      cleanup: () => {
+        void frames.return(undefined)
+        boundInput.dispose()
+      },
+    }
+  } catch {
+    input?.dispose()
+    return null
+  }
+}
+
+/**
+ * Overlay a canvas we paint ourselves on top of the clone's `<video>` so the
+ * pixels html-to-image rasterizes come from a static `<canvas>` (reliable in
+ * every engine) instead of a live `<video>` — which Safari/Firefox render
+ * blank/black inside a serialized `<foreignObject>`.
+ *
+ * The `<video>` stays in the clone only for its box + crop/radius/object-fit
+ * styling and natural size; the overlay copies those and sits one layer above,
+ * showing the frame we paint (from the WebCodecs decoder). Returns a `paint()`
+ * that draws a decoded frame into the overlay, or null when it can't be created.
+ */
+function overlayVideoFrameCanvas(
+  video: HTMLVideoElement
+): ((frame: CanvasImageSource) => void) | null {
+  const parent = video.parentElement
+  const canvas = document.createElement("canvas")
+  // willReadFrequently forces a CPU-backed canvas. On Safari a GPU-backed 2D
+  // context can return a *black* draw of decoded video (WebKit GPU-process bug
+  // #237424 / Apple dev thread 708348); the CPU path draws the real pixels.
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
+  if (!parent || !ctx) return null
+
+  // Reuse the video's own box + crop/radius/object-fit styling so the overlay
+  // lands exactly where the video renders. A cropped video is absolutely
+  // positioned (overflow polyfill); an uncropped one fills its parent in flow,
+  // so force absolute inset-0 in that case to actually overlay rather than stack.
+  canvas.className = video.className
+  canvas.setAttribute("style", video.getAttribute("style") ?? "")
+  const position = getComputedStyle(video).position
+  if (position === "static" || position === "relative") {
+    canvas.style.position = "absolute"
+    canvas.style.inset = "0"
+  }
+  canvas.style.pointerEvents = "none"
+  parent.insertBefore(canvas, video.nextSibling)
+
+  return (frame: CanvasImageSource) => {
+    // Size the overlay to the decoded frame's own intrinsic dimensions so the
+    // copied object-fit maps it to the display box exactly as it does for the
+    // video (and so we don't depend on the DOM <video>.videoWidth, which is
+    // unreliable on Safari for an unplayed clone).
+    const w = "width" in frame ? Number(frame.width) : video.videoWidth
+    const h = "height" in frame ? Number(frame.height) : video.videoHeight
+    if (!w || !h) return
+    // Setting width/height also clears the canvas; only clear explicitly when
+    // the size is unchanged.
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w
+      canvas.height = h
+    } else {
+      ctx.clearRect(0, 0, w, h)
+    }
+    try {
+      ctx.drawImage(frame, 0, 0, w, h)
+    } catch {
+      // Frame not drawable — keep the previous paint rather than blanking.
+    }
+  }
+}
+
+type VideoRegion = {
+  /** Destination rect on the styled scene, in the scene root's CSS-px space. */
+  destX: number
+  destY: number
+  destW: number
+  destH: number
+  /** Source rect as fractions (0–1) of the decoded frame's own dimensions. */
+  srcXFrac: number
+  srcYFrac: number
+  srcWFrac: number
+  srcHFrac: number
+  /** CSS-px width of the scene root, to scale dest into output pixels. */
+  rootW: number
+  /**
+   * Rounded box of the overflow-clip ancestor (scene CSS-px + corner radii) so
+   * the composite can reproduce the shell's border-radius; null when square.
+   */
+  clip: { x: number; y: number; w: number; h: number; radii: number[] } | null
+}
+
+/** Resolve one object-position component against the box − content slack. */
+function resolvePositionComponent(component: string, slack: number): number {
+  const value = parseFloat(component)
+  if (!Number.isFinite(value)) return slack / 2
+  return component.trim().endsWith("%") ? (value / 100) * slack : value
+}
+
+/**
+ * Measure where the clone's `<video>` visibly renders inside the styled scene,
+ * and which sub-rect of the decoded frame maps there. The content rect is
+ * derived from object-fit/-position (fill/contain/cover are all linear maps of
+ * the frame into a rect), then intersected with the `<video>` box and its
+ * nearest overflow-clip ancestor (crop polyfill container or video shell), so
+ * crop, letterboxing and cover-cropping are all reflected. Invalid for a
+ * 3D-tilted/rotated video (bounding rects stop being the rendered quad) —
+ * callers gate on tilt. Returns null when it can't be composited this way.
+ */
+export function measureVideoRegion(
+  root: HTMLElement,
+  video: HTMLVideoElement
+): VideoRegion | null {
+  const nw = video.videoWidth
+  const nh = video.videoHeight
+  if (!nw || !nh) return null
+  const videoStyle = getComputedStyle(video)
+  const fit = videoStyle.objectFit
+  if (fit !== "fill" && fit !== "contain" && fit !== "cover") return null
+
+  const rootRect = root.getBoundingClientRect()
+  const videoRect = video.getBoundingClientRect()
+  if (!rootRect.width || !videoRect.width || !videoRect.height) return null
+
+  // Content rect: where the frame's pixels actually land inside the box.
+  let contentW = videoRect.width
+  let contentH = videoRect.height
+  if (fit !== "fill") {
+    const s =
+      fit === "contain"
+        ? Math.min(videoRect.width / nw, videoRect.height / nh)
+        : Math.max(videoRect.width / nw, videoRect.height / nh)
+    contentW = nw * s
+    contentH = nh * s
+  }
+  const position = videoStyle.objectPosition.split(" ")
+  const contentLeft =
+    videoRect.left +
+    resolvePositionComponent(position[0] ?? "50%", videoRect.width - contentW)
+  const contentTop =
+    videoRect.top +
+    resolvePositionComponent(position[1] ?? "50%", videoRect.height - contentH)
+
+  // Nearest overflow-clip ancestor within the scene bounds the visible region.
+  let clipEl: HTMLElement | null = video.parentElement
+  while (clipEl && clipEl !== root) {
+    const overflow = getComputedStyle(clipEl).overflowX
+    if (overflow === "hidden" || overflow === "clip") break
+    clipEl = clipEl.parentElement
+  }
+  const clipRect = (clipEl ?? video).getBoundingClientRect()
+
+  const left = Math.max(videoRect.left, clipRect.left, contentLeft)
+  const top = Math.max(videoRect.top, clipRect.top, contentTop)
+  const right = Math.min(
+    videoRect.right,
+    clipRect.right,
+    contentLeft + contentW
+  )
+  const bottom = Math.min(
+    videoRect.bottom,
+    clipRect.bottom,
+    contentTop + contentH
+  )
+  const visW = right - left
+  const visH = bottom - top
+  if (visW <= 0 || visH <= 0) return null
+
+  let clip: VideoRegion["clip"] = null
+  if (clipEl) {
+    const clipStyle = getComputedStyle(clipEl)
+    const radii = [
+      clipStyle.borderTopLeftRadius,
+      clipStyle.borderTopRightRadius,
+      clipStyle.borderBottomRightRadius,
+      clipStyle.borderBottomLeftRadius,
+    ].map((r) => Math.max(0, parseFloat(r) || 0))
+    if (radii.some((r) => r > 0)) {
+      clip = {
+        x: clipRect.left - rootRect.left,
+        y: clipRect.top - rootRect.top,
+        w: clipRect.width,
+        h: clipRect.height,
+        radii,
+      }
+    }
+  }
+
+  return {
+    destX: left - rootRect.left,
+    destY: top - rootRect.top,
+    destW: visW,
+    destH: visH,
+    srcXFrac: (left - contentLeft) / contentW,
+    srcYFrac: (top - contentTop) / contentH,
+    srcWFrac: visW / contentW,
+    srcHFrac: visH / contentH,
+    rootW: rootRect.width,
+    clip,
+  }
+}
+
 type FramePlan = {
   frameCount: number
   frameDurationSec: number
@@ -229,37 +557,140 @@ async function encodeVideoMedia(
     const ctx = encodeCanvas.getContext("2d")
     if (!ctx) throw new Error("Could not get 2d context")
 
-    const renderFrame = async (i: number): Promise<HTMLCanvasElement> => {
-      await seekTo(cloneVideo, plan.timeForFrame(i), signal)
+    // Safari/Firefox render a live <video> unreliably inside html-to-image's
+    // serialized SVG (foreignObject), and rasterizing it per frame flickers.
+    // There we decode frames with WebCodecs (mediabunny). Chromium rasterizes the
+    // <video> in SVG fine, so it keeps the DOM-seek path. If decode isn't possible
+    // (codec not WebCodecs-decodable), fall back to the DOM path too.
+    const decoded = supportsObjectViewBox()
+      ? null
+      : await createDecodedFrameSource(canvas.screenshot, signal)
+
+    // Best path: rasterize the styled scene ONCE (foreignObject is only reliable
+    // for a one-off on Safari) and composite each decoded frame straight onto it
+    // with plain 2D drawImage — no per-frame html-to-image for the video region,
+    // which is what flickered. Requires a linear (non-tilted, non-rotated) video
+    // rect; tilted/rotated exports fall back to the per-frame overlay path.
+    const tilt = canvas.tilt
+    const tilted = !!tilt && (tilt.rx !== 0 || tilt.ry !== 0 || tilt.rz !== 0)
+    const region =
+      decoded && !tilted ? measureVideoRegion(capture.node, cloneVideo) : null
+
+    let renderFrame: (i: number) => Promise<HTMLCanvasElement>
+
+    if (decoded && region) {
+      // Hide the <video> so the one-off scene raster has no baked-in frame to
+      // bleed through; we paint every frame's video ourselves.
+      cloneVideo.style.visibility = "hidden"
       if (capture.needsPaint) await waitForPaint()
-      return capture.captureFrame()
+      // This single scene raster is reused for every frame, so make sure it
+      // lands — html-to-image's first call can be flaky (fonts/images not yet
+      // embedded in the clone).
+      let template: HTMLCanvasElement
+      try {
+        template = await capture.captureFrame()
+      } catch {
+        template = await capture.captureFrame()
+      }
+      const scale = template.width / region.rootW
+      const dx = region.destX * scale
+      const dy = region.destY * scale
+      const dw = region.destW * scale
+      const dh = region.destH * scale
+      const scratch = document.createElement("canvas")
+      scratch.width = template.width
+      scratch.height = template.height
+      const sctx = scratch.getContext("2d", { willReadFrequently: true })
+      if (!sctx) throw new Error("Could not get 2d context for compositing")
+      const clip = region.clip
+      renderFrame = async (i: number) => {
+        const frame = await decoded.getFrameAt(plan.timeForFrame(i))
+        sctx.clearRect(0, 0, scratch.width, scratch.height)
+        sctx.drawImage(template, 0, 0)
+        if (frame) {
+          // Source rect in the decoded frame's own pixel space — sized off the
+          // frame, not <video>.videoWidth, which can disagree (e.g. rotation
+          // metadata) and is unreliable on Safari for an unplayed clone.
+          const fw = Number((frame as { width?: unknown }).width) || 0
+          const fh = Number((frame as { height?: unknown }).height) || 0
+          if (fw > 0 && fh > 0) {
+            sctx.save()
+            // Re-apply the shell's rounded corners: the raw frame rect would
+            // otherwise paint square corners over the template's rounding.
+            if (clip && typeof sctx.roundRect === "function") {
+              sctx.beginPath()
+              sctx.roundRect(
+                clip.x * scale,
+                clip.y * scale,
+                clip.w * scale,
+                clip.h * scale,
+                clip.radii.map((r) => r * scale)
+              )
+              sctx.clip()
+            }
+            sctx.drawImage(
+              frame,
+              region.srcXFrac * fw,
+              region.srcYFrac * fh,
+              region.srcWFrac * fw,
+              region.srcHFrac * fh,
+              dx,
+              dy,
+              dw,
+              dh
+            )
+            sctx.restore()
+          }
+        }
+        return scratch
+      }
+    } else {
+      const paintOverlay = decoded ? overlayVideoFrameCanvas(cloneVideo) : null
+      renderFrame = async (i: number) => {
+        const t = plan.timeForFrame(i)
+        if (decoded && paintOverlay) {
+          const frame = await decoded.getFrameAt(t)
+          if (frame) paintOverlay(frame)
+        } else {
+          await seekTo(cloneVideo, t, signal)
+          // Only Safari/Firefox need the extra decode wait (and only reach here
+          // when WebCodecs decode was unavailable); Chromium stays as before.
+          if (!supportsObjectViewBox()) await waitForVideoFrame(cloneVideo)
+        }
+        if (capture.needsPaint) await waitForPaint()
+        return capture.captureFrame()
+      }
     }
 
-    const blob =
-      format === "gif"
-        ? await encodeGif(
-            ctx,
-            encodeCanvas,
-            renderFrame,
-            watermark,
-            plan,
-            progress,
-            signal
-          )
-        : await encodeMp4OrWebm(
-            format,
-            ctx,
-            encodeCanvas,
-            renderFrame,
-            watermark,
-            plan,
-            progress,
-            signal
-          )
+    try {
+      const blob =
+        format === "gif"
+          ? await encodeGif(
+              ctx,
+              encodeCanvas,
+              renderFrame,
+              watermark,
+              plan,
+              progress,
+              signal
+            )
+          : await encodeMp4OrWebm(
+              format,
+              ctx,
+              encodeCanvas,
+              renderFrame,
+              watermark,
+              plan,
+              progress,
+              signal
+            )
 
-    progress.report("finishing", 1, 1)
-    const { contentType, extension } = animationMimeAndExt(format)
-    return { blob, contentType, extension }
+      progress.report("finishing", 1, 1)
+      const { contentType, extension } = animationMimeAndExt(format)
+      return { blob, contentType, extension }
+    } finally {
+      decoded?.cleanup()
+    }
   } finally {
     capture.cleanup()
   }

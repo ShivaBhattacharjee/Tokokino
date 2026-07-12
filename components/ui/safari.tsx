@@ -150,7 +150,7 @@ export function Safari({
                 onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
               }
             />
-            <VideoIdlePoster />
+            <VideoIdlePoster src={videoSrc} />
           </div>
         </div>
       ) : imageSrc ? (

@@ -26,6 +26,27 @@ import {
 } from "./utils"
 import { drawWatermark } from "./watermark"
 
+/**
+ * Whether this browser can actually produce a WebM file — true when WebCodecs can
+ * encode a WebM codec (VP9/VP8/AV1) OR MediaRecorder records WebM. Safari does
+ * neither (its WebCodecs is H.264/HEVC only, its MediaRecorder is MP4 only), so
+ * the export UI disables the WebM option there instead of failing mid-export.
+ */
+export async function isWebmExportSupported(): Promise<boolean> {
+  if (pickWebmMimeType()) return true
+  if (typeof VideoEncoder === "undefined") return false
+  try {
+    const codec = await getFirstEncodableVideoCodec(["vp9", "vp8", "av1"], {
+      width: 640,
+      height: 480,
+      bitrate: QUALITY_HIGH,
+    })
+    return codec != null
+  } catch {
+    return false
+  }
+}
+
 export async function tryEncodeWithMediabunny(
   ctx: CaptureCtx,
   format: "webm" | "mp4"
@@ -166,6 +187,17 @@ export async function encodeWebmMediaRecorder({
   durationMs: number
   audio: { src: string; volume: number } | null
 }) {
+  // Safari's MediaRecorder records no WebM (MP4/H.264 only) and its WebCodecs
+  // can't encode VP8/VP9, so we reach here with nothing able to produce WebM.
+  // Bail before capturing frames instead of throwing NotSupportedError from
+  // `new MediaRecorder`.
+  const mimeType = pickWebmMimeType()
+  if (!mimeType) {
+    throw new Error(
+      "WebM export isn't supported in this browser (e.g. Safari). Try MP4 or GIF instead."
+    )
+  }
+
   const frames: HTMLCanvasElement[] = []
   progress.report("capturing", 0, frameCount)
 
@@ -216,7 +248,6 @@ export async function encodeWebmMediaRecorder({
     }
   }
 
-  const mimeType = pickWebmMimeType()
   const recorder = new MediaRecorder(stream, { mimeType })
   const chunks: Blob[] = []
   recorder.ondataavailable = (e) => {

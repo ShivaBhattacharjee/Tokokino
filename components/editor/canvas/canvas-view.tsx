@@ -383,8 +383,8 @@ function CanvasViewInner({
   const suppressTransitionSlots = useSuppressTransitionOnChange(
     screenshotSlots.length
   )
-  const suppressTransition =
-    suppressTransitionPadding || suppressTransitionSlots
+  // First measure after media load — don't ease layout/centering in.
+  const suppressTransitionMedia = useSuppressTransitionOnChange(screenshot)
   const inRowMode = screenshotSlots.length > 0
   const { placementDims, measurePlacement } = usePlacementMeasurement({
     enabled: Boolean(screenshot),
@@ -394,6 +394,16 @@ function CanvasViewInner({
     // sizes itself from those dims and would stay at the wrong box otherwise.
     layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}`,
   })
+  const suppressTransitionPlacement = useSuppressTransitionOnChange(
+    placementDims
+      ? `${Math.round(placementDims.imgW)}x${Math.round(placementDims.imgH)}:${Math.round(placementDims.stageW)}x${Math.round(placementDims.stageH)}`
+      : "pending"
+  )
+  const suppressTransition =
+    suppressTransitionPadding ||
+    suppressTransitionSlots ||
+    suppressTransitionMedia ||
+    suppressTransitionPlacement
   const selectedScreenshotSlotId = useEditorStore(
     (s) => s.selectedScreenshotSlotId
   )
@@ -930,9 +940,7 @@ function CanvasViewInner({
         <motion.div
           ref={canvasRef}
           data-canvas-id={scopeId ?? undefined}
-          initial={isCanvasPreview ? false : { opacity: 0, scale: 0.985, y: 6 }}
-          animate={isCanvasPreview ? undefined : { opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          initial={false}
           style={{
             aspectRatio,
             borderRadius: `var(--canvas-bd-radius, ${canvasBorderRadius}px)`,

@@ -36,7 +36,14 @@ export function even(n: number) {
   return r % 2 === 0 ? r : r + 1
 }
 
-export function pickWebmMimeType(): string {
+/**
+ * Best WebM mime type MediaRecorder can actually record, or null when the engine
+ * records no WebM at all (Safari: its MediaRecorder only does MP4/H.264). Callers
+ * must treat null as "WebM unsupported here" rather than defaulting to a string
+ * that `new MediaRecorder` would reject with NotSupportedError.
+ */
+export function pickWebmMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") return null
   const candidates = [
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
@@ -45,14 +52,9 @@ export function pickWebmMimeType(): string {
     "video/webm",
   ]
   for (const type of candidates) {
-    if (
-      typeof MediaRecorder !== "undefined" &&
-      MediaRecorder.isTypeSupported(type)
-    ) {
-      return type
-    }
+    if (MediaRecorder.isTypeSupported(type)) return type
   }
-  return "video/webm"
+  return null
 }
 
 export function animationMimeAndExt(format: AnimationExportFormat): {

@@ -176,7 +176,7 @@ export function ScreenshotMockup({
           screenshotLayer.hidden && "pointer-events-none",
           isScreenshotDragging || activeTool === "position"
             ? "cursor-grabbing transition-none"
-            : "transition-all duration-300 ease-out",
+            : "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
           activeTool === "pointer" && "cursor-grab"
         )}
         data-editor-shadow-filter-target
@@ -247,7 +247,7 @@ export function ScreenshotMockup({
                   className={mediaClassName}
                   style={{ ...horizontalScreenStyle, ...mediaStyle }}
                 />
-                <VideoIdlePoster />
+                <VideoIdlePoster src={screenshot} />
               </div>
             ) : (
               <ShimmerImage
