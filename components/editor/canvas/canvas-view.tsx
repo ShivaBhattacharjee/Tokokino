@@ -662,17 +662,16 @@ function CanvasViewInner({
     isActiveCropRegion(lastCropRegion)
       ? lastCropRegion
       : null
-  const videoCropPolyfill = Boolean(videoCropRegion) && !nativeVideoCrop
-  if (videoCropRegion && nativeVideoCrop) {
-    Object.assign(imgStyle, objectViewBoxCropStyle(videoCropRegion))
-  }
   const videoMediaStyle = videoCropRegion
     ? nativeVideoCrop
       ? objectViewBoxCropStyle(videoCropRegion)
       : cropMediaObjectStyle(videoCropRegion)
     : undefined
+  // The bare frame always crops via the overflow polyfill (its <video> carries
+  // the crop, not the shell that holds imgStyle — object-view-box can't reach a
+  // div), so it needs the shrink-wrap aspect on every browser, not just Safari.
   const videoCropAspectRatio =
-    videoCropPolyfill && visibleNaturalDims
+    videoCropRegion && visibleNaturalDims
       ? visibleNaturalDims.w > 0 && visibleNaturalDims.h > 0
         ? `${visibleNaturalDims.w} / ${visibleNaturalDims.h}`
         : undefined
@@ -1209,7 +1208,7 @@ function CanvasViewInner({
                     imageRef={imageRef}
                     shadowBoxTarget={frame.id === "none"}
                     objectFit={objectFit ?? "cover"}
-                    cropRegion={videoCropPolyfill ? videoCropRegion : null}
+                    cropRegion={videoCropRegion}
                     cropAspectRatio={videoCropAspectRatio}
                     onContainerPointerDown={(e) => {
                       if (e.target === e.currentTarget) {
