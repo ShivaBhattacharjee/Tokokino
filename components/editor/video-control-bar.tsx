@@ -12,6 +12,11 @@ import { AnimateTriggerButton } from "@/components/editor/animate/animate-toggle
 import { Slider } from "@/components/ui/slider"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { useEditorStore } from "@/lib/editor/store"
+import {
+  applyVideoMutedToAll,
+  getVideoMutedPreferenceSync,
+  setVideoMutedPreference,
+} from "@/lib/editor/video-mute-preference"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 import { cn } from "@/lib/utils"
 
@@ -45,7 +50,7 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
   const isVideo = isVideoSrc(screenshot)
 
   const [isPlaying, setIsPlaying] = React.useState(false)
-  const [muted, setMuted] = React.useState(true)
+  const [muted, setMuted] = React.useState(() => getVideoMutedPreferenceSync())
   const [currentTime, setCurrentTime] = React.useState(0)
   const [duration, setDuration] = React.useState(0)
   const scrubbingRef = React.useRef(false)
@@ -59,6 +64,12 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
         : null,
     [activeCanvasId]
   )
+
+  const persistMuted = React.useCallback((next: boolean) => {
+    applyVideoMutedToAll(useVideoRegistry.getState().videos, next)
+    setMuted(next)
+    setVideoMutedPreference(next)
+  }, [])
 
   React.useEffect(() => {
     if (!el) return
@@ -121,12 +132,12 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
         else v.pause()
       } else if (e.key === "m" || e.key === "M") {
         e.preventDefault()
-        v.muted = !v.muted
+        persistMuted(!v.muted)
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [compact, isVideo, getVideo])
+  }, [compact, isVideo, getVideo, persistMuted])
 
   if (!isVideo || !el) return null
 
@@ -139,7 +150,7 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
   const toggleMute = () => {
     const v = getVideo()
     if (!v) return
-    v.muted = !v.muted
+    persistMuted(!v.muted)
   }
   const handleScrub = (value: number[]) => {
     scrubbingRef.current = true

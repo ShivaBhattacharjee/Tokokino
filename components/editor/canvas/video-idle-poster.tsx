@@ -10,6 +10,7 @@ import {
   paintVideoFrame,
   subscribeVideoSrcReveal,
 } from "@/lib/editor/video-frame-reveal"
+import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
 import { cn } from "@/lib/utils"
 
 /**
@@ -138,7 +139,8 @@ export function VideoIdlePoster({
           e.stopPropagation()
           const video = findSiblingVideo(rootRef.current)
           if (!video) return
-          video.muted = true
+          // Honor the saved mute preference (default muted for autoplay safety).
+          video.muted = getVideoMutedPreferenceSync()
           void video.play().catch(() => undefined)
         }}
         onPointerDown={(e) => e.stopPropagation()}
