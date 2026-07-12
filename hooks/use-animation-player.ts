@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { useEditorStore } from "@/lib/editor/store"
+import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 
 type PlayerContextValue = {
@@ -39,6 +40,11 @@ export function AnimationPlayerProvider({
         ?.animation?.durationMs ?? 5000
   )
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const videoClips = useEditorStore(
+    (s) =>
+      s.present.canvases.find((c) => c.id === s.present.activeCanvasId)
+        ?.videoClips ?? null
+  )
 
   const [playheadMs, setPlayheadMs] = React.useState(0)
   const [isPlaying, setIsPlaying] = React.useState(false)
@@ -55,6 +61,27 @@ export function AnimationPlayerProvider({
     activeCanvasIdRef.current = activeCanvasId
   }, [activeCanvasId])
 
+  const videoClipsRef = React.useRef(videoClips)
+  React.useEffect(() => {
+    videoClipsRef.current = videoClips
+  }, [videoClips])
+
+  const videoClipAt = React.useCallback(
+    (ms: number, mediaDurationMs?: number) => {
+      const clips = videoClipsRef.current ?? [
+        { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+      ]
+      return clips.find(
+        (clip) =>
+          ms >= (clip.timelineStartMs ?? clip.startMs) &&
+          ms <
+            (clip.timelineStartMs ?? clip.startMs) +
+              ((clip.endMs ?? mediaDurationMs ?? Infinity) - clip.startMs)
+      )
+    },
+    []
+  )
+
   // The active canvas's <video> element, when its base layer is a video.
   const getVideo = React.useCallback(() => {
     const id = activeCanvasIdRef.current
@@ -65,12 +92,20 @@ export function AnimationPlayerProvider({
     (ms: number) => {
       const el = getVideo()
       if (!el) return
-      const seconds = ms / 1000
+      const clip = videoClipAt(
+        ms,
+        Number.isFinite(el.duration) ? el.duration * 1000 : undefined
+      )
+      if (!clip) return
+      el.muted = clip.muted ?? getVideoMutedPreferenceSync()
+      const sourceMs =
+        clip.startMs + (ms - (clip.timelineStartMs ?? clip.startMs))
+      const seconds = sourceMs / 1000
       el.currentTime = Number.isFinite(el.duration)
         ? Math.min(seconds, el.duration)
         : seconds
     },
-    [getVideo]
+    [getVideo, videoClipAt]
   )
 
   const stopRaf = React.useCallback(() => {
@@ -96,12 +131,38 @@ export function AnimationPlayerProvider({
     const video = getVideo()
     if (video) {
       syncVideoTo(from)
-      void video.play().catch(() => {})
+      if (
+        videoClipAt(
+          from,
+          Number.isFinite(video.duration) ? video.duration * 1000 : undefined
+        )
+      ) {
+        void video.play().catch(() => {})
+      } else {
+        video.pause()
+      }
     }
 
     const tick = (now: number) => {
       const elapsed = now - startRef.current.ts
       const next = startRef.current.from + elapsed
+      const activeVideo = getVideo()
+      if (activeVideo) {
+        const activeClip = videoClipAt(
+          next,
+          Number.isFinite(activeVideo.duration)
+            ? activeVideo.duration * 1000
+            : undefined
+        )
+        if (!activeClip) {
+          activeVideo.pause()
+        } else if (activeVideo.paused) {
+          syncVideoTo(next)
+          void activeVideo.play().catch(() => {})
+        } else {
+          activeVideo.muted = activeClip.muted ?? getVideoMutedPreferenceSync()
+        }
+      }
       if (next >= total) {
         setPlayheadMs(total)
         stopRaf()
@@ -113,7 +174,7 @@ export function AnimationPlayerProvider({
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
-  }, [playheadMs, stopRaf, getVideo, syncVideoTo])
+  }, [playheadMs, stopRaf, getVideo, syncVideoTo, videoClipAt])
 
   const toggle = React.useCallback(() => {
     if (isPlaying) pause()

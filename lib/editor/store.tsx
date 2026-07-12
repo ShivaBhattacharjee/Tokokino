@@ -12,7 +12,7 @@ import {
   poseAtCut,
   REST_LIGHTING,
 } from "./animation-playback"
-import { MAX_DURATION_MS } from "./animation-timeline"
+import { MAX_DURATION_MS, resolveRippleDrop } from "./animation-timeline"
 import { isVideoSrc } from "./media-type"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import { screenshotPositionAnchor } from "./presets"
@@ -96,6 +96,7 @@ import type {
   TextElement,
   Tilt,
   TweetCard,
+  VideoTimelineClip,
 } from "./state-types"
 
 const TWEET_POST_ASPECT: AspectState = { id: "x-post", w: 1080, h: 1080 }
@@ -699,6 +700,22 @@ export type EditorActions = {
     region: CropRegion | null,
     canvasId?: string
   ) => void
+  /** Update the placement or non-destructive in/out range of one video section. */
+  updateVideoClip: (
+    id: string,
+    patch: Partial<Omit<VideoTimelineClip, "id">>,
+    canvasId?: string
+  ) => void
+  /** Split a video section at a source-timeline time. */
+  splitVideoClip: (id: string, atMs: number, canvasId?: string) => string | null
+  /** Copy a video section and insert it after its source range. */
+  duplicateVideoClip: (
+    id: string,
+    durationMs: number,
+    canvasId?: string
+  ) => string | null
+  /** Delete one or more video sections. */
+  removeVideoClips: (ids: string[], canvasId?: string) => void
   setAspect: (a: AspectState) => void
   setCanvasAspect: (canvasId: string, a: AspectState) => void
   setBackground: (b: Background, canvasId?: string) => void
@@ -1371,6 +1388,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           screenshot,
           originalScreenshot: screenshot,
           lastCropRegion: null,
+          videoClips: null,
           // A screenshot replaces any tweet as the canvas's main content.
           tweet: screenshot ? null : canvas.tweet,
           objectFit: canvas.objectFit ?? "contain",
@@ -1397,6 +1415,124 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         { lastCropRegion: region },
         "setScreenshotCropRegion"
+      ),
+    updateVideoClip: (id, patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          return {
+            videoClips: clips.map((clip) =>
+              clip.id === id ? { ...clip, ...patch } : clip
+            ),
+          }
+        },
+        "video-trim"
+      ),
+    splitVideoClip: (id, atMs, canvasId) => {
+      let newId: string | null = null
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          const clip = clips.find((item) => item.id === id)
+          if (
+            !clip ||
+            atMs <= clip.startMs ||
+            (clip.endMs !== null && atMs >= clip.endMs)
+          ) {
+            return {}
+          }
+          newId = makeId()
+          return {
+            videoClips: clips.flatMap((item) =>
+              item.id === id
+                ? [
+                    { ...item, endMs: atMs },
+                    {
+                      ...item,
+                      id: newId!,
+                      timelineStartMs:
+                        (item.timelineStartMs ?? item.startMs) +
+                        (atMs - item.startMs),
+                      startMs: atMs,
+                    },
+                  ]
+                : [item]
+            ),
+          }
+        },
+        "video-split"
+      )
+      return newId
+    },
+    duplicateVideoClip: (id, durationMs, canvasId) => {
+      let newId: string | null = null
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          const source = clips.find((clip) => clip.id === id)
+          if (!source || durationMs <= 0) return {}
+          const sourceStart = source.timelineStartMs ?? source.startMs
+          const sourceEndMs = source.endMs ?? source.startMs + durationMs
+          const { startMs, shiftAfterMs, shiftMs } = resolveRippleDrop(
+            sourceStart + durationMs,
+            durationMs,
+            clips
+              .filter((clip) => clip.id !== id)
+              .map((clip) => ({
+                startMs: clip.timelineStartMs ?? clip.startMs,
+                durationMs:
+                  clip.endMs === null ? durationMs : clip.endMs - clip.startMs,
+              })),
+            MAX_DURATION_MS
+          )
+          newId = makeId()
+          return {
+            videoClips: [
+              ...clips.map((clip) => {
+                const timelineStartMs = clip.timelineStartMs ?? clip.startMs
+                const positioned =
+                  timelineStartMs < shiftAfterMs
+                    ? clip
+                    : { ...clip, timelineStartMs: timelineStartMs + shiftMs }
+                return clip.id === id && clip.endMs === null
+                  ? { ...positioned, endMs: sourceEndMs }
+                  : positioned
+              }),
+              {
+                ...source,
+                id: newId,
+                endMs: sourceEndMs,
+                timelineStartMs: startMs,
+              },
+            ],
+          }
+        },
+        "video-duplicate"
+      )
+      return newId
+    },
+    removeVideoClips: (ids, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          const kept = clips.filter((clip) => !ids.includes(clip.id))
+          return kept.length > 0
+            ? { videoClips: kept }
+            : { screenshot: null, originalScreenshot: null, videoClips: null }
+        },
+        "video-delete"
       ),
     setAspect: (a) => {
       const snapshot = get()
@@ -1835,6 +1971,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   screenshot: null,
                   originalScreenshot: null,
                   lastCropRegion: null,
+                  videoClips: null,
                   screenshotSlots: [],
                   frame: {
                     id: "none",
@@ -2460,33 +2597,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           if (!moving) return {}
           const dur = moving.durationMs
           const others = animation.clips.filter((clip) => clip.id !== id)
-          // Where the clip was dropped, clamped to the absolute max range (it may
-          // land past the set duration — that's fine, it just renders faded).
-          const desired = Math.max(0, startMs)
-          // Clips that stay before the drop point keep their spot; snap the drop
-          // past the nearest one so we never overlap it.
-          const prevEnd = others
-            .filter((clip) => clip.startMs < desired)
-            .reduce(
-              (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
-              0
-            )
-          const start = Math.min(
-            Math.max(desired, prevEnd),
-            Math.max(0, MAX_DURATION_MS - dur)
-          )
-          // Clips at/after the drop point ripple right just enough to open a gap
-          // for the moved clip (preserving the spacing between them) — so
-          // dropping between two clips inserts there instead of snapping away.
-          const nextStart = others
-            .filter((clip) => clip.startMs >= desired)
-            .reduce((min, clip) => Math.min(min, clip.startMs), Infinity)
-          const shift = Number.isFinite(nextStart)
-            ? Math.max(0, start + dur - nextStart)
-            : 0
+          const {
+            startMs: start,
+            shiftAfterMs,
+            shiftMs: shift,
+          } = resolveRippleDrop(startMs, dur, others, MAX_DURATION_MS)
           const clips = animation.clips.map((clip) => {
             if (clip.id === id) return { ...clip, startMs: start }
-            if (clip.startMs < desired) return clip
+            if (clip.startMs < shiftAfterMs) return clip
             return {
               ...clip,
               startMs: Math.min(

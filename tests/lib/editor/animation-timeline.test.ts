@@ -10,6 +10,7 @@ import {
   formatShort,
   formatTime,
   resolveDropStart,
+  resolveRippleDrop,
   timelineEndFor,
 } from "@/lib/editor/animation-timeline"
 import type { AnimationClip } from "@/lib/editor/state-types"
@@ -198,5 +199,32 @@ describe("resolveDropStart", () => {
     const others = [clip(0, 10_000)]
     // dur 1000, maxStart 9000, but everything overlaps → fallback originalStart.
     expect(resolveDropStart(5000, 1000, others, 10_000, 500)).toBe(500)
+  })
+})
+
+describe("resolveRippleDrop", () => {
+  it("inserts at the beginning and shifts the existing section right", () => {
+    const result = resolveRippleDrop(0, 2_000, [clip(0, 5_000)], 10_000)
+
+    expect(result).toEqual({
+      startMs: 0,
+      shiftAfterMs: 0,
+      shiftMs: 2_000,
+    })
+  })
+
+  it("preserves clips before the insertion point and ripples later clips", () => {
+    const result = resolveRippleDrop(
+      3_000,
+      1_000,
+      [clip(0, 2_000, "before"), clip(3_000, 2_000, "after")],
+      10_000
+    )
+
+    expect(result).toEqual({
+      startMs: 3_000,
+      shiftAfterMs: 3_000,
+      shiftMs: 1_000,
+    })
   })
 })

@@ -22,6 +22,7 @@ export const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   screenshot: null,
   originalScreenshot: null,
   lastCropRegion: null,
+  videoClips: null,
   background: {
     type: "image",
     value:

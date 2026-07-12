@@ -17,11 +17,14 @@ import {
   MAX_DURATION_MS,
   MIN_DURATION_MS,
 } from "@/lib/editor/animation-timeline"
+import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
 import { cn } from "@/lib/utils"
 
 import { AnimateControls } from "./animate-controls"
 import { ClipTransitionButton } from "./clip-transition-toolbar"
-import { RAZOR_CURSOR, TimelineClip } from "./timeline-clip"
+import { TimelineClip } from "./timeline-clip"
+import { RAZOR_CURSOR } from "./timeline-clip-interactions"
+import { TimelineVideoClip } from "./timeline-video-clip"
 import { TimelineRuler } from "./timeline-ruler"
 import { useAnimateTimeline } from "./use-animate-timeline"
 
@@ -66,6 +69,10 @@ export function AnimateBar() {
     highlightedClipIds,
     selectedClip,
     selectedClipIds,
+    selectedVideoClipId,
+    selectedVideoClipIds,
+    videoSelected,
+    trimmingVideo,
     updateAnimationClip,
     draggingClipId,
     interactingClipId,
@@ -84,27 +91,39 @@ export function AnimateBar() {
     deleteClip,
     deleteSelectedClip,
     onClipMenuOpenChange,
+    onVideoMenuOpenChange,
     screenshotInputRef,
     onPickScreenshot,
     layers,
     onLayerClick,
+    onVideoPointerDown,
+    onVideoPointerMove,
+    onVideoPointerUp,
+    videoRowRef,
+    videoMarqueeRect,
+    onVideoRowPointerDown,
+    onVideoRowPointerMove,
+    onVideoRowPointerUp,
+    deleteVideo,
+    duplicateVideo,
+    toggleVideoClipMute,
+    copyVideoClip,
+    deselectVideo,
   } = useAnimateTimeline()
 
-  // How many of the selected clips actually own effects — drives both the count
-  // shown on "Remove effects (n)" and whether it's enabled (a single clip uses
-  // its own effect icons instead).
   const selectionEffectCount = clips.filter(
     (c) => highlightedClipIds.includes(c.id) && (c.effects?.length ?? 0) > 0
   ).length
   const selectedCount = selectedClipIds.length
-  const hasSelection = selectedCount > 0
-  const deleteLabel =
-    selectedCount > 1 ? `Delete ${selectedCount} keyframes` : "Delete keyframe"
+  const hasSelection = selectedCount > 0 || videoSelected
+  const deleteLabel = videoSelected
+    ? "Delete video"
+    : selectedCount > 1
+      ? `Delete ${selectedCount} keyframes`
+      : "Delete keyframe"
 
   return (
     <motion.div
-      // Slide up + fade + settle in on enter; reverse on exit (played via the
-      // AnimatePresence wrapping this in the editor page).
       initial={{ opacity: 0, y: 40, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 40, scale: 0.98 }}
@@ -134,7 +153,9 @@ export function AnimateBar() {
                     type="button"
                     aria-label={deleteLabel}
                     disabled={isPlaying}
-                    onClick={deleteSelectedClip}
+                    onClick={
+                      videoSelected ? () => deleteVideo() : deleteSelectedClip
+                    }
                     className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
                   >
                     <RiDeleteBinLine className="size-[18px]" />
@@ -150,7 +171,7 @@ export function AnimateBar() {
                   </kbd>
                 </TooltipContent>
               </Tooltip>
-              {selectedClip ? (
+              {selectedClip && !videoSelected ? (
                 <ClipTransitionButton
                   clip={selectedClip}
                   onUpdate={(patch) =>
@@ -164,15 +185,11 @@ export function AnimateBar() {
         }
       />
 
-      {/* Scrollable timeline — ruler + tracks share one horizontal scroll so
-          they stay aligned. */}
       <div
         ref={scrollRef}
         className="mt-3 [scrollbar-width:none] overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="relative" style={{ width: contentWidth }}>
-          {/* Click / drag anywhere on the ruler to move the playhead. Shares
-              the same scrub handlers as the track (both start at left 0). */}
           <div
             className="cursor-pointer touch-none select-none"
             onPointerDown={onScrubDown}
@@ -187,7 +204,6 @@ export function AnimateBar() {
             />
           </div>
 
-          {/* Tracks + playhead */}
           <div
             ref={trackRef}
             className="relative mt-1 cursor-pointer touch-none select-none"
@@ -196,12 +212,6 @@ export function AnimateBar() {
             onPointerUp={onScrubUp}
             onPointerCancel={onScrubUp}
           >
-            {/* Inactive region — everything past the current duration is dimmed
-                with a diagonal hatch AND blurred so it reads as "outside" the
-                timeline (it won't play). Sits ABOVE the clips (below the playhead
-                z-40 and duration handle z-30) and blurs them via backdrop-filter,
-                so a clip that STRADDLES the duration has just its overflow portion
-                blurred while its playable portion stays sharp. */}
             <div
               aria-hidden
               className="pointer-events-none absolute -top-2 bottom-0 z-25 rounded-r-lg [--tl-dim:rgba(0,0,0,0.05)] [--tl-hatch:rgba(0,0,0,0.05)] dark:[--tl-dim:rgba(0,0,0,0.28)] dark:[--tl-hatch:rgba(255,255,255,0.03)]"
@@ -216,8 +226,6 @@ export function AnimateBar() {
               }}
             />
 
-            {/* Playhead — the knob is grabbable; the thin line isn't so it
-                doesn't block clip interactions underneath. */}
             <div
               className="pointer-events-none absolute -top-2 bottom-0 z-40 w-[2px] -translate-x-1/2 bg-primary"
               style={{ left: pxFor(Math.min(playheadMs, durationMs)) }}
@@ -227,7 +235,6 @@ export function AnimateBar() {
               </div>
             </div>
 
-            {/* Duration end handle — drag to lengthen/shorten the timeline. */}
             <div
               onPointerDown={onDurationHandleDown}
               onPointerMove={onDurationHandleMove}
@@ -251,10 +258,6 @@ export function AnimateBar() {
               />
             </div>
 
-            {/* Motion clips row — spans the current duration so the end handle
-                sits right at its edge. A pointer-driven scrubbing surface; clip
-                editing has keyboard shortcuts, so there's no keyboard listener
-                on the row itself. */}
             {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
             <div
               ref={clipsRowRef}
@@ -264,8 +267,6 @@ export function AnimateBar() {
               onPointerLeave={onClipsRowLeave}
               onClick={onClipsRowClick}
               className={cn(
-                // overflow-visible so clips appended past the set duration can
-                // render out into the dimmed region to the right.
                 "relative h-11 touch-none overflow-visible rounded-lg border border-border/50 bg-background/40",
                 ghostVisible && "cursor-copy"
               )}
@@ -274,8 +275,6 @@ export function AnimateBar() {
                 ...(razorMode ? { cursor: RAZOR_CURSOR } : null),
               }}
             >
-              {/* Marquee (rubber-band) selection band — a full-height tint over
-                  the dragged time range, lighting up the clips it covers. */}
               {marqueeRect && (
                 <div
                   aria-hidden
@@ -286,8 +285,6 @@ export function AnimateBar() {
                   }}
                 />
               )}
-              {/* Cursor-following add affordance (position written via transform
-                  in the move handler — no React re-render, so it can't lag). */}
               <div
                 ref={ghostRef}
                 aria-hidden
@@ -343,11 +340,6 @@ export function AnimateBar() {
               </AnimatePresence>
             </div>
 
-            {/* Base image rows — one per image on the canvas (the main
-                screenshot plus each extra slot). The track background spans the
-                full duration; the label/thumbnail is sticky so it stays pinned
-                to the left while the timeline scrolls. Click a thumbnail to
-                set/replace that layer's image. */}
             <input
               ref={screenshotInputRef}
               type="file"
@@ -357,67 +349,110 @@ export function AnimateBar() {
             />
             {layers.map((layer, i) => {
               const strip = layer.isVideo ? layer.filmstrip : null
-              // A video row spans the video's real length on the timeline (its
-              // filmstrip is time-accurate); image rows span the set duration.
-              const rowWidth = strip
-                ? pxFor(strip.durationMs)
-                : pxFor(durationMs)
+              const rowWidth = pxFor(durationMs)
 
               if (layer.isVideo) {
-                // Tiles keep the frame's natural aspect at the 44px row height,
-                // so frames are never stretched; each tile shows the sampled
-                // frame nearest to its position (repeats while frames stream in).
                 const tileWidth = Math.max(
                   24,
                   Math.round(44 * (strip?.aspect ?? 16 / 9))
                 )
-                const tileCount = strip
-                  ? Math.max(1, Math.ceil(rowWidth / tileWidth))
-                  : 0
                 return (
                   <div
                     key={layer.id}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className="relative mt-1 flex h-11 items-center overflow-hidden rounded-lg border border-border/50 bg-background/40"
-                    style={{ width: rowWidth }}
+                    ref={videoRowRef}
+                    onPointerDown={onVideoRowPointerDown}
+                    onPointerMove={onVideoRowPointerMove}
+                    onPointerUp={onVideoRowPointerUp}
+                    onPointerCancel={onVideoRowPointerUp}
+                    className="relative mt-1 h-11"
+                    style={{ width: contentWidth }}
                   >
-                    {strip && strip.frames.length > 0 ? (
-                      <>
-                        <div aria-hidden className="absolute inset-0 flex">
-                          {Array.from({ length: tileCount }, (_, idx) => {
-                            const frameIdx = Math.min(
-                              strip.frames.length - 1,
-                              Math.floor(
-                                ((idx + 0.5) / tileCount) * strip.targetFrames
-                              )
-                            )
-                            return (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                key={idx}
-                                src={strip.frames[frameIdx]}
-                                alt=""
-                                draggable={false}
-                                className="h-full shrink-0 object-cover"
-                                style={{ width: tileWidth }}
-                              />
-                            )
-                          })}
-                        </div>
-                        {/* Right-edge badge over a fade: icon + total length. */}
-                        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center gap-1.5 bg-linear-to-l from-black/70 via-black/40 to-transparent pr-3 pl-14 text-white">
-                          <RiVidiconFill className="size-4 shrink-0" />
-                          <span className="text-[12px] font-medium whitespace-nowrap">
-                            Video {(strip.durationMs / 1000).toFixed(1)}s
-                          </span>
-                        </div>
-                      </>
-                    ) : (
+                    {videoMarqueeRect && (
                       <div
                         aria-hidden
-                        className="absolute inset-0 animate-pulse bg-foreground/5"
+                        className="pointer-events-none absolute inset-y-0 z-0 rounded-md border border-primary/70 bg-primary/15"
+                        style={{
+                          left: videoMarqueeRect.left,
+                          width: videoMarqueeRect.width,
+                        }}
                       />
                     )}
+                    {layer.videoClips.map((clip) => {
+                      const clipWidth = pxFor(clip.endMs - clip.startMs)
+                      const tileCount = strip
+                        ? Math.max(1, Math.ceil(clipWidth / tileWidth))
+                        : 0
+                      return (
+                        <TimelineVideoClip
+                          key={clip.id}
+                          left={pxFor(clip.timelineStartMs)}
+                          width={clipWidth}
+                          selected={selectedVideoClipIds.includes(clip.id)}
+                          trimming={trimmingVideo && videoSelected}
+                          razorMode={razorMode}
+                          muted={clip.muted ?? getVideoMutedPreferenceSync()}
+                          onPointerDownClip={(event, mode) =>
+                            onVideoPointerDown(event, clip.id, mode)
+                          }
+                          onPointerMoveClip={onVideoPointerMove}
+                          onPointerUpClip={onVideoPointerUp}
+                          onDelete={() => deleteVideo(clip.id)}
+                          onDuplicate={() => duplicateVideo(clip.id)}
+                          onCopy={() => copyVideoClip(clip.id)}
+                          onToggleMute={() => toggleVideoClipMute(clip.id)}
+                          onDeselect={deselectVideo}
+                          onMenuOpenChange={onVideoMenuOpenChange}
+                        >
+                          {strip && strip.frames.length > 0 ? (
+                            <>
+                              <div
+                                aria-hidden
+                                className="absolute inset-0 flex"
+                              >
+                                {Array.from({ length: tileCount }, (_, idx) => {
+                                  const frameIdx = Math.min(
+                                    strip.frames.length - 1,
+                                    Math.floor(
+                                      ((clip.startMs +
+                                        ((idx + 0.5) / tileCount) *
+                                          (clip.endMs - clip.startMs)) /
+                                        strip.durationMs) *
+                                        strip.targetFrames
+                                    )
+                                  )
+                                  return (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      key={idx}
+                                      src={strip.frames[frameIdx]}
+                                      alt=""
+                                      draggable={false}
+                                      className="pointer-events-none h-full shrink-0 object-cover"
+                                      style={{ width: tileWidth }}
+                                    />
+                                  )
+                                })}
+                              </div>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center gap-1.5 bg-linear-to-l from-black/70 via-black/40 to-transparent pr-3 pl-14 text-white">
+                                <RiVidiconFill className="size-4 shrink-0" />
+                                <span className="text-[12px] font-medium whitespace-nowrap">
+                                  Video{" "}
+                                  {((clip.endMs - clip.startMs) / 1000).toFixed(
+                                    1
+                                  )}
+                                  s
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div
+                              aria-hidden
+                              className="absolute inset-0 animate-pulse bg-foreground/5"
+                            />
+                          )}
+                        </TimelineVideoClip>
+                      )
+                    })}
                   </div>
                 )
               }
@@ -429,7 +464,6 @@ export function AnimateBar() {
                   className="relative mt-1 flex h-11 items-center rounded-lg border border-border/50 bg-background/40"
                   style={{ width: rowWidth }}
                 >
-                  {/* Sticky label — follows the horizontal scroll's left edge. */}
                   <div className="sticky left-0 z-10 flex items-center gap-2 px-2">
                     <button
                       type="button"

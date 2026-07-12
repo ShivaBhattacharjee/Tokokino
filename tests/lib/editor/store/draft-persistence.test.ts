@@ -10,6 +10,36 @@ import {
 import { createCanvas } from "@/lib/editor/store/defaults"
 
 describe("draft persistence", () => {
+  it("hydrates video timeline placement and per-section mute overrides", () => {
+    const normalized = normalizeEditorState({
+      canvases: [
+        {
+          ...createCanvas("video", { x: 0, y: 0 }),
+          videoClips: [
+            {
+              id: "clip-a",
+              timelineStartMs: 4_000,
+              startMs: 1_000,
+              endMs: 3_000,
+              muted: true,
+            },
+          ],
+        },
+      ],
+      activeCanvasId: "video",
+    })
+
+    expect(normalized.canvases[0]?.videoClips).toEqual([
+      {
+        id: "clip-a",
+        timelineStartMs: 4_000,
+        startMs: 1_000,
+        endMs: 3_000,
+        muted: true,
+      },
+    ])
+  })
+
   it("normalizes missing canvas fields and falls back to an existing active canvas", () => {
     const normalized = normalizeEditorState({
       activeCanvasId: "missing",

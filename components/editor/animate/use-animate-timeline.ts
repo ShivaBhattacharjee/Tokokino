@@ -17,6 +17,7 @@ import {
   MIN_PX_PER_SECOND,
   PX_PER_SECOND,
   RULER_TRAILING_PX,
+  resolveRippleDrop,
   timelineEndFor,
 } from "@/lib/editor/animation-timeline"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
@@ -38,6 +39,7 @@ import {
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 
 import type { ClipDragMode, ClipIconKey } from "./timeline-clip"
+import type { VideoTrimDragMode } from "./timeline-video-clip"
 
 export function useAnimateTimeline() {
   const { playheadMs, durationMs, isPlaying, toggle, reset, seek } =
@@ -46,9 +48,34 @@ export function useAnimateTimeline() {
   const screenshot = useActiveCanvasField((c) => c.screenshot) ?? null
   const screenshotSlots = useActiveCanvasField((c) => c.screenshotSlots ?? [])
   const clips = useActiveCanvasField((c) => c.animation?.clips ?? [])
+  const videoClips = useActiveCanvasField((c) => c.videoClips ?? null)
 
   const mainIsVideo = isVideoSrc(screenshot)
   const mainFilmstrip = useVideoFilmstrip(mainIsVideo ? screenshot : null)
+  const videoSourceDurationMs = mainFilmstrip?.durationMs ?? durationMs
+  const resolvedVideoClips = React.useMemo(() => {
+    const source = videoClips?.length
+      ? videoClips
+      : [{ id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null }]
+    return source
+      .map((clip) => {
+        const startMs = Math.max(
+          0,
+          Math.min(clip.startMs, videoSourceDurationMs)
+        )
+        const endMs = Math.max(
+          startMs,
+          Math.min(clip.endMs ?? videoSourceDurationMs, videoSourceDurationMs)
+        )
+        return {
+          ...clip,
+          timelineStartMs: Math.max(0, clip.timelineStartMs ?? clip.startMs),
+          startMs,
+          endMs,
+        }
+      })
+      .filter((clip) => clip.endMs - clip.startMs >= MIN_CLIP_MS)
+  }, [videoClips, videoSourceDurationMs])
 
   const layers = React.useMemo(
     () => [
@@ -57,26 +84,44 @@ export function useAnimateTimeline() {
         src: screenshot,
         isVideo: mainIsVideo,
         filmstrip: mainIsVideo ? mainFilmstrip : null,
+        videoClips: mainIsVideo ? resolvedVideoClips : [],
       },
       ...screenshotSlots.map((slot) => ({
         id: slot.id,
         src: slot.src,
         isVideo: false,
         filmstrip: null,
+        videoClips: [],
       })),
     ],
-    [screenshot, screenshotSlots, mainIsVideo, mainFilmstrip]
+    [
+      screenshot,
+      screenshotSlots,
+      mainIsVideo,
+      mainFilmstrip,
+      resolvedVideoClips,
+    ]
   )
 
   const lastClipEnd = clips.reduce(
     (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
-    mainFilmstrip?.durationMs ?? 0
+    mainIsVideo
+      ? resolvedVideoClips.reduce(
+          (max, clip) =>
+            Math.max(max, clip.timelineStartMs + clip.endMs - clip.startMs),
+          0
+        )
+      : 0
   )
 
   const timelineEndMs = timelineEndFor(durationMs, lastClipEnd)
 
   const setIsAnimateMode = useEditorStore((s) => s.setIsAnimateMode)
   const setScreenshot = useEditorStore((s) => s.setScreenshot)
+  const updateVideoClip = useEditorStore((s) => s.updateVideoClip)
+  const splitVideoClip = useEditorStore((s) => s.splitVideoClip)
+  const duplicateVideoClip = useEditorStore((s) => s.duplicateVideoClip)
+  const removeVideoClips = useEditorStore((s) => s.removeVideoClips)
   const setScreenshotSlotImage = useEditorStore((s) => s.setScreenshotSlotImage)
   const addAnimationClip = useEditorStore((s) => s.addAnimationClip)
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
@@ -115,6 +160,23 @@ export function useAnimateTimeline() {
     useShallow((s) => s.selectedAnimationClipIds)
   )
   const selectAnimationClip = useEditorStore((s) => s.selectAnimationClip)
+  const [selectedVideoClipIds, setSelectedVideoClipIds] = React.useState<
+    string[]
+  >([])
+  const selectedVideoClipId = selectedVideoClipIds.at(-1) ?? null
+  const videoSelected = selectedVideoClipIds.length > 0
+  React.useEffect(() => {
+    if (!mainIsVideo) {
+      if (selectedVideoClipIds.length > 0) setSelectedVideoClipIds([])
+      return
+    }
+    const validIds = selectedVideoClipIds.filter((id) =>
+      resolvedVideoClips.some((clip) => clip.id === id)
+    )
+    if (validIds.length !== selectedVideoClipIds.length) {
+      setSelectedVideoClipIds(validIds)
+    }
+  }, [mainIsVideo, resolvedVideoClips, selectedVideoClipIds])
   const selectedIdsRef = React.useRef(selectedClipIds)
   React.useEffect(() => {
     selectedIdsRef.current = selectedClipIds
@@ -415,6 +477,324 @@ export function useAnimateTimeline() {
     [moveAnimationClip, stopAutoScroll, selectAnimationClip]
   )
 
+  const videoDragRef = React.useRef<{
+    id: string
+    mode: VideoTrimDragMode
+    timelineStartMs: number
+    startMs: number
+    endMs: number
+    grabOffsetMs: number
+    movingClips: { id: string; timelineStartMs: number }[]
+    captureTarget: Element
+    pointerId: number
+  } | null>(null)
+  const [trimmingVideo, setTrimmingVideo] = React.useState(false)
+
+  const applyVideoTrim = React.useCallback(
+    (clientX: number) => {
+      const drag = videoDragRef.current
+      if (!drag || !mainFilmstrip) return
+      const pointerMs = clipMsFromClientX(clientX)
+      if (drag.mode === "move") {
+        const nextStart = Math.max(0, pointerMs - drag.grabOffsetMs)
+        const delta = nextStart - drag.timelineStartMs
+        for (const clip of drag.movingClips) {
+          updateVideoClip(clip.id, {
+            timelineStartMs: Math.max(0, clip.timelineStartMs + delta),
+          })
+        }
+      } else if (drag.mode === "trim-start") {
+        const startMs = Math.max(
+          0,
+          Math.min(
+            drag.endMs - MIN_CLIP_MS,
+            drag.startMs + (pointerMs - drag.timelineStartMs)
+          )
+        )
+        updateVideoClip(drag.id, {
+          startMs,
+          timelineStartMs: drag.timelineStartMs + (startMs - drag.startMs),
+        })
+      } else {
+        const endMs = Math.max(
+          drag.startMs + MIN_CLIP_MS,
+          Math.min(
+            mainFilmstrip.durationMs,
+            drag.startMs + (pointerMs - drag.timelineStartMs)
+          )
+        )
+        updateVideoClip(drag.id, { endMs })
+      }
+    },
+    [clipMsFromClientX, mainFilmstrip, updateVideoClip]
+  )
+
+  const onVideoPointerDown = React.useCallback(
+    (event: React.PointerEvent, id: string, mode?: VideoTrimDragMode) => {
+      if (!mainIsVideo) return
+      // Match animation clips: block every mouse button from reaching the
+      // timeline scrubber. A right-click must remain owned by ContextMenuTrigger.
+      event.stopPropagation()
+      if (event.button !== 0 || event.ctrlKey) {
+        setSelectedVideoClipIds((ids) => (ids.includes(id) ? ids : [id]))
+        selectAnimationClip(null)
+        return
+      }
+      const movingIds = selectedVideoClipIds.includes(id)
+        ? selectedVideoClipIds
+        : [id]
+      setSelectedVideoClipIds(movingIds)
+      selectAnimationClip(null)
+      const clip = resolvedVideoClips.find((item) => item.id === id)
+      if (razorModeRef.current && clip) {
+        const atMs =
+          clip.startMs +
+          (clipMsFromClientX(event.clientX) - clip.timelineStartMs)
+        if (
+          atMs <= clip.startMs + MIN_CLIP_MS ||
+          atMs >= clip.endMs - MIN_CLIP_MS
+        ) {
+          toast.error("Clip is too short to cut")
+          return
+        }
+        const newId = splitVideoClip(id, atMs)
+        if (newId) setSelectedVideoClipIds([newId])
+        return
+      }
+      if (!mode || !mainFilmstrip) return
+      event.currentTarget.setPointerCapture(event.pointerId)
+      videoDragRef.current = {
+        id,
+        mode,
+        timelineStartMs: clip?.timelineStartMs ?? 0,
+        startMs: clip?.startMs ?? 0,
+        endMs: clip?.endMs ?? mainFilmstrip.durationMs,
+        grabOffsetMs:
+          clipMsFromClientX(event.clientX) - (clip?.timelineStartMs ?? 0),
+        movingClips: resolvedVideoClips
+          .filter((item) => movingIds.includes(item.id))
+          .map((item) => ({
+            id: item.id,
+            timelineStartMs: item.timelineStartMs,
+          })),
+        captureTarget: event.currentTarget,
+        pointerId: event.pointerId,
+      }
+      setTrimmingVideo(true)
+      pointerXRef.current = event.clientX
+      startAutoScroll(applyVideoTrim)
+    },
+    [
+      applyVideoTrim,
+      clipMsFromClientX,
+      mainFilmstrip,
+      mainIsVideo,
+      resolvedVideoClips,
+      selectAnimationClip,
+      selectedVideoClipIds,
+      splitVideoClip,
+      startAutoScroll,
+    ]
+  )
+
+  const onVideoPointerMove = React.useCallback(
+    (event: React.PointerEvent) => {
+      if (!videoDragRef.current) return
+      pointerXRef.current = event.clientX
+      applyVideoTrim(event.clientX)
+    },
+    [applyVideoTrim]
+  )
+
+  const onVideoPointerUp = React.useCallback(
+    (event: React.PointerEvent) => {
+      const drag = videoDragRef.current
+      if (!drag) return
+      event.currentTarget.releasePointerCapture?.(event.pointerId)
+      if (drag.mode === "move") {
+        const dropped = Math.max(
+          0,
+          clipMsFromClientX(event.clientX) - drag.grabOffsetMs
+        )
+        const groupStart = Math.min(
+          ...drag.movingClips.map((clip) => clip.timelineStartMs)
+        )
+        const groupEnd = Math.max(
+          ...drag.movingClips.map((clip) => {
+            const source = resolvedVideoClips.find(
+              (item) => item.id === clip.id
+            )
+            return (
+              clip.timelineStartMs +
+              (source ? source.endMs - source.startMs : 0)
+            )
+          })
+        )
+        const draggedOffset = drag.timelineStartMs - groupStart
+        const others = resolvedVideoClips
+          .filter(
+            (clip) => !drag.movingClips.some((item) => item.id === clip.id)
+          )
+          .map((clip) => ({
+            startMs: clip.timelineStartMs,
+            durationMs: clip.endMs - clip.startMs,
+          }))
+        const {
+          startMs: insertedStart,
+          shiftAfterMs,
+          shiftMs,
+        } = resolveRippleDrop(
+          dropped - draggedOffset,
+          groupEnd - groupStart,
+          others,
+          MAX_DURATION_MS
+        )
+        for (const clip of drag.movingClips) {
+          updateVideoClip(clip.id, {
+            timelineStartMs:
+              insertedStart + (clip.timelineStartMs - groupStart),
+          })
+        }
+        for (const clip of resolvedVideoClips) {
+          if (
+            drag.movingClips.some((item) => item.id === clip.id) ||
+            clip.timelineStartMs < shiftAfterMs
+          ) {
+            continue
+          }
+          updateVideoClip(clip.id, {
+            timelineStartMs: Math.min(
+              clip.timelineStartMs + shiftMs,
+              Math.max(0, MAX_DURATION_MS - (clip.endMs - clip.startMs))
+            ),
+          })
+        }
+      }
+      videoDragRef.current = null
+      setTrimmingVideo(false)
+      stopAutoScroll()
+    },
+    [
+      clipMsFromClientX,
+      resolvedVideoClips,
+      resolveRippleDrop,
+      stopAutoScroll,
+      updateVideoClip,
+    ]
+  )
+
+  const videoRowRef = React.useRef<HTMLDivElement | null>(null)
+  const videoMarqueeRef = React.useRef<{
+    startX: number
+    active: boolean
+  } | null>(null)
+  const [videoMarqueeRect, setVideoMarqueeRect] = React.useState<{
+    left: number
+    width: number
+  } | null>(null)
+
+  const onVideoRowPointerDown = React.useCallback(
+    (event: React.PointerEvent) => {
+      // The animation row stops propagation before its button guard. Keep the
+      // video row identical so right-click cannot start the parent scrubber.
+      event.stopPropagation()
+      if (event.button !== 0 || razorModeRef.current) return
+      const row = videoRowRef.current
+      if (!row) return
+      const rect = row.getBoundingClientRect()
+      videoMarqueeRef.current = {
+        startX: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
+        active: false,
+      }
+      row.setPointerCapture(event.pointerId)
+    },
+    []
+  )
+
+  const onVideoRowPointerMove = React.useCallback(
+    (event: React.PointerEvent) => {
+      const marquee = videoMarqueeRef.current
+      const row = videoRowRef.current
+      if (!marquee || !row) return
+      const rect = row.getBoundingClientRect()
+      const currentX = Math.max(
+        0,
+        Math.min(rect.width, event.clientX - rect.left)
+      )
+      if (!marquee.active && Math.abs(currentX - marquee.startX) <= 4) return
+      marquee.active = true
+      const left = Math.min(marquee.startX, currentX)
+      const right = Math.max(marquee.startX, currentX)
+      const minMs = (left / pxPerSecondRef.current) * 1000
+      const maxMs = (right / pxPerSecondRef.current) * 1000
+      setVideoMarqueeRect({ left, width: right - left })
+      setSelectedVideoClipIds(
+        resolvedVideoClips
+          .filter(
+            (clip) =>
+              clip.timelineStartMs <= maxMs &&
+              clip.timelineStartMs + clip.endMs - clip.startMs >= minMs
+          )
+          .map((clip) => clip.id)
+      )
+    },
+    [resolvedVideoClips]
+  )
+
+  const onVideoRowPointerUp = React.useCallback((event: React.PointerEvent) => {
+    if (!videoMarqueeRef.current) return
+    videoMarqueeRef.current = null
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    setVideoMarqueeRect(null)
+  }, [])
+
+  const deleteVideo = React.useCallback(
+    (id?: string) => {
+      const targetIds =
+        id && selectedVideoClipIds.includes(id)
+          ? selectedVideoClipIds
+          : id
+            ? [id]
+            : selectedVideoClipIds
+      if (targetIds.length) removeVideoClips(targetIds)
+      else setScreenshot(null)
+      setSelectedVideoClipIds([])
+    },
+    [removeVideoClips, selectedVideoClipIds, setScreenshot]
+  )
+
+  const duplicateVideo = React.useCallback(
+    (id: string) => {
+      const clip = resolvedVideoClips.find((item) => item.id === id)
+      if (!clip) return
+      const newId = duplicateVideoClip(id, clip.endMs - clip.startMs)
+      if (newId) setSelectedVideoClipIds([newId])
+    },
+    [duplicateVideoClip, resolvedVideoClips]
+  )
+
+  const copyVideoClip = React.useCallback(
+    (id: string) => {
+      const clip = resolvedVideoClips.find((item) => item.id === id)
+      if (!clip || !navigator.clipboard) {
+        toast.error("Clipboard is not available")
+        return
+      }
+      void navigator.clipboard
+        .writeText(
+          JSON.stringify({
+            type: "tokokino-video-clip",
+            startMs: clip.startMs,
+            endMs: clip.endMs,
+            muted: clip.muted,
+          })
+        )
+        .then(() => toast.success("Video clip copied"))
+        .catch(() => toast.error("Could not copy video clip"))
+    },
+    [resolvedVideoClips]
+  )
+
   const scrubbingRef = React.useRef(false)
 
   const applyScrub = React.useCallback(
@@ -542,7 +922,7 @@ export function useAnimateTimeline() {
   const videoEl = useVideoRegistry((s) =>
     activeCanvasId ? (s.videos[activeCanvasId] ?? null) : null
   )
-  const [videoMuted, setVideoMuted] = React.useState(() =>
+  const [videoElementMuted, setVideoElementMuted] = React.useState(() =>
     getVideoMutedPreferenceSync()
   )
   const [videoHasAudio, setVideoHasAudio] = React.useState(false)
@@ -551,7 +931,7 @@ export function useAnimateTimeline() {
     const el = videoEl
     if (!el) return
     const sync = () => {
-      setVideoMuted(el.muted)
+      setVideoElementMuted(el.muted)
       setVideoHasAudio(videoElementHasAudio(el))
     }
     const boot = requestAnimationFrame(sync)
@@ -572,13 +952,44 @@ export function useAnimateTimeline() {
 
   const canMuteVideo = Boolean(videoEl) && videoHasAudio
 
+  const selectedVideoClip = React.useMemo(
+    () =>
+      selectedVideoClipId
+        ? (resolvedVideoClips.find((clip) => clip.id === selectedVideoClipId) ??
+          null)
+        : null,
+    [resolvedVideoClips, selectedVideoClipId]
+  )
+  const videoMuted = selectedVideoClip?.muted ?? videoElementMuted
+
   const onToggleVideoMute = React.useCallback(() => {
     const el = videoEl
     if (!el) return
+    if (selectedVideoClip) {
+      const next = !videoMuted
+      updateVideoClip(selectedVideoClip.id, { muted: next })
+      el.muted = next
+      setVideoElementMuted(next)
+      return
+    }
     const next = !el.muted
     applyVideoMutedToAll(useVideoRegistry.getState().videos, next)
     setVideoMutedPreference(next)
-  }, [videoEl])
+  }, [selectedVideoClip, updateVideoClip, videoEl, videoMuted])
+
+  const toggleVideoClipMute = React.useCallback(
+    (id: string) => {
+      const clip = resolvedVideoClips.find((item) => item.id === id)
+      if (!clip) return
+      const muted = !(clip.muted ?? getVideoMutedPreferenceSync())
+      updateVideoClip(id, { muted })
+      if (id === selectedVideoClipId && videoEl) {
+        videoEl.muted = muted
+        setVideoElementMuted(muted)
+      }
+    },
+    [resolvedVideoClips, selectedVideoClipId, updateVideoClip, videoEl]
+  )
 
   const clipsRowRef = React.useRef<HTMLDivElement | null>(null)
   const ghostRef = React.useRef<HTMLDivElement | null>(null)
@@ -785,6 +1196,26 @@ export function useAnimateTimeline() {
     }
   }, [])
 
+  const onVideoMenuOpenChange = React.useCallback(
+    (open: boolean) => {
+      onClipMenuOpenChange(open)
+      if (!open) return
+
+      // A context click/long-press can arrive after a pointer-down began a drag.
+      // Pointer capture would retarget menu clicks back to the video clip, so
+      // cancel the drag and release capture before Radix receives item clicks.
+      const drag = videoDragRef.current
+      if (!drag) return
+      if (drag.captureTarget.hasPointerCapture?.(drag.pointerId)) {
+        drag.captureTarget.releasePointerCapture?.(drag.pointerId)
+      }
+      videoDragRef.current = null
+      setTrimmingVideo(false)
+      stopAutoScroll()
+    },
+    [onClipMenuOpenChange, stopAutoScroll]
+  )
+
   const addClip = React.useCallback(
     () => selectAnimationClip(addAnimationClip()),
     [addAnimationClip, selectAnimationClip]
@@ -849,15 +1280,18 @@ export function useAnimateTimeline() {
     razorModeRef.current = razorMode
   }, [razorMode])
 
-  const canRazor = clips.length > 0
+  const canRazor = clips.length > 0 || resolvedVideoClips.length > 0
   React.useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (clips.length === 0) setRazorMode(false)
-  }, [clips.length])
+     
+    if (clips.length === 0 && resolvedVideoClips.length === 0)
+      setRazorMode(false)
+  }, [clips.length, resolvedVideoClips.length])
 
   const toggleRazor = React.useCallback(() => {
-    setRazorMode((m) => (clipsRef.current.length > 0 ? !m : false))
-  }, [])
+    setRazorMode((m) =>
+      clipsRef.current.length > 0 || resolvedVideoClips.length > 0 ? !m : false
+    )
+  }, [resolvedVideoClips.length])
 
   const requestExit = React.useCallback(() => {
     setIsAnimateMode(false)
@@ -880,7 +1314,6 @@ export function useAnimateTimeline() {
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const ids = selectedIdsRef.current
-      if (ids.length === 0) return
       const t = e.target as HTMLElement | null
       if (
         t &&
@@ -890,6 +1323,14 @@ export function useAnimateTimeline() {
       ) {
         return
       }
+      if (videoSelected) {
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault()
+          deleteVideo()
+        }
+        return
+      }
+      if (ids.length === 0) return
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         (e.metaKey || e.ctrlKey) &&
@@ -929,6 +1370,11 @@ export function useAnimateTimeline() {
     setAnimationClipSelection,
     selectAnimationClip,
     reselectAfterDelete,
+    videoSelected,
+    deleteVideo,
+    duplicateVideo,
+    toggleVideoClipMute,
+    copyVideoClip,
   ])
 
   React.useEffect(() => {
@@ -1042,6 +1488,10 @@ export function useAnimateTimeline() {
     selectedClipIds,
     highlightedClipIds,
     selectedClip,
+    selectedVideoClipId,
+    selectedVideoClipIds,
+    videoSelected,
+    trimmingVideo,
     updateAnimationClip,
     draggingClipId,
     interactingClipId,
@@ -1080,10 +1530,24 @@ export function useAnimateTimeline() {
     onClipPointerMove,
     onClipPointerUp,
     onClipMenuOpenChange,
+    onVideoMenuOpenChange,
     deselectClip,
     duplicateClip,
     clearClipEffects,
     deleteClip,
+    deleteVideo,
+    duplicateVideo,
+    toggleVideoClipMute,
+    copyVideoClip,
+    onVideoPointerDown,
+    onVideoPointerMove,
+    onVideoPointerUp,
+    videoRowRef,
+    videoMarqueeRect,
+    onVideoRowPointerDown,
+    onVideoRowPointerMove,
+    onVideoRowPointerUp,
+    deselectVideo: () => setSelectedVideoClipIds([]),
 
     marqueeRect,
 

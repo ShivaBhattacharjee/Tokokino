@@ -516,6 +516,11 @@ function normalizeCanvasState(
   fallback: CanvasState
 ): CanvasState {
   const source = canvas ?? {}
+  const legacyVideoTrim = (
+    source as {
+      videoTrim?: { startMs?: unknown; endMs?: unknown } | null
+    }
+  ).videoTrim
   const fallbackBackdrop = fallback.backdrop
   const sourceBackdrop = source.backdrop
   const normalized: CanvasState = {
@@ -550,6 +555,44 @@ function normalizeCanvasState(
       ...fallback.screenshotLayer,
       ...(source.screenshotLayer ?? {}),
     },
+    videoClips: Array.isArray(source.videoClips)
+      ? source.videoClips
+          .filter(
+            (clip) =>
+              clip &&
+              typeof clip.id === "string" &&
+              Number.isFinite(clip.startMs) &&
+              (clip.endMs === null || Number.isFinite(clip.endMs))
+          )
+          .map((clip) => ({
+            id: clip.id,
+            timelineStartMs:
+              typeof clip.timelineStartMs === "number" &&
+              Number.isFinite(clip.timelineStartMs)
+                ? Math.max(0, clip.timelineStartMs)
+                : Math.max(0, clip.startMs),
+            ...(typeof clip.muted === "boolean" ? { muted: clip.muted } : {}),
+            startMs: Math.max(0, clip.startMs),
+            endMs: clip.endMs === null ? null : Math.max(0, clip.endMs),
+          }))
+      : legacyVideoTrim &&
+          typeof legacyVideoTrim.startMs === "number" &&
+          Number.isFinite(legacyVideoTrim.startMs) &&
+          (legacyVideoTrim.endMs === null ||
+            (typeof legacyVideoTrim.endMs === "number" &&
+              Number.isFinite(legacyVideoTrim.endMs)))
+        ? [
+            {
+              id: "video-main",
+              timelineStartMs: Math.max(0, legacyVideoTrim.startMs),
+              startMs: Math.max(0, legacyVideoTrim.startMs),
+              endMs:
+                legacyVideoTrim.endMs === null
+                  ? null
+                  : Math.max(0, legacyVideoTrim.endMs),
+            },
+          ]
+        : fallback.videoClips,
     shadow: { ...fallback.shadow, ...(source.shadow ?? {}) },
     overlay: { ...fallback.overlay, ...(source.overlay ?? {}) },
     frame: { ...fallback.frame, ...(source.frame ?? {}) },

@@ -184,6 +184,7 @@ export function useEditor(): EditorContext {
     screenshot: c.screenshot,
     originalScreenshot: c.originalScreenshot,
     lastCropRegion: c.lastCropRegion,
+    videoClips: c.videoClips,
     background: c.background,
     padding: c.padding,
     borderRadius: c.borderRadius,
@@ -310,6 +311,14 @@ export function useEditor(): EditorContext {
       store.applyCroppedScreenshot(s, region, canvasId ?? targetId),
     setScreenshotCropRegion: (region, canvasId) =>
       store.setScreenshotCropRegion(region, canvasId ?? targetId),
+    updateVideoClip: (id, patch, canvasId) =>
+      store.updateVideoClip(id, patch, canvasId ?? targetId),
+    splitVideoClip: (id, atMs, canvasId) =>
+      store.splitVideoClip(id, atMs, canvasId ?? targetId),
+    duplicateVideoClip: (id, durationMs, canvasId) =>
+      store.duplicateVideoClip(id, durationMs, canvasId ?? targetId),
+    removeVideoClips: (ids, canvasId) =>
+      store.removeVideoClips(ids, canvasId ?? targetId),
     setAspect: store.setAspect,
     setCanvasAspect: store.setCanvasAspect,
     setBackground: (b, canvasId) =>
