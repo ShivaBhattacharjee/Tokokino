@@ -8,6 +8,7 @@ import {
 
 import { assignMediaRef } from "@/components/ui/browser-frame-media"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
 
 const CHROME_WIDTH = 1202
 const CHROME_HEIGHT = 776
@@ -39,7 +40,7 @@ export interface ChromeProps extends HTMLAttributes<HTMLDivElement> {
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
   /** Called with the <video> node so the editor can register playback controls. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
-  /** Extra styles for the media element (e.g. object-view-box crop). */
+  /** Extra styles for the media element (e.g. video crop polyfill). */
   mediaStyle?: CSSProperties
   imageFit?: ImageFit
   frameBorderRadius?: string | number
@@ -173,22 +174,25 @@ export function Chrome({
         : {}
 
   const screen = hasVideo ? (
-    <video
-      ref={(node) => {
-        assignMediaRef(imageRef, node as unknown as HTMLImageElement | null)
-        onMediaElement?.(node)
-      }}
-      className={`block size-full ${imageFitClassName(imageFit)}`}
-      src={videoSrc}
-      muted
-      loop
-      playsInline
-      preload="metadata"
-      style={mediaStyle}
-      onLoadedMetadata={(e) =>
-        onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
-      }
-    />
+    <div className="relative size-full bg-black">
+      <video
+        ref={(node) => {
+          assignMediaRef(imageRef, node as unknown as HTMLImageElement | null)
+          onMediaElement?.(node)
+        }}
+        className={`block size-full ${imageFitClassName(imageFit)}`}
+        src={videoSrc}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        style={mediaStyle}
+        onLoadedMetadata={(e) =>
+          onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
+        }
+      />
+      <VideoIdlePoster />
+    </div>
   ) : imageSrc ? (
     <ShimmerImage
       ref={imageRef}

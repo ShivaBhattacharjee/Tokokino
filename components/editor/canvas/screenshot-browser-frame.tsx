@@ -78,7 +78,7 @@ type ScreenshotBrowserFrameProps = {
   innerLightingStyle?: React.CSSProperties | null
   /** Register the framed <video> with the docked control bar. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
-  /** Crop / view-box styles applied to the media element. */
+  /** Crop / overflow styles applied to the media element (video crop polyfill). */
   mediaStyle?: React.CSSProperties
 }
 

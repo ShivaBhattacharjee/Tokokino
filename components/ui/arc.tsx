@@ -7,6 +7,7 @@ import {
 } from "react"
 
 import { assignMediaRef } from "@/components/ui/browser-frame-media"
+import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 
 const ARC_WIDTH = 1228
@@ -34,7 +35,7 @@ export interface ArcProps extends HTMLAttributes<HTMLDivElement> {
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
   /** Called with the <video> node so the editor can register playback controls. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
-  /** Extra styles for the media element (e.g. object-view-box crop). */
+  /** Extra styles for the media element (e.g. video crop polyfill). */
   mediaStyle?: CSSProperties
   imageFit?: ImageFit
   frameBorderRadius?: string | number
@@ -95,22 +96,25 @@ export function Arc({
         : {}
 
   const screen = hasVideo ? (
-    <video
-      ref={(node) => {
-        assignMediaRef(imageRef, node as unknown as HTMLImageElement | null)
-        onMediaElement?.(node)
-      }}
-      className={`relative z-10 block size-full ${imageFitClassName(imageFit)}`}
-      src={videoSrc}
-      muted
-      loop
-      playsInline
-      preload="metadata"
-      style={mediaStyle}
-      onLoadedMetadata={(e) =>
-        onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
-      }
-    />
+    <div className="relative size-full bg-black">
+      <video
+        ref={(node) => {
+          assignMediaRef(imageRef, node as unknown as HTMLImageElement | null)
+          onMediaElement?.(node)
+        }}
+        className={`relative z-10 block size-full ${imageFitClassName(imageFit)}`}
+        src={videoSrc}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        style={mediaStyle}
+        onLoadedMetadata={(e) =>
+          onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
+        }
+      />
+      <VideoIdlePoster />
+    </div>
   ) : imageSrc ? (
     <>
       {/* Blurred backdrop — fills letterbox/pillarbox areas in contain mode */}

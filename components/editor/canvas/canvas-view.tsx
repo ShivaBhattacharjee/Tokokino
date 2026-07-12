@@ -34,7 +34,15 @@ import {
   useEditor,
   useEditorStore,
 } from "@/lib/editor/store"
-import { computeCropTarget, type CropTarget } from "@/lib/editor/crop-utils"
+import {
+  computeCropTarget,
+  cropMediaObjectStyle,
+  croppedNaturalSize,
+  isActiveCropRegion,
+  objectViewBoxCropStyle,
+  supportsObjectViewBox,
+  type CropTarget,
+} from "@/lib/editor/crop-utils"
 import type { CaptureSettings } from "./upload-card"
 import {
   defaultCaptureDeviceForFrame,
@@ -355,6 +363,13 @@ function CanvasViewInner({
     w: number
     h: number
   } | null>(null)
+  // Chrome/Edge: native object-view-box. Firefox/Safari: overflow polyfill.
+  // Server snapshot prefers native so SSR matches the working Chrome path.
+  const nativeVideoCrop = React.useSyncExternalStore(
+    () => () => {},
+    supportsObjectViewBox,
+    () => true
+  )
   const [mainCropRequest, setMainCropRequest] =
     React.useState<CropTarget | null>(null)
   const [slotCropRequest, setSlotCropRequest] =
@@ -517,7 +532,16 @@ function CanvasViewInner({
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
   const canUseNaturalCanvasAspect =
     isAuto && naturalDims && !inRowMode && frame.id === "none"
-  const autoDims = canUseNaturalCanvasAspect ? naturalDims : null
+  // Visible media size after a non-destructive video crop (full size otherwise).
+  const visibleNaturalDims =
+    naturalDims &&
+    lastCropRegion &&
+    isVideoSrc(screenshot) &&
+    isActiveCropRegion(lastCropRegion)
+      ? croppedNaturalSize(naturalDims.w, naturalDims.h, lastCropRegion)
+      : naturalDims
+  // Auto canvas aspect follows the visible video crop when one is set.
+  const autoDims = canUseNaturalCanvasAspect ? visibleNaturalDims : null
   const aw = autoDims ? autoDims.w : aspect.w || 16
   const ah = autoDims ? autoDims.h : aspect.h || 10
   const aspectRatio = `${aw} / ${ah}`
@@ -547,7 +571,7 @@ function CanvasViewInner({
   const screenshotBoxAspect = slotBoxAspectRatio(
     frame,
     canvasAspectRatio,
-    !inRowMode && frame.id === "none" ? naturalDims : null
+    !inRowMode && frame.id === "none" ? visibleNaturalDims : null
   )
   const rowLayoutItems = React.useMemo(
     () =>
@@ -629,19 +653,30 @@ function CanvasViewInner({
     imgStyle.mixBlendMode = screenshotLayer.blendMode
   }
   // Video crop is non-destructive: the src stays the full clip and we crop at
-  // render time with object-view-box, which retargets the replaced element's
-  // intrinsic box so object-fit re-shrink-wraps to the cropped aspect (border,
-  // shadow, lighting and placement all follow for free). Images are cropped
-  // destructively (the src is already the cropped bitmap), so they never get it.
+  // render time. Chrome/Edge use object-view-box; Firefox/Safari use an
+  // overflow + positioned-media polyfill. Images are cropped destructively
+  // (the src is already the cropped bitmap), so they never get it.
   const videoCropRegion =
-    lastCropRegion && isVideoSrc(screenshot) ? lastCropRegion : null
-  let videoMediaStyle: React.CSSProperties | undefined
-  if (videoCropRegion) {
-    const { x, y, width, height } = videoCropRegion
-    const objectViewBox = `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`
-    imgStyle.objectViewBox = objectViewBox
-    videoMediaStyle = { objectViewBox }
+    lastCropRegion &&
+    isVideoSrc(screenshot) &&
+    isActiveCropRegion(lastCropRegion)
+      ? lastCropRegion
+      : null
+  const videoCropPolyfill = Boolean(videoCropRegion) && !nativeVideoCrop
+  if (videoCropRegion && nativeVideoCrop) {
+    Object.assign(imgStyle, objectViewBoxCropStyle(videoCropRegion))
   }
+  const videoMediaStyle = videoCropRegion
+    ? nativeVideoCrop
+      ? objectViewBoxCropStyle(videoCropRegion)
+      : cropMediaObjectStyle(videoCropRegion)
+    : undefined
+  const videoCropAspectRatio =
+    videoCropPolyfill && visibleNaturalDims
+      ? visibleNaturalDims.w > 0 && visibleNaturalDims.h > 0
+        ? `${visibleNaturalDims.w} / ${visibleNaturalDims.h}`
+        : undefined
+      : undefined
   // When a clip animates the border, the outline is ALWAYS mounted (even when
   // the committed border is invisible) so the player can ease it in from 0 /
   // recolour it via the preview vars. Otherwise it renders only when committed.
@@ -858,6 +893,8 @@ function CanvasViewInner({
     const w = el.naturalWidth || el.videoWidth || 0
     const h = el.naturalHeight || el.videoHeight || 0
     if (!inRowMode && w > 0 && h > 0) {
+      // Always store the full intrinsic size — crop aspect is derived at use sites
+      // so applying/clearing a crop doesn't require reloading the media.
       setNaturalDims({ w, h })
     }
     measurePlacement()
@@ -1172,6 +1209,8 @@ function CanvasViewInner({
                     imageRef={imageRef}
                     shadowBoxTarget={frame.id === "none"}
                     objectFit={objectFit ?? "cover"}
+                    cropRegion={videoCropPolyfill ? videoCropRegion : null}
+                    cropAspectRatio={videoCropAspectRatio}
                     onContainerPointerDown={(e) => {
                       if (e.target === e.currentTarget) {
                         setIsScreenshotSelected(false)

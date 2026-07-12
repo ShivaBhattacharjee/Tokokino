@@ -48,19 +48,35 @@ async function videoPosterFile(url: string, filename: string): Promise<File> {
   video.playsInline = true
   video.preload = "auto"
   video.crossOrigin = "anonymous"
+  // Explicit load() — required for reliable metadata on Firefox/Safari when the
+  // element is created off-DOM (setting src alone is not always enough).
+  video.load()
 
   await new Promise<void>((resolve, reject) => {
-    const onError = () => reject(new Error("video load failed"))
-    video.onloadeddata = () => {
+    const cleanup = () => {
+      video.onloadeddata = null
+      video.onerror = null
+      video.onseeked = null
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error("video load failed"))
+    }
+    const onLoaded = () => {
       // Seek slightly in to avoid a black/empty first frame on some codecs.
       const target = Math.min(0.1, (video.duration || 0) / 2)
       if (Number.isFinite(target) && target > 0 && video.currentTime === 0) {
-        video.onseeked = () => resolve()
+        video.onseeked = () => {
+          cleanup()
+          resolve()
+        }
         video.currentTime = target
       } else {
+        cleanup()
         resolve()
       }
     }
+    video.onloadeddata = onLoaded
     video.onerror = onError
   })
 
@@ -166,9 +182,14 @@ export function CropModal({
     const loader = isVideo
       ? videoPosterFile(screenshotUrl, "poster.png")
       : urlToFile(screenshotUrl, "screenshot.png")
-    void loader.then((file) => {
-      if (!cancelled) setLoadedFile({ url: screenshotUrl, file })
-    })
+    void loader
+      .then((file) => {
+        if (!cancelled) setLoadedFile({ url: screenshotUrl, file })
+      })
+      .catch(() => {
+        // Leave file null so the dialog stays closed / empty rather than
+        // surfacing an unhandled rejection when poster fetch fails.
+      })
 
     return () => {
       cancelled = true

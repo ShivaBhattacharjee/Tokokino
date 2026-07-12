@@ -5,9 +5,18 @@ import { toast } from "sonner"
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
+import {
+  cropMediaObjectStyle,
+  isActiveCropRegion,
+} from "@/lib/editor/crop-utils"
 import { isVideoSrc } from "@/lib/editor/media-type"
-import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
+import type {
+  CropRegion,
+  EditorTool,
+  ScreenshotLayer,
+} from "@/lib/editor/store"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
+import { VideoIdlePoster } from "./video-idle-poster"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -52,6 +61,10 @@ type ScreenshotBareProps = {
   captureStateKey?: string
   shadowBoxTarget?: boolean
   objectFit?: "contain" | "cover" | "fill"
+  /** Non-destructive video crop (percent region). Applied via overflow frame. */
+  cropRegion?: CropRegion | null
+  /** Cropped media aspect (`w / h`) so the bare frame shrink-wraps correctly. */
+  cropAspectRatio?: string
   innerLightingStyle?: React.CSSProperties | null
   /** Receives the <video> DOM node (or null) when the screenshot is a video. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
@@ -112,21 +125,32 @@ export function ScreenshotBare({
   captureStateKey,
   shadowBoxTarget = false,
   objectFit = "cover",
+  cropRegion = null,
+  cropAspectRatio,
   innerLightingStyle,
   onMediaElement,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const isVideo = isVideoSrc(screenshot)
+  const activeCrop =
+    isVideo && isActiveCropRegion(cropRegion) ? cropRegion : null
 
   // Feed the same element the parent measures (imageRef) and the video registry
   // (which the docked control bar reads) off a single node, so placement
   // measurement keeps working and the bar can drive playback.
+  // When cropped, imageRef must point at the overflow frame (laid-out crop box),
+  // while onMediaElement still receives the real <video>.
   const setMediaRef = React.useCallback(
     (node: HTMLVideoElement | null) => {
-      imageRef.current = node as unknown as HTMLImageElement | null
       onMediaElement?.(node)
     },
-    [imageRef, onMediaElement]
+    [onMediaElement]
+  )
+  const setVideoShellRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      imageRef.current = node as unknown as HTMLImageElement | null
+    },
+    [imageRef]
   )
 
   // Measured size of a nested-contain image so the empty lighting layer can
@@ -293,6 +317,69 @@ export function ScreenshotBare({
     isScreenshotSelected && activeTool === "pointer" && "outline-none"
   )
 
+  const cropFrameStyle: React.CSSProperties | undefined = activeCrop
+    ? {
+        ...imagePositionStyle,
+        overflow: "hidden",
+        // Drop object-fit on the frame — the inner video is positioned to fill.
+        objectFit: undefined,
+        ...(cropAspectRatio ? { aspectRatio: cropAspectRatio } : null),
+        // Absolute children don't size the frame. Give contain-mode a definite
+        // width so aspect-ratio can resolve height (otherwise the box is 0×0).
+        ...((isNestedContain || (!isNested && objectFit === "contain")) &&
+        cropAspectRatio
+          ? {
+              width: "100%",
+              height: "auto",
+              maxWidth: "100%",
+              maxHeight: "100%",
+            }
+          : null),
+      }
+    : undefined
+
+  const videoInner = (
+    <video
+      ref={setMediaRef}
+      src={screenshot}
+      muted
+      loop
+      playsInline
+      // Metadata only — first-frame decode is expensive on Safari/Firefox; we
+      // show a black play poster instead until the user hits play.
+      preload="metadata"
+      draggable={false}
+      onLoadedMetadata={(e) =>
+        onImageLoad(e as unknown as React.SyntheticEvent<HTMLImageElement>)
+      }
+      onError={() =>
+        toast.error(
+          "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
+          {
+            id: "video-load-error",
+          }
+        )
+      }
+      {...(activeCrop
+        ? {
+            style: cropMediaObjectStyle(activeCrop),
+            className: "pointer-events-none absolute max-h-none max-w-none",
+          }
+        : {
+            className: cn(
+              "pointer-events-none",
+              // Cover/fill: fill the shell. Contain: keep intrinsic aspect so the
+              // shell shrink-wraps (absolute would collapse the shell to 0×0).
+              objectFit === "contain" || isNestedContain
+                ? "block max-h-full max-w-full object-contain"
+                : "absolute inset-0 h-full w-full",
+              objectFit === "cover" && "object-cover",
+              objectFit === "fill" && "object-fill"
+            ),
+          })}
+    />
+  )
+
   return (
     <div
       ref={stageRef}
@@ -300,30 +387,13 @@ export function ScreenshotBare({
       onPointerDown={onContainerPointerDown}
     >
       {isVideo ? (
-        <video
-          ref={setMediaRef}
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <div
+          ref={setVideoShellRef}
           data-box-hover-target
           data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
-          src={screenshot}
-          muted
-          loop
-          playsInline
-          // Only fetch metadata + the poster frame up front; the browser streams
-          // the rest on demand (range requests) once it plays. Avoids buffering
-          // a whole multi-minute video just to show it sitting on the canvas.
-          preload="metadata"
-          draggable={false}
-          onLoadedMetadata={(e) =>
-            onImageLoad(e as unknown as React.SyntheticEvent<HTMLImageElement>)
-          }
-          onError={() =>
-            toast.error(
-              "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
-              {
-                id: "video-load-error",
-              }
-            )
-          }
+          style={activeCrop ? cropFrameStyle : imagePositionStyle}
+          className={cn(mediaClassName, "overflow-hidden bg-black")}
           onClick={(e) =>
             onSelect(e as unknown as React.MouseEvent<HTMLImageElement>)
           }
@@ -339,9 +409,10 @@ export function ScreenshotBare({
           onPointerCancel={(e) =>
             onPointerUp(e as unknown as React.PointerEvent<HTMLImageElement>)
           }
-          style={imagePositionStyle}
-          className={mediaClassName}
-        />
+        >
+          {videoInner}
+          <VideoIdlePoster />
+        </div>
       ) : (
         <ShimmerImage
           ref={imageRef}

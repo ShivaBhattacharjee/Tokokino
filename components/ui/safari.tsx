@@ -9,6 +9,7 @@ import {
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { assignMediaRef } from "@/components/ui/browser-frame-media"
+import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
 
 const SAFARI_WIDTH = 1203
 const SAFARI_HEIGHT = 753
@@ -43,7 +44,7 @@ export interface SafariProps extends HTMLAttributes<HTMLDivElement> {
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
   /** Called with the <video> node so the editor can register playback controls. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
-  /** Extra styles for the media element (e.g. object-view-box crop). */
+  /** Extra styles for the media element (e.g. video crop polyfill). */
   mediaStyle?: CSSProperties
   imageFit?: ImageFit
   screenBorderRadius?: string | number
@@ -129,25 +130,28 @@ export function Safari({
           className={`pointer-events-none absolute z-0 overflow-hidden ${screenBg}`}
           style={screenBoxStyle}
         >
-          <video
-            ref={(node) => {
-              assignMediaRef(
-                imageRef,
-                node as unknown as HTMLImageElement | null
-              )
-              onMediaElement?.(node)
-            }}
-            className={`block size-full ${imageFitClassName(imageFit)}`}
-            src={videoSrc}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            style={mediaStyle}
-            onLoadedMetadata={(e) =>
-              onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
-            }
-          />
+          <div className="relative size-full bg-black">
+            <video
+              ref={(node) => {
+                assignMediaRef(
+                  imageRef,
+                  node as unknown as HTMLImageElement | null
+                )
+                onMediaElement?.(node)
+              }}
+              className={`block size-full ${imageFitClassName(imageFit)}`}
+              src={videoSrc}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              style={mediaStyle}
+              onLoadedMetadata={(e) =>
+                onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
+              }
+            />
+            <VideoIdlePoster />
+          </div>
         </div>
       ) : imageSrc ? (
         <div

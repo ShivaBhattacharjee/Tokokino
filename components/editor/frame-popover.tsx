@@ -46,6 +46,7 @@ import {
 import type { DeviceFrame, FrameOrientation } from "@/lib/editor/store"
 import { useActiveCanvasField } from "@/lib/editor/store"
 import { isVideoSrc } from "@/lib/editor/media-type"
+import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
 import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
 
 const DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH = 280
@@ -992,17 +993,20 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
         >
           {screenshot ? (
             isVideoSrc(screenshot) ? (
-              <video
-                src={screenshot}
-                muted
-                playsInline
-                preload="metadata"
-                draggable={false}
-                className={cn(
-                  "relative z-10 h-full w-full object-center",
-                  imageFitClassName(imageFit)
-                )}
-              />
+              <div className="relative h-full w-full bg-black">
+                <video
+                  src={screenshot}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  draggable={false}
+                  className={cn(
+                    "relative z-10 h-full w-full object-center",
+                    imageFitClassName(imageFit)
+                  )}
+                />
+                <VideoIdlePoster interactive={false} />
+              </div>
             ) : (
               <>
                 {/* Blurred backdrop for contain mode — fills letterbox/pillarbox areas */}

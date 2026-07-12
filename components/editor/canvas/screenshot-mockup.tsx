@@ -18,6 +18,7 @@ import {
 } from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
+import { VideoIdlePoster } from "./video-idle-poster"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -72,7 +73,7 @@ type ScreenshotMockupProps = {
   innerLightingStyle?: React.CSSProperties | null
   /** Register the framed <video> with the docked control bar. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
-  /** Crop / view-box styles applied to the media element. */
+  /** Crop / overflow styles applied to the media element (video crop polyfill). */
   mediaStyle?: React.CSSProperties
 }
 
@@ -223,28 +224,31 @@ export function ScreenshotMockup({
               />
             )}
             {isVideo ? (
-              <video
-                ref={setMediaRef}
-                src={screenshot}
-                muted
-                loop
-                playsInline
-                preload="metadata"
-                draggable={false}
-                onLoadedMetadata={(e) =>
-                  onImageLoad(
-                    e as unknown as React.SyntheticEvent<HTMLImageElement>
-                  )
-                }
-                onError={() =>
-                  toast.error(
-                    "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
-                    { id: "video-load-error" }
-                  )
-                }
-                className={mediaClassName}
-                style={{ ...horizontalScreenStyle, ...mediaStyle }}
-              />
+              <div className="absolute inset-0 bg-black">
+                <video
+                  ref={setMediaRef}
+                  src={screenshot}
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  draggable={false}
+                  onLoadedMetadata={(e) =>
+                    onImageLoad(
+                      e as unknown as React.SyntheticEvent<HTMLImageElement>
+                    )
+                  }
+                  onError={() =>
+                    toast.error(
+                      "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
+                      { id: "video-load-error" }
+                    )
+                  }
+                  className={mediaClassName}
+                  style={{ ...horizontalScreenStyle, ...mediaStyle }}
+                />
+                <VideoIdlePoster />
+              </div>
             ) : (
               <ShimmerImage
                 ref={imageRef}
