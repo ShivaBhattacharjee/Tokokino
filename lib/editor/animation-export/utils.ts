@@ -8,6 +8,8 @@ import type {
   AnimationExportPhase,
   AnimationExportProgress,
 } from "./types"
+import { getCanvasRenderedDims } from "../export"
+import { resolveExportDownloadFilename } from "../export-filename"
 
 export class AnimationExportAbortedError extends Error {
   constructor(message = "Export cancelled") {
@@ -29,6 +31,39 @@ export function triggerDownload(blob: Blob, filename: string) {
   link.click()
   document.body.removeChild(link)
   setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
+
+/** Output pixel size for a canvas export at `targetWidth`. */
+export function animationExportOutputDims(
+  canvasId: string,
+  targetWidth: number
+): { width: number; height: number } {
+  const rendered = getCanvasRenderedDims(canvasId)
+  if (!rendered?.width || !rendered.height) {
+    return { width: targetWidth, height: targetWidth }
+  }
+  const scale = targetWidth / rendered.width
+  return {
+    width: Math.round(rendered.width * scale),
+    height: Math.round(rendered.height * scale),
+  }
+}
+
+/** Filename for a video/animation download using the shared export format. */
+export async function resolveAnimationDownloadFilename(opts: {
+  canvasId: string
+  scale: string
+  targetWidth: number
+  extension: string
+}): Promise<string> {
+  const dims = animationExportOutputDims(opts.canvasId, opts.targetWidth)
+  return resolveExportDownloadFilename({
+    canvasId: opts.canvasId,
+    scale: opts.scale,
+    width: dims.width,
+    height: dims.height,
+    extension: opts.extension,
+  })
 }
 
 export function even(n: number) {

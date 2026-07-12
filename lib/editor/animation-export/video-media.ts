@@ -63,6 +63,7 @@ import {
   animationMimeAndExt,
   createProgressReporter,
   even,
+  resolveAnimationDownloadFilename,
   throwIfAborted,
   triggerDownload,
   waitForPaint,
@@ -77,6 +78,8 @@ export type VideoMediaExportOptions = {
   format: AnimationExportFormat
   fps?: number
   targetWidth?: number
+  /** Resolution label for `{SCALE}` in the export filename (e.g. "hd"). */
+  scale?: string
   watermark?: boolean
   onProgress?: (progress: AnimationExportProgress) => void
   signal?: AbortSignal
@@ -1095,8 +1098,12 @@ export async function exportVideoMedia(
 ): Promise<void | AnimationExportBlobResult> {
   const result = await encodeVideoMedia(canvasId, options)
   if (options.asBlob) return result
-  triggerDownload(
-    result.blob,
-    `tokokino-video-${Date.now()}.${result.extension}`
-  )
+  const targetWidth = even(options.targetWidth ?? 1080)
+  const filename = await resolveAnimationDownloadFilename({
+    canvasId,
+    scale: options.scale ?? String(targetWidth),
+    targetWidth,
+    extension: result.extension,
+  })
+  triggerDownload(result.blob, filename)
 }

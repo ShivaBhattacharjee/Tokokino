@@ -333,7 +333,7 @@ function ExportSection() {
     <div className="space-y-6">
       <SectionHeader
         title="Export"
-        description="Control how exported files are named."
+        description="Only the variables you include are used in the filename."
       />
 
       <div className="space-y-3">

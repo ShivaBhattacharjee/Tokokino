@@ -694,6 +694,7 @@ export function ExportControls({
           format: animFormat,
           fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
+          scale: animResolution,
           watermark: includeWatermark,
           signal: abort.signal,
           onProgress: (p) => {
@@ -756,6 +757,7 @@ export function ExportControls({
           format: animFormat,
           fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
+          scale: animResolution,
           watermark: includeWatermark,
           capture: animCapture,
           signal: abort.signal,
