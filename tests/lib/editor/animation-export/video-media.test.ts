@@ -2,14 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   MAX_GIF_TOTAL_PIXELS,
+  canRemuxAudioCodec,
   canvasIsVideoMedia,
+  exportAudioDurationSec,
   gifExportExceedsMemory,
   measureVideoRegion,
   planFrames,
+  preferredAudioCodecs,
+  resolveAudioMuxStrategy,
   seekTo,
+  shouldIncludeAudioPacket,
 } from "@/lib/editor/animation-export/video-media"
 import { AnimationExportAbortedError } from "@/lib/editor/animation-export/utils"
 import { useEditorStore } from "@/lib/editor/store"
+import { Mp4OutputFormat, WebMOutputFormat } from "mediabunny"
 
 /**
  * Minimal fake <video> that tracks listener counts, so we can assert seekTo
@@ -73,6 +79,116 @@ describe("planFrames — exact fps, no drop", () => {
   it("guards a non-finite duration to a single frame (no runaway loop)", () => {
     expect(planFrames(Infinity, 30).frameCount).toBe(1)
     expect(planFrames(NaN, 30).frameCount).toBe(1)
+  })
+})
+
+describe("preferredAudioCodecs / canRemuxAudioCodec — audio mux strategy", () => {
+  it("prefers AAC for MP4 and Opus for WebM when re-encoding", () => {
+    expect(preferredAudioCodecs("mp4")).toEqual(["aac", "mp3"])
+    expect(preferredAudioCodecs("webm")).toEqual(["opus", "vorbis"])
+  })
+
+  it("remuxes when the source codec is in the container's supported set", () => {
+    expect(canRemuxAudioCodec("aac", ["aac", "mp3"])).toBe(true)
+    expect(canRemuxAudioCodec("opus", ["opus", "vorbis"])).toBe(true)
+  })
+
+  it("forces re-encode when the container can't take the source codec", () => {
+    // Classic cross-format case: AAC source exported as WebM.
+    expect(canRemuxAudioCodec("aac", ["opus", "vorbis"])).toBe(false)
+    expect(canRemuxAudioCodec("opus", ["aac", "mp3"])).toBe(false)
+  })
+
+  it("preferred re-encode codecs are actually supported by mediabunny containers", () => {
+    const mp4 = new Mp4OutputFormat().getSupportedAudioCodecs()
+    const webm = new WebMOutputFormat().getSupportedAudioCodecs()
+    for (const codec of preferredAudioCodecs("mp4")) {
+      expect(mp4).toContain(codec)
+    }
+    for (const codec of preferredAudioCodecs("webm")) {
+      expect(webm).toContain(codec)
+    }
+  })
+})
+
+describe("resolveAudioMuxStrategy — remux / re-encode / skip", () => {
+  const mp4Supported = ["aac", "mp3", "opus"] as const
+  const webmSupported = ["opus", "vorbis"] as const
+
+  it("skips when there is no source codec", () => {
+    expect(resolveAudioMuxStrategy(null, "mp4", mp4Supported, true)).toEqual({
+      kind: "skip",
+    })
+  })
+
+  it("remuxes AAC into MP4 without needing decode", () => {
+    expect(resolveAudioMuxStrategy("aac", "mp4", mp4Supported, false)).toEqual({
+      kind: "remux",
+      codec: "aac",
+    })
+  })
+
+  it("remuxes Opus into WebM", () => {
+    expect(
+      resolveAudioMuxStrategy("opus", "webm", webmSupported, false)
+    ).toEqual({ kind: "remux", codec: "opus" })
+  })
+
+  it("re-encodes AAC → WebM to Opus/Vorbis when decode is available", () => {
+    expect(resolveAudioMuxStrategy("aac", "webm", webmSupported, true)).toEqual(
+      { kind: "reencode", candidates: ["opus", "vorbis"] }
+    )
+  })
+
+  it("skips when re-encode is required but the track can't be decoded", () => {
+    expect(
+      resolveAudioMuxStrategy("aac", "webm", webmSupported, false)
+    ).toEqual({ kind: "skip" })
+  })
+
+  it("skips when no preferred re-encode codec is container-supported", () => {
+    // Hypothetical container that accepts neither Opus nor Vorbis.
+    expect(
+      resolveAudioMuxStrategy("aac", "webm", ["flac"] as const, true)
+    ).toEqual({ kind: "skip" })
+  })
+})
+
+describe("shouldIncludeAudioPacket / exportAudioDurationSec — trim + align", () => {
+  it("includes packets that start before the export end", () => {
+    expect(shouldIncludeAudioPacket(0, 2)).toBe(true)
+    expect(shouldIncludeAudioPacket(1.999, 2)).toBe(true)
+  })
+
+  it("drops packets that start at or after the export end", () => {
+    expect(shouldIncludeAudioPacket(2, 2)).toBe(false)
+    expect(shouldIncludeAudioPacket(2.5, 2)).toBe(false)
+  })
+
+  it("drops negative timestamps (AAC priming / edit-list delay)", () => {
+    // Exact class of failure from a real 7s MP4 export: muxer rejects -0.0885s.
+    expect(shouldIncludeAudioPacket(-0.0885, 7)).toBe(false)
+    expect(shouldIncludeAudioPacket(-0.00002, 7)).toBe(false)
+  })
+
+  it("treats a non-positive duration as empty (drop everything)", () => {
+    expect(shouldIncludeAudioPacket(0, 0)).toBe(false)
+    expect(shouldIncludeAudioPacket(0, -1)).toBe(false)
+  })
+
+  it("matches audio length to the planned video track (frameCount / fps)", () => {
+    const plan = planFrames(2, 30)
+    expect(exportAudioDurationSec(plan)).toBeCloseTo(2, 10)
+    expect(exportAudioDurationSec(plan)).toBe(
+      plan.frameCount * plan.frameDurationSec
+    )
+  })
+
+  it("keeps audio aligned after fps rounding on a fractional clip", () => {
+    // 1.5s @ 30fps → 45 frames → exactly 1.5s of audio, not the raw duration
+    // with floating error from an alternate formula.
+    const plan = planFrames(1.5, 30)
+    expect(exportAudioDurationSec(plan)).toBeCloseTo(1.5, 10)
   })
 })
 
@@ -169,15 +285,14 @@ describe("measureVideoRegion — object-fit → composite geometry", () => {
   const styles = new Map<Element, FakeStyle>()
 
   const setRect = (el: HTMLElement, r: Rect) => {
-    el.getBoundingClientRect = () =>
-      ({
-        ...r,
-        right: r.left + r.width,
-        bottom: r.top + r.height,
-        x: r.left,
-        y: r.top,
-        toJSON: () => "",
-      })
+    el.getBoundingClientRect = () => ({
+      ...r,
+      right: r.left + r.width,
+      bottom: r.top + r.height,
+      x: r.left,
+      y: r.top,
+      toJSON: () => "",
+    })
   }
 
   const fakeStyle = (overrides: FakeStyle): FakeStyle => ({
