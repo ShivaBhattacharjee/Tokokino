@@ -83,9 +83,20 @@ export function VideoIdlePoster({
     if (!needsPoster || !revealed) return
     const video = findSiblingVideo(rootRef.current)
     if (!video) return
-    const paint = () => paintVideoFrame(video)
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) paint()
-    else video.addEventListener("loadedmetadata", paint, { once: true })
+    const paint = () => {
+      if (!video.paused || video.currentTime > 0.001) return
+      paintVideoFrame(video)
+    }
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      paint()
+      return
+    }
+    video.addEventListener("loadedmetadata", paint, { once: true })
+    if (video.preload === "none") {
+      video.preload = "metadata"
+      video.load()
+    }
+    return () => video.removeEventListener("loadedmetadata", paint)
   }, [needsPoster, revealed])
 
   // Always keep a sentinel in the DOM so we can find the sibling <video>
