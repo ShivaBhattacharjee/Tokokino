@@ -99,8 +99,6 @@ export async function PUT(
     )
   }
 
-  // The new state replaces the existing one, so only the delta counts toward
-  // the budget.
   const mediaIds = extractDraftMediaIds(parsed.state)
   const media = await getDraftMediaForSave(mediaIds, auth.session.user.id, id)
   if (!media)
