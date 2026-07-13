@@ -8,6 +8,7 @@ import type {
   AnimationExportPhase,
   AnimationExportProgress,
 } from "./types"
+import { triggerAnchorDownload } from "@/lib/download"
 import { getCanvasRenderedDims } from "../export"
 import { resolveExportDownloadFilename } from "../export-filename"
 
@@ -24,12 +25,7 @@ export function throwIfAborted(signal?: AbortSignal) {
 
 export function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  triggerAnchorDownload(url, filename)
   setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
 

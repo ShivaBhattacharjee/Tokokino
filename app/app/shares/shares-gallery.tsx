@@ -33,6 +33,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { triggerAnchorDownload } from "@/lib/download"
 import { buildPageItems } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 
@@ -166,12 +167,7 @@ export function SharesGallery({
             ? "jpg"
             : "png"
       const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `tokokino-share-${id}.${ext}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      triggerAnchorDownload(url, `tokokino-share-${id}.${ext}`)
       URL.revokeObjectURL(url)
       toast.success("Download started", { id: toastId })
     } catch {
