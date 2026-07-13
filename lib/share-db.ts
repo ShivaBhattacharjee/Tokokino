@@ -187,6 +187,17 @@ export async function createShareRecord({
     })
 }
 
+export async function setSharePosterKey(
+  id: string,
+  userId: string,
+  posterKey: string
+) {
+  await getDb()
+    .update(shares)
+    .set({ posterKey, updatedAt: toD1Date(new Date()) })
+    .where(and(eq(shares.id, id), eq(shares.userId, userId)))
+}
+
 export async function recordShareView(id: string, requestHeaders: Headers) {
   const db = getDb()
   const share = await db.select().from(shares).where(eq(shares.id, id)).get()

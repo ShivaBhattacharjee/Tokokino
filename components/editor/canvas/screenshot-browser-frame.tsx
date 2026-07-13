@@ -21,6 +21,7 @@ import {
   resolveBrowserFrameColor,
   type BrowserFrameColor,
 } from "@/lib/browser-frame"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 import {
@@ -75,6 +76,10 @@ type ScreenshotBrowserFrameProps = {
   captureStateKey?: string
   showHoverActions?: boolean
   innerLightingStyle?: React.CSSProperties | null
+  /** Register the framed <video> with the docked control bar. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
+  /** Crop / overflow styles applied to the media element (video crop polyfill). */
+  mediaStyle?: React.CSSProperties
 }
 
 type BrowserFrameEmptyStateProps = {
@@ -99,6 +104,9 @@ type BrowserFrameEmptyStateProps = {
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   innerLightingStyle?: React.CSSProperties | null
+  /** Whether videos are accepted (false for multi-screenshot boxes). Forwarded
+   * to the upload card for its label. Defaults to true. */
+  allowVideo?: boolean
 }
 
 export function ScreenshotBrowserFrame({
@@ -134,6 +142,8 @@ export function ScreenshotBrowserFrame({
   captureStateKey,
   showHoverActions = true,
   innerLightingStyle,
+  onMediaElement,
+  mediaStyle,
 }: ScreenshotBrowserFrameProps) {
   const frameRef = React.useRef<HTMLDivElement>(null)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -149,6 +159,9 @@ export function ScreenshotBrowserFrame({
     enhanceFilter,
     layer: screenshotLayer,
   })
+  const isVideo = isVideoSrc(screenshot)
+  const imageSrc = isVideo ? undefined : screenshot
+  const videoSrc = isVideo ? screenshot : undefined
   return (
     <div
       data-box-hover-target
@@ -165,7 +178,7 @@ export function ScreenshotBrowserFrame({
           screenshotLayer.hidden && "pointer-events-none",
           isScreenshotDragging || activeTool === "position"
             ? "cursor-grabbing transition-none"
-            : "transition-all duration-300 ease-out",
+            : "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
           activeTool === "pointer" && "cursor-grab"
         )}
         style={positionedStyle}
@@ -185,37 +198,46 @@ export function ScreenshotBrowserFrame({
       >
         {frameId === ARC_BROWSER_FRAME_ID ? (
           <Arc
-            imageSrc={screenshot}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             colorMode={color === "dark" ? "dark" : "light"}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            onMediaElement={onMediaElement}
+            mediaStyle={mediaStyle}
             imageFit={objectFit}
             shimmer={false}
             className="h-full w-full"
           />
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
           <Chrome
-            imageSrc={screenshot}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             colorMode={color === "dark" ? "dark" : "light"}
             addressValue={addressValue}
             onAddressChange={onAddressChange}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            onMediaElement={onMediaElement}
+            mediaStyle={mediaStyle}
             imageFit={objectFit}
             shimmer={false}
             className="h-full w-full"
           />
         ) : (
           <Safari
-            imageSrc={screenshot}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             colorMode={color === "dark" ? "dark" : "light"}
             addressValue={addressValue}
             onAddressChange={onAddressChange}
             screenRef={stageRef}
             imageRef={imageRef}
             onImageLoad={onImageLoad}
+            onMediaElement={onMediaElement}
+            mediaStyle={mediaStyle}
             imageFit={objectFit}
             shimmer={false}
             className="h-full w-full"
@@ -301,6 +323,7 @@ export function BrowserFrameEmptyState({
   defaultCaptureDevice,
   captureStateKey,
   innerLightingStyle,
+  allowVideo = true,
 }: BrowserFrameEmptyStateProps) {
   const [url, setUrl] = React.useState("")
   const frame = getBrowserFrame(frameId)
@@ -328,7 +351,7 @@ export function BrowserFrameEmptyState({
           "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
           isScreenshotDragging || activeTool === "position"
             ? "cursor-grabbing transition-none"
-            : "transition-all duration-300 ease-out",
+            : "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
           activeTool === "pointer" && !isScreenshotDragging && "cursor-grab"
         )}
         style={positionedStyle}
@@ -351,6 +374,7 @@ export function BrowserFrameEmptyState({
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
+              allowVideo={allowVideo}
             />
           </Arc>
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
@@ -369,6 +393,7 @@ export function BrowserFrameEmptyState({
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
+              allowVideo={allowVideo}
             />
           </Chrome>
         ) : (
@@ -387,6 +412,7 @@ export function BrowserFrameEmptyState({
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
+              allowVideo={allowVideo}
             />
           </Safari>
         )}
@@ -417,6 +443,7 @@ export function BrowserFrameEmptyState({
             onCapture={onCapture}
             defaultCaptureDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
+            allowVideo={allowVideo}
           />
         </div>
       ) : null}
@@ -435,6 +462,7 @@ function BrowserFrameEmptyContent({
   defaultCaptureDevice,
   captureStateKey,
   compact = false,
+  allowVideo = true,
 }: {
   isDragOver: boolean
   url: string
@@ -444,6 +472,7 @@ function BrowserFrameEmptyContent({
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   compact?: boolean
+  allowVideo?: boolean
 }) {
   return (
     <div className="relative size-full">
@@ -462,6 +491,7 @@ function BrowserFrameEmptyContent({
             onCapture={onCapture}
             defaultDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
+            allowVideo={allowVideo}
             showHint
             className="w-full max-w-[400px]"
           />
@@ -477,12 +507,14 @@ function BrowserFrameCompactUpload({
   onCapture,
   defaultCaptureDevice,
   captureStateKey,
+  allowVideo = true,
 }: {
   isDragOver: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
+  allowVideo?: boolean
 }) {
   const stopPointer = (e: React.PointerEvent) => e.stopPropagation()
 
@@ -500,6 +532,7 @@ function BrowserFrameCompactUpload({
         onCapture={onCapture}
         defaultDevice={defaultCaptureDevice}
         captureStateKey={captureStateKey}
+        allowVideo={allowVideo}
         showHint
       />
     </div>

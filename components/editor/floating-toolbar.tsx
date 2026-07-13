@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { AnnotationToolbar } from "@/components/editor/annotation-toolbar"
 import { DefaultToolbarContents } from "@/components/editor/floating-toolbar-parts/default-toolbar-contents"
 import { ScreenshotMediaPill } from "@/components/editor/floating-toolbar-parts/screenshot-media-pill"
+import { VideoControlBar } from "@/components/editor/video-control-bar"
 import { useBulkBarState } from "@/components/editor/floating-toolbar-parts/bulk-bar"
 import { cn } from "@/lib/utils"
 import { useEditor } from "@/lib/editor/store"
@@ -25,6 +26,8 @@ export function FloatingToolbar() {
           : "left-1/2 -translate-x-1/2"
       )}
     >
+      {!isAnnotateMode && <VideoControlBar />}
+
       <div className="flex items-center gap-2 max-xl:flex-col">
         <AnimatePresence initial={false}>
           {!isAnnotateMode && (

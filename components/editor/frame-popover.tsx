@@ -45,6 +45,8 @@ import {
 } from "@/lib/mockups"
 import type { DeviceFrame, FrameOrientation } from "@/lib/editor/store"
 import { useActiveCanvasField } from "@/lib/editor/store"
+import { isVideoSrc } from "@/lib/editor/media-type"
+import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
 import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
 
 const DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH = 280
@@ -990,32 +992,49 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
           }}
         >
           {screenshot ? (
-            <>
-              {/* Blurred backdrop for contain mode — fills letterbox/pillarbox areas */}
-              {imageFit === "contain" && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+            isVideoSrc(screenshot) ? (
+              <div className="relative h-full w-full bg-black">
+                <video
+                  src={screenshot}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  draggable={false}
+                  className={cn(
+                    "relative z-10 h-full w-full object-center",
+                    imageFitClassName(imageFit)
+                  )}
+                />
+                <VideoIdlePoster src={screenshot} interactive={false} />
+              </div>
+            ) : (
+              <>
+                {/* Blurred backdrop for contain mode — fills letterbox/pillarbox areas */}
+                {imageFit === "contain" && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={screenshot}
+                    alt=""
+                    aria-hidden
+                    draggable={false}
+                    className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
+                    style={{
+                      filter: "blur(18px) brightness(0.55) saturate(1.4)",
+                      transform: "scale(1.12)",
+                    }}
+                  />
+                )}
+                <ShimmerImage
                   src={screenshot}
                   alt=""
-                  aria-hidden
-                  draggable={false}
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
-                  style={{
-                    filter: "blur(18px) brightness(0.55) saturate(1.4)",
-                    transform: "scale(1.12)",
-                  }}
+                  className={cn(
+                    "relative z-10 h-full w-full object-center",
+                    imageFitClassName(imageFit)
+                  )}
+                  loading="lazy"
                 />
-              )}
-              <ShimmerImage
-                src={screenshot}
-                alt=""
-                className={cn(
-                  "relative z-10 h-full w-full object-center",
-                  imageFitClassName(imageFit)
-                )}
-                loading="lazy"
-              />
-            </>
+              </>
+            )
           ) : (
             <ScaledEmptyContent
               stageWidth={stageWidth}
@@ -1050,6 +1069,11 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
 }) {
   const frame = getBrowserFrame(frameId)
   const scale = BROWSER_TILE_PREVIEW_WIDTH / BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH
+  const isVideo = isVideoSrc(screenshot)
+  // Video blob URLs can't be used as <img> src — pass them as videoSrc. When
+  // there's no canvas media, fall back to the static browser preview image.
+  const imageSrc = isVideo ? undefined : (screenshot ?? frame?.previewImageUrl)
+  const videoSrc = isVideo ? (screenshot ?? undefined) : undefined
 
   return (
     <div
@@ -1069,7 +1093,8 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
       >
         {frameId === ARC_BROWSER_FRAME_ID ? (
           <Arc
-            imageSrc={screenshot ?? frame?.previewImageUrl}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             imageFit={imageFit}
             colorMode={color === "dark" ? "dark" : "light"}
             frameBorderRadius="5px"
@@ -1078,20 +1103,22 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
           />
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
           <Chrome
-            imageSrc={screenshot ?? frame?.previewImageUrl}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             imageFit={imageFit}
             colorMode={color === "dark" ? "dark" : "light"}
-            url={screenshot ? frame?.defaultUrl : frame?.previewUrl}
+            url={screenshot && !isVideo ? frame?.defaultUrl : frame?.previewUrl}
             frameBorderRadius="5px"
             screenBorderRadius="0 0 4px 4px"
             className="block w-full"
           />
         ) : (
           <Safari
-            imageSrc={screenshot ?? frame?.previewImageUrl}
+            imageSrc={imageSrc}
+            videoSrc={videoSrc}
             imageFit={imageFit}
             colorMode={color === "dark" ? "dark" : "light"}
-            url={screenshot ? frame?.defaultUrl : frame?.previewUrl}
+            url={screenshot && !isVideo ? frame?.defaultUrl : frame?.previewUrl}
             screenBorderRadius="0 0 4px 4px"
             className="block w-full"
           />

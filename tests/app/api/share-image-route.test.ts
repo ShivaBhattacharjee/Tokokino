@@ -35,7 +35,10 @@ function streamFor(bytes: Uint8Array) {
 describe("GET /api/share/[id]/image", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.getShareById.mockResolvedValue(null)
+    mocks.getShareById.mockResolvedValue({
+      key: `shares/${VALID_SHARE_ID}.png`,
+      contentType: "image/png",
+    })
   })
 
   it("rejects malformed share ids without reading storage", async () => {
@@ -72,6 +75,54 @@ describe("GET /api/share/[id]/image", () => {
       `inline; filename="tokokino-share-${VALID_SHARE_ID}.jpg"`
     )
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
+  })
+
+  it("forwards video byte ranges and preserves the partial response", async () => {
+    const bytes = new Uint8Array([9, 8, 7])
+    mocks.getShareById.mockResolvedValue({
+      key: `shares/${VALID_SHARE_ID}.mp4`,
+      contentType: "video/mp4",
+    })
+    mocks.getShareImage.mockResolvedValue({
+      Body: { transformToWebStream: () => streamFor(bytes) },
+      ContentType: "video/mp4",
+      ContentLength: 3,
+      ContentRange: "bytes 0-2/9",
+    })
+    const { GET } = await loadRoute()
+
+    const response = await GET(
+      new Request("http://localhost:3000", {
+        headers: { Range: "bytes=0-2" },
+      }),
+      params(VALID_SHARE_ID)
+    )
+
+    expect(response.status).toBe(206)
+    expect(response.headers.get("accept-ranges")).toBe("bytes")
+    expect(response.headers.get("content-range")).toBe("bytes 0-2/9")
+    expect(mocks.getShareImage).toHaveBeenCalledWith(
+      VALID_SHARE_ID,
+      `shares/${VALID_SHARE_ID}.mp4`,
+      "video/mp4",
+      "bytes=0-2"
+    )
+  })
+
+  it("does not expose an object that has no completed share record", async () => {
+    mocks.getShareById.mockResolvedValue(null)
+    const { GET } = await loadRoute()
+
+    const response = await GET(
+      new Request("http://localhost:3000"),
+      params(VALID_SHARE_ID)
+    )
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: "Share media not found",
+    })
+    expect(mocks.getShareImage).not.toHaveBeenCalled()
   })
 
   it("returns 404 when storage has no readable body", async () => {

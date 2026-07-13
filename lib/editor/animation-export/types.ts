@@ -36,6 +36,8 @@ export type AnimationExportOptions = {
   format: AnimationExportFormat
   fps?: number
   targetWidth?: number
+  /** Resolution label for `{SCALE}` in the export filename (e.g. "hd"). */
+  scale?: string
   /** Draw the "Designed by Tokokino" watermark on every frame. Defaults to on. */
   watermark?: boolean
   /** Frame-capture strategy. Defaults to `auto`. */

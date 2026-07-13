@@ -175,6 +175,7 @@ export function NameDialog({
   description,
   confirmLabel,
   loading,
+  uploadProgress,
   onConfirm,
 }: {
   open: boolean
@@ -183,6 +184,7 @@ export function NameDialog({
   description: string
   confirmLabel: string
   loading: boolean
+  uploadProgress?: { current: number; total: number } | null
   onConfirm: (name: string) => void | Promise<void>
 }) {
   const [name, setName] = React.useState("")
@@ -206,6 +208,11 @@ export function NameDialog({
 
   const trimmed = name.trim()
   const canSubmit = trimmed.length > 0 && !loading
+  const percent = uploadProgress
+    ? Math.round(
+        (uploadProgress.current / Math.max(1, uploadProgress.total)) * 100
+      )
+    : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -245,6 +252,29 @@ export function NameDialog({
             </Tooltip>
           </div>
         </div>
+        {percent !== null ? (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Uploading video — {percent}%</span>
+              <span>
+                {Math.round(uploadProgress!.current / 1024 / 1024)} /{" "}
+                {Math.round(uploadProgress!.total / 1024 / 1024)} MB
+              </span>
+            </div>
+            <div
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+              className="h-1.5 overflow-hidden rounded-full bg-secondary"
+            >
+              <div
+                className="h-full bg-primary transition-[width]"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         <DialogFooter>
           <Button
             variant="outline"

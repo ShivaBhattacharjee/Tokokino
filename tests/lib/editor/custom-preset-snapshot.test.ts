@@ -5,7 +5,6 @@ import {
   captureCustomPresetGeometry,
   remapAnimationForApply,
   resolvePresetType,
-  sanitizePresentForCloudDraft,
   shouldSaveAsAnimatePreset,
 } from "@/lib/editor/custom-preset-snapshot"
 import { createCanvas } from "@/lib/editor/store/defaults"
@@ -66,7 +65,7 @@ function canvasWithClips(slotIds: string[] = []): CanvasState {
   return {
     ...canvas,
     screenshotSlots: slots,
-    animation: { durationMs: 5000, clips: [clip], audio: null },
+    animation: { durationMs: 5000, clips: [clip] },
   }
 }
 
@@ -125,7 +124,6 @@ describe("custom preset snapshot", () => {
     })
     expect(remapped.clips[0]?.pose?.slots["new-slot"]).toBeDefined()
     expect(remapped.clips[0]?.pose?.slots["old-slot"]).toBeUndefined()
-    expect(remapped.audio).toBeNull()
   })
 
   it("preserves per-clip easing & speed through capture and apply", () => {
@@ -159,37 +157,5 @@ describe("custom preset snapshot", () => {
     const map = buildSlotIdRemap(["live-a", "live-b"], ["src-a", "src-b"], [])
     expect(map.get("src-a")).toBe("live-a")
     expect(map.get("src-b")).toBe("live-b")
-  })
-
-  it("strips animation audio src for cloud drafts", () => {
-    const canvas = createCanvas("c1", { x: 0, y: 0 })
-    canvas.animation = {
-      durationMs: 5000,
-      clips: [],
-      audio: {
-        src: "blob:http://localhost/abc",
-        name: "track.mp3",
-        volume: 0.8,
-        muted: false,
-      },
-    }
-    const present = {
-      activeTool: "pointer" as const,
-      aspect: { id: "16-10", w: 16, h: 10 },
-      canvasZoom: 100,
-      annotation: {
-        mode: "pen" as const,
-        color: "#000",
-        strokeWidth: 2,
-        lineStyle: "solid" as const,
-        blurEffect: "blur" as const,
-        blurAmount: 0,
-      },
-      canvases: [canvas],
-      activeCanvasId: "c1",
-    }
-    const sanitized = sanitizePresentForCloudDraft(present)
-    expect(sanitized.canvases[0]?.animation?.audio?.src).toBe("")
-    expect(sanitized.canvases[0]?.animation?.audio?.name).toBe("track.mp3")
   })
 })

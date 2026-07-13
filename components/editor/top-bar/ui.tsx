@@ -18,7 +18,12 @@ export function SegmentedRow({
   value,
   onChange,
 }: {
-  options: { value: string; label: string }[]
+  options: {
+    value: string
+    label: string
+    disabled?: boolean
+    tooltip?: string
+  }[]
   value: string
   onChange: (v: string) => void
 }) {
@@ -29,19 +34,23 @@ export function SegmentedRow({
       <div className="flex w-full items-center gap-1 rounded-full bg-secondary/50 p-1">
         {options.map((opt) => {
           const active = opt.value === value
-          return (
+          // Keep disabled options focusable/hoverable (aria-disabled, not the
+          // `disabled` attribute) so their explanatory tooltip still shows.
+          const button = (
             <button
-              key={opt.value}
               type="button"
-              onClick={() => onChange(opt.value)}
+              aria-disabled={opt.disabled || undefined}
+              onClick={opt.disabled ? undefined : () => onChange(opt.value)}
               className={cn(
-                "relative flex-1 cursor-pointer rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
-                active
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                "relative flex-1 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+                opt.disabled
+                  ? "cursor-not-allowed text-muted-foreground/40"
+                  : active
+                    ? "cursor-pointer text-foreground"
+                    : "cursor-pointer text-muted-foreground hover:text-foreground"
               )}
             >
-              {active ? (
+              {active && !opt.disabled ? (
                 <motion.span
                   layoutId={`segmented-pill-${options.map((o) => o.value).join("-")}`}
                   className="absolute inset-0 rounded-full bg-background shadow-sm ring-1 ring-border/60"
@@ -51,6 +60,15 @@ export function SegmentedRow({
               <span className="relative z-10">{opt.label}</span>
             </button>
           )
+          if (opt.tooltip) {
+            return (
+              <Tooltip key={opt.value}>
+                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipContent side="bottom">{opt.tooltip}</TooltipContent>
+              </Tooltip>
+            )
+          }
+          return <React.Fragment key={opt.value}>{button}</React.Fragment>
         })}
       </div>
     </LayoutGroup>

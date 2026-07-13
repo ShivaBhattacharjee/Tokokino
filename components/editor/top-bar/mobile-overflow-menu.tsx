@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MAX_CANVASES, useEditorStore } from "@/lib/editor/store"
+import { isVideoSrc } from "@/lib/editor/media-type"
 
 export function MobileOverflowMenu({
   bulkEditMode,
@@ -69,6 +70,13 @@ export function MobileOverflowMenu({
   onFeedbackClick: () => void
 }) {
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // Video can't be copied to the clipboard — hide the still-frame copy action.
+  const isVideoCanvas = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas ? isVideoSrc(canvas.screenshot) : false
+  })
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
   const canUndo = useEditorStore((s) => s.past.length > 0)
@@ -200,16 +208,18 @@ export function MobileOverflowMenu({
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              setMenuOpen(false)
-              void onCopyPng()
-            }}
-            disabled={isCopyingPng}
-          >
-            <RiFileCopyLine />
-            {isCopyingPng ? "Copying…" : "Copy as PNG"}
-          </DropdownMenuItem>
+          {!isVideoCanvas && !isAnimateMode && (
+            <DropdownMenuItem
+              onClick={() => {
+                setMenuOpen(false)
+                void onCopyPng()
+              }}
+              disabled={isCopyingPng}
+            >
+              <RiFileCopyLine />
+              {isCopyingPng ? "Copying…" : "Copy as PNG"}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => {

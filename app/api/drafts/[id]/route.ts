@@ -11,8 +11,16 @@ import {
 } from "@/lib/draft-db"
 import { deleteDraftState, deleteDraftThumbnail } from "@/lib/draft-storage"
 import {
+  attachDraftMedia,
+  deleteDraftMedia,
+  getDraftMediaForDraft,
+  getDraftMediaForSave,
+} from "@/lib/draft-media-db"
+import { deleteDraftMediaObject } from "@/lib/draft-storage"
+import {
   MAX_DRAFT_BYTES,
   countCanvasesInDraftState,
+  extractDraftMediaIds,
   parseDraftSaveBody,
   resolveDraftType,
 } from "@/lib/schemas/draft"
@@ -91,10 +99,18 @@ export async function PUT(
     )
   }
 
-  // The new state replaces the existing one, so only the delta counts toward
-  // the budget.
+  const mediaIds = extractDraftMediaIds(parsed.state)
+  const media = await getDraftMediaForSave(mediaIds, auth.session.user.id, id)
+  if (!media)
+    return NextResponse.json(
+      { error: "Draft video is unavailable" },
+      { status: 400 }
+    )
+  const byteSize =
+    stateBytes.byteLength +
+    media.reduce((total, item) => total + item.sizeBytes, 0)
   const storageUsed = await getUserDraftStorageUsage(auth.session.user.id)
-  const projectedUsage = storageUsed - existing.byteSize + stateBytes.byteLength
+  const projectedUsage = storageUsed - existing.byteSize + byteSize
   if (projectedUsage > MAX_USER_DRAFT_STORAGE_BYTES) {
     return NextResponse.json(
       {
@@ -117,16 +133,28 @@ export async function PUT(
       userId: auth.session.user.id,
       name: parsed.name,
       canvasCount,
-      byteSize: stateBytes.byteLength,
+      byteSize,
       type,
       stateBytes,
     })
+    await attachDraftMedia(mediaIds, auth.session.user.id, id)
+    const previousMedia = await getDraftMediaForDraft(id, auth.session.user.id)
+    const removedMedia = previousMedia.filter(
+      (item) => !mediaIds.includes(item.id)
+    )
+    await Promise.all(
+      removedMedia.map((item) => deleteDraftMediaObject(item.objectKey))
+    )
+    await deleteDraftMedia(
+      removedMedia.map((item) => item.id),
+      auth.session.user.id
+    )
     return NextResponse.json({
       draft: {
         id,
         name: updated?.name ?? existing.name,
         canvasCount,
-        byteSize: stateBytes.byteLength,
+        byteSize,
         type: updated?.type ?? type,
         updatedAt: updated?.updatedAt ?? new Date(),
       },
@@ -150,6 +178,7 @@ export async function DELETE(
   const { id } = await params
 
   try {
+    const media = await getDraftMediaForDraft(id, auth.session.user.id)
     const existing = await deleteDraft({ id, userId: auth.session.user.id })
     if (!existing) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 })
@@ -164,6 +193,13 @@ export async function DELETE(
       id,
       stateKey: existing.stateKey,
     })
+    await Promise.all(
+      media.map((item) => deleteDraftMediaObject(item.objectKey))
+    )
+    await deleteDraftMedia(
+      media.map((item) => item.id),
+      auth.session.user.id
+    )
   } catch (error) {
     console.error(error)
     return NextResponse.json(

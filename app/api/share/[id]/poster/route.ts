@@ -18,6 +18,9 @@ export async function GET(
 
   try {
     const meta = await getShareById(id).catch(() => null)
+    if (!meta?.posterKey) {
+      return NextResponse.json({ error: "Poster not found" }, { status: 404 })
+    }
     const object = await getSharePoster(id, meta?.posterKey)
     const body = object.Body?.transformToWebStream()
 

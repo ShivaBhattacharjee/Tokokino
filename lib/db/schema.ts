@@ -34,7 +34,7 @@ export type StoredPresetGeometry = {
 }
 
 /** Draft / project kind for Open-project filtering. */
-export type DraftType = "style" | "animate"
+export type DraftType = "style" | "video" | "animate"
 
 export const drafts = sqliteTable(
   "drafts",
@@ -58,6 +58,24 @@ export const drafts = sqliteTable(
       table.type,
       table.updatedAt
     ),
+  ]
+)
+
+/** Private source video attached to a saved draft. */
+export const draftMedia = sqliteTable(
+  "draft_media",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    draftId: text("draft_id"),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_draft_media_user_draft").on(table.userId, table.draftId),
   ]
 )
 
@@ -94,6 +112,11 @@ export const userPreferences = sqliteTable("user_preferences", {
 
 /** Still screenshot share vs animate (video/gif) share. */
 export type ShareType = "style" | "animate"
+export type ShareUploadStatus =
+  | "active"
+  | "finalizing"
+  | "complete"
+  | "cancelled"
 
 export const shares = sqliteTable(
   "shares",
@@ -142,4 +165,46 @@ export const shareViews = sqliteTable(
     primaryKey({ columns: [table.shareId, table.ipHash] }),
     index("idx_share_views_share").on(table.shareId),
   ]
+)
+
+/** Durable R2 multipart session for an unpublished animated/video share. */
+export const shareUploads = sqliteTable(
+  "share_uploads",
+  {
+    id: text("id").primaryKey(),
+    shareId: text("share_id").notNull().unique(),
+    userId: text("user_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    r2UploadId: text("r2_upload_id").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    status: text("status")
+      .$type<ShareUploadStatus>()
+      .notNull()
+      .default("active"),
+    posterKey: text("poster_key"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    index("share_uploads_user_expiry_idx").on(table.userId, table.expiresAt),
+    index("share_uploads_expiry_idx").on(table.expiresAt),
+  ]
+)
+
+/** Confirmed multipart ETags. The composite key makes part retries idempotent. */
+export const shareUploadParts = sqliteTable(
+  "share_upload_parts",
+  {
+    uploadId: text("upload_id")
+      .notNull()
+      .references(() => shareUploads.id, { onDelete: "cascade" }),
+    partNumber: integer("part_number").notNull(),
+    etag: text("etag").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.uploadId, table.partNumber] })]
 )

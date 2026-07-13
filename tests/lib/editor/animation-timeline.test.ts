@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  DEFAULT_TIMELINE_MS,
   GHOST_SLOT_MS,
+  MAX_DURATION_MS,
+  TIMELINE_HEADROOM_MS,
   computeTicks,
   findGhostSlot,
   formatShort,
   formatTime,
   resolveDropStart,
+  resolveRippleDrop,
+  timelineEndFor,
 } from "@/lib/editor/animation-timeline"
 import type { AnimationClip } from "@/lib/editor/state-types"
 
@@ -130,6 +135,31 @@ describe("findGhostSlot", () => {
   })
 })
 
+describe("timelineEndFor — dynamic length, no 1-minute cap", () => {
+  it("floors at the default length for a short animation", () => {
+    // A 5s animation with no clips keeps the default (60s) track, not a sliver.
+    expect(timelineEndFor(5000, 0)).toBe(DEFAULT_TIMELINE_MS)
+  })
+
+  it("grows past the old 60s cap for a long animation (+ headroom)", () => {
+    // 2 minutes — well beyond the removed 1-minute cap.
+    const twoMin = 120_000
+    expect(timelineEndFor(twoMin, 0)).toBe(twoMin + TIMELINE_HEADROOM_MS)
+  })
+
+  it("extends to cover a clip that sits past the set duration", () => {
+    // Duration is short but a clip lives far out — the track reaches the clip.
+    const lastClipEnd = 200_000
+    expect(timelineEndFor(5000, lastClipEnd)).toBe(
+      lastClipEnd + TIMELINE_HEADROOM_MS
+    )
+  })
+
+  it("never exceeds the hard ceiling", () => {
+    expect(timelineEndFor(MAX_DURATION_MS * 2, 0)).toBe(MAX_DURATION_MS)
+  })
+})
+
 describe("resolveDropStart", () => {
   it("keeps the dropped position when it fits", () => {
     expect(resolveDropStart(3000, 1000, [], 10_000, 0)).toBe(3000)
@@ -169,5 +199,32 @@ describe("resolveDropStart", () => {
     const others = [clip(0, 10_000)]
     // dur 1000, maxStart 9000, but everything overlaps → fallback originalStart.
     expect(resolveDropStart(5000, 1000, others, 10_000, 500)).toBe(500)
+  })
+})
+
+describe("resolveRippleDrop", () => {
+  it("inserts at the beginning and shifts the existing section right", () => {
+    const result = resolveRippleDrop(0, 2_000, [clip(0, 5_000)], 10_000)
+
+    expect(result).toEqual({
+      startMs: 0,
+      shiftAfterMs: 0,
+      shiftMs: 2_000,
+    })
+  })
+
+  it("preserves clips before the insertion point and ripples later clips", () => {
+    const result = resolveRippleDrop(
+      3_000,
+      1_000,
+      [clip(0, 2_000, "before"), clip(3_000, 2_000, "after")],
+      10_000
+    )
+
+    expect(result).toEqual({
+      startMs: 3_000,
+      shiftAfterMs: 3_000,
+      shiftMs: 1_000,
+    })
   })
 })

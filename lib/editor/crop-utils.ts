@@ -1,7 +1,91 @@
+import type { CSSProperties } from "react"
+
 import { getBrowserFrame, isBrowserFrame } from "@/lib/browser-frame"
 import { DEVICE_MOCKUP_SPECS, getDeviceMockup } from "@/lib/mockups"
 
 import type { CropRegion, DeviceFrame } from "./state-types"
+
+/**
+ * True when a stored crop actually removes something from the source.
+ * Full-frame regions are treated as "no crop" so we skip the polyfill path.
+ */
+export function isActiveCropRegion(
+  region: CropRegion | null | undefined
+): region is CropRegion {
+  if (!region) return false
+  return (
+    region.x > 0.05 ||
+    region.y > 0.05 ||
+    region.width < 99.95 ||
+    region.height < 99.95
+  )
+}
+
+/** Chromium ships `object-view-box`; Firefox/Safari still do not. */
+export function supportsObjectViewBox(): boolean {
+  try {
+    return (
+      typeof CSS !== "undefined" &&
+      typeof CSS.supports === "function" &&
+      CSS.supports("object-view-box", "inset(0%)")
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Native crop via CSS object-view-box (Chrome/Edge). */
+export function objectViewBoxCropStyle(region: CropRegion): CSSProperties {
+  const { x, y, width, height } = region
+  return {
+    objectViewBox: `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`,
+  }
+}
+
+/**
+ * Overflow + positioned-media stand-in for `object-view-box`.
+ * Use only when `supportsObjectViewBox()` is false (Firefox/Safari).
+ * Parent must be `overflow: hidden` and have a definite size.
+ */
+export function cropMediaObjectStyle(region: CropRegion): CSSProperties {
+  const width = Math.max(region.width, 0.001)
+  const height = Math.max(region.height, 0.001)
+  return {
+    position: "absolute",
+    width: `${(100 / width) * 100}%`,
+    height: `${(100 / height) * 100}%`,
+    left: `${(-region.x / width) * 100}%`,
+    top: `${(-region.y / height) * 100}%`,
+    maxWidth: "none",
+    maxHeight: "none",
+    objectFit: "fill",
+  }
+}
+
+/**
+ * Styles for the cropped media element: native object-view-box when supported,
+ * otherwise the overflow polyfill styles.
+ */
+export function videoCropMediaStyle(
+  region: CropRegion,
+  nativeObjectViewBox: boolean
+): CSSProperties {
+  return nativeObjectViewBox
+    ? objectViewBoxCropStyle(region)
+    : cropMediaObjectStyle(region)
+}
+
+/** Pixel size of a percent crop against a natural media size. */
+export function croppedNaturalSize(
+  naturalW: number,
+  naturalH: number,
+  region: CropRegion
+): { w: number; h: number } {
+  return {
+    w: naturalW * (region.width / 100),
+    h: naturalH * (region.height / 100),
+  }
+}
 
 /**
  * Object-position describes where `object-fit: cover` anchors the image.

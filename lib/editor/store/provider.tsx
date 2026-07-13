@@ -205,8 +205,10 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
           })
       }
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    // Listen in capture phase so transient timeline controls, menus and drag
+    // surfaces cannot swallow Cmd/Ctrl+Z before editor history receives it.
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
   }, [])
 
   return <>{children}</>

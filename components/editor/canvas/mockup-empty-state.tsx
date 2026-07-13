@@ -43,6 +43,9 @@ type MockupEmptyStateProps = {
   defaultCaptureDevice?: CaptureDevice
   defaultCaptureOrientation?: "vertical" | "horizontal"
   captureStateKey?: string
+  /** Whether videos are accepted (false for multi-screenshot boxes). Forwarded
+   * to the upload card for its label. Defaults to true. */
+  allowVideo?: boolean
 }
 
 export function MockupEmptyState({
@@ -68,6 +71,7 @@ export function MockupEmptyState({
   defaultCaptureDevice,
   defaultCaptureOrientation,
   captureStateKey,
+  allowVideo = true,
 }: MockupEmptyStateProps) {
   const screenRef = React.useRef<HTMLDivElement | null>(null)
   const [stageWidth, setStageWidth] = React.useState<number | undefined>(
@@ -134,6 +138,7 @@ export function MockupEmptyState({
               defaultCaptureDevice={defaultCaptureDevice}
               defaultCaptureOrientation={defaultCaptureOrientation}
               captureStateKey={captureStateKey}
+              allowVideo={allowVideo}
               contentRotation={mockupRotation ? -mockupRotation : 0}
               compact={compact || !desktopFrame}
               plainWideCard={desktopFrame}

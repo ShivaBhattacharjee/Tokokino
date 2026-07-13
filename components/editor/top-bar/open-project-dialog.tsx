@@ -9,6 +9,7 @@ import {
   RiDraftLine,
   RiFilmLine,
   RiLayoutGridLine,
+  RiLoader4Line,
 } from "@remixicon/react"
 import { toast } from "sonner"
 
@@ -44,6 +45,7 @@ import {
   PaginationEllipsis,
   PaginationItem,
 } from "@/components/ui/pagination"
+import { buildPageItems } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 
 export type DraftListItem = {
@@ -51,45 +53,20 @@ export type DraftListItem = {
   name: string
   canvasCount: number
   byteSize: number
-  type?: "style" | "animate"
+  type?: "style" | "video" | "animate"
   updatedAt: string
   createdAt: string
   thumbnailUrl: string | null
 }
 
 type SortOrder = "latest" | "oldest"
-type ProjectKind = "style" | "animate"
+type ProjectKind = "style" | "video" | "animate"
 
 const PAGE_SIZE = 9
 
 /** Fixed shell size so Present/Animate switch never shifts layout. */
 const DIALOG_SHELL =
   "flex h-[min(720px,calc(100dvh-1.5rem))] w-[min(calc(100vw-1.5rem),1040px)] flex-col gap-0 overflow-hidden rounded-md bg-popover p-0 sm:max-w-[1040px]"
-
-/**
- * Compact page window: 1 … 4 5 6 … 50
- * Always includes first/last and a small neighborhood around the current page.
- */
-export function buildPageItems(
-  page: number,
-  totalPages: number
-): Array<number | "ellipsis"> {
-  if (totalPages <= 0) return []
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1)
-  }
-
-  const current = Math.min(Math.max(1, page), totalPages)
-  const items: Array<number | "ellipsis"> = [1]
-  const left = Math.max(2, current - 1)
-  const right = Math.min(totalPages - 1, current + 1)
-
-  if (left > 2) items.push("ellipsis")
-  for (let p = left; p <= right; p += 1) items.push(p)
-  if (right < totalPages - 1) items.push("ellipsis")
-  items.push(totalPages)
-  return items
-}
 
 function formatRelativeDate(iso: string) {
   const date = new Date(iso)
@@ -118,12 +95,14 @@ function DraftCard({
   draft,
   isCurrent,
   isOpening,
+  openProgress,
   onOpen,
   onDelete,
 }: {
   draft: DraftListItem
   isCurrent: boolean
   isOpening: boolean
+  openProgress: { current: number; total: number } | null
   onOpen: () => void
   onDelete: () => void
 }) {
@@ -138,7 +117,7 @@ function DraftCard({
         onClick={onOpen}
         disabled={isOpening}
         className={cn(
-          "flex w-full flex-col overflow-hidden rounded-xl border bg-secondary/30 text-left transition-colors",
+          "flex w-full flex-col overflow-hidden rounded-md border bg-secondary/30 text-left transition-colors",
           isCurrent
             ? "border-primary"
             : "border-border/50 hover:border-primary/55",
@@ -166,6 +145,26 @@ function DraftCard({
               </span>
             ) : null}
           </div>
+          {isOpening ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 px-3 text-center text-[11px] font-medium text-foreground backdrop-blur-sm">
+              <RiLoader4Line className="size-5 animate-spin text-primary" />
+              <span>
+                {openProgress && openProgress.total > 0
+                  ? `Downloading video ${Math.min(100, Math.round((openProgress.current / openProgress.total) * 100))}%`
+                  : "Downloading video…"}
+              </span>
+              {openProgress && openProgress.total > 0 ? (
+                <div className="h-1 w-28 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-primary transition-[width]"
+                    style={{
+                      width: `${Math.min(100, Math.round((openProgress.current / openProgress.total) * 100))}%`,
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           <div className="min-w-0">
@@ -213,7 +212,7 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("style")}
           className={cn(
-            "flex items-start gap-2.5 rounded-lg border px-2.5 py-2.5 text-left transition-colors",
+            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
             kind === "style"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
@@ -229,9 +228,27 @@ function ProjectTypeRail({
         </button>
         <button
           type="button"
+          onClick={() => onKindChange("video")}
+          className={cn(
+            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
+            kind === "video"
+              ? "border-primary/50 bg-primary/10 text-foreground"
+              : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
+          )}
+        >
+          <RiFilmLine className="mt-0.5 size-4 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-[12px] font-medium">Videos</span>
+            <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
+              Video projects without a timeline
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
           onClick={() => onKindChange("animate")}
           className={cn(
-            "flex items-start gap-2.5 rounded-lg border px-2.5 py-2.5 text-left transition-colors",
+            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
             kind === "animate"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
@@ -273,7 +290,7 @@ function DraftGridSkeleton() {
     >
       {SKELETON_KEYS.map((key) => (
         <div key={key} className="flex flex-col gap-2">
-          <Skeleton className="aspect-[16/10] w-full rounded-xl" />
+          <Skeleton className="aspect-[16/10] w-full rounded-md" />
           <Skeleton className="h-3 w-28" />
           <Skeleton className="h-2.5 w-20" />
         </div>
@@ -390,12 +407,19 @@ export function OpenProjectDialog({
   hasUnsavedWork?: boolean
   /** Prefer Present or Animate tab when the dialog opens. Defaults to Present. */
   defaultKind?: ProjectKind
-  onOpenDraft: (id: string) => void | Promise<void>
+  onOpenDraft: (
+    id: string,
+    onProgress?: (progress: { current: number; total: number }) => void
+  ) => void | Promise<void>
   onCreateNew: () => void
 }) {
   const [drafts, setDrafts] = React.useState<DraftListItem[] | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
+  const [openProgress, setOpenProgress] = React.useState<{
+    current: number
+    total: number
+  } | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null
   )
@@ -419,7 +443,7 @@ export function OpenProjectDialog({
   /* eslint-disable react-hooks/set-state-in-effect -- reset/clear dialog UI on open/close */
   React.useEffect(() => {
     if (open && !wasOpenRef.current) {
-      setKind(defaultKind === "animate" ? "animate" : "style")
+      setKind(defaultKind)
       setPage(1)
       setSort("latest")
       setDrafts(null)
@@ -512,10 +536,12 @@ export function OpenProjectDialog({
 
   const handleOpen = async (id: string) => {
     setBusyId(id)
+    setOpenProgress(null)
     try {
-      await onOpenDraft(id)
+      await onOpenDraft(id, setOpenProgress)
     } finally {
       setBusyId(null)
+      setOpenProgress(null)
     }
   }
 
@@ -691,6 +717,8 @@ export function OpenProjectDialog({
                       <span className="inline-flex size-10 items-center justify-center rounded-full bg-secondary/80 text-muted-foreground">
                         {kind === "animate" ? (
                           <RiFilmLine className="size-5" />
+                        ) : kind === "video" ? (
+                          <RiFilmLine className="size-5" />
                         ) : (
                           <RiDraftLine className="size-5" />
                         )}
@@ -698,12 +726,16 @@ export function OpenProjectDialog({
                       <p className="text-[13px] font-medium text-foreground">
                         {kind === "animate"
                           ? "No animate projects yet"
-                          : "No present projects yet"}
+                          : kind === "video"
+                            ? "No video projects yet"
+                            : "No present projects yet"}
                       </p>
                       <p className="max-w-[280px] text-[12px] text-muted-foreground">
                         {kind === "animate"
                           ? "Save while Animate is on (Save → Save as animate draft) to see projects here."
-                          : "Use Save → Save as draft from the present editor to keep projects here."}
+                          : kind === "video"
+                            ? "Save a video canvas with Save → Save as draft to see projects here."
+                            : "Use Save → Save as draft from the present editor to keep projects here."}
                       </p>
                     </div>
                   ) : null}
@@ -721,6 +753,9 @@ export function OpenProjectDialog({
                           draft={draft}
                           isCurrent={currentDraftId === draft.id}
                           isOpening={busyId === draft.id}
+                          openProgress={
+                            busyId === draft.id ? openProgress : null
+                          }
                           onOpen={() => void handleOpen(draft.id)}
                           onDelete={() => setConfirmDeleteId(draft.id)}
                         />

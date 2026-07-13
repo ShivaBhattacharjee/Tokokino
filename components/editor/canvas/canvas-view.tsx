@@ -34,7 +34,15 @@ import {
   useEditor,
   useEditorStore,
 } from "@/lib/editor/store"
-import { computeCropTarget, type CropTarget } from "@/lib/editor/crop-utils"
+import {
+  computeCropTarget,
+  cropMediaObjectStyle,
+  croppedNaturalSize,
+  isActiveCropRegion,
+  objectViewBoxCropStyle,
+  supportsObjectViewBox,
+  type CropTarget,
+} from "@/lib/editor/crop-utils"
 import type { CaptureSettings } from "./upload-card"
 import {
   defaultCaptureDeviceForFrame,
@@ -62,6 +70,8 @@ import { AnnotationLayer } from "./annotation-layer"
 import { CanvasBackdrop } from "./canvas-backdrop"
 import { CanvasEmptyState } from "./canvas-empty-state"
 import { CenterGuides, useCenterGuides } from "./center-guides"
+import { GifTranscodeDialog } from "./gif-transcode-dialog"
+import { MediaPreparingState } from "./media-preparing-state"
 import {
   computeRowLayout,
   slotBoxAspectRatio,
@@ -97,6 +107,8 @@ import {
   getOptimizedUrlSync,
 } from "@/lib/editor/image-resize"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
+import { isVideoSrc, revokeObjectUrl } from "@/lib/editor/media-type"
+import { useVideoRegistry } from "@/lib/editor/video-registry"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
 import { useImageFileIntake } from "./use-image-file-intake"
@@ -159,6 +171,7 @@ function CanvasViewInner({
     canvasBorderRadius,
     setScreenshot,
     applyCroppedScreenshot,
+    setScreenshotCropRegion,
     setScreenshotOffset,
     setScreenshotPlacement,
     texts,
@@ -275,7 +288,8 @@ function CanvasViewInner({
             sourceUrl,
             thumbUrl: background.thumbUrl ?? undefined,
           },
-          scopeId
+          scopeId,
+          { silent: true }
         )
       }
       return
@@ -298,7 +312,8 @@ function CanvasViewInner({
           sourceUrl,
           thumbUrl: thumbUrl ?? undefined,
         },
-        canvasId
+        canvasId,
+        { silent: true }
       )
       return
     }
@@ -319,7 +334,8 @@ function CanvasViewInner({
             sourceUrl,
             thumbUrl: thumbUrl ?? undefined,
           },
-          canvasId
+          canvasId,
+          { silent: true }
         )
       })
       .catch((err) => {
@@ -350,6 +366,13 @@ function CanvasViewInner({
     w: number
     h: number
   } | null>(null)
+  // Chrome/Edge: native object-view-box. Firefox/Safari: overflow polyfill.
+  // Server snapshot prefers native so SSR matches the working Chrome path.
+  const nativeVideoCrop = React.useSyncExternalStore(
+    () => () => {},
+    supportsObjectViewBox,
+    () => true
+  )
   const [mainCropRequest, setMainCropRequest] =
     React.useState<CropTarget | null>(null)
   const [slotCropRequest, setSlotCropRequest] =
@@ -363,8 +386,8 @@ function CanvasViewInner({
   const suppressTransitionSlots = useSuppressTransitionOnChange(
     screenshotSlots.length
   )
-  const suppressTransition =
-    suppressTransitionPadding || suppressTransitionSlots
+  // First measure after media load — don't ease layout/centering in.
+  const suppressTransitionMedia = useSuppressTransitionOnChange(screenshot)
   const inRowMode = screenshotSlots.length > 0
   const { placementDims, measurePlacement } = usePlacementMeasurement({
     enabled: Boolean(screenshot),
@@ -374,15 +397,37 @@ function CanvasViewInner({
     // sizes itself from those dims and would stay at the wrong box otherwise.
     layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}`,
   })
+  const suppressTransitionPlacement = useSuppressTransitionOnChange(
+    placementDims
+      ? `${Math.round(placementDims.imgW)}x${Math.round(placementDims.imgH)}:${Math.round(placementDims.stageW)}x${Math.round(placementDims.stageH)}`
+      : "pending"
+  )
+  const suppressTransition =
+    suppressTransitionPadding ||
+    suppressTransitionSlots ||
+    suppressTransitionMedia ||
+    suppressTransitionPlacement
   const selectedScreenshotSlotId = useEditorStore(
     (s) => s.selectedScreenshotSlotId
   )
   const setMainScreenshotImage = React.useCallback(
     (src: string) => {
+      // Free the outgoing image/video object URL so replacements don't leak —
+      // unless another canvas still references it (e.g. after duplicate).
+      const canvases = useEditorStore.getState().present.canvases
+      const prev = canvases.find((c) => c.id === scopeId)?.screenshot
+      if (prev && prev !== src) {
+        const stillUsed = canvases.some(
+          (c) =>
+            c.id !== scopeId &&
+            (c.screenshot === prev || c.originalScreenshot === prev)
+        )
+        if (!stillUsed) revokeObjectUrl(prev)
+      }
       setScreenshot(src)
       setNaturalDims(null)
     },
-    [setScreenshot]
+    [scopeId, setScreenshot]
   )
   const handleImageFile = React.useCallback(
     (src: string) => {
@@ -394,8 +439,40 @@ function CanvasViewInner({
     },
     [selectedScreenshotSlotId, setMainScreenshotImage, setScreenshotSlotImage]
   )
-  const { fileInputRef, fileInputProps, isDragOver, readFile, dropHandlers } =
-    useImageFileIntake(handleImageFile)
+
+  // Register the main <video> element so the docked control bar can drive it.
+  // Preview/thumbnail scopes never register — only the real editable canvas.
+  const registerVideo = useVideoRegistry((s) => s.registerVideo)
+  const handleMediaElement = React.useCallback(
+    (el: HTMLVideoElement | null) => {
+      if (!scopeId || isCanvasPreview) return
+      registerVideo(scopeId, el)
+    },
+    [isCanvasPreview, registerVideo, scopeId]
+  )
+  React.useEffect(() => {
+    return () => {
+      if (scopeId && !isCanvasPreview) registerVideo(scopeId, null)
+    }
+  }, [isCanvasPreview, registerVideo, scopeId])
+  // True while an incoming GIF is transcoding to video — drives the canvas
+  // skeleton so the user sees progress instead of a frozen empty box.
+  const [preparingMedia, setPreparingMedia] = React.useState(false)
+  const {
+    fileInputRef,
+    fileInputProps,
+    isDragOver,
+    readFile,
+    dropHandlers,
+    pendingGif,
+    confirmGifTranscode,
+    cancelGifTranscode,
+  } = useImageFileIntake(handleImageFile, {
+    // A video may only be the sole screenshot — once extra slots exist, block
+    // dropping/pasting one into the main box (and route slots reject it too).
+    allowVideo: screenshotSlots.length === 0,
+    onPreparingChange: setPreparingMedia,
+  })
 
   const handleCaptureWebsite = React.useCallback(
     async (rawUrl: string, settings: CaptureSettings) => {
@@ -468,7 +545,16 @@ function CanvasViewInner({
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
   const canUseNaturalCanvasAspect =
     isAuto && naturalDims && !inRowMode && frame.id === "none"
-  const autoDims = canUseNaturalCanvasAspect ? naturalDims : null
+  // Visible media size after a non-destructive video crop (full size otherwise).
+  const visibleNaturalDims =
+    naturalDims &&
+    lastCropRegion &&
+    isVideoSrc(screenshot) &&
+    isActiveCropRegion(lastCropRegion)
+      ? croppedNaturalSize(naturalDims.w, naturalDims.h, lastCropRegion)
+      : naturalDims
+  // Auto canvas aspect follows the visible video crop when one is set.
+  const autoDims = canUseNaturalCanvasAspect ? visibleNaturalDims : null
   const aw = autoDims ? autoDims.w : aspect.w || 16
   const ah = autoDims ? autoDims.h : aspect.h || 10
   const aspectRatio = `${aw} / ${ah}`
@@ -498,7 +584,7 @@ function CanvasViewInner({
   const screenshotBoxAspect = slotBoxAspectRatio(
     frame,
     canvasAspectRatio,
-    !inRowMode && frame.id === "none" ? naturalDims : null
+    !inRowMode && frame.id === "none" ? visibleNaturalDims : null
   )
   const rowLayoutItems = React.useMemo(
     () =>
@@ -579,6 +665,30 @@ function CanvasViewInner({
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     imgStyle.mixBlendMode = screenshotLayer.blendMode
   }
+  // Video crop is non-destructive: the src stays the full clip and we crop at
+  // render time. Chrome/Edge use object-view-box; Firefox/Safari use an
+  // overflow + positioned-media polyfill. Images are cropped destructively
+  // (the src is already the cropped bitmap), so they never get it.
+  const videoCropRegion =
+    lastCropRegion &&
+    isVideoSrc(screenshot) &&
+    isActiveCropRegion(lastCropRegion)
+      ? lastCropRegion
+      : null
+  const videoMediaStyle = videoCropRegion
+    ? nativeVideoCrop
+      ? objectViewBoxCropStyle(videoCropRegion)
+      : cropMediaObjectStyle(videoCropRegion)
+    : undefined
+  // The bare frame always crops via the overflow polyfill (its <video> carries
+  // the crop, not the shell that holds imgStyle — object-view-box can't reach a
+  // div), so it needs the shrink-wrap aspect on every browser, not just Safari.
+  const videoCropAspectRatio =
+    videoCropRegion && visibleNaturalDims
+      ? visibleNaturalDims.w > 0 && visibleNaturalDims.h > 0
+        ? `${visibleNaturalDims.w} / ${visibleNaturalDims.h}`
+        : undefined
+      : undefined
   // When a clip animates the border, the outline is ALWAYS mounted (even when
   // the committed border is invisible) so the player can ease it in from 0 /
   // recolour it via the preview vars. Otherwise it renders only when committed.
@@ -789,9 +899,15 @@ function CanvasViewInner({
   }
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const el = e.currentTarget
-    if (!inRowMode) {
-      setNaturalDims({ w: el.naturalWidth, h: el.naturalHeight })
+    // Also fires from a <video>'s onLoadedMetadata for video screenshots, where
+    // intrinsic size lives on videoWidth/videoHeight instead of naturalWidth.
+    const el = e.currentTarget as HTMLImageElement & Partial<HTMLVideoElement>
+    const w = el.naturalWidth || el.videoWidth || 0
+    const h = el.naturalHeight || el.videoHeight || 0
+    if (!inRowMode && w > 0 && h > 0) {
+      // Always store the full intrinsic size — crop aspect is derived at use sites
+      // so applying/clearing a crop doesn't require reloading the media.
+      setNaturalDims({ w, h })
     }
     measurePlacement()
   }
@@ -814,6 +930,11 @@ function CanvasViewInner({
   return (
     <>
       <input {...fileInputProps} />
+      <GifTranscodeDialog
+        open={pendingGif !== null}
+        onConfirm={confirmGifTranscode}
+        onCancel={cancelGifTranscode}
+      />
 
       <div
         className="flex items-center justify-center"
@@ -822,9 +943,7 @@ function CanvasViewInner({
         <motion.div
           ref={canvasRef}
           data-canvas-id={scopeId ?? undefined}
-          initial={isCanvasPreview ? false : { opacity: 0, scale: 0.985, y: 6 }}
-          animate={isCanvasPreview ? undefined : { opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          initial={false}
           style={{
             aspectRatio,
             borderRadius: `var(--canvas-bd-radius, ${canvasBorderRadius}px)`,
@@ -1033,6 +1152,8 @@ function CanvasViewInner({
                     captureDefaultDevice={captureDefaultDevice}
                     captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
+                    onMediaElement={handleMediaElement}
+                    mediaStyle={videoMediaStyle}
                   />
                 ) : mockupAsset && mockupSpec ? (
                   <ScreenshotMockup
@@ -1076,6 +1197,8 @@ function CanvasViewInner({
                       setScreenshot(null)
                     }}
                     innerLightingStyle={innerLightingStyle}
+                    onMediaElement={handleMediaElement}
+                    mediaStyle={videoMediaStyle}
                   />
                 ) : (
                   <ScreenshotBare
@@ -1096,6 +1219,8 @@ function CanvasViewInner({
                     imageRef={imageRef}
                     shadowBoxTarget={frame.id === "none"}
                     objectFit={objectFit ?? "cover"}
+                    cropRegion={videoCropRegion}
+                    cropAspectRatio={videoCropAspectRatio}
                     onContainerPointerDown={(e) => {
                       if (e.target === e.currentTarget) {
                         setIsScreenshotSelected(false)
@@ -1124,8 +1249,19 @@ function CanvasViewInner({
                     captureDefaultDevice={captureDefaultDevice}
                     captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
+                    onMediaElement={handleMediaElement}
                   />
                 )
+              ) : preparingMedia ? (
+                <MediaPreparingState
+                  label="Preparing GIF…"
+                  screenshotAnchor={screenshotAnchor}
+                  screenshotOffset={effectiveOffset}
+                  transform={transform}
+                  shadowFilter={computedShadowFilter}
+                  boxStyle={emptyStateBoxStyle}
+                  innerLightingStyle={innerLightingStyle}
+                />
               ) : browserFrame ? (
                 <BrowserFrameEmptyState
                   frameId={frame.id}
@@ -1375,7 +1511,12 @@ function CanvasViewInner({
           screenshotUrl={originalScreenshot ?? screenshot}
           initialRegion={mainCropRequest?.initialRegion}
           targetAspect={mainCropRequest?.aspect}
-          onCrop={applyCroppedScreenshot}
+          onCrop={(cropped, region) => {
+            // Video can't be re-encoded client-side — store a non-destructive
+            // render-time crop region instead of a baked bitmap.
+            if (isVideoSrc(screenshot)) setScreenshotCropRegion(region)
+            else applyCroppedScreenshot(cropped, region)
+          }}
         />
       )}
 

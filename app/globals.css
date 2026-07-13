@@ -256,9 +256,23 @@
       transform: translateX(320%);
     }
   }
+  /* Shimmering status text on the media-preparing skeleton */
+  @keyframes text-shimmer {
+    0% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: -100% 50%;
+    }
+  }
+  .animate-text-shimmer {
+    background-size: 200% 100%;
+    animation: text-shimmer 1.8s linear infinite;
+  }
   @media (prefers-reduced-motion: reduce) {
     [aria-hidden="true"] *,
-    .animate-beam {
+    .animate-beam,
+    .animate-text-shimmer {
       animation: none !important;
     }
     .screenshot-edit-popover[data-state="open"] {

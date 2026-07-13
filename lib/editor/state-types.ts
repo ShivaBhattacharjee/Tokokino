@@ -6,14 +6,8 @@ export type BgType = "none" | "solid" | "gradient" | "image" | "auto"
 
 export type Background = {
   type: BgType
-  /**
-   * The image/paint value used by the live canvas. For image backgrounds this
-   * should be an editor-safe preview, not necessarily the original source.
-   */
   value: string
-  /** Original remote/library image URL, kept for selection identity. */
   sourceUrl?: string
-  /** Tiny placeholder URL used while the editor-safe preview is generated. */
   thumbUrl?: string
 }
 
@@ -348,10 +342,6 @@ export type GradientCategory = {
   items: string[]
 }
 
-// Shared canvas-level styling (padding, frame, shadow, border, enhance, etc.)
-// is read directly from CanvasState. Slots only carry per-instance data:
-// position/size, per-slot tilt/scale/rotation (used by layout presets),
-// image source, filter, fit, and stacking.
 export type ScreenshotSlot = {
   id: string
   src: string | null
@@ -377,24 +367,19 @@ export type ScreenshotSlot = {
 
 export type CanvasPosition = { x: number; y: number }
 
-/**
- * Which screenshot on the canvas a clip animates.
- *  - "all": every screenshot (main + all slots) — used when nothing is selected.
- *  - "main": just the primary screenshot.
- *  - "slot": one extra screenshot slot, identified by id.
- * Mirrors ScreenshotStyleTarget (screenshot-style-target.ts) so a clip binds to
- * whatever screenshot was selected when it was added.
- */
+export type VideoTimelineClip = {
+  id: string
+  timelineStartMs?: number
+  muted?: boolean
+  startMs: number
+  endMs: number | null
+}
+
 export type AnimationClipTarget =
   | { scope: "all" }
   | { scope: "main" }
   | { scope: "slot"; slotId: string }
 
-/**
- * An animatable effect a keyframe can "own". A keyframe animates (and shows an
- * icon for) exactly the effects in its `effects` set — the ones you changed while
- * it was selected. These strings double as the timeline clip's icon keys.
- */
 export type AnimationEffect =
   | "position"
   | "zoom"
@@ -412,7 +397,6 @@ export type AnimationEffect =
   | "border"
   | "borderRadius"
 
-/** The selectable per-clip transition curves (see `clip-easing.ts`). */
 export type ClipEasingKind =
   | "linear"
   | "cubic"
@@ -421,148 +405,54 @@ export type ClipEasingKind =
   | "inOut"
   | "outCirc"
 
-/** A screenshot's animatable transform, captured for a clip's baseline. */
 export type ClipSlotPose = {
   tilt: Tilt
   scale: number
   rotation: number
-  /** Optional so older drafts (transform-only slot poses) still load. */
   shadow?: Shadow
-  /**
-   * Slot centre position as a % of the canvas (matches ScreenshotSlot.xPct/yPct).
-   * Optional so drafts saved before slot position was animatable hydrate cleanly
-   * (read through a fallback to the live slot position).
-   */
   xPct?: number
   yPct?: number
-  /**
-   * Slot border / corner radius / padding / lighting at this keyframe. All
-   * optional so drafts saved before these were animatable per slot hydrate
-   * cleanly (read through a fallback to the live slot / canvas value).
-   */
   border?: Border
   borderRadius?: number
   padding?: number
   lighting?: BackdropLighting
 }
 
-/**
- * A full snapshot of the canvas's animatable state — used as a clip's target
- * keyframe (`pose`). Playback interpolates the previous keyframe's pose → this
- * clip's pose; the first clip reveals from a neutral rest pose. Editing the
- * canvas while a clip is selected updates that clip's pose only.
- */
 export type ClipBaseline = {
   tilt: Tilt
   scale: number
   screenshotPosition: ScreenshotPosition
   screenshotOffset: { x: number; y: number }
   padding: number
-  /** Outer canvas corner radius (0–80). */
   canvasBorderRadius: number
   shadow: Shadow
   backdropEffects: BackdropEffects
-  /**
-   * Backdrop lighting at this keyframe. Optional so drafts saved before lighting
-   * was animatable hydrate cleanly (read through a fallback to the live value).
-   */
   lighting?: BackdropLighting
   background: Background
-  /**
-   * Backdrop filter (AssetFilter preset) at this keyframe. Optional so drafts
-   * saved before filters were animatable hydrate cleanly (read through a
-   * fallback to the live value).
-   */
   filter?: AssetFilter
-  /**
-   * Backdrop portrait (depth-of-field) at this keyframe. Optional so drafts
-   * saved before portrait was animatable hydrate cleanly.
-   */
   portrait?: Portrait
-  /**
-   * Backdrop pattern (geometric texture overlay) at this keyframe. Optional so
-   * drafts saved before pattern was animatable hydrate cleanly.
-   */
   pattern?: BackdropPattern
-  /**
-   * Texture overlay (over/under the screenshot) at this keyframe. Optional so
-   * drafts saved before overlay was animatable hydrate cleanly.
-   */
   overlay?: Overlay
-  /**
-   * Screenshot border (color/width/style/inner padding) at this keyframe.
-   * Optional so drafts saved before border was animatable hydrate cleanly.
-   */
   border?: Border
-  /**
-   * Screenshot corner radius (0–48) at this keyframe. Optional so drafts saved
-   * before it was animatable hydrate cleanly (read through a live fallback).
-   */
   borderRadius?: number
-  /** Per-slot poses keyed by slot id. */
   slots: Record<string, ClipSlotPose>
 }
 
-/** A single motion layer placed on the animation timeline. */
 export type AnimationClip = {
   id: string
   startMs: number
   durationMs: number
-  /**
-   * The screenshot this clip animates. Optional so drafts saved before per-clip
-   * targeting hydrate cleanly — read through a helper that defaults to "all".
-   */
   target?: AnimationClipTarget
-  /**
-   * This clip's target keyframe — the look the screenshot animates TO by the end
-   * of the clip. Set when the clip is added (snapshot of the current canvas) and
-   * updated as you edit the canvas while the clip is selected.
-   */
   pose?: ClipBaseline
-  /**
-   * The effects this keyframe explicitly owns — the properties you changed while
-   * it was selected. ONLY these animate and show icons; everything else holds the
-   * value from the previous keyframe. Empty/undefined = a passive keyframe that
-   * animates nothing yet.
-   */
   effects?: AnimationEffect[]
-  /**
-   * Legacy add-time snapshot from the pre-keyframe model. Kept optional so older
-   * drafts hydrate cleanly; read through `clipPose`, which prefers `pose`.
-   */
   baseline?: ClipBaseline
-  /**
-   * Transition curve this clip eases its owned effects with. Optional so drafts
-   * saved before per-clip easing hydrate cleanly — read through `clipEasingKind`,
-   * which defaults to the historic ease-out. See `clip-easing.ts`.
-   */
   easing?: ClipEasingKind
-  /**
-   * Speed remap (1..5): how quickly the transition completes WITHIN the clip's
-   * window without moving its keyframe time. 1 = uses the full window; higher
-   * finishes proportionally sooner then holds the pose. Read through `clipSpeed`.
-   */
   speed?: number
 }
 
-/**
- * Background audio attached to the animation. `src` is an in-session object URL
- * and is intentionally NOT persisted (dropped on serialize); the rest of the
- * metadata survives so the UI can show the track name after reload.
- */
-export type AnimationAudio = {
-  src: string
-  name: string
-  /** 0..1 */
-  volume: number
-  muted: boolean
-}
-
 export type CanvasAnimation = {
-  /** Total timeline length in ms. */
   durationMs: number
   clips: AnimationClip[]
-  audio: AnimationAudio | null
 }
 
 export type TweetAuthor = {
@@ -598,8 +488,6 @@ export type TweetData = {
   media?: TweetMedia[]
   linkPreview?: TweetLinkPreview
   quotedTweet?: TweetData
-  // The public syndication endpoint exposes likes/replies/reposts more often
-  // than views. Views are optional and only shown when X returns them.
   metrics: { likes: number; replies: number; reposts: number; views?: number }
 }
 
@@ -623,6 +511,7 @@ export type CanvasState = {
   screenshot: string | null
   originalScreenshot: string | null
   lastCropRegion: CropRegion | null
+  videoClips?: VideoTimelineClip[] | null
   background: Background
   padding: number
   borderRadius: number
@@ -645,13 +534,9 @@ export type CanvasState = {
   annotationShapes: AnnotationShape[]
   screenshotSlots: ScreenshotSlot[]
   frameAddress: string
-  // An X/Twitter post rendered as the canvas's main content. Mutually
-  // exclusive with `screenshot`: setting one clears the other.
   tweet: TweetCard | null
   objectFit?: "contain" | "cover" | "fill"
   aspect?: AspectState
-  // Animate-mode motion timeline. Optional so drafts saved before this feature
-  // hydrate cleanly (normalized to a default on load).
   animation?: CanvasAnimation
 }
 

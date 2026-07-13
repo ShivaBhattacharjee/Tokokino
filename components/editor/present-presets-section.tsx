@@ -31,6 +31,7 @@ import {
   type CustomPresetSummary,
 } from "@/lib/editor/store"
 import { useSession } from "@/lib/auth-client"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { PresetCardsBody } from "./present-presets-section/cards"
@@ -169,17 +170,22 @@ export function PresentPresetsSection({
     ? (bulkPresetUi?.activeCustomPresetId ?? null)
     : activeCustomPresetId
   const hasTweet = Boolean(canvas.tweet)
+  const hasVideo = Boolean(canvas.screenshot && isVideoSrc(canvas.screenshot))
 
   const handleTabChange = React.useCallback(
     (nextTab: PresetTab) => {
       if (hasTweet && (nextTab === "multi" || nextTab === "triple")) {
-        toast("Social posts use one content slot")
+        toast.error("Social posts use one content slot")
+        return
+      }
+      if (hasVideo && (nextTab === "multi" || nextTab === "triple")) {
+        toast.error("Videos can only use a single slot")
         return
       }
       setTab(nextTab)
       rememberBulkPresetUi(emptyCanvasPresetUi(nextTab))
     },
-    [hasTweet, rememberBulkPresetUi, setTab]
+    [hasTweet, hasVideo, rememberBulkPresetUi, setTab]
   )
 
   React.useEffect(() => {
@@ -312,7 +318,11 @@ export function PresentPresetsSection({
     (preset: LayoutPreset) => {
       const canvas = canvasRef.current
       if (canvas.tweet) {
-        toast("Social posts use one content slot")
+        toast.error("Social posts use one content slot")
+        return
+      }
+      if (canvas.screenshot && isVideoSrc(canvas.screenshot)) {
+        toast.error("Videos can only use a single slot")
         return
       }
       const aspect = aspectRef.current
@@ -374,6 +384,14 @@ export function PresentPresetsSection({
       const geometry = preset.geometry
       if (canvasRef.current.tweet && geometry.slots.length > 0) {
         toast("Social posts use one content slot")
+        return
+      }
+      if (
+        canvasRef.current.screenshot &&
+        isVideoSrc(canvasRef.current.screenshot) &&
+        geometry.slots.length > 0
+      ) {
+        toast.error("Videos can only use a single slot")
         return
       }
       // Geometry includes a snapshot of every styling field on the canvas
@@ -535,6 +553,7 @@ export function PresentPresetsSection({
           tab={displayTab}
           slotCount={canvas.screenshotSlots.length}
           hasTweet={hasTweet}
+          hasVideo={hasVideo}
           onTabChange={handleTabChange}
         />
       </div>

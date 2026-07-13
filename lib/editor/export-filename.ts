@@ -4,9 +4,11 @@
  * Users can define a filename format with variable tokens (e.g.
  * `{TEMPLATE}_{SCALE}_{DATE}`). Signed-out users get the format persisted
  * locally in IndexedDB; signed-in users get it synced to their account
- * (see `app/api/preferences/route.ts`). Either way it's applied by
- * `lib/editor/export.ts` when downloading.
+ * (see `app/api/preferences/route.ts`). Applied by still-image export
+ * (`lib/editor/export.ts`) and video/animation export downloads.
  */
+
+import { useEditorStore } from "./store"
 
 const PREFERENCES_DB_NAME = "tokokino-preferences"
 const PREFERENCES_STORE_NAME = "preferences"
@@ -75,7 +77,7 @@ async function writeStoredPreference(
 }
 
 export const EXPORT_FILENAME_STORAGE_KEY = "tokokino:export-filename-format"
-export const DEFAULT_EXPORT_FILENAME_FORMAT = "screenshot_{SCALE}_{DATE}"
+export const DEFAULT_EXPORT_FILENAME_FORMAT = "tokokino_export_{SCALE}_{DATE}"
 export const EXPORT_FILENAME_FORMAT_MAX_LENGTH = 200
 
 export type ExportFilenameVariable = {
@@ -86,13 +88,14 @@ export type ExportFilenameVariable = {
 export const EXPORT_FILENAME_VARIABLES: ExportFilenameVariable[] = [
   { token: "{DATE}", label: "Current date and time" },
   { token: "{TEMPLATE}", label: "Current template / preset" },
-  { token: "{SCALE}", label: "Export scale factor" },
+  { token: "{SCALE}", label: "Export scale (hd, 4k, …)" },
+  { token: "{RES}", label: "Pixel size as width×height" },
+  { token: "{WIDTH}", label: "Export width in pixels" },
+  { token: "{HEIGHT}", label: "Export height in pixels" },
   { token: "{RANDOM}", label: "Random string" },
-  { token: "{WIDTH}", label: "Image width in pixels" },
-  { token: "{HEIGHT}", label: "Image height in pixels" },
 ]
 
-const TOKEN_PATTERN = /\{(DATE|TEMPLATE|SCALE|RANDOM|WIDTH|HEIGHT)\}/g
+const TOKEN_PATTERN = /\{(DATE|TEMPLATE|SCALE|RES|RANDOM|WIDTH|HEIGHT)\}/g
 
 export type ExportFilenameContext = {
   date: string
@@ -141,6 +144,7 @@ export function applyExportFilenameFormat(
     "{DATE}": ctx.date,
     "{TEMPLATE}": ctx.template,
     "{SCALE}": ctx.scale,
+    "{RES}": `${ctx.width}x${ctx.height}`,
     "{RANDOM}": ctx.random,
     "{WIDTH}": String(ctx.width),
     "{HEIGHT}": String(ctx.height),
@@ -157,7 +161,29 @@ export function applyExportFilenameFormat(
     .replace(/_{2,}/g, "_")
     .replace(/^[._-]+|[._-]+$/g, "")
 
-  return safe || "screenshot"
+  return safe || "tokokino_export"
+}
+
+/** Resolve a `{TEMPLATE}` label from the active preset / aspect ratio. */
+export function getExportTemplateLabel(canvasId: string): string {
+  try {
+    const state = useEditorStore.getState()
+    if (state.activeCustomPresetId) {
+      const preset = state.customPresets.find(
+        (p) => p.id === state.activeCustomPresetId
+      )
+      if (preset?.name) return preset.name
+    }
+    const presetId =
+      state.activeSinglePresetId ?? state.activeLayoutPresetId ?? null
+    if (presetId) return presetId
+    const canvas = state.present.canvases.find((c) => c.id === canvasId)
+    const aspect = canvas?.aspect ?? state.present.aspect
+    if (aspect?.w && aspect?.h) return `${aspect.w}x${aspect.h}`
+  } catch {
+    /* store not ready — fall through */
+  }
+  return "default"
 }
 
 /** Build the final download filename (without re-adding the extension). */
@@ -177,5 +203,26 @@ export function buildExportFilename(opts: {
     width: opts.width,
     height: opts.height,
   })
-  return `${name}${opts.extension}`
+  const ext = opts.extension.startsWith(".")
+    ? opts.extension
+    : `.${opts.extension}`
+  return `${name}${ext}`
+}
+
+/** Load the saved format and build a download filename for any export type. */
+export async function resolveExportDownloadFilename(opts: {
+  canvasId: string
+  scale: string
+  width: number
+  height: number
+  extension: string
+}): Promise<string> {
+  return buildExportFilename({
+    format: await getExportFilenameFormat(),
+    scale: opts.scale,
+    template: getExportTemplateLabel(opts.canvasId),
+    width: opts.width,
+    height: opts.height,
+    extension: opts.extension,
+  })
 }

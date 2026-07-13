@@ -52,13 +52,29 @@ import {
   exportAnimationBlob,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
+import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
+import { isVideoSrc } from "@/lib/editor/media-type"
+import {
+  downloadDraftVideos,
+  uploadDraftVideos,
+} from "@/lib/draft-media-upload-client"
+import type {
+  DraftVideoDownloadProgress,
+  DraftVideoUploadProgress,
+} from "@/lib/draft-media-upload-client"
+import { shouldUseVideoMediaShareExport } from "@/lib/editor/share-export-choice"
+import {
+  createResumableShareUpload,
+  listPendingResumableShareUploads,
+  resumeResumableShareUpload,
+  type PendingShareUpload,
+} from "@/lib/share-upload-client"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { saveCurrentEditorDraft, useEditorStore } from "@/lib/editor/store"
 import type { CurrentDraftInfo, CustomPresetSummary } from "@/lib/editor/store"
 import {
   captureCustomPresetGeometry,
   resolvePresetType,
-  sanitizePresentForCloudDraft,
 } from "@/lib/editor/custom-preset-snapshot"
 import {
   DRAFT_SCHEMA_VERSION,
@@ -152,6 +168,8 @@ export function TopBar() {
   const [shareProgress, setShareProgress] =
     React.useState<ShareProgressState | null>(null)
   const shareAbortRef = React.useRef<AbortController | null>(null)
+  const pendingShareUploadRef = React.useRef<PendingShareUpload | null>(null)
+  const recoveryStartedRef = React.useRef(false)
 
   const toShareProgress = React.useCallback(
     (p: AnimationExportProgress): ShareProgressState => {
@@ -176,7 +194,8 @@ export function TopBar() {
           phase: "encoding",
           current: p.current,
           total: p.total,
-          label: "Encoding video…",
+          label:
+            shareAnimFormat === "gif" ? "Encoding GIF…" : "Encoding video…",
         }
       }
       return {
@@ -186,7 +205,7 @@ export function TopBar() {
         label: "Finishing encode…",
       }
     },
-    []
+    [shareAnimFormat]
   )
 
   const fetchShareStorage = React.useCallback(async () => {
@@ -206,6 +225,25 @@ export function TopBar() {
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
   )
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  // Clipboard can't hold a video, and a "Copy" that silently grabs a single
+  // still frame is misleading — hide it entirely for video canvases.
+  const isVideoCanvas = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas ? isVideoSrc(canvas.screenshot) : false
+  })
+  const animationKeyframeCount = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas?.animation?.clips.length ?? 0
+  })
+  const useVideoMediaShareExport = shouldUseVideoMediaShareExport({
+    isVideoCanvas,
+    isAnimateMode,
+    keyframeCount: animationKeyframeCount,
+  })
   const [isCopyingPng, setIsCopyingPng] = React.useState(false)
   const [isCopiedPng, setIsCopiedPng] = React.useState(false)
 
@@ -228,6 +266,8 @@ export function TopBar() {
   const [openProjectDialogOpen, setOpenProjectDialogOpen] =
     React.useState(false)
   const [isDraftSaving, setIsDraftSaving] = React.useState(false)
+  const [draftUploadProgress, setDraftUploadProgress] =
+    React.useState<DraftVideoUploadProgress | null>(null)
   const [isPresetSaving, setIsPresetSaving] = React.useState(false)
   const [draftChoiceOpen, setDraftChoiceOpen] = React.useState(false)
   const [saveDraftMode, setSaveDraftMode] = React.useState<"auto" | "create">(
@@ -296,19 +336,23 @@ export function TopBar() {
   const handleShare = React.useCallback(async () => {
     if (shareDialog.status === "preparing") return
 
-    const mediaKind = isAnimateMode ? "animate" : "style"
+    const mediaKind = useVideoMediaShareExport
+      ? "video"
+      : isAnimateMode
+        ? "animate"
+        : "style"
     setIsShareLinkCopied(false)
     setShareProgress(null)
 
     // Animate: open configure popup first (format/resolution + storage).
-    if (mediaKind === "animate") {
+    if (mediaKind !== "style") {
       setShareDialog({
         open: true,
         status: "configure",
         url: null,
         signature: null,
         error: null,
-        mediaKind: "animate",
+        mediaKind,
         storage: null,
       })
       const storage = await fetchShareStorage()
@@ -406,6 +450,7 @@ export function TopBar() {
     fetchShareStorage,
     includeExportWatermark,
     isAnimateMode,
+    useVideoMediaShareExport,
     shareDialog.mediaKind,
     shareDialog.signature,
     shareDialog.status,
@@ -432,55 +477,100 @@ export function TopBar() {
       url: null,
       signature: null,
       error: null,
-      mediaKind: "animate",
+      mediaKind: useVideoMediaShareExport ? "video" : "animate",
     }))
 
     try {
+      const isPlainVideoCanvas = useVideoMediaShareExport
+      const recovered =
+        pendingShareUploadRef.current ??
+        (await listPendingResumableShareUploads()).find(
+          (upload) => upload.canvasId === activeCanvasId
+        ) ??
+        null
+      if (recovered) {
+        pendingShareUploadRef.current = recovered
+        setShareAnimFormat(recovered.format)
+        setShareAnimResolution(recovered.resolution)
+        setShareProgress({
+          phase: "uploading",
+          current: 0,
+          total: recovered.sizeBytes,
+          label: "Recovering saved upload…",
+        })
+        const result = await resumeResumableShareUpload(recovered, (progress) =>
+          setShareProgress(progress)
+        )
+        pendingShareUploadRef.current = null
+        setShareProgress(null)
+        setShareDialog({
+          open: true,
+          status: "ready",
+          url: result.url,
+          signature: recovered.signature,
+          error: null,
+          mediaKind: recovered.mediaKind ?? "animate",
+          storage: await fetchShareStorage(),
+        })
+        toast.success(
+          isPlainVideoCanvas
+            ? "Video share link ready"
+            : "Animation share link ready"
+        )
+        return
+      }
       await waitForNextPaint()
       // Grab a still of the settled canvas first — it becomes the gallery
       // thumbnail. Best-effort: a failure just falls back to the film icon.
       const poster = await captureCanvasThumbnail(activeCanvasId, 640).catch(
         () => null
       )
-      const { blob } = await exportAnimationBlob(activeCanvasId, {
+      const exportOptions = {
         format: shareAnimFormat,
         // GIF delays are whole centiseconds; 25fps (4cs) plays cleaner than 30.
         fps: shareAnimFormat === "gif" ? 25 : 30,
         targetWidth: ANIM_SHARE_WIDTHS[shareAnimResolution],
         watermark: includeExportWatermark,
-        capture: "auto",
         signal: abort.signal,
-        onProgress: (p) => setShareProgress(toShareProgress(p)),
-      })
-
-      setShareProgress({
-        phase: "uploading",
-        current: 1,
-        total: 1,
-        label: "Uploading share…",
-      })
-      const form = new FormData()
-      form.append("media", blob, `animation.${shareAnimFormat}`)
-      if (poster) form.append("poster", poster, "poster.jpg")
-      const response = await fetch("/api/share", {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      })
-      const result = (await response.json().catch(() => null)) as {
-        url?: string
-        error?: string
-        storage?: { used: number; limit: number }
-      } | null
-
-      if (!response.ok || !result?.url) {
-        throw new Error(result?.error ?? "Could not prepare share link")
+        onProgress: (p: AnimationExportProgress) =>
+          setShareProgress(toShareProgress(p)),
       }
+      const videoResult = isPlainVideoCanvas
+        ? await exportVideoMedia(activeCanvasId, {
+            ...exportOptions,
+            asBlob: true,
+          })
+        : null
+      const animationResult = isPlainVideoCanvas
+        ? null
+        : await exportAnimationBlob(activeCanvasId, {
+            ...exportOptions,
+            capture: "auto",
+          })
+      const blob = videoResult?.blob ?? animationResult?.blob
+      if (!blob) throw new Error("Could not encode video share")
 
       const signature = await createShareSignature(
         activeCanvasId,
         includeExportWatermark
       )
+      if (!signature) throw new Error("Could not prepare share link")
+      setShareProgress({
+        phase: "uploading",
+        current: 0,
+        total: blob.size,
+        label: "Saving upload for recovery…",
+      })
+      const result = await createResumableShareUpload({
+        canvasId: activeCanvasId,
+        signature,
+        mediaKind: isPlainVideoCanvas ? "video" : "animate",
+        format: shareAnimFormat,
+        resolution: shareAnimResolution,
+        media: blob,
+        poster,
+        onProgress: (progress) => setShareProgress(progress),
+      })
       setShareProgress(null)
       setShareDialog({
         open: true,
@@ -488,10 +578,14 @@ export function TopBar() {
         url: result.url,
         signature,
         error: null,
-        mediaKind: "animate",
-        storage: result.storage ?? shareDialog.storage,
+        mediaKind: isPlainVideoCanvas ? "video" : "animate",
+        storage: await fetchShareStorage(),
       })
-      toast.success("Animation share link ready")
+      toast.success(
+        isPlainVideoCanvas
+          ? "Video share link ready"
+          : "Animation share link ready"
+      )
     } catch (err) {
       if (abort.signal.aborted) return
       const message =
@@ -521,9 +615,87 @@ export function TopBar() {
     shareAnimFormat,
     shareAnimResolution,
     shareDialog.status,
-    shareDialog.storage,
     toShareProgress,
+    useVideoMediaShareExport,
   ])
+
+  React.useEffect(() => {
+    if (!session || recoveryStartedRef.current) return
+    recoveryStartedRef.current = true
+    let active = true
+
+    void (async () => {
+      let pending: PendingShareUpload | undefined
+      try {
+        pending = (await listPendingResumableShareUploads()).at(0)
+      } catch (error) {
+        console.error(
+          "[share-upload-recovery] Could not access local upload storage",
+          error
+        )
+        return
+      }
+      if (!pending || !active) return
+      pendingShareUploadRef.current = pending
+      setShareDialog({
+        open: false,
+        status: "preparing",
+        url: null,
+        signature: null,
+        error: null,
+        mediaKind: pending.mediaKind ?? "animate",
+        storage: null,
+      })
+      setShareProgress({
+        phase: "uploading",
+        current: 0,
+        total: pending.sizeBytes,
+        label: "Recovering saved upload…",
+      })
+      try {
+        const result = await resumeResumableShareUpload(pending, (progress) => {
+          if (active) setShareProgress(progress)
+        })
+        if (!active) return
+        pendingShareUploadRef.current = null
+        setShareProgress(null)
+        setShareDialog({
+          open: false,
+          status: "ready",
+          url: result.url,
+          signature: pending.signature,
+          error: null,
+          mediaKind: pending.mediaKind ?? "animate",
+          storage: await fetchShareStorage(),
+        })
+        toast.success(
+          pending.mediaKind === "video"
+            ? "Video share upload resumed"
+            : "Animation share upload resumed"
+        )
+      } catch (error) {
+        if (!active) return
+        console.error("[share-upload-recovery]", error)
+        setShareProgress(null)
+        setShareDialog({
+          open: false,
+          status: "error",
+          url: null,
+          signature: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not recover saved upload",
+          mediaKind: pending.mediaKind ?? "animate",
+          storage: await fetchShareStorage(),
+        })
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [fetchShareStorage, session])
 
   const handleProtectedAction = React.useCallback(
     (action: ProtectedTopBarAction) => {
@@ -715,10 +887,16 @@ export function TopBar() {
       const existing = mode === "create" ? null : state.currentDraft
       const name = nameOverride ?? existing?.name ?? randomDisplayName()
       setIsDraftSaving(true)
+      setDraftUploadProgress(null)
       try {
+        const present = await uploadDraftVideos(
+          state.present,
+          setDraftUploadProgress,
+          mode === "create"
+        )
         const draftState: DraftPayload = {
           schemaVersion: DRAFT_SCHEMA_VERSION,
-          present: sanitizePresentForCloudDraft(state.present),
+          present,
           ui: {
             presetTab: state.presetTab,
             activeLayoutPresetId: state.activeLayoutPresetId,
@@ -794,13 +972,17 @@ export function TopBar() {
         return false
       } finally {
         setIsDraftSaving(false)
+        setDraftUploadProgress(null)
       }
     },
     [setCurrentDraft]
   )
 
   const handleOpenDraft = React.useCallback(
-    async (id: string) => {
+    async (
+      id: string,
+      onProgress?: (progress: DraftVideoDownloadProgress) => void
+    ) => {
       try {
         const res = await fetch(`/api/drafts/${id}`, {
           credentials: "include",
@@ -818,8 +1000,9 @@ export function TopBar() {
           throw new Error(data?.error ?? "Could not load draft")
         }
         const { present, ui } = unwrapDraftState(data.draft.state)
+        const hydratedPresent = await downloadDraftVideos(present, onProgress)
         loadDraftState(
-          present,
+          hydratedPresent,
           {
             id: data.draft.id,
             name: data.draft.name,
@@ -985,7 +1168,7 @@ export function TopBar() {
             onConfirmAnimateShare={() => void handleConfirmAnimateShare()}
             onCopyLink={handleCopyShareLink}
             onRetry={() => {
-              if (shareDialog.mediaKind === "animate") {
+              if (shareDialog.mediaKind !== "style") {
                 void handleConfirmAnimateShare()
               } else {
                 void handleShare()
@@ -1188,6 +1371,7 @@ export function TopBar() {
           }
           confirmLabel={isAnimateMode ? "Save animate draft" : "Save draft"}
           loading={isDraftSaving}
+          uploadProgress={draftUploadProgress}
           onConfirm={async (name) => {
             const ok = await handleSaveAsDraft(name, saveDraftMode)
             if (ok) {
@@ -1246,7 +1430,7 @@ export function TopBar() {
           onConfirmAnimateShare={() => void handleConfirmAnimateShare()}
           onCopyLink={handleCopyShareLink}
           onRetry={() => {
-            if (shareDialog.mediaKind === "animate") {
+            if (shareDialog.mediaKind !== "style") {
               void handleConfirmAnimateShare()
             } else {
               void handleShare()
@@ -1265,46 +1449,48 @@ export function TopBar() {
         <div className="hidden items-center gap-1.5 xl:flex">
           <ThemeToggle />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => void handleCopyPng()}
-                disabled={isCopyingPng}
-              >
-                <RiFileCopyLine />
-                <span className="relative hidden xl:inline-grid [&>span]:col-start-1 [&>span]:row-start-1">
-                  <span className="invisible whitespace-nowrap" aria-hidden>
-                    Copying…
-                  </span>
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.span
-                      key={
-                        isCopyingPng
-                          ? "copying"
+          {!isVideoCanvas && !isAnimateMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => void handleCopyPng()}
+                  disabled={isCopyingPng}
+                >
+                  <RiFileCopyLine />
+                  <span className="relative hidden xl:inline-grid [&>span]:col-start-1 [&>span]:row-start-1">
+                    <span className="invisible whitespace-nowrap" aria-hidden>
+                      Copying…
+                    </span>
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={
+                          isCopyingPng
+                            ? "copying"
+                            : isCopiedPng
+                              ? "copied"
+                              : "copy"
+                        }
+                        className="whitespace-nowrap"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.1 }}
+                      >
+                        {isCopyingPng
+                          ? "Copying…"
                           : isCopiedPng
-                            ? "copied"
-                            : "copy"
-                      }
-                      className="whitespace-nowrap"
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      transition={{ duration: 0.1 }}
-                    >
-                      {isCopyingPng
-                        ? "Copying…"
-                        : isCopiedPng
-                          ? "Copied!"
-                          : "Copy"}
-                    </motion.span>
-                  </AnimatePresence>
-                </span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Copy as PNG</TooltipContent>
-          </Tooltip>
+                            ? "Copied!"
+                            : "Copy"}
+                      </motion.span>
+                    </AnimatePresence>
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Copy as PNG</TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         <MobileOverflowMenu

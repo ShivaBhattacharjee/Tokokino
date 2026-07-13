@@ -184,6 +184,7 @@ export function useEditor(): EditorContext {
     screenshot: c.screenshot,
     originalScreenshot: c.originalScreenshot,
     lastCropRegion: c.lastCropRegion,
+    videoClips: c.videoClips,
     background: c.background,
     padding: c.padding,
     borderRadius: c.borderRadius,
@@ -308,10 +309,20 @@ export function useEditor(): EditorContext {
       store.setScreenshot(s, canvasId ?? targetId),
     applyCroppedScreenshot: (s, region, canvasId) =>
       store.applyCroppedScreenshot(s, region, canvasId ?? targetId),
+    setScreenshotCropRegion: (region, canvasId) =>
+      store.setScreenshotCropRegion(region, canvasId ?? targetId),
+    updateVideoClip: (id, patch, canvasId) =>
+      store.updateVideoClip(id, patch, canvasId ?? targetId),
+    splitVideoClip: (id, atMs, canvasId) =>
+      store.splitVideoClip(id, atMs, canvasId ?? targetId),
+    duplicateVideoClip: (id, durationMs, canvasId) =>
+      store.duplicateVideoClip(id, durationMs, canvasId ?? targetId),
+    removeVideoClips: (ids, canvasId) =>
+      store.removeVideoClips(ids, canvasId ?? targetId),
     setAspect: store.setAspect,
     setCanvasAspect: store.setCanvasAspect,
-    setBackground: (b, canvasId) =>
-      store.setBackground(b, canvasId ?? targetId),
+    setBackground: (b, canvasId, opts) =>
+      store.setBackground(b, canvasId ?? targetId, opts),
     setPadding: (n, canvasId) => store.setPadding(n, canvasId ?? targetId),
     setBorderRadius: (n, canvasId) =>
       store.setBorderRadius(n, canvasId ?? targetId),
@@ -451,10 +462,6 @@ export function useEditor(): EditorContext {
       store.splitAnimationClip(id, atMs, canvasId ?? targetId),
     clearAnimationClips: (canvasId) =>
       store.clearAnimationClips(canvasId ?? targetId),
-    setAnimationAudio: (audio, canvasId) =>
-      store.setAnimationAudio(audio, canvasId ?? targetId),
-    updateAnimationAudio: (patch, canvasId) =>
-      store.updateAnimationAudio(patch, canvasId ?? targetId),
     setIsPreviewMode: store.setIsPreviewMode,
     setIsPreviewAutoScroll: store.setIsPreviewAutoScroll,
     setPreviewAutoScrollDelay: store.setPreviewAutoScrollDelay,

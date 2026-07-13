@@ -25,6 +25,7 @@ import {
 import {
   animationMimeAndExt,
   createProgressReporter,
+  resolveAnimationDownloadFilename,
   throwIfAborted,
   triggerDownload,
 } from "./utils"
@@ -32,6 +33,7 @@ import { encodeWebmMediaRecorder, tryEncodeWithMediabunny } from "./video"
 import { loadWatermarkLogo, resolveWatermarkFontStack } from "./watermark"
 
 export { AnimationExportAbortedError } from "./utils"
+export { isWebmExportSupported } from "./video"
 export type {
   AnimationCaptureMode,
   AnimationExportBlobResult,
@@ -51,10 +53,16 @@ export async function exportAnimation(
 ): Promise<void | AnimationExportBlobResult> {
   const result = await encodeAnimation(canvasId, options)
   if (options.asBlob) return result
-  triggerDownload(
-    result.blob,
-    `tokokino-animation-${Date.now()}.${result.extension}`
-  )
+  const targetWidth =
+    options.targetWidth ??
+    (options.format === "gif" ? 720 : options.format === "mp4" ? 1080 : 1080)
+  const filename = await resolveAnimationDownloadFilename({
+    canvasId,
+    scale: options.scale ?? String(targetWidth),
+    targetWidth,
+    extension: result.extension,
+  })
+  triggerDownload(result.blob, filename)
 }
 
 /** Encode animation and always return the blob (for share uploads). */
@@ -80,7 +88,7 @@ async function encodeAnimation(
   const animation = canvas?.animation
   if (!canvas || !animation) throw new Error("Nothing to export")
 
-  const { durationMs, audio } = animation
+  const { durationMs } = animation
   const clips =
     state.isAnimateMode && state.selectedAnimationClipId
       ? animation.clips.map((clip) =>
@@ -155,7 +163,6 @@ async function encodeAnimation(
         blob = await encodeWebmMediaRecorder({
           ...ctx,
           durationMs,
-          audio: audio && !audio.muted && audio.src ? audio : null,
         })
       }
     }

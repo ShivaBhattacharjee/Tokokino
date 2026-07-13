@@ -3,7 +3,7 @@ import { useEditorStore } from "@/lib/editor/store"
 
 export type ProtectedTopBarAction = "save" | "share" | "open"
 
-export type ShareMediaKind = "style" | "animate"
+export type ShareMediaKind = "style" | "animate" | "video"
 
 export type ShareDialogState = {
   open: boolean

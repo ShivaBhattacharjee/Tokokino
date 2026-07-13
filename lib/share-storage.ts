@@ -1,9 +1,15 @@
 import "server-only"
 
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  ListPartsCommand,
   PutObjectCommand,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3"
 
 import { requireR2Config } from "@/lib/env"
@@ -99,7 +105,8 @@ export async function getSharePoster(id: string, posterKey?: string | null) {
 export async function getShareImage(
   id: string,
   objectKey?: string | null,
-  contentType?: string | null
+  contentType?: string | null,
+  range?: string | null
 ) {
   const { bucket } = requireR2Config()
   const keys = [
@@ -122,6 +129,7 @@ export async function getShareImage(
         new GetObjectCommand({
           Bucket: bucket,
           Key: key,
+          Range: range ?? undefined,
         })
       )
     } catch (error) {
@@ -167,3 +175,135 @@ export async function deleteShareImages(ids: string[]) {
 }
 
 export { MAX_SHARE_IMAGE_BYTES, MAX_SHARE_POSTER_BYTES }
+
+export const SHARE_UPLOAD_PART_BYTES = 8 * 1024 * 1024
+
+export async function createShareMultipartUpload({
+  id,
+  uploadId,
+  userId,
+  contentType,
+  objectKey,
+}: {
+  id: string
+  uploadId: string
+  userId: string
+  contentType: string
+  objectKey: string
+}) {
+  const { bucket } = requireR2Config()
+  const result = await getR2Client().send(
+    new CreateMultipartUploadCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      ContentType: contentType,
+      CacheControl: "public, max-age=31536000, immutable",
+      Metadata: { userId, shareId: id, shareUploadId: uploadId },
+    })
+  )
+  if (!result.UploadId) throw new Error("Could not start multipart upload")
+  return result.UploadId
+}
+
+export async function uploadShareMultipartPart({
+  objectKey,
+  r2UploadId,
+  partNumber,
+  body,
+}: {
+  objectKey: string
+  r2UploadId: string
+  partNumber: number
+  body: Uint8Array
+}) {
+  const { bucket } = requireR2Config()
+  const result = await getR2Client().send(
+    new UploadPartCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      UploadId: r2UploadId,
+      PartNumber: partNumber,
+      Body: body,
+    })
+  )
+  if (!result.ETag) throw new Error("R2 did not confirm uploaded part")
+  return result.ETag
+}
+
+export async function listShareMultipartParts({
+  objectKey,
+  r2UploadId,
+}: {
+  objectKey: string
+  r2UploadId: string
+}) {
+  const { bucket } = requireR2Config()
+  const result = await getR2Client().send(
+    new ListPartsCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      UploadId: r2UploadId,
+    })
+  )
+  return (result.Parts ?? [])
+    .filter(
+      (part): part is { PartNumber: number; ETag: string; Size: number } =>
+        Number.isInteger(part.PartNumber) &&
+        typeof part.ETag === "string" &&
+        typeof part.Size === "number"
+    )
+    .map((part) => ({
+      partNumber: part.PartNumber,
+      etag: part.ETag,
+      sizeBytes: part.Size,
+    }))
+}
+
+export async function completeShareMultipartUpload({
+  objectKey,
+  r2UploadId,
+  parts,
+}: {
+  objectKey: string
+  r2UploadId: string
+  parts: Array<{ partNumber: number; etag: string }>
+}) {
+  const { bucket } = requireR2Config()
+  await getR2Client().send(
+    new CompleteMultipartUploadCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      UploadId: r2UploadId,
+      MultipartUpload: {
+        Parts: parts.map((part) => ({
+          PartNumber: part.partNumber,
+          ETag: part.etag,
+        })),
+      },
+    })
+  )
+}
+
+export async function abortShareMultipartUpload({
+  objectKey,
+  r2UploadId,
+}: {
+  objectKey: string
+  r2UploadId: string
+}) {
+  const { bucket } = requireR2Config()
+  await getR2Client().send(
+    new AbortMultipartUploadCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      UploadId: r2UploadId,
+    })
+  )
+}
+
+export async function getShareMultipartObject(objectKey: string) {
+  const { bucket } = requireR2Config()
+  return getR2Client().send(
+    new HeadObjectCommand({ Bucket: bucket, Key: objectKey })
+  )
+}

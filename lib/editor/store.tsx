@@ -12,7 +12,8 @@ import {
   poseAtCut,
   REST_LIGHTING,
 } from "./animation-playback"
-import { MAX_DURATION_MS } from "./animation-timeline"
+import { MAX_DURATION_MS, resolveRippleDrop } from "./animation-timeline"
+import { isVideoSrc } from "./media-type"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import { screenshotPositionAnchor } from "./presets"
 import type { TweetCardSettings } from "./tweet-settings"
@@ -65,7 +66,6 @@ import type {
   AnnotationPoint,
   AnnotationShape,
   AnnotationStroke,
-  AnimationAudio,
   AnimationClip,
   AnimationClipTarget,
   AnimationEffect,
@@ -96,6 +96,7 @@ import type {
   TextElement,
   Tilt,
   TweetCard,
+  VideoTimelineClip,
 } from "./state-types"
 
 const TWEET_POST_ASPECT: AspectState = { id: "x-post", w: 1080, h: 1080 }
@@ -120,7 +121,7 @@ const SLOT_ANIMATABLE_EFFECTS: AnimationEffect[] = [
 
 /** Canvas.animation is optional (older drafts) — always read through this. */
 const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
-  canvas.animation ?? { durationMs: 5000, clips: [], audio: null }
+  canvas.animation ?? { durationMs: 5000, clips: [] }
 
 /** Snapshot the canvas's animatable state as a clip's target keyframe (pose). */
 export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
@@ -692,9 +693,36 @@ export type EditorActions = {
     region: CropRegion,
     canvasId?: string
   ) => void
+  // Non-destructive crop: stores a render-time crop region without re-encoding
+  // or replacing the screenshot src. Used for video, which can't be re-encoded
+  // client-side; passing null clears the crop.
+  setScreenshotCropRegion: (
+    region: CropRegion | null,
+    canvasId?: string
+  ) => void
+  /** Update the placement or non-destructive in/out range of one video section. */
+  updateVideoClip: (
+    id: string,
+    patch: Partial<Omit<VideoTimelineClip, "id">>,
+    canvasId?: string
+  ) => void
+  /** Split a video section at a source-timeline time. */
+  splitVideoClip: (id: string, atMs: number, canvasId?: string) => string | null
+  /** Copy a video section and insert it after its source range. */
+  duplicateVideoClip: (
+    id: string,
+    durationMs: number,
+    canvasId?: string
+  ) => string | null
+  /** Delete one or more video sections. */
+  removeVideoClips: (ids: string[], canvasId?: string) => void
   setAspect: (a: AspectState) => void
   setCanvasAspect: (canvasId: string, a: AspectState) => void
-  setBackground: (b: Background, canvasId?: string) => void
+  setBackground: (
+    b: Background,
+    canvasId?: string,
+    opts?: { silent?: boolean }
+  ) => void
   setPadding: (n: number, canvasId?: string) => void
   setBorderRadius: (n: number, canvasId?: string) => void
   setCanvasBorderRadius: (n: number, canvasId?: string) => void
@@ -847,11 +875,6 @@ export type EditorActions = {
     canvasId?: string
   ) => string | null
   clearAnimationClips: (canvasId?: string) => void
-  setAnimationAudio: (audio: AnimationAudio | null, canvasId?: string) => void
-  updateAnimationAudio: (
-    patch: Partial<AnimationAudio>,
-    canvasId?: string
-  ) => void
   setIsPreviewMode: (p: boolean) => void
   setIsPreviewAutoScroll: (a: boolean) => void
   setPreviewAutoScrollDelay: (d: number) => void
@@ -1369,6 +1392,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           screenshot,
           originalScreenshot: screenshot,
           lastCropRegion: null,
+          videoClips: null,
           // A screenshot replaces any tweet as the canvas's main content.
           tweet: screenshot ? null : canvas.tweet,
           objectFit: canvas.objectFit ?? "contain",
@@ -1389,6 +1413,130 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         canvasId,
         { screenshot: s, lastCropRegion: region },
         "applyCroppedScreenshot"
+      ),
+    setScreenshotCropRegion: (region, canvasId) =>
+      commitCanvas(
+        canvasId,
+        { lastCropRegion: region },
+        "setScreenshotCropRegion"
+      ),
+    updateVideoClip: (id, patch, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          return {
+            videoClips: clips.map((clip) =>
+              clip.id === id ? { ...clip, ...patch } : clip
+            ),
+          }
+        },
+        "video-trim"
+      ),
+    splitVideoClip: (id, atMs, canvasId) => {
+      let newId: string | null = null
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          const clip = clips.find((item) => item.id === id)
+          if (
+            !clip ||
+            atMs <= clip.startMs ||
+            (clip.endMs !== null && atMs >= clip.endMs)
+          ) {
+            return {}
+          }
+          newId = makeId()
+          return {
+            videoClips: clips.flatMap((item) =>
+              item.id === id
+                ? [
+                    { ...item, endMs: atMs },
+                    {
+                      ...item,
+                      id: newId!,
+                      timelineStartMs:
+                        (item.timelineStartMs ?? item.startMs) +
+                        (atMs - item.startMs),
+                      startMs: atMs,
+                    },
+                  ]
+                : [item]
+            ),
+          }
+        },
+        "video-split"
+      )
+      return newId
+    },
+    duplicateVideoClip: (id, durationMs, canvasId) => {
+      let newId: string | null = null
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          const source = clips.find((clip) => clip.id === id)
+          if (!source || durationMs <= 0) return {}
+          const sourceStart = source.timelineStartMs ?? source.startMs
+          const sourceEndMs = source.endMs ?? source.startMs + durationMs
+          const { startMs, shiftAfterMs, shiftMs } = resolveRippleDrop(
+            sourceStart + durationMs,
+            durationMs,
+            clips
+              .filter((clip) => clip.id !== id)
+              .map((clip) => ({
+                startMs: clip.timelineStartMs ?? clip.startMs,
+                durationMs:
+                  clip.endMs === null ? durationMs : clip.endMs - clip.startMs,
+              })),
+            MAX_DURATION_MS
+          )
+          newId = makeId()
+          return {
+            videoClips: [
+              ...clips.map((clip) => {
+                const timelineStartMs = clip.timelineStartMs ?? clip.startMs
+                const positioned =
+                  timelineStartMs < shiftAfterMs
+                    ? clip
+                    : { ...clip, timelineStartMs: timelineStartMs + shiftMs }
+                return clip.id === id && clip.endMs === null
+                  ? { ...positioned, endMs: sourceEndMs }
+                  : positioned
+              }),
+              {
+                ...source,
+                id: newId,
+                endMs: sourceEndMs,
+                timelineStartMs: startMs,
+              },
+            ],
+          }
+        },
+        "video-duplicate"
+      )
+      return newId
+    },
+    removeVideoClips: (ids, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          const clips = canvas.videoClips ?? [
+            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+          ]
+          const kept = clips.filter((clip) => !ids.includes(clip.id))
+          return kept.length > 0
+            ? { videoClips: kept }
+            : { screenshot: null, originalScreenshot: null, videoClips: null }
+        },
+        "video-delete"
       ),
     setAspect: (a) => {
       const snapshot = get()
@@ -1583,13 +1731,50 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "aspect"
       )
     },
-    setBackground: (b, canvasId) =>
+    setBackground: (b, canvasId, opts) => {
+      // The canvas-view hydration effect re-applies image backgrounds as an
+      // optimized value (library/Unsplash URL → downscaled data URL) on reload.
+      // That's an internal swap of the SAME background, not a user edit, so in
+      // Animate mode it must NOT be recorded as a "background" keyframe effect —
+      // otherwise reopening a draft spuriously marks the open clip as animating
+      // the background. Swap the value on the committed canvas and on any clip
+      // pose holding the same source, leaving `effects` untouched.
+      if (opts?.silent) {
+        commitCanvas(
+          canvasId,
+          (canvas) => {
+            const anim = getCanvasAnimation(canvas)
+            if (anim.clips.length === 0) return { background: b }
+            const prev = canvas.background
+            const matchesPrev = (bg: Background | undefined) =>
+              bg?.type === "image" &&
+              prev.type === "image" &&
+              bg.sourceUrl === prev.sourceUrl
+            const clips = anim.clips.map((c) => {
+              const pose =
+                c.pose && matchesPrev(c.pose.background)
+                  ? { ...c.pose, background: b }
+                  : c.pose
+              const baseline =
+                c.baseline && matchesPrev(c.baseline.background)
+                  ? { ...c.baseline, background: b }
+                  : c.baseline
+              if (pose === c.pose && baseline === c.baseline) return c
+              return { ...c, pose, baseline }
+            })
+            return { background: b, animation: { ...anim, clips } }
+          },
+          "background"
+        )
+        return
+      }
       commitCanvasEffect(
         canvasId,
         { background: b },
         "background",
         "background"
-      ),
+      )
+    },
     setPadding: (n, canvasId) =>
       commitCanvasEffect(
         canvasId,
@@ -1827,6 +2012,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   screenshot: null,
                   originalScreenshot: null,
                   lastCropRegion: null,
+                  videoClips: null,
                   screenshotSlots: [],
                   frame: {
                     id: "none",
@@ -2452,33 +2638,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           if (!moving) return {}
           const dur = moving.durationMs
           const others = animation.clips.filter((clip) => clip.id !== id)
-          // Where the clip was dropped, clamped to the absolute max range (it may
-          // land past the set duration — that's fine, it just renders faded).
-          const desired = Math.max(0, startMs)
-          // Clips that stay before the drop point keep their spot; snap the drop
-          // past the nearest one so we never overlap it.
-          const prevEnd = others
-            .filter((clip) => clip.startMs < desired)
-            .reduce(
-              (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
-              0
-            )
-          const start = Math.min(
-            Math.max(desired, prevEnd),
-            Math.max(0, MAX_DURATION_MS - dur)
-          )
-          // Clips at/after the drop point ripple right just enough to open a gap
-          // for the moved clip (preserving the spacing between them) — so
-          // dropping between two clips inserts there instead of snapping away.
-          const nextStart = others
-            .filter((clip) => clip.startMs >= desired)
-            .reduce((min, clip) => Math.min(min, clip.startMs), Infinity)
-          const shift = Number.isFinite(nextStart)
-            ? Math.max(0, start + dur - nextStart)
-            : 0
+          const {
+            startMs: start,
+            shiftAfterMs,
+            shiftMs: shift,
+          } = resolveRippleDrop(startMs, dur, others, MAX_DURATION_MS)
           const clips = animation.clips.map((clip) => {
             if (clip.id === id) return { ...clip, startMs: start }
-            if (clip.startMs < desired) return clip
+            if (clip.startMs < shiftAfterMs) return clip
             return {
               ...clip,
               startMs: Math.min(
@@ -2774,29 +2941,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }),
         null
       ),
-    setAnimationAudio: (audio, canvasId) =>
-      commitCanvas(
-        canvasId,
-        (canvas) => ({
-          animation: { ...getCanvasAnimation(canvas), audio },
-        }),
-        null
-      ),
-    updateAnimationAudio: (patch, canvasId) =>
-      commitCanvas(
-        canvasId,
-        (canvas) => {
-          const animation = getCanvasAnimation(canvas)
-          if (!animation.audio) return {}
-          return {
-            animation: {
-              ...animation,
-              audio: { ...animation.audio, ...patch },
-            },
-          }
-        },
-        "animation-audio"
-      ),
     setIsPreviewMode: (p) => set({ isPreviewMode: p }),
     setIsPreviewAutoScroll: (a) => set({ isPreviewAutoScroll: a }),
     setPreviewAnimation: (a) => set({ previewAnimation: a }),
@@ -2961,6 +3105,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (
         !target ||
         target.tweet ||
+        (target.screenshot && isVideoSrc(target.screenshot)) ||
         target.screenshotSlots.length >= MAX_SCREENSHOT_SLOTS
       ) {
         return null

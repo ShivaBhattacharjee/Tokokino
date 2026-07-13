@@ -34,10 +34,12 @@ import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import {
   AnimationExportAbortedError,
   exportAnimation,
+  isWebmExportSupported,
   type AnimationCaptureMode,
   type AnimationExportFormat,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
+import { animationExportErrorMessage } from "@/lib/editor/animation-export/error-message"
 import {
   exportCanvas,
   getCanvasRenderedDims,
@@ -48,6 +50,9 @@ import {
   type ExportFormat,
   type ExportResolution,
 } from "@/lib/editor/export"
+import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
+import { isVideoSrc } from "@/lib/editor/media-type"
+import { shouldUseVideoMediaShareExport } from "@/lib/editor/share-export-choice"
 import { useEditorStore } from "@/lib/editor/store"
 import type { CanvasState } from "@/lib/editor/store"
 import { usePersistentState } from "@/hooks/use-persistent-state"
@@ -123,15 +128,48 @@ const ANIMATION_CAPTURE_MODE_LABELS: Record<AnimationCaptureMode, string> = {
 }
 const ANIMATION_BUTTON_MAX_LABEL = `Export ${ANIMATION_RESOLUTION_LABELS.fullhd} • ${ANIMATION_FORMAT_LABELS.webm}`
 
-const ANIMATION_EXPORT_PHASE_LABELS: Record<
-  AnimationExportProgress["phase"] | "idle",
-  string
-> = {
-  idle: "Starting export",
-  preparing: "Preparing canvas",
-  capturing: "Rendering frames",
-  encoding: "Encoding video",
-  finishing: "Finishing download",
+/** Phase copy — GIF encode is palette work, not "video". */
+function animationExportPhaseLabel(
+  phase: AnimationExportProgress["phase"] | "idle" | undefined,
+  format: AnimationExportFormat
+): string {
+  switch (phase) {
+    case "preparing":
+      return "Preparing canvas"
+    case "capturing":
+      return "Rendering frames"
+    case "encoding":
+      return format === "gif" ? "Encoding GIF" : "Encoding video"
+    case "finishing":
+      return "Finishing download"
+    default:
+      return "Starting export"
+  }
+}
+
+/**
+ * Map phase-local counters onto one continuous bar so GIF (and video) don't
+ * jump back to 0% when capture ends and encode begins.
+ * Preparing stays at 0 (no fake "4%"); capture then encode share the bar.
+ */
+function overallExportProgressRatio(
+  progress: AnimationExportProgress | null
+): number {
+  if (!progress) return 0
+  const { phase, current, total } = progress
+  const phaseRatio = total > 0 ? Math.min(1, Math.max(0, current / total)) : 0
+  switch (phase) {
+    case "preparing":
+      return 0
+    case "capturing":
+      return phaseRatio * 0.7
+    case "encoding":
+      return 0.7 + phaseRatio * 0.28
+    case "finishing":
+      return 0.98 + phaseRatio * 0.02
+    default:
+      return 0
+  }
 }
 
 /** Friendly ETA like "< 5 min", "~30s", "Almost done". */
@@ -154,32 +192,35 @@ function formatExportEta(etaMs: number | null | undefined): string | null {
 function AnimationExportProgressDialog({
   open,
   progress,
+  format,
   formatLabel,
   onCancel,
 }: {
   open: boolean
   progress: AnimationExportProgress | null
+  format: AnimationExportFormat
   formatLabel: string
   onCancel: () => void
 }) {
   const current = progress?.current ?? 0
   const total = Math.max(1, progress?.total ?? 1)
-  const progressRatio =
-    progress == null ? 0 : Math.min(1, Math.max(0, current / total))
+  const progressRatio = overallExportProgressRatio(progress)
   const pct = Math.round(progressRatio * 100)
+  // Frame counter only while rendering — encode reuses the same N frames and
+  // used to look like a second full pass ("0 of 150" again).
   const showFrames =
-    progress != null &&
-    (progress.phase === "capturing" || progress.phase === "encoding") &&
-    progress.total > 1
+    progress != null && progress.phase === "capturing" && progress.total > 1
   const etaLabel = formatExportEta(progress?.etaMs)
-  const phaseLabel =
-    ANIMATION_EXPORT_PHASE_LABELS[progress?.phase ?? "idle"] ??
-    ANIMATION_EXPORT_PHASE_LABELS.idle
-  const frameLabel = showFrames
-    ? `${Math.min(current, total)} of ${total} frames`
-    : progress
-      ? `${pct}% complete`
-      : "Waiting to start"
+  const phaseLabel = animationExportPhaseLabel(progress?.phase, format)
+  const frameLabel = !progress
+    ? "Waiting to start"
+    : progress.phase === "preparing"
+      ? "Getting ready…"
+      : showFrames
+        ? `${Math.min(current, total)} of ${total} frames`
+        : progress.phase === "finishing"
+          ? "Almost done"
+          : `${pct}% complete`
 
   return (
     <Dialog
@@ -541,6 +582,26 @@ export function ExportControls({
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  // A plain video canvas (not in Animate mode) exports as a real video via the
+  // compositor; it reuses the same format/resolution/fps UI as animate export.
+  const isVideoCanvas = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas ? isVideoSrc(canvas.screenshot) : false
+  })
+  const animationKeyframeCount = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas?.animation?.clips.length ?? 0
+  })
+  const videoExportMode = shouldUseVideoMediaShareExport({
+    isVideoCanvas,
+    isAnimateMode,
+    keyframeCount: animationKeyframeCount,
+  })
+  const showVideoFormats = isAnimateMode || videoExportMode
   const setTopBarPopoverOpen = useEditorStore((s) => s.setTopBarPopoverOpen)
   // Sticky export preferences — persisted so a chosen format/resolution/fps
   // survives reloads instead of snapping back to the default each session.
@@ -595,6 +656,23 @@ export function ExportControls({
     () => snapFpsToOptions(animFps, animFpsOptions),
     [animFps, animFpsOptions]
   )
+  // WebM has no encoder path in some browsers (Safari): disable the option there
+  // rather than let the export fail. Assume supported until the async probe says
+  // otherwise so the option isn't briefly disabled on capable browsers.
+  const [webmSupported, setWebmSupported] = React.useState(true)
+  React.useEffect(() => {
+    let cancelled = false
+    void isWebmExportSupported().then((ok) => {
+      if (!cancelled) setWebmSupported(ok)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  React.useEffect(() => {
+    // Move off a persisted WebM selection when this browser can't produce it.
+    if (!webmSupported && animFormat === "webm") setAnimFormat("mp4")
+  }, [webmSupported, animFormat, setAnimFormat])
   const [isExporting, setIsExporting] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   // Own hover state for the settings tooltip so it stays controlled for its
@@ -615,6 +693,65 @@ export function ExportControls({
 
   const handleExport = React.useCallback(async () => {
     if (isExporting) return
+    if (videoExportMode) {
+      const abort = new AbortController()
+      animAbortRef.current = abort
+      lastUiPushRef.current = 0
+      lastUiSnapshotRef.current = ""
+      setIsExporting(true)
+      setAnimProgress({ phase: "preparing", current: 0, total: 1, etaMs: null })
+      setOpen(false)
+      try {
+        await exportVideoMedia(activeCanvasId, {
+          format: animFormat,
+          fps: effectiveAnimFps,
+          targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
+          scale: animResolution,
+          watermark: includeWatermark,
+          signal: abort.signal,
+          onProgress: (p) => {
+            const now = performance.now()
+            const isPhaseChange =
+              p.phase !== lastUiSnapshotRef.current.split("|")[0]
+            const isDone = p.current >= p.total && p.total > 0
+            if (
+              !isPhaseChange &&
+              !isDone &&
+              now - lastUiPushRef.current < 100
+            ) {
+              return
+            }
+            lastUiPushRef.current = now
+            lastUiSnapshotRef.current = `${p.phase}|${p.current}|${p.total}`
+            setAnimProgress(p)
+          },
+        })
+        toast.success(
+          `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
+        )
+      } catch (err) {
+        if (
+          err instanceof AnimationExportAbortedError ||
+          (err instanceof DOMException && err.name === "AbortError") ||
+          (err instanceof Error && err.name === "AnimationExportAbortedError")
+        ) {
+          toast.message("Export cancelled")
+        } else {
+          console.error(err)
+          toast.error(
+            animationExportErrorMessage(
+              err,
+              "Video export failed. Please try again."
+            )
+          )
+        }
+      } finally {
+        animAbortRef.current = null
+        setAnimProgress(null)
+        setIsExporting(false)
+      }
+      return
+    }
     if (isAnimateMode) {
       const abort = new AbortController()
       animAbortRef.current = abort
@@ -633,6 +770,7 @@ export function ExportControls({
           format: animFormat,
           fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
+          scale: animResolution,
           watermark: includeWatermark,
           capture: animCapture,
           signal: abort.signal,
@@ -666,11 +804,7 @@ export function ExportControls({
           toast.message("Export cancelled")
         } else {
           console.error(err)
-          toast.error(
-            err instanceof Error && err.message === "Nothing to export"
-              ? "Nothing to export — add a keyframe first."
-              : "Animation export failed. Please try again."
-          )
+          toast.error(animationExportErrorMessage(err))
         }
       } finally {
         animAbortRef.current = null
@@ -705,12 +839,13 @@ export function ExportControls({
     format,
     includeWatermark,
     isAnimateMode,
+    videoExportMode,
     resolution,
     isExporting,
   ])
 
   const dims = open
-    ? isAnimateMode
+    ? showVideoFormats
       ? animationOutputDims(activeCanvasId, animResolution)
       : getOutputDims(activeCanvasId, resolution)
     : null
@@ -718,15 +853,16 @@ export function ExportControls({
 
   const buttonLabel = isExporting
     ? "Exporting…"
-    : isAnimateMode
+    : showVideoFormats
       ? `Export ${ANIMATION_RESOLUTION_LABELS[animResolution]} • ${ANIMATION_FORMAT_LABELS[animFormat]}`
       : `Export ${EXPORT_RESOLUTION_LABELS[resolution]} • ${EXPORT_FORMAT_LABELS[format]}`
 
   return (
     <>
       <AnimationExportProgressDialog
-        open={isExporting && isAnimateMode}
+        open={isExporting && showVideoFormats}
         progress={animProgress}
+        format={animFormat}
         formatLabel={ANIMATION_FORMAT_LABELS[animFormat]}
         onCancel={cancelAnimExport}
       />
@@ -746,7 +882,7 @@ export function ExportControls({
                   className="invisible pr-0.5 whitespace-nowrap"
                   aria-hidden
                 >
-                  {isAnimateMode
+                  {showVideoFormats
                     ? ANIMATION_BUTTON_MAX_LABEL
                     : EXPORT_BUTTON_MAX_LABEL}
                 </span>
@@ -766,7 +902,11 @@ export function ExportControls({
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {isAnimateMode ? "Export animation" : "Export screenshot"}
+            {isAnimateMode
+              ? "Export animation"
+              : videoExportMode
+                ? "Export video"
+                : "Export screenshot"}
           </TooltipContent>
         </Tooltip>
 
@@ -798,14 +938,19 @@ export function ExportControls({
           <PopoverContent
             align="end"
             sideOffset={8}
-            className="w-64 gap-3 rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
+            className="w-64 gap-3 rounded-md border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
           >
-            {isAnimateMode ? (
+            {showVideoFormats ? (
               <>
                 <SegmentedRow
                   options={ANIMATION_FORMATS.map((f) => ({
                     value: f,
                     label: ANIMATION_FORMAT_LABELS[f],
+                    disabled: f === "webm" && !webmSupported,
+                    tooltip:
+                      f === "webm" && !webmSupported
+                        ? "WebM isn't supported in this browser (e.g. Safari). Use MP4 or GIF."
+                        : undefined,
                   }))}
                   value={animFormat}
                   onChange={(v) => setAnimFormat(v as AnimationExportFormat)}
@@ -847,19 +992,23 @@ export function ExportControls({
                     onCheckedChange={onIncludeWatermarkChange}
                   />
                 </div>
-                <div className="flex flex-col gap-1 px-1">
-                  <span className="px-1 text-[11px] text-muted-foreground">
-                    Capture engine
-                  </span>
-                  <SegmentedRow
-                    options={ANIMATION_CAPTURE_MODES.map((m) => ({
-                      value: m,
-                      label: ANIMATION_CAPTURE_MODE_LABELS[m],
-                    }))}
-                    value={animCapture}
-                    onChange={(v) => setAnimCapture(v as AnimationCaptureMode)}
-                  />
-                </div>
+                {isAnimateMode && (
+                  <div className="flex flex-col gap-1 px-1">
+                    <span className="px-1 text-[11px] text-muted-foreground">
+                      Capture engine
+                    </span>
+                    <SegmentedRow
+                      options={ANIMATION_CAPTURE_MODES.map((m) => ({
+                        value: m,
+                        label: ANIMATION_CAPTURE_MODE_LABELS[m],
+                      }))}
+                      value={animCapture}
+                      onChange={(v) =>
+                        setAnimCapture(v as AnimationCaptureMode)
+                      }
+                    />
+                  </div>
+                )}
               </>
             ) : (
               <>

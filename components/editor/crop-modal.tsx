@@ -9,6 +9,7 @@ import {
 } from "@/components/kibo-ui/image-crop"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import type { CropRegion } from "@/lib/editor/store"
 
 function dataURLtoFile(dataurl: string, filename: string) {
@@ -32,6 +33,67 @@ async function urlToFile(url: string, filename: string): Promise<File> {
   const res = await fetch(url)
   const blob = await res.blob()
   return new File([blob], filename, { type: blob.type || "image/png" })
+}
+
+/**
+ * Grab a still poster frame from a video src so react-image-crop (which is
+ * image-only) has something to draw the crop handles over. The returned frame
+ * is only used for handle placement — the video itself is never re-encoded; the
+ * caller applies the resulting CropRegion at render time.
+ */
+async function videoPosterFile(url: string, filename: string): Promise<File> {
+  const video = document.createElement("video")
+  video.src = url
+  video.muted = true
+  video.playsInline = true
+  video.preload = "auto"
+  video.crossOrigin = "anonymous"
+  // Explicit load() — required for reliable metadata on Firefox/Safari when the
+  // element is created off-DOM (setting src alone is not always enough).
+  video.load()
+
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      video.onloadeddata = null
+      video.onerror = null
+      video.onseeked = null
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error("video load failed"))
+    }
+    const onLoaded = () => {
+      // Seek slightly in to avoid a black/empty first frame on some codecs.
+      const target = Math.min(0.1, (video.duration || 0) / 2)
+      if (Number.isFinite(target) && target > 0 && video.currentTime === 0) {
+        video.onseeked = () => {
+          cleanup()
+          resolve()
+        }
+        video.currentTime = target
+      } else {
+        cleanup()
+        resolve()
+      }
+    }
+    video.onloadeddata = onLoaded
+    video.onerror = onError
+  })
+
+  const w = video.videoWidth || 1280
+  const h = video.videoHeight || 720
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("no 2d context")
+  ctx.drawImage(video, 0, 0, w, h)
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob((b) => resolve(b), "image/png")
+  )
+  if (!blob) throw new Error("poster encode failed")
+  return new File([blob], filename, { type: "image/png" })
 }
 
 type Preset = {
@@ -98,27 +160,41 @@ export function CropModal({
     [onOpenChange]
   )
 
+  const isVideo = !!screenshotUrl && isVideoSrc(screenshotUrl)
+
+  // Videos are never rendered by react-image-crop directly; a data-URL image is
+  // only available for still screenshots, so the poster path handles video.
   const dataUrlFile = React.useMemo(() => {
-    if (!open || !screenshotUrl || !isDataUrl(screenshotUrl)) return null
+    if (!open || !screenshotUrl || isVideo || !isDataUrl(screenshotUrl))
+      return null
     try {
       return dataURLtoFile(screenshotUrl, "screenshot.png")
     } catch {
       return null
     }
-  }, [open, screenshotUrl])
+  }, [open, screenshotUrl, isVideo])
 
   React.useEffect(() => {
-    if (!open || !screenshotUrl || isDataUrl(screenshotUrl)) return
+    if (!open || !screenshotUrl) return
+    if (!isVideo && isDataUrl(screenshotUrl)) return
 
     let cancelled = false
-    void urlToFile(screenshotUrl, "screenshot.png").then((file) => {
-      if (!cancelled) setLoadedFile({ url: screenshotUrl, file })
-    })
+    const loader = isVideo
+      ? videoPosterFile(screenshotUrl, "poster.png")
+      : urlToFile(screenshotUrl, "screenshot.png")
+    void loader
+      .then((file) => {
+        if (!cancelled) setLoadedFile({ url: screenshotUrl, file })
+      })
+      .catch(() => {
+        // Leave file null so the dialog stays closed / empty rather than
+        // surfacing an unhandled rejection when poster fetch fails.
+      })
 
     return () => {
       cancelled = true
     }
-  }, [open, screenshotUrl])
+  }, [open, screenshotUrl, isVideo])
 
   const file =
     dataUrlFile ??
@@ -163,16 +239,20 @@ export function CropModal({
         showCloseButton={false}
         className="flex max-w-[760px] flex-col gap-0 overflow-hidden rounded-2xl border border-border/60 bg-popover p-0 shadow-2xl sm:max-w-[760px]"
       >
-        <DialogTitle className="sr-only">Crop screenshot</DialogTitle>
+        <DialogTitle className="sr-only">
+          {isVideo ? "Crop video" : "Crop screenshot"}
+        </DialogTitle>
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/50 px-5 py-3">
           <div className="flex flex-col">
             <span className="text-[13px] font-semibold tracking-tight text-foreground">
-              Crop screenshot
+              {isVideo ? "Crop video" : "Crop screenshot"}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              Drag the handles or pick a preset ratio
+              {isVideo
+                ? "Preview shows a still frame — the crop applies to the whole clip"
+                : "Drag the handles or pick a preset ratio"}
             </span>
           </div>
           <button

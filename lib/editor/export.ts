@@ -1,8 +1,12 @@
 import { toJpeg, toBlob, toCanvas, getFontEmbedCSS } from "html-to-image"
 
 import { shouldProxyAssetUrl } from "./export-assets"
-import { buildExportFilename, getExportFilenameFormat } from "./export-filename"
-import { useEditorStore } from "./store"
+import { replaceCloneVideosWithFrames } from "./export-video-frames"
+import {
+  buildExportFilename,
+  getExportFilenameFormat,
+  getExportTemplateLabel,
+} from "./export-filename"
 
 export { shouldProxyAssetUrl } from "./export-assets"
 
@@ -89,28 +93,6 @@ export function getOutputDims(
     width: Math.round(targetWidth),
     height: Math.round(dims.height * ratio),
   }
-}
-
-/** Resolve a `{TEMPLATE}` label from the active preset / aspect ratio. */
-function getTemplateLabel(canvasId: string): string {
-  try {
-    const state = useEditorStore.getState()
-    if (state.activeCustomPresetId) {
-      const preset = state.customPresets.find(
-        (p) => p.id === state.activeCustomPresetId
-      )
-      if (preset?.name) return preset.name
-    }
-    const presetId =
-      state.activeSinglePresetId ?? state.activeLayoutPresetId ?? null
-    if (presetId) return presetId
-    const canvas = state.present.canvases.find((c) => c.id === canvasId)
-    const aspect = canvas?.aspect ?? state.present.aspect
-    if (aspect?.w && aspect?.h) return `${aspect.w}x${aspect.h}`
-  } catch {
-    /* store not ready — fall through */
-  }
-  return "default"
 }
 
 function triggerDownload(url: string, filename: string) {
@@ -586,7 +568,7 @@ export async function exportCanvas(
   const filename = buildExportFilename({
     format: await getExportFilenameFormat(),
     scale: resolution,
-    template: getTemplateLabel(canvasId),
+    template: getExportTemplateLabel(canvasId),
     width: outputWidth,
     height: outputHeight,
     extension: EXPORT_FORMAT_EXTENSION[format],
@@ -1054,6 +1036,7 @@ export async function captureCanvasAsPngBlob(
   try {
     await waitForExportAssets(assetUrls)
     await embedCloneImages(exportTarget.node)
+    replaceCloneVideosWithFrames(node, exportTarget.node)
 
     // html-to-image is flaky on the first call (fonts/images not yet embedded
     // in the cloned document). Two attempts is the standard workaround.

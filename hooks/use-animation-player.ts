@@ -3,6 +3,8 @@
 import * as React from "react"
 
 import { useEditorStore } from "@/lib/editor/store"
+import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
+import { useVideoRegistry } from "@/lib/editor/video-registry"
 
 type PlayerContextValue = {
   playheadMs: number
@@ -23,7 +25,9 @@ const AnimationPlayerContext = React.createContext<PlayerContextValue | null>(
  * Owns playback state for Animate mode. Playhead + isPlaying live here (not in
  * the Zustand store) so scrubbing at 60fps doesn't flood undo history. The
  * timeline bar and the on-canvas animation layer both read from this context so
- * they stay in lock-step.
+ * they stay in lock-step. When the base layer is a video, the same transport
+ * drives the canvas <video> (via the registry the video control bar uses), so
+ * play/pause/scrub move the actual footage.
  */
 export function AnimationPlayerProvider({
   children,
@@ -35,10 +39,11 @@ export function AnimationPlayerProvider({
       s.present.canvases.find((c) => c.id === s.present.activeCanvasId)
         ?.animation?.durationMs ?? 5000
   )
-  const audioMeta = useEditorStore(
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const videoClips = useEditorStore(
     (s) =>
       s.present.canvases.find((c) => c.id === s.present.activeCanvasId)
-        ?.animation?.audio ?? null
+        ?.videoClips ?? null
   )
 
   const [playheadMs, setPlayheadMs] = React.useState(0)
@@ -46,25 +51,62 @@ export function AnimationPlayerProvider({
 
   const rafRef = React.useRef<number | null>(null)
   const startRef = React.useRef({ ts: 0, from: 0 })
-  const audioRef = React.useRef<HTMLAudioElement | null>(null)
   const durationRef = React.useRef(durationMs)
   React.useEffect(() => {
     durationRef.current = durationMs
   }, [durationMs])
 
-  // Keep a single <audio> element in sync with the attached track.
+  const activeCanvasIdRef = React.useRef(activeCanvasId)
   React.useEffect(() => {
-    if (typeof Audio === "undefined") return
-    if (!audioRef.current) audioRef.current = new Audio()
-    const el = audioRef.current
-    const src = audioMeta?.src ?? ""
-    if (el.src !== src) el.src = src
-    el.volume = audioMeta?.volume ?? 1
-    el.muted = audioMeta?.muted ?? false
-    return () => {
-      el.pause()
-    }
-  }, [audioMeta?.src, audioMeta?.volume, audioMeta?.muted])
+    activeCanvasIdRef.current = activeCanvasId
+  }, [activeCanvasId])
+
+  const videoClipsRef = React.useRef(videoClips)
+  React.useEffect(() => {
+    videoClipsRef.current = videoClips
+  }, [videoClips])
+
+  const videoClipAt = React.useCallback(
+    (ms: number, mediaDurationMs?: number) => {
+      const clips = videoClipsRef.current ?? [
+        { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+      ]
+      return clips.find(
+        (clip) =>
+          ms >= (clip.timelineStartMs ?? clip.startMs) &&
+          ms <
+            (clip.timelineStartMs ?? clip.startMs) +
+              ((clip.endMs ?? mediaDurationMs ?? Infinity) - clip.startMs)
+      )
+    },
+    []
+  )
+
+  // The active canvas's <video> element, when its base layer is a video.
+  const getVideo = React.useCallback(() => {
+    const id = activeCanvasIdRef.current
+    return id ? (useVideoRegistry.getState().videos[id] ?? null) : null
+  }, [])
+
+  const syncVideoTo = React.useCallback(
+    (ms: number) => {
+      const el = getVideo()
+      if (!el) return
+      const clip = videoClipAt(
+        ms,
+        Number.isFinite(el.duration) ? el.duration * 1000 : undefined
+      )
+      if (!clip) return
+      el.muted = clip.muted ?? getVideoMutedPreferenceSync()
+      const sourceMs =
+        clip.startMs + (ms - (clip.timelineStartMs ?? clip.startMs))
+      const seconds = sourceMs / 1000
+      el.currentTime = Number.isFinite(el.duration)
+        ? Math.min(seconds, el.duration)
+        : seconds
+    },
+    [getVideo, videoClipAt]
+  )
 
   const stopRaf = React.useCallback(() => {
     if (rafRef.current !== null) {
@@ -76,19 +118,8 @@ export function AnimationPlayerProvider({
   const pause = React.useCallback(() => {
     stopRaf()
     setIsPlaying(false)
-    audioRef.current?.pause()
-  }, [stopRaf])
-
-  const syncAudioTo = React.useCallback((ms: number) => {
-    const el = audioRef.current
-    if (!el || !el.src) return
-    const seconds = ms / 1000
-    if (Number.isFinite(el.duration) && seconds > el.duration) {
-      el.currentTime = el.duration
-    } else {
-      el.currentTime = seconds
-    }
-  }, [])
+    getVideo()?.pause()
+  }, [stopRaf, getVideo])
 
   const play = React.useCallback(() => {
     const total = durationRef.current
@@ -97,27 +128,53 @@ export function AnimationPlayerProvider({
     startRef.current = { ts: performance.now(), from }
     setIsPlaying(true)
 
-    const el = audioRef.current
-    if (el && el.src && !el.muted) {
-      syncAudioTo(from)
-      void el.play().catch(() => {})
+    const video = getVideo()
+    if (video) {
+      syncVideoTo(from)
+      if (
+        videoClipAt(
+          from,
+          Number.isFinite(video.duration) ? video.duration * 1000 : undefined
+        )
+      ) {
+        void video.play().catch(() => {})
+      } else {
+        video.pause()
+      }
     }
 
     const tick = (now: number) => {
       const elapsed = now - startRef.current.ts
       const next = startRef.current.from + elapsed
+      const activeVideo = getVideo()
+      if (activeVideo) {
+        const activeClip = videoClipAt(
+          next,
+          Number.isFinite(activeVideo.duration)
+            ? activeVideo.duration * 1000
+            : undefined
+        )
+        if (!activeClip) {
+          activeVideo.pause()
+        } else if (activeVideo.paused) {
+          syncVideoTo(next)
+          void activeVideo.play().catch(() => {})
+        } else {
+          activeVideo.muted = activeClip.muted ?? getVideoMutedPreferenceSync()
+        }
+      }
       if (next >= total) {
         setPlayheadMs(total)
         stopRaf()
         setIsPlaying(false)
-        audioRef.current?.pause()
+        getVideo()?.pause()
         return
       }
       setPlayheadMs(next)
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
-  }, [playheadMs, stopRaf, syncAudioTo])
+  }, [playheadMs, stopRaf, getVideo, syncVideoTo, videoClipAt])
 
   const toggle = React.useCallback(() => {
     if (isPlaying) pause()
@@ -128,17 +185,17 @@ export function AnimationPlayerProvider({
     (ms: number) => {
       const clamped = Math.max(0, Math.min(ms, durationRef.current))
       setPlayheadMs(clamped)
-      syncAudioTo(clamped)
+      syncVideoTo(clamped)
       if (isPlaying) startRef.current = { ts: performance.now(), from: clamped }
     },
-    [isPlaying, syncAudioTo]
+    [isPlaying, syncVideoTo]
   )
 
   const reset = React.useCallback(() => {
     pause()
     setPlayheadMs(0)
-    syncAudioTo(0)
-  }, [pause, syncAudioTo])
+    syncVideoTo(0)
+  }, [pause, syncVideoTo])
 
   React.useEffect(() => stopRaf, [stopRaf])
 

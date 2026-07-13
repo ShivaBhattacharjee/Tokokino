@@ -22,6 +22,9 @@ type CanvasEmptyStateProps = {
   isActive?: boolean
   previewStyle?: React.CSSProperties
   compact?: boolean
+  /** Whether videos are accepted (false for multi-screenshot boxes). Forwarded
+   * to the upload card for its label. Defaults to true. */
+  allowVideo?: boolean
   /** Override aspect ratio (falls back to active editor aspect). */
   aspectW?: number
   aspectH?: number
@@ -54,6 +57,7 @@ export function CanvasEmptyState({
   isActive = false,
   previewStyle,
   compact = false,
+  allowVideo = true,
   aspectW,
   aspectH,
   noOuterPadding = false,
@@ -158,6 +162,7 @@ export function CanvasEmptyState({
             onCapture={onCapture}
             onLoadTweet={onLoadTweet}
             compact={useCompact}
+            allowVideo={allowVideo}
             defaultCaptureDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
           />
@@ -202,6 +207,7 @@ export function CanvasEmptyState({
           onCapture={onCapture}
           onLoadTweet={onLoadTweet}
           compact={useCompact}
+          allowVideo={allowVideo}
           defaultCaptureDevice={defaultCaptureDevice}
           captureStateKey={captureStateKey}
         />

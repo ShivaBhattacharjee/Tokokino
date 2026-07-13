@@ -8,12 +8,14 @@ import {
   RiPencilLine,
 } from "@remixicon/react"
 import { Select as SelectPrimitive } from "radix-ui"
+import { toast } from "sonner"
 
 import {
   UploadCard,
   type CaptureDevice,
   type CaptureSettings,
 } from "@/components/editor/canvas/upload-card"
+import { isVideoFile } from "@/lib/editor/media-type"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { ScrollFadeBody } from "@/components/editor/scroll-fade"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
@@ -39,6 +41,9 @@ type ScreenshotEditMenuProps = {
   onCrop: () => void
   onReplaceFile: (file: File) => void
   onDelete: () => void
+  /** Whether a video may replace this media. False for slots / multi-screenshot
+   *  (video is only allowed as the sole screenshot). Defaults to true. */
+  allowVideo?: boolean
   showDelete?: boolean
   onCaptureWebsite?: (
     url: string,
@@ -56,6 +61,7 @@ export function ScreenshotEditMenu({
   onCrop,
   onReplaceFile,
   onDelete,
+  allowVideo = true,
   showDelete = true,
   onCaptureWebsite,
   onLoadTweet,
@@ -77,12 +83,18 @@ export function ScreenshotEditMenu({
       <input
         ref={replaceInputRef}
         type="file"
-        accept="image/*"
+        accept={allowVideo ? "image/*,video/*" : "image/*"}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) {
-            onReplaceFile(file)
+            // Guard the single-media rule even if a video slips past the picker
+            // filter (drag-drop, "All files") — video is only for the sole shot.
+            if (!allowVideo && isVideoFile(file)) {
+              toast.error("Video can only be used as a single screenshot")
+            } else {
+              onReplaceFile(file)
+            }
             handleOpenChange(false)
           }
           e.target.value = ""

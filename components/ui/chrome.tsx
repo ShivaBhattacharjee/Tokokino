@@ -6,7 +6,10 @@ import {
   type SyntheticEvent,
 } from "react"
 
+import { assignMediaRef } from "@/components/ui/browser-frame-media"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
+import { useVideoPreload } from "@/components/editor/canvas/use-video-preload"
 
 const CHROME_WIDTH = 1202
 const CHROME_HEIGHT = 776
@@ -36,6 +39,10 @@ export interface ChromeProps extends HTMLAttributes<HTMLDivElement> {
   screenRef?: Ref<HTMLDivElement>
   imageRef?: Ref<HTMLImageElement>
   onImageLoad?: (e: SyntheticEvent<HTMLImageElement>) => void
+  /** Called with the <video> node so the editor can register playback controls. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
+  /** Extra styles for the media element (e.g. video crop polyfill). */
+  mediaStyle?: CSSProperties
   imageFit?: ImageFit
   frameBorderRadius?: string | number
   screenBorderRadius?: string | number
@@ -54,6 +61,8 @@ export function Chrome({
   screenRef,
   imageRef,
   onImageLoad,
+  onMediaElement,
+  mediaStyle,
   imageFit = "cover",
   frameBorderRadius = "8px",
   screenBorderRadius = "0 0 8px 8px",
@@ -65,6 +74,7 @@ export function Chrome({
   style,
   ...props
 }: ChromeProps) {
+  const videoPreload = useVideoPreload()
   const hasVideo = !!videoSrc
   const addressText = addressValue ?? url ?? ""
   const tabTitle = chromeTabTitle(addressText)
@@ -166,15 +176,25 @@ export function Chrome({
         : {}
 
   const screen = hasVideo ? (
-    <video
-      className="block size-full object-cover"
-      src={videoSrc}
-      autoPlay
-      loop
-      muted
-      playsInline
-      preload="metadata"
-    />
+    <div className="relative size-full bg-black">
+      <video
+        ref={(node) => {
+          assignMediaRef(imageRef, node as unknown as HTMLImageElement | null)
+          onMediaElement?.(node)
+        }}
+        className={`block size-full ${imageFitClassName(imageFit)}`}
+        src={videoSrc}
+        muted
+        loop
+        playsInline
+        preload={videoPreload}
+        style={mediaStyle}
+        onLoadedMetadata={(e) =>
+          onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)
+        }
+      />
+      <VideoIdlePoster src={videoSrc} />
+    </div>
   ) : imageSrc ? (
     <ShimmerImage
       ref={imageRef}
@@ -183,6 +203,7 @@ export function Chrome({
       alt=""
       onLoad={onImageLoad}
       className={`block size-full ${imageFitClassName(imageFit)}`}
+      style={mediaStyle}
     />
   ) : (
     children
@@ -220,7 +241,7 @@ export function Chrome({
       {...props}
     >
       <div
-        ref={hasVideo ? undefined : screenRef}
+        ref={screenRef}
         className={`absolute z-0 overflow-hidden ${screenBg}`}
         style={{
           left: `${LEFT_PCT}%`,

@@ -110,4 +110,14 @@ describe("NameDialog", () => {
     // Random name may rarely repeat; just assert it stays non-empty.
     expect(input).not.toHaveValue("")
   })
+
+  it("shows video upload progress while saving", () => {
+    renderDialog({ loading: true, uploadProgress: { current: 42, total: 100 } })
+
+    expect(screen.getByText("Uploading video — 42%")).toBeInTheDocument()
+    expect(screen.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "42"
+    )
+  })
 })

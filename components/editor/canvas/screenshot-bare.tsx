@@ -1,11 +1,23 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
-import type { EditorTool, ScreenshotLayer } from "@/lib/editor/store"
+import {
+  cropMediaObjectStyle,
+  isActiveCropRegion,
+} from "@/lib/editor/crop-utils"
+import { isVideoSrc } from "@/lib/editor/media-type"
+import type {
+  CropRegion,
+  EditorTool,
+  ScreenshotLayer,
+} from "@/lib/editor/store"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
+import { VideoIdlePoster } from "./video-idle-poster"
+import { useVideoPreload } from "./use-video-preload"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -50,7 +62,13 @@ type ScreenshotBareProps = {
   captureStateKey?: string
   shadowBoxTarget?: boolean
   objectFit?: "contain" | "cover" | "fill"
+  /** Non-destructive video crop (percent region). Applied via overflow frame. */
+  cropRegion?: CropRegion | null
+  /** Cropped media aspect (`w / h`) so the bare frame shrink-wraps correctly. */
+  cropAspectRatio?: string
   innerLightingStyle?: React.CSSProperties | null
+  /** Receives the <video> DOM node (or null) when the screenshot is a video. */
+  onMediaElement?: (el: HTMLVideoElement | null) => void
 }
 
 /**
@@ -108,9 +126,44 @@ export function ScreenshotBare({
   captureStateKey,
   shadowBoxTarget = false,
   objectFit = "cover",
+  cropRegion = null,
+  cropAspectRatio,
   innerLightingStyle,
+  onMediaElement,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
+  const videoPreload = useVideoPreload()
+  const isVideo = isVideoSrc(screenshot)
+  const activeCrop =
+    isVideo && isActiveCropRegion(cropRegion) ? cropRegion : null
+  // Safari/Firefox report 0×0 until metadata — without a fallback the contain
+  // shell collapses to a speck then jumps to full size. Fill the stage until
+  // we know the real aspect, then shrink-wrap.
+  const [videoAspectState, setVideoAspectState] = React.useState<{
+    src: string
+    aspect: string | null
+  }>({ src: screenshot, aspect: null })
+  const videoIntrinsicAspect =
+    videoAspectState.src === screenshot ? videoAspectState.aspect : null
+
+  // Feed the same element the parent measures (imageRef) and the video registry
+  // (which the docked control bar reads) off a single node, so placement
+  // measurement keeps working and the bar can drive playback.
+  // When cropped, imageRef must point at the overflow frame (laid-out crop box),
+  // while onMediaElement still receives the real <video>.
+  const setMediaRef = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      onMediaElement?.(node)
+    },
+    [onMediaElement]
+  )
+  const setVideoShellRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      imageRef.current = node as unknown as HTMLImageElement | null
+    },
+    [imageRef]
+  )
+
   // Measured size of a nested-contain image so the empty lighting layer can
   // match the shrink-wrapped box (it has no intrinsic size of its own).
   const [nestedContainSize, setNestedContainSize] = React.useState<{
@@ -255,49 +308,194 @@ export function ScreenshotBare({
               transformStyle: "preserve-3d",
             }
 
+  const mediaClassName = cn(
+    "pointer-events-auto absolute select-none",
+    // Nested cover/fill fills the parent slot/row box.
+    isNested && !isNestedContain && "inset-0 h-full w-full",
+    !isNested && objectFit === "cover" && "h-full w-full object-cover",
+    !isNested && objectFit === "fill" && "h-full w-full object-fill",
+    // contain: shrink-wrap to the image's aspect (max bounds = stage/parent).
+    // Outline/radius/shadow then hug the image; lighting uses measured size.
+    (isNestedContain || (!isNested && objectFit === "contain")) &&
+      "max-h-full max-w-full object-contain",
+    isNested && objectFit === "cover" && "object-cover",
+    isNested && objectFit === "fill" && "object-fill",
+    screenshotLayer.hidden && "pointer-events-none",
+    isScreenshotDragging || suppressTransition || activeTool === "position"
+      ? "cursor-grabbing transition-none"
+      : // Never transition layout (left/top/size) — first measure after load would
+        // otherwise look like a zoom/slide-in. Transform/opacity still ease.
+        "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
+    activeTool === "pointer" && "cursor-grab",
+    isScreenshotSelected && activeTool === "pointer" && "outline-none"
+  )
+
+  const cropFrameStyle: React.CSSProperties | undefined = activeCrop
+    ? {
+        ...imagePositionStyle,
+        overflow: "hidden",
+        objectFit: undefined,
+        ...(cropAspectRatio ? { aspectRatio: cropAspectRatio } : null),
+        ...((isNestedContain || (!isNested && objectFit === "contain")) &&
+        cropAspectRatio
+          ? {
+              width: "100%",
+              height: "auto",
+              maxWidth: "100%",
+              maxHeight: "100%",
+            }
+          : null),
+      }
+    : undefined
+
+  const resolvedVideoAspect = cropAspectRatio ?? videoIntrinsicAspect
+
+  // Video contain shells must never rely on the <video> intrinsic box — Safari
+  // reports 0×0 until metadata, and width/height:auto + aspect-ratio alone can
+  // stay 0×0 after metadata too. Always give a definite width (or fill stage).
+  const videoShellStyle: React.CSSProperties = (() => {
+    if (activeCrop) return cropFrameStyle ?? imagePositionStyle
+    if (objectFit !== "contain") return imagePositionStyle
+
+    // After placement is measured, pin to that box (same as images).
+    if (placementDims && isFreePlaced) {
+      return {
+        ...imagePositionStyle,
+        width: placementDims.imgW,
+        height: placementDims.imgH,
+      }
+    }
+
+    if (!resolvedVideoAspect) {
+      return {
+        ...imagePositionStyle,
+        inset: 0,
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "100%",
+        height: "100%",
+        maxWidth: "100%",
+        maxHeight: "100%",
+        transform: contentTransform || imagePositionStyle.transform,
+      }
+    }
+
+    return {
+      ...imagePositionStyle,
+      aspectRatio: resolvedVideoAspect,
+      // Definite width so aspect-ratio can resolve height (auto/auto → 0 in Safari).
+      width: "100%",
+      height: "auto",
+      maxWidth: "100%",
+      maxHeight: "100%",
+      left: "50%",
+      top: "50%",
+      transform:
+        `translate(-50%, -50%) ${contentTransform || transform}`.trim(),
+    }
+  })()
+
+  const videoInner = (
+    <video
+      ref={setMediaRef}
+      src={screenshot}
+      muted
+      loop
+      playsInline
+      preload={videoPreload}
+      draggable={false}
+      onLoadedMetadata={(e) => {
+        const el = e.currentTarget
+        if (el.videoWidth > 0 && el.videoHeight > 0) {
+          setVideoAspectState({
+            src: screenshot,
+            aspect: `${el.videoWidth} / ${el.videoHeight}`,
+          })
+        }
+        onImageLoad(e as unknown as React.SyntheticEvent<HTMLImageElement>)
+      }}
+      onError={() =>
+        toast.error(
+          "Couldn't load this video — the file may be corrupted or use an unsupported codec.",
+          {
+            id: "video-load-error",
+          }
+        )
+      }
+      {...(activeCrop
+        ? {
+            style: cropMediaObjectStyle(activeCrop),
+            className: "pointer-events-none absolute max-h-none max-w-none",
+          }
+        : {
+            className: cn(
+              "pointer-events-none absolute inset-0 h-full w-full",
+              objectFit === "contain" && "object-contain",
+              objectFit === "cover" && "object-cover",
+              objectFit === "fill" && "object-fill"
+            ),
+          })}
+    />
+  )
+
   return (
     <div
       ref={stageRef}
       className="group/screenshot pointer-events-none relative h-full w-full overflow-visible"
       onPointerDown={onContainerPointerDown}
     >
-      <ShimmerImage
-        ref={imageRef}
-        shimmer={false}
-        data-box-hover-target
-        data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
-        src={screenshot}
-        alt="Screenshot"
-        draggable={false}
-        onLoad={onImageLoad}
-        onClick={onSelect}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        style={imagePositionStyle}
-        className={cn(
-          "pointer-events-auto absolute select-none",
-          // Nested cover/fill fills the parent slot/row box.
-          isNested && !isNestedContain && "inset-0 h-full w-full",
-          !isNested && objectFit === "cover" && "h-full w-full object-cover",
-          !isNested && objectFit === "fill" && "h-full w-full object-fill",
-          // contain: shrink-wrap to the image's aspect (max bounds = stage/parent).
-          // Outline/radius/shadow then hug the image; lighting uses measured size.
-          (isNestedContain || (!isNested && objectFit === "contain")) &&
-            "max-h-full max-w-full object-contain",
-          isNested && objectFit === "cover" && "object-cover",
-          isNested && objectFit === "fill" && "object-fill",
-          screenshotLayer.hidden && "pointer-events-none",
-          isScreenshotDragging ||
-            suppressTransition ||
-            activeTool === "position"
-            ? "cursor-grabbing transition-none"
-            : "transition-all duration-300 ease-out",
-          activeTool === "pointer" && "cursor-grab",
-          isScreenshotSelected && activeTool === "pointer" && "outline-none"
-        )}
-      />
+      {isVideo ? (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <div
+          ref={setVideoShellRef}
+          data-box-hover-target
+          data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
+          style={videoShellStyle}
+          className={cn(
+            mediaClassName,
+            "overflow-hidden bg-black",
+            !resolvedVideoAspect && "transition-none"
+          )}
+          onClick={(e) =>
+            onSelect(e as unknown as React.MouseEvent<HTMLImageElement>)
+          }
+          onPointerDown={(e) =>
+            onPointerDown(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+          onPointerMove={(e) =>
+            onPointerMove(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+          onPointerUp={(e) =>
+            onPointerUp(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+          onPointerCancel={(e) =>
+            onPointerUp(e as unknown as React.PointerEvent<HTMLImageElement>)
+          }
+        >
+          {videoInner}
+          <VideoIdlePoster src={screenshot} />
+        </div>
+      ) : (
+        <ShimmerImage
+          ref={imageRef}
+          shimmer={false}
+          data-box-hover-target
+          data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
+          src={screenshot}
+          alt="Screenshot"
+          draggable={false}
+          onLoad={onImageLoad}
+          onClick={onSelect}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          style={imagePositionStyle}
+          className={mediaClassName}
+        />
+      )}
 
       {innerLightingStyle && !screenshotLayer.hidden ? (
         <div
@@ -308,7 +506,7 @@ export function ScreenshotBare({
               suppressTransition ||
               activeTool === "position"
               ? "transition-none"
-              : "transition-all duration-300 ease-out"
+              : "transition-[transform,opacity,filter] duration-300 ease-out"
           )}
           style={{
             ...innerLightingStyle,
@@ -335,7 +533,7 @@ export function ScreenshotBare({
               suppressTransition ||
               activeTool === "position"
               ? "transition-none"
-              : "transition-all duration-300 ease-out"
+              : "transition-[transform,opacity,filter] duration-300 ease-out"
           )}
           style={{
             ...lightSizeStyle,

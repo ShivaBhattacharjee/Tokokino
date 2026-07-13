@@ -73,17 +73,26 @@ export function ShareView({
     }
   }, [id, isVideo])
 
+  const handleDownload = React.useCallback(() => {
+    // Point a transient anchor at the API URL so the browser streams the file
+    // straight to disk — buffering it through res.blob() loads the whole share
+    // (videos can be ~1GB) into the JS heap and can OOM the tab. The route sets
+    // Content-Disposition, so the server supplies the filename.
+    const a = document.createElement("a")
+    a.href = `/api/share/${id}/download`
+    a.download = ""
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    toast.success("Download started")
+  }, [id])
+
   return (
     <main className="min-h-svh bg-background text-foreground">
       <div className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dashed border-border/70 pb-4">
           <div className="min-w-0">
-            <p className="label-eyebrow">
-              {isAnimate ? "Shared animation" : "Shared screenshot"}
-            </p>
-            <h1 className="mt-1 truncate text-lg font-medium">
-              Tokokino share
-            </h1>
+            <h1 className="truncate text-lg font-medium">Tokokino share</h1>
             <p className="mt-1 text-xs text-muted-foreground">
               {sharedBy ? `Shared by ${sharedBy}` : "Shared with Tokokino"}
               {views === null
@@ -103,11 +112,9 @@ export function ShareView({
                 <span>{imageCopied ? "Copied" : "Copy"}</span>
               </Button>
             ) : null}
-            <Button className="w-44" asChild size="lg">
-              <a href={`/api/share/${id}/download`}>
-                <RiDownloadLine />
-                <span>Download</span>
-              </a>
+            <Button className="w-44" size="lg" onClick={handleDownload}>
+              <RiDownloadLine />
+              <span>Download</span>
             </Button>
           </div>
         </header>

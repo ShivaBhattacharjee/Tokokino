@@ -8,6 +8,8 @@ import type {
   AnimationExportPhase,
   AnimationExportProgress,
 } from "./types"
+import { getCanvasRenderedDims } from "../export"
+import { resolveExportDownloadFilename } from "../export-filename"
 
 export class AnimationExportAbortedError extends Error {
   constructor(message = "Export cancelled") {
@@ -31,12 +33,52 @@ export function triggerDownload(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
 
+/** Output pixel size for a canvas export at `targetWidth`. */
+export function animationExportOutputDims(
+  canvasId: string,
+  targetWidth: number
+): { width: number; height: number } {
+  const rendered = getCanvasRenderedDims(canvasId)
+  if (!rendered?.width || !rendered.height) {
+    return { width: targetWidth, height: targetWidth }
+  }
+  const scale = targetWidth / rendered.width
+  return {
+    width: Math.round(rendered.width * scale),
+    height: Math.round(rendered.height * scale),
+  }
+}
+
+/** Filename for a video/animation download using the shared export format. */
+export async function resolveAnimationDownloadFilename(opts: {
+  canvasId: string
+  scale: string
+  targetWidth: number
+  extension: string
+}): Promise<string> {
+  const dims = animationExportOutputDims(opts.canvasId, opts.targetWidth)
+  return resolveExportDownloadFilename({
+    canvasId: opts.canvasId,
+    scale: opts.scale,
+    width: dims.width,
+    height: dims.height,
+    extension: opts.extension,
+  })
+}
+
 export function even(n: number) {
   const r = Math.max(2, Math.round(n))
   return r % 2 === 0 ? r : r + 1
 }
 
-export function pickWebmMimeType(): string {
+/**
+ * Best WebM mime type MediaRecorder can actually record, or null when the engine
+ * records no WebM at all (Safari: its MediaRecorder only does MP4/H.264). Callers
+ * must treat null as "WebM unsupported here" rather than defaulting to a string
+ * that `new MediaRecorder` would reject with NotSupportedError.
+ */
+export function pickWebmMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") return null
   const candidates = [
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
@@ -45,14 +87,9 @@ export function pickWebmMimeType(): string {
     "video/webm",
   ]
   for (const type of candidates) {
-    if (
-      typeof MediaRecorder !== "undefined" &&
-      MediaRecorder.isTypeSupported(type)
-    ) {
-      return type
-    }
+    if (MediaRecorder.isTypeSupported(type)) return type
   }
-  return "video/webm"
+  return null
 }
 
 export function animationMimeAndExt(format: AnimationExportFormat): {

@@ -2,10 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import {
-  OpenProjectDialog,
-  buildPageItems,
-} from "@/components/editor/top-bar/open-project-dialog"
+import { OpenProjectDialog } from "@/components/editor/top-bar/open-project-dialog"
+import { buildPageItems } from "@/lib/pagination"
 
 /**
  * `OpenProjectDialog` — lists saved drafts fetched from /api/drafts and opens
@@ -143,6 +141,29 @@ describe("OpenProjectDialog", () => {
     })
   })
 
+  it("switches to video projects when Videos is selected", async () => {
+    const fetchMock = mockFetch({ drafts: [], total: 0 })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    render(
+      <OpenProjectDialog
+        open
+        onOpenChange={() => {}}
+        currentDraftId={null}
+        onOpenDraft={() => {}}
+        onCreateNew={() => {}}
+      />
+    )
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await user.click(
+      screen.getByRole("button", { name: /Videos.*without a timeline/i })
+    )
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((call) => String(call[0] ?? ""))
+      expect(urls.some((url) => url.includes("type=video"))).toBe(true)
+    })
+  })
+
   it("paginates with numbered page buttons", async () => {
     const many = Array.from({ length: 9 }, (_, i) => ({
       id: `d${i}`,
@@ -215,7 +236,42 @@ describe("OpenProjectDialog", () => {
       expect(screen.getByText("First Project")).toBeInTheDocument()
     )
     await user.click(screen.getByText("First Project").closest("button")!)
-    expect(onOpenDraft).toHaveBeenCalledWith("d1")
+    expect(onOpenDraft).toHaveBeenCalledTimes(1)
+    expect(onOpenDraft.mock.calls[0]?.[0]).toBe("d1")
+  })
+
+  it("shows download progress while opening a video draft", async () => {
+    vi.stubGlobal("fetch", mockFetch())
+    let finish!: () => void
+    const onOpenDraft = vi.fn(
+      (
+        _id: string,
+        onProgress?: (progress: { current: number; total: number }) => void
+      ) => {
+        onProgress?.({ current: 42, total: 100 })
+        return new Promise<void>((resolve) => {
+          finish = resolve
+        })
+      }
+    )
+    const user = userEvent.setup()
+    render(
+      <OpenProjectDialog
+        open
+        onOpenChange={() => {}}
+        currentDraftId={null}
+        onOpenDraft={onOpenDraft}
+        onCreateNew={() => {}}
+      />
+    )
+
+    await waitFor(() =>
+      expect(screen.getByText("First Project")).toBeInTheDocument()
+    )
+    await user.click(screen.getByText("First Project").closest("button")!)
+
+    expect(screen.getByText("Downloading video 42%")).toBeInTheDocument()
+    finish()
   })
 
   it("offers a delete control per draft", async () => {

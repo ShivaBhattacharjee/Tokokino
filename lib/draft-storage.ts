@@ -1,8 +1,10 @@
 import "server-only"
 
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3"
 
@@ -36,6 +38,102 @@ export function getDraftStateKey({
   id: string
 }) {
   return `drafts/${userId}/${id}.json`
+}
+
+export function getDraftMediaKey({
+  userId,
+  id,
+  contentType,
+}: {
+  userId: string
+  id: string
+  contentType: string
+}) {
+  const extension = contentType === "video/webm" ? "webm" : "mp4"
+  return `drafts/${userId}/media/${id}.${extension}`
+}
+
+export async function uploadDraftMedia({
+  userId,
+  id,
+  body,
+  contentType,
+  contentLength,
+}: {
+  userId: string
+  id: string
+  body: ReadableStream<Uint8Array>
+  contentType: string
+  contentLength: number
+}) {
+  const { bucket } = requireR2Config()
+  const key = getDraftMediaKey({ userId, id, contentType })
+  await getR2Client().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentLength: contentLength,
+      ContentType: contentType,
+      CacheControl: "private, max-age=0, no-store",
+      Metadata: { userId },
+    })
+  )
+  return key
+}
+
+/** Size in bytes of the stored object, or null when the head call fails. */
+export async function getStoredDraftMediaSize(objectKey: string) {
+  const { bucket } = requireR2Config()
+  const head = await getR2Client()
+    .send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }))
+    .catch(() => null)
+  return head?.ContentLength ?? null
+}
+
+export async function getDraftMedia(objectKey: string, range?: string | null) {
+  const { bucket } = requireR2Config()
+  return getR2Client().send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      Range: range ?? undefined,
+    })
+  )
+}
+
+export async function copyDraftMedia({
+  userId,
+  id,
+  sourceKey,
+  contentType,
+}: {
+  userId: string
+  id: string
+  sourceKey: string
+  contentType: string
+}) {
+  const { bucket } = requireR2Config()
+  const key = getDraftMediaKey({ userId, id, contentType })
+  await getR2Client().send(
+    new CopyObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      CopySource: `${bucket}/${sourceKey}`,
+      ContentType: contentType,
+      MetadataDirective: "REPLACE",
+      CacheControl: "private, max-age=0, no-store",
+      Metadata: { userId },
+    })
+  )
+  return key
+}
+
+export async function deleteDraftMediaObject(objectKey: string) {
+  const { bucket } = requireR2Config()
+  await getR2Client().send(
+    new DeleteObjectCommand({ Bucket: bucket, Key: objectKey })
+  )
 }
 
 export async function uploadDraftThumbnail({
