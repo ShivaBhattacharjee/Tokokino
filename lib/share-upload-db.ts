@@ -253,7 +253,7 @@ export async function getConfirmedShareUploadBytes(uploadId: string) {
 }
 
 export function isShareUploadExpired(upload: ShareUpload) {
-  return (
+  return Promise.resolve(
     upload.status !== "complete" && upload.expiresAt.getTime() <= Date.now()
   )
 }

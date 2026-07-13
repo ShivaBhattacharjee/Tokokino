@@ -55,7 +55,7 @@ export async function PUT(
   const upload = await getShareUploadForUser(id, session.user.id)
   if (!upload)
     return NextResponse.json({ error: "Upload not found" }, { status: 404 })
-  if (upload.status !== "active" || isShareUploadExpired(upload)) {
+  if (upload.status !== "active" || (await isShareUploadExpired(upload))) {
     return NextResponse.json({ error: "Upload is not active" }, { status: 409 })
   }
   const range = parseContentRange(request.headers.get("content-range"))

@@ -479,6 +479,11 @@ export function useAnimateTimeline() {
     [moveAnimationClip, stopAutoScroll, selectAnimationClip]
   )
 
+  // Declared before the video row handlers below — they guard on it so a
+  // menu-item press bubbling up through the portal can't start a marquee/drag.
+  const menuOpenRef = React.useRef(false)
+  const menuClosedAtRef = React.useRef(0)
+
   const videoDragRef = React.useRef<{
     id: string
     mode: VideoTrimDragMode
@@ -719,7 +724,12 @@ export function useAnimateTimeline() {
       // The animation row stops propagation before its button guard. Keep the
       // video row identical so right-click cannot start the parent scrubber.
       event.stopPropagation()
-      if (event.button !== 0 || razorModeRef.current) return
+      // Context-menu item presses bubble here through the portal (React
+      // portals bubble through the React tree, not the DOM). Capturing the
+      // pointer then would retarget pointerup away from the menu item and
+      // swallow its click — same menu-open guard as the animation clips row.
+      if (event.button !== 0 || razorModeRef.current || menuOpenRef.current)
+        return
       const row = videoRowRef.current
       if (!row) return
       const rect = row.getBoundingClientRect()
@@ -1028,8 +1038,6 @@ export function useAnimateTimeline() {
   const ghostRafRef = React.useRef<number | null>(null)
   const ghostClientXRef = React.useRef(0)
   const ghostHoveringRef = React.useRef(false)
-  const menuOpenRef = React.useRef(false)
-  const menuClosedAtRef = React.useRef(0)
 
   const marqueeRef = React.useRef<{ startX: number; active: boolean } | null>(
     null

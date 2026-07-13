@@ -62,7 +62,7 @@ export async function POST(
   if (upload.status === "cancelled") {
     return NextResponse.json({ error: "Upload was cancelled" }, { status: 409 })
   }
-  if (isShareUploadExpired(upload)) {
+  if (await isShareUploadExpired(upload)) {
     return NextResponse.json({ error: "Upload expired" }, { status: 410 })
   }
 

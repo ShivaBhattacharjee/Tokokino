@@ -33,7 +33,7 @@ export async function GET(
   const upload = await getShareUploadForUser(id, session.user.id)
   if (!upload)
     return NextResponse.json({ error: "Upload not found" }, { status: 404 })
-  if (isShareUploadExpired(upload)) {
+  if (await isShareUploadExpired(upload)) {
     await abortShareMultipartUpload({
       objectKey: upload.objectKey,
       r2UploadId: upload.r2UploadId,
