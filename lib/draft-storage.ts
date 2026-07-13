@@ -4,6 +4,7 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3"
 
@@ -79,6 +80,15 @@ export async function uploadDraftMedia({
     })
   )
   return key
+}
+
+/** Size in bytes of the stored object, or null when the head call fails. */
+export async function getStoredDraftMediaSize(objectKey: string) {
+  const { bucket } = requireR2Config()
+  const head = await getR2Client()
+    .send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }))
+    .catch(() => null)
+  return head?.ContentLength ?? null
 }
 
 export async function getDraftMedia(objectKey: string, range?: string | null) {

@@ -1,12 +1,7 @@
 "use client"
 
 import * as React from "react"
-import {
-  RiCheckLine,
-  RiDownloadLine,
-  RiImageLine,
-  RiLoader4Line,
-} from "@remixicon/react"
+import { RiCheckLine, RiDownloadLine, RiImageLine } from "@remixicon/react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -31,7 +26,6 @@ export function ShareView({
 }) {
   const [imageCopied, setImageCopied] = React.useState(false)
   const [imageFailed, setImageFailed] = React.useState(false)
-  const [downloading, setDownloading] = React.useState(false)
   const isVideo = isVideoShareContentType(contentType)
   const isGif = contentType.toLowerCase() === "image/gif"
   const isAnimate = shareType === "animate" || isVideo || isGif
@@ -79,39 +73,19 @@ export function ShareView({
     }
   }, [id, isVideo])
 
-  const handleDownload = React.useCallback(async () => {
-    if (downloading) return
-    setDownloading(true)
-    const toastId = toast.loading("Preparing download…")
-    try {
-      const res = await fetch(`/api/share/${id}/download`)
-      if (!res.ok) throw new Error()
-      const blob = await res.blob()
-      const ext = blob.type.includes("webm")
-        ? "webm"
-        : blob.type.includes("mp4")
-          ? "mp4"
-          : blob.type.includes("gif")
-            ? "gif"
-            : blob.type.includes("jpeg")
-              ? "jpg"
-              : "png"
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `tokokino-share-${id}.${ext}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      toast.success("Download started", { id: toastId })
-    } catch (error) {
-      console.error(error)
-      toast.error("Could not download", { id: toastId })
-    } finally {
-      setDownloading(false)
-    }
-  }, [id, downloading])
+  const handleDownload = React.useCallback(() => {
+    // Point a transient anchor at the API URL so the browser streams the file
+    // straight to disk — buffering it through res.blob() loads the whole share
+    // (videos can be ~1GB) into the JS heap and can OOM the tab. The route sets
+    // Content-Disposition, so the server supplies the filename.
+    const a = document.createElement("a")
+    a.href = `/api/share/${id}/download`
+    a.download = ""
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    toast.success("Download started")
+  }, [id])
 
   return (
     <main className="min-h-svh bg-background text-foreground">
@@ -138,18 +112,9 @@ export function ShareView({
                 <span>{imageCopied ? "Copied" : "Copy"}</span>
               </Button>
             ) : null}
-            <Button
-              className="w-44"
-              size="lg"
-              disabled={downloading}
-              onClick={() => void handleDownload()}
-            >
-              {downloading ? (
-                <RiLoader4Line className="animate-spin" />
-              ) : (
-                <RiDownloadLine />
-              )}
-              <span>{downloading ? "Downloading…" : "Download"}</span>
+            <Button className="w-44" size="lg" onClick={handleDownload}>
+              <RiDownloadLine />
+              <span>Download</span>
             </Button>
           </div>
         </header>

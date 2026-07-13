@@ -9,7 +9,7 @@ import {
   createDraftMedia,
   getUnattachedDraftMediaSize,
 } from "@/lib/draft-media-db"
-import { uploadDraftMedia } from "@/lib/draft-storage"
+import { getStoredDraftMediaSize, uploadDraftMedia } from "@/lib/draft-storage"
 import { draftMediaUrl } from "@/lib/schemas/draft"
 
 export const runtime = "nodejs"
@@ -53,12 +53,15 @@ export async function POST(request: Request) {
       contentType,
       contentLength: sizeBytes,
     })
+    // The declared Content-Length is client-supplied; persist the size R2
+    // actually stored so future quota checks don't under-count the object.
+    const storedBytes = (await getStoredDraftMediaSize(objectKey)) ?? sizeBytes
     await createDraftMedia({
       id,
       userId: auth.session.user.id,
       objectKey,
       contentType,
-      sizeBytes,
+      sizeBytes: storedBytes,
     })
     return NextResponse.json({ id, url: draftMediaUrl(id) })
   } catch (error) {
