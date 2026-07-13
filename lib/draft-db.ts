@@ -43,7 +43,7 @@ type DraftRow = {
 }
 
 function normalizeDraftType(type: DraftType | null | undefined): DraftType {
-  return type === "animate" ? "animate" : "style"
+  return type === "animate" || type === "video" ? type : "style"
 }
 
 async function readDraftState(row: DraftRow) {
@@ -91,7 +91,7 @@ export async function listDrafts(
     sort === "oldest" ? asc(drafts.updatedAt) : desc(drafts.updatedAt)
 
   const where =
-    type === "animate" || type === "style"
+    type === "animate" || type === "video" || type === "style"
       ? and(eq(drafts.userId, userId), eq(drafts.type, type))
       : eq(drafts.userId, userId)
 
@@ -124,7 +124,7 @@ export async function countDrafts(
   opts: { type?: DraftType } = {}
 ) {
   const where =
-    opts.type === "animate" || opts.type === "style"
+    opts.type === "animate" || opts.type === "video" || opts.type === "style"
       ? and(eq(drafts.userId, userId), eq(drafts.type, opts.type))
       : eq(drafts.userId, userId)
 

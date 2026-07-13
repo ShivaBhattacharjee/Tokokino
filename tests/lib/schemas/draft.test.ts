@@ -102,4 +102,40 @@ describe("draft schema helpers", () => {
       })
     ).toBe("style")
   })
+
+  it("classifies non-animated video canvases as video", () => {
+    expect(
+      resolveDraftType({
+        schemaVersion: 1,
+        present: {
+          canvases: [
+            {
+              id: "a",
+              screenshot:
+                "/api/drafts/media/123e4567-e89b-42d3-a456-426614174000",
+            },
+          ],
+        },
+        ui: {},
+      })
+    ).toBe("video")
+  })
+
+  it("keeps an animated video project in animate", () => {
+    expect(
+      resolveDraftType({
+        schemaVersion: 1,
+        present: {
+          canvases: [
+            {
+              id: "a",
+              screenshot: "https://example.com/demo.webm",
+              animation: { clips: [{ id: "c1" }] },
+            },
+          ],
+        },
+        ui: {},
+      })
+    ).toBe("animate")
+  })
 })

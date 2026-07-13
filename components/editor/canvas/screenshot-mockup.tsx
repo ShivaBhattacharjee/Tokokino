@@ -19,6 +19,7 @@ import {
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
 import { VideoIdlePoster } from "./video-idle-poster"
+import { useVideoPreload } from "./use-video-preload"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -114,6 +115,7 @@ export function ScreenshotMockup({
   onMediaElement,
   mediaStyle,
 }: ScreenshotMockupProps) {
+  const videoPreload = useVideoPreload()
   const [editOpen, setEditOpen] = React.useState(false)
   const [measuredStageWidth, setMeasuredStageWidth] = React.useState<
     number | undefined
@@ -231,7 +233,7 @@ export function ScreenshotMockup({
                   muted
                   loop
                   playsInline
-                  preload="metadata"
+                  preload={videoPreload}
                   draggable={false}
                   onLoadedMetadata={(e) =>
                     onImageLoad(

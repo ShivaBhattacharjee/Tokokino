@@ -10,6 +10,7 @@ import {
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { assignMediaRef } from "@/components/ui/browser-frame-media"
 import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
+import { useVideoPreload } from "@/components/editor/canvas/use-video-preload"
 
 const SAFARI_WIDTH = 1203
 const SAFARI_HEIGHT = 753
@@ -76,6 +77,7 @@ export function Safari({
   style,
   ...props
 }: SafariProps) {
+  const videoPreload = useVideoPreload()
   const generatedId = useId().replace(/:/g, "")
   const punchId = `safari-punch-${generatedId}`
   const pathId = `safari-path-${generatedId}`
@@ -144,7 +146,7 @@ export function Safari({
               muted
               loop
               playsInline
-              preload="metadata"
+              preload={videoPreload}
               style={mediaStyle}
               onLoadedMetadata={(e) =>
                 onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)

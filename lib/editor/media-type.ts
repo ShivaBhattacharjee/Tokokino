@@ -1,4 +1,5 @@
 const VIDEO_EXTENSION_RE = /\.(mp4|webm|ogv|mov|m4v)(\?.*)?$/i
+const DRAFT_MEDIA_URL_RE = /\/api\/drafts\/media\/[0-9a-f-]{36}(?:\?.*)?$/i
 
 export const VIDEO_SIZE_LIMIT = 1024 * 1024 * 1024
 
@@ -47,6 +48,7 @@ export function isVideoSrc(src: string | null | undefined): boolean {
   if (src.startsWith("data:video/")) return true
   if (src.startsWith("data:")) return false
   if (src.startsWith("blob:")) return videoObjectUrls.has(src)
+  if (DRAFT_MEDIA_URL_RE.test(src)) return true
   return VIDEO_EXTENSION_RE.test(src)
 }
 

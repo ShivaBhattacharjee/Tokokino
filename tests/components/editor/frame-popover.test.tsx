@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/editor/store", () => ({
+  useCanvasPreviewMode: () => false,
   useActiveCanvasField: (selector: (c: unknown) => unknown) =>
     selector({
       screenshot: "data:video/mp4;base64,AAAA",

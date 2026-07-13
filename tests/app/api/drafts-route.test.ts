@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   createDraft: vi.fn(),
   getUserDraftStorageUsage: vi.fn(),
   listDrafts: vi.fn(),
+  attachDraftMedia: vi.fn(),
+  getDraftMediaForSave: vi.fn(),
 }))
 
 vi.mock("@/lib/api-auth", () => ({
@@ -23,6 +25,11 @@ vi.mock("@/lib/draft-db", () => ({
   createDraft: mocks.createDraft,
   getUserDraftStorageUsage: mocks.getUserDraftStorageUsage,
   listDrafts: mocks.listDrafts,
+}))
+
+vi.mock("@/lib/draft-media-db", () => ({
+  attachDraftMedia: mocks.attachDraftMedia,
+  getDraftMediaForSave: mocks.getDraftMediaForSave,
 }))
 
 const SESSION = { user: { id: "user_1" } }
@@ -43,6 +50,7 @@ describe("GET /api/drafts", () => {
     mocks.listDrafts.mockResolvedValue([])
     mocks.countDrafts.mockResolvedValue(0)
     mocks.getUserDraftStorageUsage.mockResolvedValue(0)
+    mocks.getDraftMediaForSave.mockResolvedValue([])
   })
 
   it("returns 401 when not signed in", async () => {
@@ -83,6 +91,21 @@ describe("GET /api/drafts", () => {
     })
     expect(mocks.countDrafts).toHaveBeenLastCalledWith("user_1", {
       type: "animate",
+    })
+  })
+
+  it("forwards the video project filter", async () => {
+    const { GET } = await loadRoute()
+
+    await GET(request("?type=video"))
+    expect(mocks.listDrafts).toHaveBeenLastCalledWith("user_1", {
+      limit: 9,
+      offset: 0,
+      sort: "latest",
+      type: "video",
+    })
+    expect(mocks.countDrafts).toHaveBeenLastCalledWith("user_1", {
+      type: "video",
     })
   })
 

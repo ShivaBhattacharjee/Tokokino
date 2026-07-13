@@ -30,7 +30,6 @@ export default async function SharePage({
   })
   // Fall back to metadata-only fetch if view tracking fails.
   const meta = share ?? (await getShareById(id).catch(() => null))
-
   return (
     <ShareView
       id={id}

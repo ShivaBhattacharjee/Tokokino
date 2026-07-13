@@ -1,6 +1,7 @@
 import { toJpeg, toBlob, toCanvas, getFontEmbedCSS } from "html-to-image"
 
 import { shouldProxyAssetUrl } from "./export-assets"
+import { replaceCloneVideosWithFrames } from "./export-video-frames"
 import {
   buildExportFilename,
   getExportFilenameFormat,
@@ -1035,6 +1036,7 @@ export async function captureCanvasAsPngBlob(
   try {
     await waitForExportAssets(assetUrls)
     await embedCloneImages(exportTarget.node)
+    replaceCloneVideosWithFrames(node, exportTarget.node)
 
     // html-to-image is flaky on the first call (fonts/images not yet embedded
     // in the cloned document). Two attempts is the standard workaround.

@@ -46,6 +46,10 @@ export const DRAFT_NAME_MAX_LENGTH = 80
  */
 export const MAX_DRAFT_BYTES = 15 * 1024 * 1024
 
+const DRAFT_MEDIA_PATH_PREFIX = "/api/drafts/media/"
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 // --- Zod schemas -----------------------------------------------------------
 
 const presetTabSchema = z.enum(["single", "multi", "triple", "custom"])
@@ -110,7 +114,7 @@ const clampedIntParam = (fallback: number, min: number, max: number) =>
     .catch(fallback)
     .transform((n) => Math.min(Math.max(n, min), max))
 
-export const draftTypeSchema = z.enum(["style", "animate"])
+export const draftTypeSchema = z.enum(["style", "video", "animate"])
 export type DraftType = z.infer<typeof draftTypeSchema>
 
 export const draftListQuerySchema = z.object({
@@ -230,5 +234,76 @@ export function resolveDraftType(value: unknown): DraftType {
     const anim = (raw as { animation?: { clips?: unknown } }).animation
     if (Array.isArray(anim?.clips) && anim.clips.length > 0) return "animate"
   }
+  for (const raw of canvases) {
+    if (!raw || typeof raw !== "object") continue
+    const canvas = raw as {
+      screenshot?: unknown
+      originalScreenshot?: unknown
+      screenshotSlots?: unknown
+    }
+    const sources = [canvas.screenshot, canvas.originalScreenshot]
+    if (Array.isArray(canvas.screenshotSlots)) {
+      sources.push(
+        ...canvas.screenshotSlots.map((slot) =>
+          slot && typeof slot === "object"
+            ? (slot as { src?: unknown }).src
+            : null
+        )
+      )
+    }
+    if (sources.some(isVideoDraftSource)) return "video"
+  }
   return "style"
+}
+
+function isVideoDraftSource(src: unknown) {
+  return (
+    typeof src === "string" &&
+    (src.startsWith("data:video/") ||
+      Boolean(draftMediaIdFromUrl(src)) ||
+      /\.(mp4|webm|ogv|mov|m4v)(?:\?.*)?$/i.test(src))
+  )
+}
+
+export function draftMediaUrl(id: string) {
+  return `${DRAFT_MEDIA_PATH_PREFIX}${id}`
+}
+
+export function draftMediaIdFromUrl(src: unknown): string | null {
+  if (typeof src !== "string") return null
+  try {
+    const url = new URL(src, "http://tokokino.local")
+    if (!url.pathname.startsWith(DRAFT_MEDIA_PATH_PREFIX)) return null
+    const id = url.pathname.slice(DRAFT_MEDIA_PATH_PREFIX.length)
+    return UUID_RE.test(id) ? id : null
+  } catch {
+    return null
+  }
+}
+
+/** Finds all private draft-video objects referenced by a saved editor state. */
+export function extractDraftMediaIds(value: unknown): string[] {
+  const { present } = unwrapDraftState(value)
+  const ids = new Set<string>()
+  const add = (src: unknown) => {
+    const id = draftMediaIdFromUrl(src)
+    if (id) ids.add(id)
+  }
+
+  for (const canvas of present.canvases ?? []) {
+    if (!canvas || typeof canvas !== "object") continue
+    const source = canvas as {
+      screenshot?: unknown
+      originalScreenshot?: unknown
+      screenshotSlots?: unknown
+    }
+    add(source.screenshot)
+    add(source.originalScreenshot)
+    if (!Array.isArray(source.screenshotSlots)) continue
+    for (const slot of source.screenshotSlots) {
+      if (slot && typeof slot === "object") add((slot as { src?: unknown }).src)
+    }
+  }
+
+  return [...ids]
 }

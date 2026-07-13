@@ -34,7 +34,7 @@ export type StoredPresetGeometry = {
 }
 
 /** Draft / project kind for Open-project filtering. */
-export type DraftType = "style" | "animate"
+export type DraftType = "style" | "video" | "animate"
 
 export const drafts = sqliteTable(
   "drafts",
@@ -58,6 +58,24 @@ export const drafts = sqliteTable(
       table.type,
       table.updatedAt
     ),
+  ]
+)
+
+/** Private source video attached to a saved draft. */
+export const draftMedia = sqliteTable(
+  "draft_media",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    draftId: text("draft_id"),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_draft_media_user_draft").on(table.userId, table.draftId),
   ]
 )
 

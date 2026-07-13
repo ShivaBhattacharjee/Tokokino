@@ -8,6 +8,7 @@ import {
 
 import { assignMediaRef } from "@/components/ui/browser-frame-media"
 import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
+import { useVideoPreload } from "@/components/editor/canvas/use-video-preload"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 
 const ARC_WIDTH = 1228
@@ -61,6 +62,7 @@ export function Arc({
   style,
   ...props
 }: ArcProps) {
+  const videoPreload = useVideoPreload()
   const hasVideo = !!videoSrc
   const frameClasses =
     colorMode === "dark"
@@ -107,7 +109,7 @@ export function Arc({
         muted
         loop
         playsInline
-        preload="metadata"
+        preload={videoPreload}
         style={mediaStyle}
         onLoadedMetadata={(e) =>
           onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)

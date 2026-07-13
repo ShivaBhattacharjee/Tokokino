@@ -54,6 +54,14 @@ import {
 } from "@/lib/editor/animation-export"
 import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
 import { isVideoSrc } from "@/lib/editor/media-type"
+import {
+  downloadDraftVideos,
+  uploadDraftVideos,
+} from "@/lib/draft-media-upload-client"
+import type {
+  DraftVideoDownloadProgress,
+  DraftVideoUploadProgress,
+} from "@/lib/draft-media-upload-client"
 import { shouldUseVideoMediaShareExport } from "@/lib/editor/share-export-choice"
 import {
   createResumableShareUpload,
@@ -258,6 +266,8 @@ export function TopBar() {
   const [openProjectDialogOpen, setOpenProjectDialogOpen] =
     React.useState(false)
   const [isDraftSaving, setIsDraftSaving] = React.useState(false)
+  const [draftUploadProgress, setDraftUploadProgress] =
+    React.useState<DraftVideoUploadProgress | null>(null)
   const [isPresetSaving, setIsPresetSaving] = React.useState(false)
   const [draftChoiceOpen, setDraftChoiceOpen] = React.useState(false)
   const [saveDraftMode, setSaveDraftMode] = React.useState<"auto" | "create">(
@@ -440,7 +450,6 @@ export function TopBar() {
     fetchShareStorage,
     includeExportWatermark,
     isAnimateMode,
-    isVideoCanvas,
     useVideoMediaShareExport,
     shareDialog.mediaKind,
     shareDialog.signature,
@@ -603,8 +612,6 @@ export function TopBar() {
     activeCanvasId,
     fetchShareStorage,
     includeExportWatermark,
-    isAnimateMode,
-    isVideoCanvas,
     shareAnimFormat,
     shareAnimResolution,
     shareDialog.status,
@@ -880,10 +887,16 @@ export function TopBar() {
       const existing = mode === "create" ? null : state.currentDraft
       const name = nameOverride ?? existing?.name ?? randomDisplayName()
       setIsDraftSaving(true)
+      setDraftUploadProgress(null)
       try {
+        const present = await uploadDraftVideos(
+          state.present,
+          setDraftUploadProgress,
+          mode === "create"
+        )
         const draftState: DraftPayload = {
           schemaVersion: DRAFT_SCHEMA_VERSION,
-          present: state.present,
+          present,
           ui: {
             presetTab: state.presetTab,
             activeLayoutPresetId: state.activeLayoutPresetId,
@@ -959,13 +972,17 @@ export function TopBar() {
         return false
       } finally {
         setIsDraftSaving(false)
+        setDraftUploadProgress(null)
       }
     },
     [setCurrentDraft]
   )
 
   const handleOpenDraft = React.useCallback(
-    async (id: string) => {
+    async (
+      id: string,
+      onProgress?: (progress: DraftVideoDownloadProgress) => void
+    ) => {
       try {
         const res = await fetch(`/api/drafts/${id}`, {
           credentials: "include",
@@ -983,8 +1000,9 @@ export function TopBar() {
           throw new Error(data?.error ?? "Could not load draft")
         }
         const { present, ui } = unwrapDraftState(data.draft.state)
+        const hydratedPresent = await downloadDraftVideos(present, onProgress)
         loadDraftState(
-          present,
+          hydratedPresent,
           {
             id: data.draft.id,
             name: data.draft.name,
@@ -1353,6 +1371,7 @@ export function TopBar() {
           }
           confirmLabel={isAnimateMode ? "Save animate draft" : "Save draft"}
           loading={isDraftSaving}
+          uploadProgress={draftUploadProgress}
           onConfirm={async (name) => {
             const ok = await handleSaveAsDraft(name, saveDraftMode)
             if (ok) {

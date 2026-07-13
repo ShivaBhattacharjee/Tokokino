@@ -9,6 +9,7 @@ import {
 import { assignMediaRef } from "@/components/ui/browser-frame-media"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
+import { useVideoPreload } from "@/components/editor/canvas/use-video-preload"
 
 const CHROME_WIDTH = 1202
 const CHROME_HEIGHT = 776
@@ -73,6 +74,7 @@ export function Chrome({
   style,
   ...props
 }: ChromeProps) {
+  const videoPreload = useVideoPreload()
   const hasVideo = !!videoSrc
   const addressText = addressValue ?? url ?? ""
   const tabTitle = chromeTabTitle(addressText)
@@ -185,7 +187,7 @@ export function Chrome({
         muted
         loop
         playsInline
-        preload="metadata"
+        preload={videoPreload}
         style={mediaStyle}
         onLoadedMetadata={(e) =>
           onImageLoad?.(e as unknown as SyntheticEvent<HTMLImageElement>)

@@ -26,6 +26,7 @@ vi.mock("@/components/editor/canvas/screenshot-edit-menu", () => ({
 }))
 
 import { ScreenshotBare } from "@/components/editor/canvas/screenshot-bare"
+import { CanvasPreviewScope } from "@/lib/editor/store"
 
 const baseProps = () => ({
   screenshot: "shot.png",
@@ -141,5 +142,22 @@ describe("ScreenshotBare", () => {
   it("hides the edit menu without placement dims", () => {
     render(<ScreenshotBare {...baseProps()} placementDims={null} />)
     expect(screen.queryByTestId("edit-menu")).not.toBeInTheDocument()
+  })
+
+  it("only loads video metadata in the editor and nothing in thumbnails", () => {
+    const props = { ...baseProps(), screenshot: "data:video/mp4;base64,AAAA" }
+    const { container, rerender } = render(<ScreenshotBare {...props} />)
+
+    expect(container.querySelector("video")).toHaveAttribute(
+      "preload",
+      "metadata"
+    )
+
+    rerender(
+      <CanvasPreviewScope override={null}>
+        <ScreenshotBare {...props} />
+      </CanvasPreviewScope>
+    )
+    expect(container.querySelector("video")).toHaveAttribute("preload", "none")
   })
 })

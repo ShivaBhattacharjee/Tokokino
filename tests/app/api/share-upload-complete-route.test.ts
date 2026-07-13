@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/share-upload-server", () => ({
   requireShareUploadUser: async () => ({
-    session: await mocks.getSession(),
+    session: (await mocks.getSession()) as unknown,
     response: null,
   }),
 }))

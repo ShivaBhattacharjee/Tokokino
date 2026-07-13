@@ -105,7 +105,8 @@ export async function getSharePoster(id: string, posterKey?: string | null) {
 export async function getShareImage(
   id: string,
   objectKey?: string | null,
-  contentType?: string | null
+  contentType?: string | null,
+  range?: string | null
 ) {
   const { bucket } = requireR2Config()
   const keys = [
@@ -128,6 +129,7 @@ export async function getShareImage(
         new GetObjectCommand({
           Bucket: bucket,
           Key: key,
+          Range: range ?? undefined,
         })
       )
     } catch (error) {

@@ -695,7 +695,13 @@ export function useAnimateTimeline() {
       setDraggingVideoClipIds([])
       stopAutoScroll()
     },
-    [clipMsFromClientX, resolvedVideoClips, stopAutoScroll, updateVideoClip]
+    [
+      clipMsFromClientX,
+      resolvedVideoClips,
+      setSelectedVideoClipIds,
+      stopAutoScroll,
+      updateVideoClip,
+    ]
   )
 
   const videoRowRef = React.useRef<HTMLDivElement | null>(null)

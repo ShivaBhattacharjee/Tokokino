@@ -718,7 +718,11 @@ export type EditorActions = {
   removeVideoClips: (ids: string[], canvasId?: string) => void
   setAspect: (a: AspectState) => void
   setCanvasAspect: (canvasId: string, a: AspectState) => void
-  setBackground: (b: Background, canvasId?: string) => void
+  setBackground: (
+    b: Background,
+    canvasId?: string,
+    opts?: { silent?: boolean }
+  ) => void
   setPadding: (n: number, canvasId?: string) => void
   setBorderRadius: (n: number, canvasId?: string) => void
   setCanvasBorderRadius: (n: number, canvasId?: string) => void
@@ -1727,13 +1731,50 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "aspect"
       )
     },
-    setBackground: (b, canvasId) =>
+    setBackground: (b, canvasId, opts) => {
+      // The canvas-view hydration effect re-applies image backgrounds as an
+      // optimized value (library/Unsplash URL → downscaled data URL) on reload.
+      // That's an internal swap of the SAME background, not a user edit, so in
+      // Animate mode it must NOT be recorded as a "background" keyframe effect —
+      // otherwise reopening a draft spuriously marks the open clip as animating
+      // the background. Swap the value on the committed canvas and on any clip
+      // pose holding the same source, leaving `effects` untouched.
+      if (opts?.silent) {
+        commitCanvas(
+          canvasId,
+          (canvas) => {
+            const anim = getCanvasAnimation(canvas)
+            if (anim.clips.length === 0) return { background: b }
+            const prev = canvas.background
+            const matchesPrev = (bg: Background | undefined) =>
+              bg?.type === "image" &&
+              prev.type === "image" &&
+              bg.sourceUrl === prev.sourceUrl
+            const clips = anim.clips.map((c) => {
+              const pose =
+                c.pose && matchesPrev(c.pose.background)
+                  ? { ...c.pose, background: b }
+                  : c.pose
+              const baseline =
+                c.baseline && matchesPrev(c.baseline.background)
+                  ? { ...c.baseline, background: b }
+                  : c.baseline
+              if (pose === c.pose && baseline === c.baseline) return c
+              return { ...c, pose, baseline }
+            })
+            return { background: b, animation: { ...anim, clips } }
+          },
+          "background"
+        )
+        return
+      }
       commitCanvasEffect(
         canvasId,
         { background: b },
         "background",
         "background"
-      ),
+      )
+    },
     setPadding: (n, canvasId) =>
       commitCanvasEffect(
         canvasId,

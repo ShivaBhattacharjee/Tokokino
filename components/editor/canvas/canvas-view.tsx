@@ -288,7 +288,8 @@ function CanvasViewInner({
             sourceUrl,
             thumbUrl: background.thumbUrl ?? undefined,
           },
-          scopeId
+          scopeId,
+          { silent: true }
         )
       }
       return
@@ -311,7 +312,8 @@ function CanvasViewInner({
           sourceUrl,
           thumbUrl: thumbUrl ?? undefined,
         },
-        canvasId
+        canvasId,
+        { silent: true }
       )
       return
     }
@@ -332,7 +334,8 @@ function CanvasViewInner({
             sourceUrl,
             thumbUrl: thumbUrl ?? undefined,
           },
-          canvasId
+          canvasId,
+          { silent: true }
         )
       })
       .catch((err) => {

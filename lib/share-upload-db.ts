@@ -252,7 +252,7 @@ export async function getConfirmedShareUploadBytes(uploadId: string) {
   return Number(row?.total ?? 0)
 }
 
-export async function isShareUploadExpired(upload: ShareUpload) {
+export function isShareUploadExpired(upload: ShareUpload) {
   return (
     upload.status !== "complete" && upload.expiresAt.getTime() <= Date.now()
   )

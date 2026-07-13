@@ -4,6 +4,7 @@ import { S3Client } from "@aws-sdk/client-s3"
 import { FetchHttpHandler } from "@smithy/fetch-http-handler"
 
 import { requireR2Config } from "@/lib/env"
+import { R2_STREAM_REQUEST_TIMEOUT_MS } from "@/lib/r2-request-timeout"
 
 let client: S3Client | null = null
 
@@ -23,7 +24,7 @@ export function getR2Client() {
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
     requestHandler: new FetchHttpHandler({
-      requestTimeout: 60000,
+      requestTimeout: R2_STREAM_REQUEST_TIMEOUT_MS,
     }),
   })
 

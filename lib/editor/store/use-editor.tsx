@@ -321,8 +321,8 @@ export function useEditor(): EditorContext {
       store.removeVideoClips(ids, canvasId ?? targetId),
     setAspect: store.setAspect,
     setCanvasAspect: store.setCanvasAspect,
-    setBackground: (b, canvasId) =>
-      store.setBackground(b, canvasId ?? targetId),
+    setBackground: (b, canvasId, opts) =>
+      store.setBackground(b, canvasId ?? targetId, opts),
     setPadding: (n, canvasId) => store.setPadding(n, canvasId ?? targetId),
     setBorderRadius: (n, canvasId) =>
       store.setBorderRadius(n, canvasId ?? targetId),

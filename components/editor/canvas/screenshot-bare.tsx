@@ -17,6 +17,7 @@ import type {
 } from "@/lib/editor/store"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
 import { VideoIdlePoster } from "./video-idle-poster"
+import { useVideoPreload } from "./use-video-preload"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -131,6 +132,7 @@ export function ScreenshotBare({
   onMediaElement,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
+  const videoPreload = useVideoPreload()
   const isVideo = isVideoSrc(screenshot)
   const activeCrop =
     isVideo && isActiveCropRegion(cropRegion) ? cropRegion : null
@@ -402,9 +404,7 @@ export function ScreenshotBare({
       muted
       loop
       playsInline
-      // Metadata only — first-frame decode is expensive on Safari/Firefox; we
-      // show a black play poster instead until the user hits play.
-      preload="metadata"
+      preload={videoPreload}
       draggable={false}
       onLoadedMetadata={(e) => {
         const el = e.currentTarget

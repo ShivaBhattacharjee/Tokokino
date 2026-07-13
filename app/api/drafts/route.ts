@@ -16,6 +16,8 @@ import {
   parseDraftSaveBody,
   resolveDraftType,
 } from "@/lib/schemas/draft"
+import { attachDraftMedia, getDraftMediaForSave } from "@/lib/draft-media-db"
+import { extractDraftMediaIds } from "@/lib/schemas/draft"
 
 export const runtime = "nodejs"
 
@@ -120,8 +122,18 @@ export async function POST(request: Request) {
     )
   }
 
+  const mediaIds = extractDraftMediaIds(parsed.state)
+  const media = await getDraftMediaForSave(mediaIds, auth.session.user.id)
+  if (!media)
+    return NextResponse.json(
+      { error: "Draft video is unavailable" },
+      { status: 400 }
+    )
+  const byteSize =
+    stateBytes.byteLength +
+    media.reduce((total, item) => total + item.sizeBytes, 0)
   const storageUsed = await getUserDraftStorageUsage(auth.session.user.id)
-  if (storageUsed + stateBytes.byteLength > MAX_USER_DRAFT_STORAGE_BYTES) {
+  if (storageUsed + byteSize > MAX_USER_DRAFT_STORAGE_BYTES) {
     return NextResponse.json(
       {
         error: "Storage limit reached",
@@ -141,11 +153,12 @@ export async function POST(request: Request) {
       userId: auth.session.user.id,
       name: parsed.name!,
       canvasCount,
-      byteSize: stateBytes.byteLength,
+      byteSize,
       type,
       stateBytes,
       thumbnailKey: null,
     })
+    await attachDraftMedia(mediaIds, auth.session.user.id, id)
   } catch (error) {
     console.error(error)
     const message =
@@ -160,7 +173,7 @@ export async function POST(request: Request) {
       id,
       name: parsed.name!,
       canvasCount,
-      byteSize: stateBytes.byteLength,
+      byteSize,
       type,
     },
   })
