@@ -49,6 +49,7 @@ type ScreenshotBareProps = {
   onPointerDown: (e: React.PointerEvent<HTMLImageElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLImageElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLImageElement>) => void
+  onWheel?: React.WheelEventHandler<HTMLDivElement>
   onImageLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void
   onCropClick: () => void
   onReplaceFile: (file: File) => void
@@ -116,6 +117,7 @@ export function ScreenshotBare({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onWheel,
   onImageLoad,
   onCropClick,
   onReplaceFile,
@@ -445,6 +447,7 @@ export function ScreenshotBare({
       ref={stageRef}
       className="group/screenshot pointer-events-none relative h-full w-full overflow-visible"
       onPointerDown={onContainerPointerDown}
+      onWheel={onWheel}
     >
       {isVideo ? (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions

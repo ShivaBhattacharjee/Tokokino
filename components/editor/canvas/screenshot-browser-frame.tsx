@@ -63,6 +63,7 @@ type ScreenshotBrowserFrameProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  onWheel?: React.WheelEventHandler<HTMLDivElement>
   onImageLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void
   onCropClick: () => void
   onReplaceFile: (file: File) => void
@@ -132,6 +133,7 @@ export function ScreenshotBrowserFrame({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onWheel,
   onImageLoad,
   onCropClick,
   onReplaceFile,
@@ -192,6 +194,7 @@ export function ScreenshotBrowserFrame({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onWheel={onWheel}
         role="button"
         tabIndex={activeTool === "pointer" && !screenshotLayer.hidden ? 0 : -1}
         aria-label="Select browser screenshot"

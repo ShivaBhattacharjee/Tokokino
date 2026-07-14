@@ -184,6 +184,7 @@ export function useEditor(): EditorContext {
     screenshot: c.screenshot,
     originalScreenshot: c.originalScreenshot,
     lastCropRegion: c.lastCropRegion,
+    fullPageCapture: c.fullPageCapture,
     videoClips: c.videoClips,
     background: c.background,
     padding: c.padding,
@@ -250,6 +251,7 @@ export function useEditor(): EditorContext {
     screenshot: canvas.screenshot,
     originalScreenshot: canvas.originalScreenshot,
     lastCropRegion: canvas.lastCropRegion,
+    fullPageCapture: canvas.fullPageCapture,
     background: canvas.background,
     padding: canvas.padding,
     borderRadius: canvas.borderRadius,
@@ -307,6 +309,10 @@ export function useEditor(): EditorContext {
       store.applyPresetSnapshot(snapshot, canvasId ?? targetId),
     setScreenshot: (s, canvasId) =>
       store.setScreenshot(s, canvasId ?? targetId),
+    setFullPageScreenshot: (src, canvasId) =>
+      store.setFullPageScreenshot(src, canvasId ?? targetId),
+    setFullPageScreenshotScrollPosition: (position, canvasId) =>
+      store.setFullPageScreenshotScrollPosition(position, canvasId ?? targetId),
     applyCroppedScreenshot: (s, region, canvasId) =>
       store.applyCroppedScreenshot(s, region, canvasId ?? targetId),
     setScreenshotCropRegion: (region, canvasId) =>
@@ -487,6 +493,14 @@ export function useEditor(): EditorContext {
       store.updateScreenshotSlot(id, patch, canvasId ?? targetId),
     setScreenshotSlotImage: (id, src, canvasId) =>
       store.setScreenshotSlotImage(id, src, canvasId ?? targetId),
+    setFullPageScreenshotSlot: (id, src, canvasId) =>
+      store.setFullPageScreenshotSlot(id, src, canvasId ?? targetId),
+    setFullPageScreenshotSlotScrollPosition: (id, position, canvasId) =>
+      store.setFullPageScreenshotSlotScrollPosition(
+        id,
+        position,
+        canvasId ?? targetId
+      ),
     applyCroppedScreenshotSlot: (id, src, region, canvasId) =>
       store.applyCroppedScreenshotSlot(id, src, region, canvasId ?? targetId),
     deleteScreenshotSlot: (id, canvasId) =>

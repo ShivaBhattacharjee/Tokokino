@@ -254,6 +254,7 @@ export const createScreenshotSlot = (
   src: null,
   originalSrc: null,
   lastCropRegion: null,
+  fullPageCapture: null,
   xPct: 50,
   yPct: 50,
   widthPct: SLOT_DEFAULT_FALLBACK_WIDTH,
@@ -319,6 +320,14 @@ export function migrateLegacySlot(raw: unknown): ScreenshotSlot {
     base.originalSrc = slot.originalSrc
   }
   if (slot.lastCropRegion) base.lastCropRegion = slot.lastCropRegion
+  if (
+    slot.fullPageCapture &&
+    typeof slot.fullPageCapture.scrollPosition === "number"
+  ) {
+    base.fullPageCapture = {
+      scrollPosition: slot.fullPageCapture.scrollPosition,
+    }
+  }
   if (typeof slot.xPct === "number") base.xPct = slot.xPct
   if (typeof slot.yPct === "number") base.yPct = slot.yPct
   if (typeof slot.widthPct === "number") base.widthPct = slot.widthPct

@@ -688,6 +688,11 @@ export type EditorActions = {
     canvasId?: string
   ) => void
   setScreenshot: (s: string | null, canvasId?: string) => void
+  setFullPageScreenshot: (src: string | null, canvasId?: string) => void
+  setFullPageScreenshotScrollPosition: (
+    scrollPosition: number,
+    canvasId?: string
+  ) => void
   applyCroppedScreenshot: (
     s: string,
     region: CropRegion,
@@ -905,6 +910,16 @@ export type EditorActions = {
   setScreenshotSlotImage: (
     id: string,
     src: string | null,
+    canvasId?: string
+  ) => void
+  setFullPageScreenshotSlot: (
+    id: string,
+    src: string | null,
+    canvasId?: string
+  ) => void
+  setFullPageScreenshotSlotScrollPosition: (
+    id: string,
+    scrollPosition: number,
     canvasId?: string
   ) => void
   applyCroppedScreenshotSlot: (
@@ -1273,6 +1288,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 return {
                   id: previous?.id ?? makeId(),
                   src: previous?.src ?? null,
+                  fullPageCapture: previous?.fullPageCapture ?? null,
                   xPct: config.xPct,
                   yPct: config.yPct,
                   widthPct: config.widthPct ?? previous?.widthPct ?? 60,
@@ -1362,8 +1378,51 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               (a, b) => a.startMs - b.startMs
             )
             const last = sorted[sorted.length - 1]
+            // Older animate presets could save the open final clip before its
+            // live inspector edits had been copied into `clip.pose`. When that
+            // clip owns Position, its stale pose equals its baseline while the
+            // top-level preset geometry still contains the real final placement.
+            // Recover that placement so existing presets animate correctly too.
+            const lastPose = last ? clipPose(last) : null
+            const lastBaseline = last ? clipBaseline(last) : null
+            let repairedAnimation = remapped
+            if (
+              last &&
+              lastPose &&
+              lastBaseline &&
+              (last.effects ?? []).includes("position") &&
+              lastPose.screenshotPosition === lastBaseline.screenshotPosition &&
+              lastPose.screenshotOffset.x === lastBaseline.screenshotOffset.x &&
+              lastPose.screenshotOffset.y === lastBaseline.screenshotOffset.y &&
+              (lastPose.screenshotPosition !== next.screenshotPosition ||
+                lastPose.screenshotOffset.x !== next.screenshotOffset.x ||
+                lastPose.screenshotOffset.y !== next.screenshotOffset.y)
+            ) {
+              repairedAnimation = {
+                ...remapped,
+                clips: remapped.clips.map((clip) =>
+                  clip.id === last.id
+                    ? {
+                        ...clip,
+                        pose: {
+                          ...lastPose,
+                          screenshotPosition: next.screenshotPosition,
+                          screenshotOffset: next.screenshotOffset,
+                        },
+                      }
+                    : clip
+                ),
+              }
+            }
             const posePatch = last
-              ? applyPoseToCanvas(next, clipPose(last))
+              ? applyPoseToCanvas(
+                  next,
+                  clipPose(
+                    repairedAnimation.clips.find(
+                      (clip) => clip.id === last.id
+                    ) ?? last
+                  )
+                )
               : {}
             next = {
               ...next,
@@ -1376,7 +1435,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 id: next.screenshotSlots[i]?.id ?? s.id,
                 src: next.screenshotSlots[i]?.src ?? s.src,
               })),
-              animation: remapped,
+              animation: repairedAnimation,
             }
           }
 
@@ -1392,6 +1451,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           screenshot,
           originalScreenshot: screenshot,
           lastCropRegion: null,
+          fullPageCapture: null,
           videoClips: null,
           // A screenshot replaces any tweet as the canvas's main content.
           tweet: screenshot ? null : canvas.tweet,
@@ -1408,16 +1468,53 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         null
       )
     },
+    setFullPageScreenshot: (src, canvasId) => {
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          screenshot: src,
+          originalScreenshot: src,
+          lastCropRegion: null,
+          fullPageCapture: src ? { scrollPosition: 0 } : null,
+          videoClips: null,
+          // A URL capture replaces any tweet as the canvas's main content.
+          tweet: src ? null : canvas.tweet,
+          objectFit: canvas.objectFit ?? "contain",
+          screenshotLayer: {
+            ...canvas.screenshotLayer,
+            zIndex:
+              src && !canvas.screenshot
+                ? computeNextLayerZ(canvas)
+                : canvas.screenshotLayer.zIndex,
+            hidden: false,
+          },
+        }),
+        null
+      )
+    },
+    setFullPageScreenshotScrollPosition: (scrollPosition, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          fullPageCapture: canvas.fullPageCapture
+            ? { scrollPosition: Math.max(0, Math.min(100, scrollPosition)) }
+            : canvas.fullPageCapture,
+        }),
+        "full-page-scroll"
+      ),
     applyCroppedScreenshot: (s, region, canvasId) =>
       commitCanvas(
         canvasId,
-        { screenshot: s, lastCropRegion: region },
+        { screenshot: s, lastCropRegion: region, fullPageCapture: null },
         "applyCroppedScreenshot"
       ),
     setScreenshotCropRegion: (region, canvasId) =>
       commitCanvas(
         canvasId,
-        { lastCropRegion: region },
+        (canvas) => ({
+          lastCropRegion: region,
+          fullPageCapture: region ? null : canvas.fullPageCapture,
+        }),
         "setScreenshotCropRegion"
       ),
     updateVideoClip: (id, patch, canvasId) =>
@@ -1534,7 +1631,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           const kept = clips.filter((clip) => !ids.includes(clip.id))
           return kept.length > 0
             ? { videoClips: kept }
-            : { screenshot: null, originalScreenshot: null, videoClips: null }
+            : {
+                screenshot: null,
+                originalScreenshot: null,
+                videoClips: null,
+                fullPageCapture: null,
+              }
         },
         "video-delete"
       ),
@@ -2012,6 +2114,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   screenshot: null,
                   originalScreenshot: null,
                   lastCropRegion: null,
+                  fullPageCapture: null,
                   videoClips: null,
                   screenshotSlots: [],
                   frame: {
@@ -3171,7 +3274,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           (canvas) => ({
             screenshotSlots: canvas.screenshotSlots.map((slot) =>
               slot.id === id
-                ? { ...slot, src, originalSrc: null, lastCropRegion: null }
+                ? {
+                    ...slot,
+                    src,
+                    originalSrc: null,
+                    lastCropRegion: null,
+                    fullPageCapture: null,
+                  }
                 : slot
             ),
           }),
@@ -3195,6 +3304,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   src,
                   originalSrc: src,
                   lastCropRegion: null,
+                  fullPageCapture: null,
                   objectFit: slot.objectFit ?? "contain",
                 }
               : slot
@@ -3245,6 +3355,46 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         null
       )
     },
+    setFullPageScreenshotSlot: (id, src, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          screenshotSlots: canvas.screenshotSlots.map((slot) =>
+            slot.id === id
+              ? {
+                  ...slot,
+                  src,
+                  originalSrc: src,
+                  lastCropRegion: null,
+                  fullPageCapture: src ? { scrollPosition: 0 } : null,
+                }
+              : slot
+          ),
+        }),
+        null
+      ),
+    setFullPageScreenshotSlotScrollPosition: (id, scrollPosition, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({
+          screenshotSlots: canvas.screenshotSlots.map((slot) =>
+            slot.id === id
+              ? {
+                  ...slot,
+                  fullPageCapture: slot.fullPageCapture
+                    ? {
+                        scrollPosition: Math.max(
+                          0,
+                          Math.min(100, scrollPosition)
+                        ),
+                      }
+                    : slot.fullPageCapture,
+                }
+              : slot
+          ),
+        }),
+        `full-page-slot-scroll-${id}`
+      ),
     applyCroppedScreenshotSlot: (id, src, region, canvasId) =>
       commitCanvas(
         canvasId,
@@ -3256,6 +3406,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   src,
                   originalSrc: slot.originalSrc ?? slot.src,
                   lastCropRegion: region,
+                  fullPageCapture: null,
                 }
               : slot
           ),

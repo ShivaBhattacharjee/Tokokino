@@ -66,6 +66,11 @@ import {
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import {
+  fullPageCaptureMediaStyle,
+  fullPageCaptureObjectFit,
+  nextFullPageCaptureScrollPosition,
+} from "@/lib/editor/full-page-capture"
+import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
@@ -104,6 +109,7 @@ type ScreenshotSlotRenderProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  onFullPageScroll: (scrollPosition: number) => void
   onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void
   onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void
   onDragLeave?: () => void
@@ -165,6 +171,7 @@ export function ScreenshotSlotRender({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onFullPageScroll,
   onPointerCancel,
   onDragOver,
   onDragLeave,
@@ -269,6 +276,12 @@ export function ScreenshotSlotRender({
     transform: contentTransform,
     transformStyle: "preserve-3d" as const,
   }
+  const fullPageMediaStyle = fullPageCaptureMediaStyle(slot.fullPageCapture)
+  const effectiveObjectFit = fullPageCaptureObjectFit(
+    slot.fullPageCapture,
+    slot.objectFit ?? "contain"
+  )
+  if (fullPageMediaStyle) Object.assign(bareImgStyle, fullPageMediaStyle)
   // When a clip animates this slot's border the outline is ALWAYS mounted (even
   // when the committed border is invisible) so the player can ease it in from 0 /
   // recolour it via the preview vars. Otherwise it renders only when committed.
@@ -296,6 +309,20 @@ export function ScreenshotSlotRender({
       onPointerUp={previewMode ? undefined : onPointerUp}
       onPointerCancel={
         previewMode ? undefined : (onPointerCancel ?? onPointerUp)
+      }
+      onWheel={
+        previewMode || !slot.fullPageCapture
+          ? undefined
+          : (event) => {
+              const next = nextFullPageCaptureScrollPosition(
+                event.deltaY,
+                slot.fullPageCapture!.scrollPosition
+              )
+              if (next === slot.fullPageCapture!.scrollPosition) return
+              event.preventDefault()
+              event.stopPropagation()
+              onFullPageScroll(next)
+            }
       }
       onClick={previewMode ? undefined : onSelect}
       onDragOver={previewMode ? undefined : onDragOver}
@@ -369,7 +396,8 @@ export function ScreenshotSlotRender({
                 applyTransformWhenEmpty
                 suppressEmptyTransition
                 emptyCompact={Boolean(rowLayout)}
-                objectFit={slot.objectFit ?? "contain"}
+                objectFit={effectiveObjectFit}
+                mediaStyle={fullPageMediaStyle}
                 isScreenshotSelected={isSelected && !previewMode}
                 activeTool={activeTool}
                 isDragging={false}
@@ -478,6 +506,8 @@ export function ScreenshotSlotView({
     setSelectedAnnotationShapeId,
     updateScreenshotSlot,
     setScreenshotSlotImage,
+    setFullPageScreenshotSlot,
+    setFullPageScreenshotSlotScrollPosition,
     deleteScreenshotSlot,
     duplicateScreenshotSlot,
     bringScreenshotSlotToFront,
@@ -621,14 +651,19 @@ export function ScreenshotSlotView({
           fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
-        setScreenshotSlotImage(slot.id, dataUrl)
+        setFullPageScreenshotSlot(slot.id, dataUrl)
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Could not capture screenshot"
         )
       }
     },
-    [setScreenshotSlotImage, slot.id]
+    [setFullPageScreenshotSlot, slot.id]
+  )
+  const handleFullPageScroll = React.useCallback(
+    (scrollPosition: number) =>
+      setFullPageScreenshotSlotScrollPosition(slot.id, scrollPosition),
+    [setFullPageScreenshotSlotScrollPosition, slot.id]
   )
 
   const requestCrop = React.useCallback(() => {
@@ -792,6 +827,7 @@ export function ScreenshotSlotView({
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
+        onFullPageScroll={handleFullPageScroll}
         onPointerCancel={endDrag}
         onDragOver={(e) => {
           e.preventDefault()

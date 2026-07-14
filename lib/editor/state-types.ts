@@ -2,6 +2,8 @@ export type AspectState = { id: string; w: number; h: number }
 
 export type CropRegion = { x: number; y: number; width: number; height: number }
 
+export type FullPageCapture = { scrollPosition: number }
+
 export type BgType = "none" | "solid" | "gradient" | "image" | "auto"
 
 export type Background = {
@@ -347,6 +349,7 @@ export type ScreenshotSlot = {
   src: string | null
   originalSrc?: string | null
   lastCropRegion?: CropRegion | null
+  fullPageCapture?: FullPageCapture | null
   xPct: number
   yPct: number
   widthPct: number
@@ -511,6 +514,7 @@ export type CanvasState = {
   screenshot: string | null
   originalScreenshot: string | null
   lastCropRegion: CropRegion | null
+  fullPageCapture?: FullPageCapture | null
   videoClips?: VideoTimelineClip[] | null
   background: Background
   padding: number

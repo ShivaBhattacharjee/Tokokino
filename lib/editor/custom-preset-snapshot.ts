@@ -22,6 +22,10 @@ export type { CustomPresetType }
 export type CaptureCustomPresetOptions = {
   /** Include timeline clips (animate presets). */
   includeAnimation?: boolean
+  /** The open clip's edits live on the canvas until another clip is selected. */
+  openClipId?: string | null
+  /** Current canvas pose for the open clip, captured immediately before saving. */
+  openClipPose?: ClipBaseline
 }
 
 const round = (n: number) => Number(n.toFixed(2))
@@ -181,7 +185,14 @@ export function captureCustomPresetGeometry(
     if (clips.length > 0) {
       geometry.animation = {
         durationMs: anim?.durationMs ?? 5000,
-        clips: clips.map((c) => sanitizeClipForPreset(c, background)),
+        clips: clips.map((clip) =>
+          sanitizeClipForPreset(
+            opts.openClipId === clip.id && opts.openClipPose
+              ? { ...clip, pose: opts.openClipPose }
+              : clip,
+            background
+          )
+        ),
         sourceSlotIds: canvas.screenshotSlots.map((s) => s.id),
       }
     }

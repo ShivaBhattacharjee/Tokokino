@@ -48,7 +48,7 @@ export const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
   device: "desktop",
   aspectRatio: "16:9",
   width: 1280,
-  delay: "none",
+  delay: "2s",
 }
 
 // Portrait is the default tablet preset; an iPad frame rotated to landscape
@@ -57,21 +57,21 @@ const TABLET_CAPTURE_DEFAULTS: CaptureSettings = {
   device: "tablet",
   aspectRatio: "3:4",
   width: 834,
-  delay: "none",
+  delay: "2s",
 }
 
 const TABLET_LANDSCAPE_CAPTURE_DEFAULTS: CaptureSettings = {
   device: "tablet",
   aspectRatio: "4:3",
   width: 1024,
-  delay: "none",
+  delay: "2s",
 }
 
 const MOBILE_CAPTURE_DEFAULTS: CaptureSettings = {
   device: "mobile",
   aspectRatio: "9:19.5",
   width: 390,
-  delay: "none",
+  delay: "2s",
 }
 
 function initialCaptureSettings(

@@ -56,6 +56,7 @@ type ScreenshotMockupProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  onWheel?: React.WheelEventHandler<HTMLDivElement>
   onImageLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void
   onCropClick: () => void
   onReplaceFile: (file: File) => void
@@ -100,6 +101,7 @@ export function ScreenshotMockup({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onWheel,
   onImageLoad,
   onCropClick,
   onReplaceFile,
@@ -199,6 +201,7 @@ export function ScreenshotMockup({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onWheel={onWheel}
       >
         <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
           <div

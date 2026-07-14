@@ -70,7 +70,11 @@ import {
   type PendingShareUpload,
 } from "@/lib/share-upload-client"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
-import { saveCurrentEditorDraft, useEditorStore } from "@/lib/editor/store"
+import {
+  captureClipPose,
+  saveCurrentEditorDraft,
+  useEditorStore,
+} from "@/lib/editor/store"
 import type { CurrentDraftInfo, CustomPresetSummary } from "@/lib/editor/store"
 import {
   captureCustomPresetGeometry,
@@ -788,6 +792,12 @@ export function TopBar() {
       const type = resolvePresetType(state.isAnimateMode, activeCanvas)
       const geometry = captureCustomPresetGeometry(activeCanvas, aspect, {
         includeAnimation: type === "animate",
+        openClipId:
+          type === "animate" ? state.selectedAnimationClipId : undefined,
+        openClipPose:
+          type === "animate" && state.selectedAnimationClipId
+            ? captureClipPose(activeCanvas)
+            : undefined,
       })
 
       setIsPresetSaving(true)
@@ -841,6 +851,12 @@ export function TopBar() {
       const type = resolvePresetType(state.isAnimateMode, activeCanvas)
       const geometry = captureCustomPresetGeometry(activeCanvas, aspect, {
         includeAnimation: type === "animate",
+        openClipId:
+          type === "animate" ? state.selectedAnimationClipId : undefined,
+        openClipPose:
+          type === "animate" && state.selectedAnimationClipId
+            ? captureClipPose(activeCanvas)
+            : undefined,
       })
       setIsPresetSaving(true)
       try {

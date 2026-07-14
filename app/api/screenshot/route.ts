@@ -12,7 +12,7 @@ const requestSchema = z.object({
   device: z.enum(["desktop", "tablet", "mobile"]).default("desktop"),
   width: z.number().int().min(320).max(3840),
   aspectRatio: z.enum(ASPECT_RATIOS),
-  delay: z.enum(["none", "2s", "5s"]).default("none"),
+  delay: z.enum(["none", "2s", "5s"]).default("2s"),
 })
 
 const MOBILE_UA =
@@ -113,7 +113,11 @@ export async function POST(request: Request) {
       hasTouch,
     },
     userAgent,
-    screenshotOptions: { type: "png", captureBeyondViewport: false },
+    screenshotOptions: {
+      type: "png",
+      fullPage: true,
+      captureBeyondViewport: false,
+    },
     gotoOptions: {
       waitUntil: "load",
       timeout: SCREENSHOT_NAVIGATION_TIMEOUT_MS,
@@ -168,6 +172,7 @@ function screenshotCacheKey(payload: z.infer<typeof requestSchema>) {
     width: payload.width,
     aspectRatio: payload.aspectRatio,
     delay: payload.delay,
+    fullPage: true,
   })
 }
 

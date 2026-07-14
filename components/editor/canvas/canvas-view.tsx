@@ -108,6 +108,11 @@ import {
 } from "@/lib/editor/image-resize"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import { isVideoSrc, revokeObjectUrl } from "@/lib/editor/media-type"
+import {
+  fullPageCaptureMediaStyle,
+  fullPageCaptureObjectFit,
+  nextFullPageCaptureScrollPosition,
+} from "@/lib/editor/full-page-capture"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
@@ -143,6 +148,7 @@ function CanvasViewInner({
     screenshot,
     originalScreenshot,
     lastCropRegion,
+    fullPageCapture,
     aspect,
     background,
     padding,
@@ -170,6 +176,8 @@ function CanvasViewInner({
     annotationShapes,
     canvasBorderRadius,
     setScreenshot,
+    setFullPageScreenshot,
+    setFullPageScreenshotScrollPosition,
     applyCroppedScreenshot,
     setScreenshotCropRegion,
     setScreenshotOffset,
@@ -411,7 +419,7 @@ function CanvasViewInner({
     (s) => s.selectedScreenshotSlotId
   )
   const setMainScreenshotImage = React.useCallback(
-    (src: string) => {
+    (src: string, isFullPageCapture = false) => {
       // Free the outgoing image/video object URL so replacements don't leak —
       // unless another canvas still references it (e.g. after duplicate).
       const canvases = useEditorStore.getState().present.canvases
@@ -424,10 +432,14 @@ function CanvasViewInner({
         )
         if (!stillUsed) revokeObjectUrl(prev)
       }
-      setScreenshot(src)
+      if (isFullPageCapture) {
+        setFullPageScreenshot(src)
+      } else {
+        setScreenshot(src)
+      }
       setNaturalDims(null)
     },
-    [scopeId, setScreenshot]
+    [scopeId, setFullPageScreenshot, setScreenshot]
   )
   const handleImageFile = React.useCallback(
     (src: string) => {
@@ -509,7 +521,7 @@ function CanvasViewInner({
           fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
-        setMainScreenshotImage(dataUrl)
+        setMainScreenshotImage(dataUrl, true)
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Could not capture screenshot"
@@ -665,6 +677,26 @@ function CanvasViewInner({
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     imgStyle.mixBlendMode = screenshotLayer.blendMode
   }
+  const fullPageMediaStyle = fullPageCaptureMediaStyle(fullPageCapture)
+  const effectiveObjectFit = fullPageCaptureObjectFit(
+    fullPageCapture,
+    objectFit ?? "cover"
+  )
+  if (fullPageMediaStyle) Object.assign(imgStyle, fullPageMediaStyle)
+  const handleFullPageWheel = React.useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (!fullPageCapture || isCanvasPreview) return
+      const next = nextFullPageCaptureScrollPosition(
+        event.deltaY,
+        fullPageCapture.scrollPosition
+      )
+      if (next === fullPageCapture.scrollPosition) return
+      event.preventDefault()
+      event.stopPropagation()
+      setFullPageScreenshotScrollPosition(next)
+    },
+    [fullPageCapture, isCanvasPreview, setFullPageScreenshotScrollPosition]
+  )
   // Video crop is non-destructive: the src stays the full clip and we crop at
   // render time. Chrome/Edge use object-view-box; Firefox/Safari use an
   // overflow + positioned-media polyfill. Images are cropped destructively
@@ -1042,7 +1074,7 @@ function CanvasViewInner({
               onBringToFront={() => bringScreenshotToFront()}
               onSendToBack={() => sendScreenshotToBack()}
               onFrameChange={setFrame}
-              objectFit={objectFit ?? "cover"}
+              objectFit={effectiveObjectFit}
               onObjectFitChange={setObjectFit}
               stageRef={stageRef}
               imageRef={imageRef}
@@ -1055,11 +1087,13 @@ function CanvasViewInner({
               }}
               onPointerMove={moveMockup}
               onPointerUp={stopMockupDrag}
+              onWheel={handleFullPageWheel}
               previewMode={isCanvasPreview}
               emptyCompact={inRowMode}
               onCapture={handleCaptureWebsite}
               captureDefaultDevice={captureDefaultDevice}
               captureStateKey={mainCaptureStateKey}
+              mediaStyle={fullPageMediaStyle}
             />
           ) : null}
 
@@ -1117,7 +1151,7 @@ function CanvasViewInner({
                     screenshotOffset={effectiveOffset}
                     screenshotAnchor={screenshotAnchor}
                     enhanceFilter={enhanceFilter}
-                    objectFit={objectFit ?? "cover"}
+                    objectFit={effectiveObjectFit}
                     isScreenshotSelected={isScreenshotSelected && isActive}
                     isScreenshotDragging={isScreenshotDragging}
                     hoverActionsDisabled={
@@ -1140,6 +1174,7 @@ function CanvasViewInner({
                     }}
                     onPointerMove={moveMockup}
                     onPointerUp={stopMockupDrag}
+                    onWheel={handleFullPageWheel}
                     onImageLoad={handleImageLoad}
                     onCropClick={openMainCropModal}
                     onReplaceFile={readFile}
@@ -1153,7 +1188,7 @@ function CanvasViewInner({
                     captureStateKey={mainCaptureStateKey}
                     innerLightingStyle={innerLightingStyle}
                     onMediaElement={handleMediaElement}
-                    mediaStyle={videoMediaStyle}
+                    mediaStyle={fullPageMediaStyle ?? videoMediaStyle}
                   />
                 ) : mockupAsset && mockupSpec ? (
                   <ScreenshotMockup
@@ -1167,7 +1202,7 @@ function CanvasViewInner({
                     screenshotOffset={effectiveOffset}
                     screenshotAnchor={screenshotAnchor}
                     enhanceFilter={enhanceFilter}
-                    objectFit={objectFit ?? "cover"}
+                    objectFit={effectiveObjectFit}
                     isScreenshotSelected={isScreenshotSelected && isActive}
                     isScreenshotDragging={isScreenshotDragging}
                     activeTool={activeTool}
@@ -1189,6 +1224,7 @@ function CanvasViewInner({
                     }}
                     onPointerMove={moveMockup}
                     onPointerUp={stopMockupDrag}
+                    onWheel={handleFullPageWheel}
                     onImageLoad={handleImageLoad}
                     onCropClick={openMainCropModal}
                     onReplaceFile={readFile}
@@ -1198,7 +1234,7 @@ function CanvasViewInner({
                     }}
                     innerLightingStyle={innerLightingStyle}
                     onMediaElement={handleMediaElement}
-                    mediaStyle={videoMediaStyle}
+                    mediaStyle={fullPageMediaStyle ?? videoMediaStyle}
                   />
                 ) : (
                   <ScreenshotBare
@@ -1218,7 +1254,7 @@ function CanvasViewInner({
                     stageRef={stageRef}
                     imageRef={imageRef}
                     shadowBoxTarget={frame.id === "none"}
-                    objectFit={objectFit ?? "cover"}
+                    objectFit={effectiveObjectFit}
                     cropRegion={videoCropRegion}
                     cropAspectRatio={videoCropAspectRatio}
                     onContainerPointerDown={(e) => {
@@ -1237,6 +1273,7 @@ function CanvasViewInner({
                     }}
                     onPointerMove={moveScreenshot}
                     onPointerUp={stopScreenshotDrag}
+                    onWheel={handleFullPageWheel}
                     onImageLoad={handleImageLoad}
                     onCropClick={openMainCropModal}
                     onReplaceFile={readFile}

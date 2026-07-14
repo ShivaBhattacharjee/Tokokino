@@ -70,10 +70,12 @@ type MainScreenshotRenderProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  onWheel?: React.WheelEventHandler<HTMLDivElement>
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void
   previewMode?: boolean
   emptyCompact?: boolean
   innerLightingStyle?: React.CSSProperties | null
+  mediaStyle?: React.CSSProperties
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
@@ -110,10 +112,12 @@ export function MainScreenshotRender({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onWheel,
   onImageLoad,
   previewMode = false,
   emptyCompact = false,
   innerLightingStyle,
+  mediaStyle,
   onCapture,
   captureDefaultDevice,
   captureStateKey,
@@ -184,6 +188,7 @@ export function MainScreenshotRender({
       onPointerMove={previewMode ? undefined : onPointerMove}
       onPointerUp={previewMode ? undefined : onPointerUp}
       onPointerCancel={previewMode ? undefined : onPointerUp}
+      onWheel={previewMode ? undefined : onWheel}
     >
       <div className="absolute inset-0" style={contentStyle}>
         <div
@@ -234,6 +239,7 @@ export function MainScreenshotRender({
               shadowFilter={shadowFilter}
               contentTransform={transform}
               bareStyle={imgStyle}
+              mediaStyle={mediaStyle}
               applyTransformWhenEmpty
               suppressEmptyTransition
               emptyCompact={emptyCompact}
@@ -339,9 +345,11 @@ type MainScreenshotRowItemProps = {
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
+  onWheel?: React.WheelEventHandler<HTMLDivElement>
   previewMode?: boolean
   emptyCompact?: boolean
   innerLightingStyle?: React.CSSProperties | null
+  mediaStyle?: React.CSSProperties
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
@@ -383,9 +391,11 @@ export function MainScreenshotRowItem({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onWheel,
   previewMode = false,
   emptyCompact = false,
   innerLightingStyle,
+  mediaStyle,
   onCapture,
   captureDefaultDevice,
   captureStateKey,
@@ -448,10 +458,12 @@ export function MainScreenshotRowItem({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onWheel={onWheel}
         onImageLoad={onImageLoad}
         previewMode={previewMode}
         emptyCompact={emptyCompact}
         innerLightingStyle={innerLightingStyle}
+        mediaStyle={mediaStyle}
         onCapture={onCapture}
         captureDefaultDevice={captureDefaultDevice}
         captureStateKey={captureStateKey}
