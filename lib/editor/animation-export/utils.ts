@@ -29,51 +29,6 @@ export function triggerDownload(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
 
-/**
- * iOS/iPadOS WebKit — including iPadOS Safari's desktop-class "Macintosh" UA,
- * distinguished by multi-touch. Script-triggered downloads are silently
- * dropped there once the user gesture that started the export has expired,
- * and a video encode always outlives it — the file simply never appears.
- * Exports on these platforms must hand the finished blob back to the UI and
- * save from a fresh tap instead.
- */
-export function downloadNeedsUserGesture(): boolean {
-  if (typeof navigator === "undefined") return false
-  const ua = navigator.userAgent
-  const isIDevice = /iPad|iPhone|iPod/.test(ua)
-  const isIPadDesktopUa =
-    /Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1
-  return isIDevice || isIPadDesktopUa
-}
-
-/**
- * Save a finished export from inside a fresh user gesture (e.g. a toast
- * action tap). Prefers the share sheet where file sharing is supported — on
- * iPad/iPhone that's the path offering Save to Files / Save Video — and falls
- * back to a plain anchor download.
- */
-export async function saveBlobWithGesture(
-  blob: Blob,
-  filename: string,
-  contentType: string
-): Promise<void> {
-  try {
-    const file = new File([blob], filename, { type: contentType })
-    if (
-      typeof navigator !== "undefined" &&
-      typeof navigator.share === "function" &&
-      navigator.canShare?.({ files: [file] })
-    ) {
-      await navigator.share({ files: [file] })
-      return
-    }
-  } catch (err) {
-    // User closed the share sheet — done. Anything else falls back below.
-    if (err instanceof DOMException && err.name === "AbortError") return
-  }
-  triggerDownload(blob, filename)
-}
-
 /** Output pixel size for a canvas export at `targetWidth`. */
 export function animationExportOutputDims(
   canvasId: string,

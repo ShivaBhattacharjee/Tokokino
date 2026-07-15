@@ -36,16 +36,10 @@ import {
   exportAnimation,
   isWebmExportSupported,
   type AnimationCaptureMode,
-  type AnimationExportBlobResult,
   type AnimationExportFormat,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
 import { animationExportErrorMessage } from "@/lib/editor/animation-export/error-message"
-import {
-  downloadNeedsUserGesture,
-  resolveAnimationDownloadFilename,
-  saveBlobWithGesture,
-} from "@/lib/editor/animation-export/utils"
 import {
   exportCanvas,
   getCanvasRenderedDims,
@@ -81,25 +75,6 @@ const ANIMATION_FORMAT_EXTENSION: Record<AnimationExportFormat, string> = {
   webm: ".webm",
   mp4: ".mp4",
 }
-/**
- * iOS/iPadOS drops script-triggered downloads once the gesture that launched
- * the export has expired (every encode outlives it), so the finished file is
- * offered through a persistent toast instead — the Save tap is a fresh
- * gesture, which makes the share sheet / download legal again.
- */
-function offerGestureSave(result: AnimationExportBlobResult, filename: string) {
-  toast.success("Export ready", {
-    description: filename,
-    duration: Infinity,
-    closeButton: true,
-    action: {
-      label: "Save",
-      onClick: () =>
-        void saveBlobWithGesture(result.blob, filename, result.contentType),
-    },
-  })
-}
-
 type AnimationExportResolution = "hd" | "fullhd" | "4k"
 const ANIMATION_RESOLUTIONS: AnimationExportResolution[] = [
   "hd",
@@ -727,15 +702,13 @@ export function ExportControls({
       setAnimProgress({ phase: "preparing", current: 0, total: 1, etaMs: null })
       setOpen(false)
       try {
-        const manualSave = downloadNeedsUserGesture()
-        const result = await exportVideoMedia(activeCanvasId, {
+        await exportVideoMedia(activeCanvasId, {
           format: animFormat,
           fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
           scale: animResolution,
           watermark: includeWatermark,
           signal: abort.signal,
-          asBlob: manualSave,
           onProgress: (p) => {
             const now = performance.now()
             const isPhaseChange =
@@ -753,21 +726,9 @@ export function ExportControls({
             setAnimProgress(p)
           },
         })
-        if (manualSave && result) {
-          offerGestureSave(
-            result,
-            await resolveAnimationDownloadFilename({
-              canvasId: activeCanvasId,
-              scale: animResolution,
-              targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
-              extension: result.extension,
-            })
-          )
-        } else {
-          toast.success(
-            `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
-          )
-        }
+        toast.success(
+          `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
+        )
       } catch (err) {
         if (
           err instanceof AnimationExportAbortedError ||
@@ -805,8 +766,7 @@ export function ExportControls({
       })
       setOpen(false)
       try {
-        const manualSave = downloadNeedsUserGesture()
-        const result = await exportAnimation(activeCanvasId, {
+        await exportAnimation(activeCanvasId, {
           format: animFormat,
           fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
@@ -814,7 +774,6 @@ export function ExportControls({
           watermark: includeWatermark,
           capture: animCapture,
           signal: abort.signal,
-          asBlob: manualSave,
           onProgress: (p) => {
             const now = performance.now()
             const isPhaseChange =
@@ -833,21 +792,9 @@ export function ExportControls({
             setAnimProgress(p)
           },
         })
-        if (manualSave && result) {
-          offerGestureSave(
-            result,
-            await resolveAnimationDownloadFilename({
-              canvasId: activeCanvasId,
-              scale: animResolution,
-              targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
-              extension: result.extension,
-            })
-          )
-        } else {
-          toast.success(
-            `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
-          )
-        }
+        toast.success(
+          `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
+        )
       } catch (err) {
         if (
           err instanceof AnimationExportAbortedError ||
