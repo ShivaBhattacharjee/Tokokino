@@ -1,3 +1,4 @@
+import { CanvasLoading } from "@/components/editor/canvas-loading"
 import {
   EffectsSidebarSkeleton,
   InspectorSkeleton,
@@ -27,17 +28,12 @@ export default function EditorLoading() {
       <div className="relative flex min-h-0 flex-1 overflow-hidden md:flex-row">
         <EffectsSidebarSkeleton className="hidden xl:flex" />
 
-        {/* Canvas surface — a centered mockup placeholder at 16:10. */}
+        {/* Canvas surface — brand mark over an indeterminate progress bar. */}
         <section
           className="relative flex flex-1 items-center justify-center overflow-hidden border-b border-dashed border-border/70 bg-background dark:bg-black"
           style={{ containerType: "size" }}
         >
-          <div
-            className="max-h-[calc(100cqh-64px)] w-[min(1100px,calc(100cqw-48px))]"
-            style={{ aspectRatio: "16 / 10" }}
-          >
-            <Skeleton className="h-full w-full rounded-xl ring-1 ring-border/50" />
-          </div>
+          <CanvasLoading />
         </section>
 
         <InspectorSkeleton className="hidden xl:flex" />

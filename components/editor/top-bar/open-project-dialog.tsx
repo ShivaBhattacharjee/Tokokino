@@ -240,7 +240,7 @@ function ProjectTypeRail({
           <span className="min-w-0">
             <span className="block text-[12px] font-medium">Videos</span>
             <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
-              Video projects without a timeline
+              Projects without a timeline
             </span>
           </span>
         </button>

@@ -247,14 +247,18 @@
     offset-distance: 0%;
     animation: animate-beam 2s linear infinite;
   }
-  /* Indeterminate export progress bar — pure CSS, no React width thrashing */
-  @keyframes export-indeterminate {
+  /* Indeterminate progress bar — pure CSS, no React width thrashing, and it
+     runs in the server-rendered route loading UI where there is no JS yet. */
+  @keyframes indeterminate-sweep {
     0% {
       transform: translateX(-120%);
     }
     100% {
       transform: translateX(320%);
     }
+  }
+  .animate-indeterminate-sweep {
+    animation: indeterminate-sweep 1.5s ease-in-out infinite;
   }
   /* Shimmering status text on the media-preparing skeleton */
   @keyframes text-shimmer {
@@ -272,6 +276,7 @@
   @media (prefers-reduced-motion: reduce) {
     [aria-hidden="true"] *,
     .animate-beam,
+    .animate-indeterminate-sweep,
     .animate-text-shimmer {
       animation: none !important;
     }

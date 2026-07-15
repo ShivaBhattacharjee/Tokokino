@@ -1,8 +1,8 @@
 "use client"
 
+import { CanvasLoading } from "@/components/editor/canvas-loading"
 import { CornerMarkers } from "@/components/editor/corner-marker"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
 import { useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
@@ -70,12 +70,7 @@ export function EffectsSidebarSkeleton({ className }: { className?: string }) {
 }
 
 export function CanvasSkeleton() {
-  const aspect = useEditorStore((s) => s.present.aspect)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
-
-  const aw = aspect.w || 16
-  const ah = aspect.h || 10
-  const widthPx = BASE_CANVAS_WIDTH
 
   return (
     <section
@@ -94,22 +89,12 @@ export function CanvasSkeleton() {
       role="presentation"
     >
       <CornerMarkers className="text-border" size={12} />
-      <div
+      <CanvasLoading
         className={cn(
           "absolute left-1/2 origin-center -translate-x-1/2 -translate-y-1/2",
           isPreviewMode ? "top-1/2" : "top-[23%] md:top-1/2"
         )}
-        style={{
-          width: `min(${widthPx}px, calc(100cqw - 32px))`,
-        }}
-      >
-        <Skeleton
-          className="w-full rounded-xl opacity-30 ring-1 ring-border/40"
-          style={{
-            aspectRatio: `${aw} / ${ah}`,
-          }}
-        />
-      </div>
+      />
     </section>
   )
 }

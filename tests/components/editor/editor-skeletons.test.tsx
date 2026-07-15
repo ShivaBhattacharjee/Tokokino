@@ -3,21 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 /**
  * `editor-skeletons` — loading placeholders. EffectsSidebarSkeleton and
- * InspectorSkeleton take a className; CanvasSkeleton reads aspect + preview
- * mode from the store.
+ * InspectorSkeleton take a className; CanvasSkeleton reads preview mode from
+ * the store and shows the brand mark over an indeterminate progress bar.
  */
 
 const store = vi.hoisted(() => ({
-  aspect: { id: "16-10", w: 16, h: 10 },
   isPreviewMode: false,
 }))
 
 vi.mock("@/lib/editor/store", () => ({
   useEditorStore: (selector: (s: unknown) => unknown) =>
-    selector({
-      present: { aspect: store.aspect },
-      isPreviewMode: store.isPreviewMode,
-    }),
+    selector({ isPreviewMode: store.isPreviewMode }),
 }))
 
 import {
@@ -27,7 +23,6 @@ import {
 } from "@/components/editor/editor-skeletons"
 
 beforeEach(() => {
-  store.aspect = { id: "16-10", w: 16, h: 10 }
   store.isPreviewMode = false
 })
 
@@ -52,13 +47,12 @@ describe("InspectorSkeleton", () => {
 })
 
 describe("CanvasSkeleton", () => {
-  it("reflects the active aspect ratio in the placeholder", () => {
-    store.aspect = { id: "4-3", w: 4, h: 3 }
+  it("shows an indeterminate progress bar carrying no measured value", () => {
     const { container } = render(<CanvasSkeleton />)
-    const placeholder = container.querySelector(
-      '[style*="aspect-ratio"]'
-    ) as HTMLElement
-    expect(placeholder.style.aspectRatio).toBe("4 / 3")
+    const bar = container.querySelector('[role="progressbar"]')!
+    expect(bar).not.toBeNull()
+    // Mounting reports no progress, so the bar must not imply a percentage.
+    expect(bar.getAttribute("aria-valuenow")).toBeNull()
   })
 
   it("uses preview layout when preview mode is on", () => {
