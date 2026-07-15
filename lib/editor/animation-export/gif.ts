@@ -123,6 +123,7 @@ export async function encodeGif(ctx: CaptureCtx) {
     progress,
     signal,
     watermark,
+    videoLayer,
   } = ctx
 
   // Pass 1 — capture every frame's pixels. Buffering the frames lets us build a
@@ -137,7 +138,8 @@ export async function encodeGif(ctx: CaptureCtx) {
       canvas,
       globalAspect,
       clips,
-      f * frameDurationMs
+      f * frameDurationMs,
+      videoLayer
     )
     const gctx = frameCanvas.getContext("2d")
     if (!gctx) {

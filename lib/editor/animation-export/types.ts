@@ -5,6 +5,7 @@
 import type { AnimationCapture } from "../export"
 import type { AnimationClip, CanvasState } from "../state-types"
 import type { ProgressReporter } from "./utils"
+import type { CloneVideoLayer } from "./video-layer"
 
 export type AnimationExportFormat = "webm" | "mp4" | "gif"
 
@@ -81,6 +82,8 @@ export type CaptureCtx = {
   signal?: AbortSignal
   /** Non-null when the watermark should be painted onto every frame. */
   watermark: WatermarkAssets | null
+  /** Non-null when the canvas is a video and its frames are decodable here. */
+  videoLayer: CloneVideoLayer | null
 }
 
 export const MAX_FRAMES = 600

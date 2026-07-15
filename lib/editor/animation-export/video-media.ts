@@ -165,7 +165,7 @@ export function exportAudioDurationSec(plan: {
   return plan.frameCount * plan.frameDurationSec
 }
 
-type SourceAudioFeed = {
+export type SourceAudioFeed = {
   /** Register the audio track on the output (must run before `output.start()`). */
   addToOutput: (output: Output) => void
   /** Stream packets/samples after `output.start()`. Audio first keeps mux memory low. */
@@ -181,7 +181,7 @@ type SourceAudioFeed = {
  * clip has no audio, or when neither remux nor re-encode is possible — the
  * video export still proceeds silently.
  */
-async function prepareSourceAudio(
+export async function prepareSourceAudio(
   src: string,
   format: "mp4" | "webm",
   outputFormat: Mp4OutputFormat | WebMOutputFormat,
@@ -295,7 +295,7 @@ async function prepareSourceAudio(
 }
 
 /** Wait until a (cloned, offscreen) video has decoded data ready to draw. */
-function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
+export function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
   if (video.readyState >= 2 && Number.isFinite(video.duration)) {
     return Promise.resolve()
   }
@@ -397,7 +397,7 @@ function waitForVideoFrame(video: HTMLVideoElement): Promise<void> {
   })
 }
 
-type DecodedFrameSource = {
+export type DecodedFrameSource = {
   /** Decoded frame whose start timestamp is ≤ `t` seconds, or null if none. */
   getFrameAt: (t: number) => Promise<CanvasImageSource | null>
   cleanup: () => void
@@ -417,7 +417,7 @@ type DecodedFrameSource = {
  * codec isn't decodable here — e.g. VP9 on Safari); the caller then falls back
  * to the DOM-video path.
  */
-async function createDecodedFrameSource(
+export async function createDecodedFrameSource(
   src: string,
   signal?: AbortSignal
 ): Promise<DecodedFrameSource | null> {

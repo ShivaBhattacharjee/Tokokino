@@ -7,15 +7,21 @@
  *  3. Video → Mediabunny + WebCodecs (hardware-accelerated, faster than real-time)
  *             with MediaRecorder fallback when WebCodecs is unavailable
  *
+ * A video canvas needs its clip decoded and painted into the clone per frame
+ * (`video-layer`) — a `<video>` renders nothing once the clone is serialized —
+ * and its audio re-timed onto the timeline (`animation-audio`).
+ *
  * This module wires the pieces together; the heavy lifting lives in sibling
  * files: `capture` (frame rasterization), `gif`/`video` (encoders),
  * `watermark`, `draw-utils`, and `utils`.
  */
 
 import { clearAnimationFrameVars } from "../apply-animation-frame"
+import { isVideoSrc } from "../media-type"
 import { captureClipPose, useEditorStore } from "../store"
 import { acquireAnimationCapture, suppressCloneTransitions } from "./capture"
 import { encodeGif } from "./gif"
+import { prepareCloneVideoLayer } from "./video-layer"
 import {
   MAX_FRAMES,
   type AnimationExportBlobResult,
@@ -79,7 +85,6 @@ async function encodeAnimation(
 ): Promise<AnimationExportBlobResult> {
   const { onProgress, signal } = options
   const progress = createProgressReporter(onProgress)
-
   throwIfAborted(signal)
   progress.report("preparing", 0, 1)
 
@@ -130,6 +135,20 @@ async function encodeAnimation(
     options.capture ?? "auto"
   )
   suppressCloneTransitions(capture.node)
+
+  // A `<video>` renders nothing once the clone is serialized into an SVG, so a
+  // video canvas needs its frames decoded and painted in per capture.
+  const screenshot = canvas.screenshot
+  const videoLayer =
+    screenshot && isVideoSrc(screenshot)
+      ? await prepareCloneVideoLayer({
+          node: capture.node,
+          src: screenshot,
+          videoClips: canvas.videoClips ?? [],
+          signal,
+        })
+      : null
+
   progress.report("preparing", 1, 1)
 
   const ctx: CaptureCtx = {
@@ -143,6 +162,7 @@ async function encodeAnimation(
     progress,
     signal,
     watermark,
+    videoLayer,
   }
 
   try {
@@ -175,6 +195,7 @@ async function encodeAnimation(
       extension,
     }
   } finally {
+    videoLayer?.cleanup()
     clearAnimationFrameVars(capture.node, clips)
     capture.cleanup()
   }

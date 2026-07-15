@@ -17,6 +17,7 @@ import type { AnimationClip, CanvasState } from "../state-types"
 import { blankFrame, isDrawImageSource, snapshotFrame } from "./draw-utils"
 import type { AnimationCaptureMode } from "./types"
 import { waitForPaint } from "./utils"
+import type { CloneVideoLayer } from "./video-layer"
 
 /**
  * Resolve the frame-capture strategy and build it, honoring the requested mode.
@@ -185,8 +186,12 @@ export async function captureStableFrame(
   canvas: CanvasState,
   globalAspect: { id: string; w: number; h: number },
   clips: AnimationClip[],
-  timeMs: number
+  timeMs: number,
+  videoLayer?: CloneVideoLayer | null
 ): Promise<HTMLCanvasElement> {
+  // Non-null only for a video canvas: paints this frame's decoded pixels into
+  // the clone, which otherwise rasterizes the video's box empty.
+  await videoLayer?.paint(timeMs)
   applyExportFrame(capture.node, canvas, globalAspect, clips, timeMs)
   // The fast path serializes the clone's inline styles synchronously, so it
   // needs no browser paint between mutation and capture. The html-to-image path

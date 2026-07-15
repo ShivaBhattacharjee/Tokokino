@@ -1,7 +1,11 @@
 /**
  * Video encode. Primary path is Mediabunny + WebCodecs (hardware-accelerated,
  * faster than real-time) for WebM/MP4; falls back to a real-time MediaRecorder
- * WebM encode (with optional audio) when WebCodecs is unavailable.
+ * WebM encode when WebCodecs is unavailable.
+ *
+ * A video canvas carries its clip's audio, re-timed onto the timeline (see
+ * `animation-audio`). The MediaRecorder fallback stays silent — it only runs
+ * where WebCodecs is missing, which is also where the audio encode can't run.
  */
 
 import {
@@ -15,9 +19,12 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
+import { isVideoSrc } from "../media-type"
+import { prepareAnimationAudio } from "./animation-audio"
 import { captureStableFrame } from "./capture"
 import { safeDrawImage } from "./draw-utils"
 import type { CaptureCtx } from "./types"
+import { resolveVideoSegments } from "./video-layer"
 import {
   AnimationExportAbortedError,
   even,
@@ -78,6 +85,7 @@ export async function tryEncodeWithMediabunny(
     progress,
     signal,
     watermark,
+    videoLayer,
   } = ctx
 
   // Working canvas we redraw each frame into (CanvasSource samples this).
@@ -88,10 +96,9 @@ export async function tryEncodeWithMediabunny(
   if (!ectx) return null
 
   const target = new BufferTarget()
-  const output = new Output({
-    format: format === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat(),
-    target,
-  })
+  const outputFormat =
+    format === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat()
+  const output = new Output({ format: outputFormat, target })
 
   const videoSource = new CanvasSource(encodeCanvas, {
     codec,
@@ -99,6 +106,25 @@ export async function tryEncodeWithMediabunny(
     keyFrameInterval: 2,
   })
   output.addVideoTrack(videoSource, { frameRate: fps })
+
+  // Best-effort, like the styled-video export: a clip with no usable audio still
+  // exports, silently. Must be registered before `output.start()`.
+  const screenshot = canvas.screenshot
+  const sourceAudio =
+    videoLayer && screenshot && isVideoSrc(screenshot)
+      ? await prepareAnimationAudio({
+          src: screenshot,
+          format,
+          outputFormat,
+          segments: resolveVideoSegments(
+            canvas.videoClips ?? [],
+            videoLayer.sourceDurationMs
+          ),
+          exportDurationSec: frameCount / fps,
+          signal,
+        })
+      : null
+  sourceAudio?.addToOutput(output)
 
   let cancelled = false
   const onAbort = () => {
@@ -109,8 +135,14 @@ export async function tryEncodeWithMediabunny(
 
   try {
     throwIfAborted(signal)
-    progress.report("capturing", 0, frameCount)
     await output.start()
+    // Before the (much larger) video track, so the muxer doesn't buffer every
+    // video packet waiting on the first audio one.
+    if (sourceAudio) {
+      progress.report("encoding", 0, 1)
+      await sourceAudio.feed()
+    }
+    progress.report("capturing", 0, frameCount)
 
     const durationSec = 1 / fps
     for (let f = 0; f < frameCount; f++) {
@@ -121,7 +153,8 @@ export async function tryEncodeWithMediabunny(
         canvas,
         globalAspect,
         clips,
-        f * frameDurationMs
+        f * frameDurationMs,
+        videoLayer
       )
       // Letterbox into even-sized encode canvas if needed.
       ectx.fillStyle = "#000"
@@ -167,6 +200,7 @@ export async function tryEncodeWithMediabunny(
     return null
   } finally {
     signal?.removeEventListener("abort", onAbort)
+    sourceAudio?.cleanup()
   }
 }
 
@@ -182,6 +216,7 @@ export async function encodeWebmMediaRecorder({
   durationMs,
   fps,
   watermark,
+  videoLayer,
 }: CaptureCtx & {
   durationMs: number
 }) {
@@ -207,7 +242,8 @@ export async function encodeWebmMediaRecorder({
         canvas,
         globalAspect,
         clips,
-        f * frameDurationMs
+        f * frameDurationMs,
+        videoLayer
       )
     )
     progress.report("capturing", f + 1, frameCount)

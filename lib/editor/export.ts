@@ -959,7 +959,12 @@ export async function prepareFastAnimationCapture(
   await embedCloneBackgroundImages(exportTarget.node)
 
   // Element list for the per-frame computed-style bake (root + all descendants).
-  const bakeEls = [
+  // Re-read every frame rather than cached once: callers swap nodes into the
+  // clone between captures (the video layer replaces the `<video>` with an
+  // `<img>`), and a stale list would leave those unbaked — i.e. rendered without
+  // the resolved theme colors and cqw/cqh this path depends on. The walk is
+  // negligible next to the getComputedStyle pass it feeds.
+  const bakeEls = () => [
     exportTarget.node,
     ...Array.from(exportTarget.node.querySelectorAll<HTMLElement>("*")),
   ]
@@ -999,7 +1004,7 @@ export async function prepareFastAnimationCapture(
   const captureFrame = async () => {
     // Bake computed styles (resolving theme colors + cqw → px for this frame)
     // just for the serialization, then restore the var-driven inline styles.
-    const body = withBakedComputedStyles(bakeEls, () =>
+    const body = withBakedComputedStyles(bakeEls(), () =>
       serializer.serializeToString(exportTarget.node)
     )
     const url =
