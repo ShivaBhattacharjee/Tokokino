@@ -148,10 +148,13 @@ function DraftCard({
           {isOpening ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 px-3 text-center text-[11px] font-medium text-foreground backdrop-blur-sm">
               <RiLoader4Line className="size-5 animate-spin text-primary" />
+              {/* Only videos are fetched on open, so a project without one
+                  reports no progress — say "Opening" rather than claim a
+                  download that is not happening. */}
               <span>
                 {openProgress && openProgress.total > 0
                   ? `Downloading video ${Math.min(100, Math.round((openProgress.current / openProgress.total) * 100))}%`
-                  : "Downloading video…"}
+                  : "Opening…"}
               </span>
               {openProgress && openProgress.total > 0 ? (
                 <div className="h-1 w-28 overflow-hidden rounded-full bg-muted">

@@ -56,6 +56,7 @@ import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import {
   downloadDraftVideos,
+  inlineDraftImageBlobs,
   uploadDraftVideos,
 } from "@/lib/draft-media-upload-client"
 import type {
@@ -906,7 +907,7 @@ export function TopBar() {
       setDraftUploadProgress(null)
       try {
         const present = await uploadDraftVideos(
-          state.present,
+          await inlineDraftImageBlobs(state.present),
           setDraftUploadProgress,
           mode === "create"
         )

@@ -6,6 +6,7 @@ import { draftMediaIdFromUrl } from "@/lib/schemas/draft"
 type VideoCanvas = {
   screenshot: string | null
   originalScreenshot: string | null
+  background?: { type: string; value: string }
   screenshotSlots: Array<{ src: string | null }>
 }
 
@@ -25,12 +26,70 @@ export function replaceUploadedDraftVideoSources<T extends VideoState>(
       ...canvas,
       screenshot: replace(canvas.screenshot),
       originalScreenshot: replace(canvas.originalScreenshot),
+      background:
+        canvas.background?.type === "image"
+          ? {
+              ...canvas.background,
+              value: replace(canvas.background.value) ?? "",
+            }
+          : canvas.background,
       screenshotSlots: canvas.screenshotSlots.map((slot) => ({
         ...slot,
         src: replace(slot.src),
       })),
     })),
   }
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error("Could not read image data"))
+    reader.onload = () =>
+      typeof reader.result === "string"
+        ? resolve(reader.result)
+        : reject(new Error("Could not read image data"))
+    reader.readAsDataURL(blob)
+  })
+}
+
+/**
+ * Imported screenshots and backgrounds persist as `data:` URLs, but restoring
+ * the IndexedDB autosave re-mints them as `blob:` URLs, which only resolve in
+ * the page session that created them. Videos escape this by being uploaded to
+ * R2; images cannot, because the draft media endpoint takes MP4/WebM only. So
+ * an image blob left in a saved draft is a reference that is already dead by
+ * the time the draft is reopened — it loads as a broken image while the
+ * thumbnail (a separate R2 upload) still looks correct.
+ *
+ * Inlining them back to data URLs before serializing restores exactly what a
+ * freshly imported screenshot would have saved.
+ */
+export async function inlineDraftImageBlobs<T extends VideoState>(
+  state: T
+): Promise<T> {
+  const sources = new Set<string>()
+  const collect = (src: string | null | undefined) => {
+    if (!src?.startsWith("blob:")) return
+    const blob = getBlobForObjectUrl(src)
+    if (blob && !blob.type.startsWith("video/")) sources.add(src)
+  }
+
+  for (const canvas of state.canvases ?? []) {
+    collect(canvas.screenshot)
+    collect(canvas.originalScreenshot)
+    if (canvas.background?.type === "image") collect(canvas.background.value)
+    for (const slot of canvas.screenshotSlots) collect(slot.src)
+  }
+
+  if (sources.size === 0) return state
+
+  const inlined = new Map<string, string>()
+  for (const src of sources) {
+    const blob = getBlobForObjectUrl(src)
+    if (blob) inlined.set(src, await blobToDataUrl(blob))
+  }
+  return replaceUploadedDraftVideoSources(state, inlined)
 }
 
 async function uploadDraftVideo(
