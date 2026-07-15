@@ -127,7 +127,7 @@ export function useAnimateTimeline() {
   const updateAnimationClip = useEditorStore((s) => s.updateAnimationClip)
   const moveAnimationClip = useEditorStore((s) => s.moveAnimationClip)
   const splitAnimationClip = useEditorStore((s) => s.splitAnimationClip)
-  const setAnimationClipSelection = useEditorStore(
+  const setAnimationClipSelectionRaw = useEditorStore(
     (s) => s.setAnimationClipSelection
   )
   const removeAnimationClips = useEditorStore((s) => s.removeAnimationClips)
@@ -159,12 +159,32 @@ export function useAnimateTimeline() {
   const selectedClipIds = useEditorStore(
     useShallow((s) => s.selectedAnimationClipIds)
   )
-  const selectAnimationClip = useEditorStore((s) => s.selectAnimationClip)
+  const selectAnimationClipRaw = useEditorStore((s) => s.selectAnimationClip)
   const [selectedVideoClipIds, setSelectedVideoClipIds] = React.useState<
     string[]
   >([])
   const selectedVideoClipId = selectedVideoClipIds.at(-1) ?? null
   const videoSelected = selectedVideoClipIds.length > 0
+
+  // Clip and video selection are mutually exclusive. `videoSelected` wins in the
+  // toolbar and the Delete key handler, so a video left selected underneath a
+  // freshly picked clip both hides the clip's transition control and points
+  // delete at the video. Picking a video already clears the clip selection;
+  // these mirror that for the other direction, across every selection path.
+  const selectAnimationClip = React.useCallback(
+    (id: string | null, canvasId?: string) => {
+      if (id) setSelectedVideoClipIds([])
+      selectAnimationClipRaw(id, canvasId)
+    },
+    [selectAnimationClipRaw, setSelectedVideoClipIds]
+  )
+  const setAnimationClipSelection = React.useCallback(
+    (ids: string[], canvasId?: string) => {
+      if (ids.length) setSelectedVideoClipIds([])
+      setAnimationClipSelectionRaw(ids, canvasId)
+    },
+    [setAnimationClipSelectionRaw, setSelectedVideoClipIds]
+  )
   React.useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     if (!mainIsVideo) {
