@@ -1,7 +1,8 @@
 /**
  * Audio for the keyframe (Animate-mode) export.
  *
- * `video-media.ts` can stream the source's audio straight through, because that
+ * The video-media export can stream the source's audio straight through (see
+ * `video-media/audio.ts`), because that
  * export plays the clip start-to-finish: packet timestamps already line up with
  * the output. The animation timeline doesn't guarantee that — the clip can be
  * trimmed, shifted to start later, or split into pieces that play out of source
@@ -31,7 +32,7 @@ import {
   preferredAudioCodecs,
   prepareSourceAudio,
   type SourceAudioFeed,
-} from "./video-media"
+} from "./video-media/audio"
 
 /**
  * True when the timeline plays the source from its start at position zero, so

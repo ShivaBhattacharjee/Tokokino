@@ -8,7 +8,7 @@
  * seeks or decodes the clone's video either, so even a loadable source would
  * stay frozen.
  *
- * `video-media.ts` dodges this by rasterizing the scene once and compositing
+ * The video-media export dodges this by rasterizing the scene once and compositing
  * decoded frames onto a fixed rect — which keyframes rule out, since they move
  * and tilt the video box every frame. So instead swap the clone's `<video>` for
  * an `<img>` that inherits its classes and inline styles (crop, object-fit,
@@ -18,7 +18,8 @@
  */
 
 import type { VideoTimelineClip } from "../state-types"
-import { createDecodedFrameSource, waitForVideoReady } from "./video-media"
+import { createDecodedFrameSource } from "./video-media/decoded-frames"
+import { waitForVideoReady } from "./video-media/dom-video"
 
 /** Matches the store's implicit "whole clip" default when `videoClips` is unset. */
 const DEFAULT_VIDEO_CLIP: VideoTimelineClip = {

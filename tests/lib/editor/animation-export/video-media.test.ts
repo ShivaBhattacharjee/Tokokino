@@ -1,18 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { canvasIsVideoMedia } from "@/lib/editor/animation-export/video-media"
 import {
-  MAX_GIF_TOTAL_PIXELS,
   canRemuxAudioCodec,
-  canvasIsVideoMedia,
   exportAudioDurationSec,
-  gifExportExceedsMemory,
-  measureVideoRegion,
-  planFrames,
   preferredAudioCodecs,
   resolveAudioMuxStrategy,
-  seekTo,
   shouldIncludeAudioPacket,
-} from "@/lib/editor/animation-export/video-media"
+} from "@/lib/editor/animation-export/video-media/audio"
+import { seekTo } from "@/lib/editor/animation-export/video-media/dom-video"
+import {
+  MAX_GIF_TOTAL_PIXELS,
+  gifExportExceedsMemory,
+} from "@/lib/editor/animation-export/video-media/encode-gif"
+import { planFrames } from "@/lib/editor/animation-export/video-media/frames"
+import { measureVideoRegion } from "@/lib/editor/animation-export/video-media/region"
 import { AnimationExportAbortedError } from "@/lib/editor/animation-export/utils"
 import { useEditorStore } from "@/lib/editor/store"
 import { Mp4OutputFormat, WebMOutputFormat } from "mediabunny"
