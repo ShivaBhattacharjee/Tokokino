@@ -122,6 +122,19 @@ function resolveTransformCarrier(
   return null
 }
 
+/**
+ * Neutralize a transform without removing it.
+ *
+ * A computed `transform` other than `none` makes an element the containing block
+ * for its absolutely-positioned descendants, so `transform: none` silently
+ * re-parents every abs-positioned child to a different ancestor and their
+ * percentage sizes resolve against the wrong box. A device frame renders its
+ * chrome that way: clearing the tilt on the carrier collapsed the frame to ~46%
+ * inside a carrier whose own box never moved — a correctly placed, half-size
+ * frame. Identity leaves layout alone and still paints untransformed.
+ */
+const IDENTITY_TRANSFORM = "matrix(1, 0, 0, 1, 0, 0)"
+
 /** A planar box projected into capture-root CSS px, perspective included. */
 type QuadProjection = {
   corners: [Point, Point, Point, Point]
@@ -157,10 +170,10 @@ function projectElementQuad(
   const style = getComputedStyle(carrier)
   const cssTransform = style.transform
 
-  // Untransformed layout — the transform MUST be cleared on the carrier (the
+  // Untransformed layout — the transform MUST be neutralized on the carrier (the
   // element that actually has it), not on a child reporting transform:none.
   const prevInline = carrier.style.transform
-  carrier.style.transform = "none"
+  carrier.style.transform = IDENTITY_TRANSFORM
   void carrier.offsetWidth
   const rootRect = root.getBoundingClientRect()
   const carrierBox = carrier.getBoundingClientRect()
@@ -809,6 +822,9 @@ function overlayVideoFrameImage(
  * gives the raster nothing to flatten; the projection is then ours to do, with
  * the same maths the video goes through.
  */
+/** Distinguishes snapshots when several layers share a stack tag (or none). */
+let projectedSeq = 0
+
 async function captureProjectedElement(
   capture: AnimationCapture,
   layer: ProjectedLayer,
@@ -819,6 +835,8 @@ async function captureProjectedElement(
   excludeForeground: HTMLElement[] = []
 ): Promise<HTMLCanvasElement | null> {
   const { el, carrier, quad } = layer
+  const seq = projectedSeq++
+  const tag = `${seq}-${el.getAttribute("data-export-stack") ?? "untagged"}`
 
   // box-shadow / drop-shadow paint outside the border box and are transformed
   // with the element, so the texture has to include them or a tilted shadow gets
@@ -840,10 +858,26 @@ async function captureProjectedElement(
         f.style.visibility = prev
       }
     })
-  // Clear the transform on the *carrier*: `el` may merely inherit it, and
+  // Neutralize the transform on the *carrier*: `el` may merely inherit it, and
   // clearing a child that reports transform:none would change nothing.
   const prevTransform = carrier.style.transform
-  carrier.style.transform = "none"
+
+  // The carrier's transform is not only the tilt — it also carries the layout's
+  // own translate(-50%, -50%) centering. Neutralizing it outright drops the
+  // centering, dumping the element's top-left on its 50%/50% anchor where it
+  // hangs off the capture canvas and rasterizes clipped: a full-size layer that
+  // survives only as its top-left corner. So place the box at a known spot and
+  // crop where it actually lands, rather than trusting it to stay put.
+  carrier.style.transform = IDENTITY_TRANSFORM
+  const rootRect = capture.node.getBoundingClientRect()
+  const loose = el.getBoundingClientRect()
+  const dx = -(loose.left - rootRect.left) + pad
+  const dy = -(loose.top - rootRect.top) + pad
+  carrier.style.transform = `matrix(1, 0, 0, 1, ${dx}, ${dy})`
+  const placed = el.getBoundingClientRect()
+  const cropX = Math.round((placed.left - rootRect.left - pad) * scale)
+  const cropY = Math.round((placed.top - rootRect.top - pad) * scale)
+
   let raster: HTMLCanvasElement | null = null
   try {
     raster = await captureForegroundLayer(capture)
@@ -853,29 +887,39 @@ async function captureProjectedElement(
     restoreVisibility()
   }
   if (!raster) return null
+  getActiveExportDebug()?.addLayerSnapshot(`raster-${tag}`, raster)
 
-  // With the transform cleared the element rasterizes into its untransformed
-  // layout box; lift that box (plus the shadow margin) out as the quad texture.
+  // Lift the placed box (plus the shadow margin) out as the quad texture.
   const boxW = quad.localW + pad * 2
   const boxH = quad.localH + pad * 2
   const cropW = Math.max(1, Math.round(boxW * scale))
   const cropH = Math.max(1, Math.round(boxH * scale))
+  if (
+    cropX < 0 ||
+    cropY < 0 ||
+    cropX + cropW > raster.width + 1 ||
+    cropY + cropH > raster.height + 1
+  ) {
+    exportDebugLog(
+      "warn",
+      "renderer.composite",
+      "layer texture is clipped by the capture canvas — it will warp in undersized",
+      {
+        tag: el.tagName,
+        stack: el.getAttribute("data-export-stack"),
+        crop: { x: cropX, y: cropY, w: cropW, h: cropH },
+        raster: { w: raster.width, h: raster.height },
+      }
+    )
+  }
   const local = document.createElement("canvas")
   local.width = cropW
   local.height = cropH
   const lctx = local.getContext("2d")
   if (!lctx) return null
-  lctx.drawImage(
-    raster,
-    (quad.origin.x - pad) * scale,
-    (quad.origin.y - pad) * scale,
-    cropW,
-    cropH,
-    0,
-    0,
-    cropW,
-    cropH
-  )
+  lctx.drawImage(raster, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+
+  getActiveExportDebug()?.addLayerSnapshot(`tex-${tag}`, local)
 
   const out = document.createElement("canvas")
   out.width = width

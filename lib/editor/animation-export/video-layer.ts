@@ -18,6 +18,7 @@
  */
 
 import type { VideoTimelineClip } from "../state-types"
+import { exportDebugLog } from "./export-debug"
 import { createDecodedFrameSource } from "./video-media/decoded-frames"
 import { waitForVideoReady } from "./video-media/dom-video"
 
@@ -146,6 +147,26 @@ export async function prepareCloneVideoLayer({
     return null
   }
 
+  // The <video> is swapped for an <img>, so every box the layout hangs off the
+  // media (frame screen area, contain shells, crop) is re-resolved against a
+  // different replaced element. Measure across the swap: the framing check runs
+  // earlier and queries "video", so it cannot see this.
+  const boxOf = (el: Element | null) => {
+    const root = node.getBoundingClientRect()
+    const r = el?.getBoundingClientRect()
+    if (!r || !root.width || !root.height) return null
+    return {
+      leftPct: Number(((r.left - root.left) / root.width).toFixed(4)),
+      topPct: Number(((r.top - root.top) / root.height).toFixed(4)),
+      widthPct: Number((r.width / root.width).toFixed(4)),
+      heightPct: Number((r.height / root.height).toFixed(4)),
+      w: Number(r.width.toFixed(1)),
+      h: Number(r.height.toFixed(1)),
+    }
+  }
+  const beforeBox = boxOf(video)
+  const beforeParent = boxOf(video.parentElement)
+
   const img = document.createElement("img")
   for (const attribute of Array.from(video.attributes)) {
     if (DROPPED_VIDEO_ATTRIBUTES.has(attribute.name)) continue
@@ -195,6 +216,31 @@ export async function prepareCloneVideoLayer({
   const firstClip = videoClips.length > 0 ? videoClips : [DEFAULT_VIDEO_CLIP]
   await paintSourceMs(
     Math.max(0, Math.min(...firstClip.map((clip) => clip.startMs)))
+  )
+
+  const afterBox = boxOf(img)
+  const drifted =
+    !!beforeBox &&
+    !!afterBox &&
+    (Math.abs(beforeBox.leftPct - afterBox.leftPct) > 0.002 ||
+      Math.abs(beforeBox.topPct - afterBox.topPct) > 0.002 ||
+      Math.abs(beforeBox.widthPct - afterBox.widthPct) > 0.002 ||
+      Math.abs(beforeBox.heightPct - afterBox.heightPct) > 0.002)
+  exportDebugLog(
+    drifted ? "warn" : "info",
+    "video-layer",
+    drifted
+      ? "clone media box MOVED across the <video>→<img> swap"
+      : "clone media box stable across the <video>→<img> swap",
+    {
+      before: beforeBox,
+      after: afterBox,
+      parentBefore: beforeParent,
+      parentAfter: boxOf(img.parentElement),
+      imgClass: img.className || null,
+      imgNatural: { w: img.naturalWidth, h: img.naturalHeight },
+      drifted,
+    }
   )
 
   return {
