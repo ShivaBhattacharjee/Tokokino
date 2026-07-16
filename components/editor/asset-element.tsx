@@ -347,6 +347,7 @@ export function AssetElementView({
         onPointerCancel={endDrag}
         onClick={select}
         data-editor-asset-id={asset.id}
+        data-export-stack="foreground"
         className={cn(
           "nodrag nopan absolute touch-none select-none",
           isSelected ? "cursor-grabbing" : "cursor-grab"

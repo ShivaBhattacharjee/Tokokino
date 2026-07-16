@@ -23,6 +23,7 @@ import { isVideoSrc } from "../media-type"
 import { prepareAnimationAudio } from "./animation-audio"
 import { captureStableFrame } from "./capture"
 import { safeDrawImage } from "./draw-utils"
+import { exportDebugLog } from "./export-debug"
 import type { CaptureCtx } from "./types"
 import { resolveVideoSegments } from "./video-layer"
 import {
@@ -197,6 +198,14 @@ export async function tryEncodeWithMediabunny(
     }
     // Fall through to MediaRecorder for WebM only.
     console.warn("[export] WebCodecs encode failed, trying fallback:", err)
+    exportDebugLog(
+      "warn",
+      "encode.mediabunny",
+      "WebCodecs encode failed, trying MediaRecorder fallback",
+      {
+        error: err instanceof Error ? err.message : String(err),
+      }
+    )
     return null
   } finally {
     signal?.removeEventListener("abort", onAbort)

@@ -1,6 +1,10 @@
 import { toJpeg, toBlob, toCanvas, getFontEmbedCSS } from "html-to-image"
 
 import { triggerAnchorDownload } from "@/lib/download"
+import {
+  exportDebugLog,
+  getActiveExportDebug,
+} from "./animation-export/export-debug"
 import { supportsObjectViewBox } from "./crop-utils"
 import { shouldProxyAssetUrl } from "./export-assets"
 import { replaceCloneVideosWithFrames } from "./export-video-frames"
@@ -713,12 +717,33 @@ export type AnimationCapture = {
  * No-op on Chromium.
  */
 async function warmUpWebKitCapture(captureFrame: () => Promise<unknown>) {
-  if (supportsObjectViewBox()) return
+  if (supportsObjectViewBox()) {
+    exportDebugLog(
+      "debug",
+      "capture.warmup",
+      "skipped (Chromium object-view-box supported)"
+    )
+    return
+  }
+  exportDebugLog("info", "capture.warmup", "WebKit warm-up begin (2 attempts)")
   for (let attempt = 0; attempt < 2; attempt++) {
+    const t0 = performance.now()
     try {
       await captureFrame()
-    } catch {
+      exportDebugLog("info", "capture.warmup", `attempt ${attempt + 1} ok`, {
+        durationMs: Math.round(performance.now() - t0),
+      })
+    } catch (err) {
       // Warm-up only — the real capture surfaces its own errors.
+      exportDebugLog(
+        "warn",
+        "capture.warmup",
+        `attempt ${attempt + 1} failed`,
+        {
+          durationMs: Math.round(performance.now() - t0),
+          error: err instanceof Error ? err.message : String(err),
+        }
+      )
     }
     await new Promise((resolve) => setTimeout(resolve, 60))
   }
@@ -728,6 +753,10 @@ export async function prepareAnimationCapture(
   canvasId: string,
   targetWidth = 1280
 ): Promise<AnimationCapture> {
+  exportDebugLog("info", "capture.legacy", "prepareAnimationCapture begin", {
+    canvasId,
+    targetWidth,
+  })
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 
@@ -738,6 +767,13 @@ export async function prepareAnimationCapture(
   const pixelRatio = targetWidth / renderedWidth
   const outputWidth = Math.round(renderedWidth * pixelRatio)
   const outputHeight = Math.round(renderedHeight * pixelRatio)
+  exportDebugLog("info", "capture.legacy", "layout dims", {
+    renderedWidth,
+    renderedHeight,
+    pixelRatio,
+    outputWidth,
+    outputHeight,
+  })
 
   const exportTarget = prepareExportNode(
     node,
@@ -747,6 +783,10 @@ export async function prepareAnimationCapture(
     true // neutralize portrait blur/stage — redrawn onto the frame canvas
   )
   const { rewrites, preloadUrls } = rewriteExportAssets(exportTarget.node)
+  exportDebugLog("debug", "capture.legacy", "assets rewritten", {
+    rewriteCount: rewrites.length,
+    preloadUrlCount: preloadUrls.length,
+  })
 
   await waitForExportAssets(preloadUrls)
   await embedCloneImages(exportTarget.node)
@@ -755,6 +795,7 @@ export async function prepareAnimationCapture(
   // data URIs or html-to-image caches them and freezes the animated background
   // on one frame — see embedCloneBackgroundImages.
   await embedCloneBackgroundImages(exportTarget.node)
+  exportDebugLog("info", "capture.legacy", "clone assets embedded")
 
   const captureOptions = {
     pixelRatio,
@@ -762,21 +803,65 @@ export async function prepareAnimationCapture(
     filter: filterExportHidden,
   } as const
 
+  let captureCallCount = 0
   const captureFrame = async () => {
     // html-to-image can return a non-canvas / zero-size value on Safari &
     // Firefox. Validate before handing it to drawImage callers.
-    const canvas = await toCanvas(exportTarget.node, captureOptions)
+    const call = ++captureCallCount
+    const t0 = performance.now()
+    let canvas: HTMLCanvasElement
+    try {
+      canvas = await toCanvas(exportTarget.node, captureOptions)
+    } catch (err) {
+      exportDebugLog("error", "capture.legacy", `toCanvas threw (#${call})`, {
+        call,
+        durationMs: Math.round(performance.now() - t0),
+        error: err instanceof Error ? err.message : String(err),
+      })
+      throw err
+    }
     if (
       !(canvas instanceof HTMLCanvasElement) ||
       canvas.width <= 0 ||
       canvas.height <= 0
     ) {
+      exportDebugLog(
+        "error",
+        "capture.legacy",
+        `toCanvas returned invalid canvas (#${call})`,
+        {
+          call,
+          type: canvas == null ? "null" : typeof canvas,
+          width:
+            canvas && typeof canvas === "object" && "width" in canvas
+              ? (canvas as { width: unknown }).width
+              : null,
+          height:
+            canvas && typeof canvas === "object" && "height" in canvas
+              ? (canvas as { height: unknown }).height
+              : null,
+          durationMs: Math.round(performance.now() - t0),
+        }
+      )
       throw new Error("Frame capture returned an invalid canvas")
+    }
+    // Log only first few + occasional later calls to avoid drowning the log.
+    if (call <= 4 || call % 30 === 0) {
+      exportDebugLog("debug", "capture.legacy", `toCanvas ok (#${call})`, {
+        call,
+        width: canvas.width,
+        height: canvas.height,
+        durationMs: Math.round(performance.now() - t0),
+      })
     }
     return canvas
   }
 
   await warmUpWebKitCapture(captureFrame)
+  getActiveExportDebug()?.setMeta(
+    "legacyCaptureCallsAfterWarmup",
+    captureCallCount
+  )
 
   return {
     node: exportTarget.node,
@@ -914,6 +999,10 @@ export async function prepareFastAnimationCapture(
   canvasId: string,
   targetWidth = 1280
 ): Promise<AnimationCapture> {
+  exportDebugLog("info", "capture.fast", "prepareFastAnimationCapture begin", {
+    canvasId,
+    targetWidth,
+  })
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 
@@ -924,10 +1013,20 @@ export async function prepareFastAnimationCapture(
   const pixelRatio = targetWidth / renderedWidth
   const outputWidth = Math.round(renderedWidth * pixelRatio)
   const outputHeight = Math.round(renderedHeight * pixelRatio)
+  exportDebugLog("info", "capture.fast", "layout dims", {
+    renderedWidth,
+    renderedHeight,
+    pixelRatio,
+    outputWidth,
+    outputHeight,
+  })
 
   // Read the on-screen container context BEFORE cloning so cqw reads on the clone
   // resolve to the same pixels as in the live editor.
   const containerContext = findNearestContainerContext(node)
+  exportDebugLog("debug", "capture.fast", "container context", {
+    containerContext,
+  })
 
   const exportTarget = prepareExportNode(
     node,
@@ -1001,29 +1100,52 @@ export async function prepareFastAnimationCapture(
     throw new Error("Could not get 2d context for fast capture")
   }
 
+  let captureCallCount = 0
   const captureFrame = async () => {
     // Bake computed styles (resolving theme colors + cqw → px for this frame)
     // just for the serialization, then restore the var-driven inline styles.
-    const body = withBakedComputedStyles(bakeEls(), () =>
-      serializer.serializeToString(exportTarget.node)
-    )
-    const url =
-      dataUrlHead + encodedOpen + encodeURIComponent(body) + encodedClose
-    // `Image.decode()` rejects on SVG-with-<foreignObject> in some Firefox
-    // builds, so wait on load/error events — reliable in every engine.
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image()
-      image.onload = () => resolve(image)
-      image.onerror = () =>
-        reject(new Error("Fast capture: SVG frame failed to load"))
-      image.src = url
-    })
-    ctx.clearRect(0, 0, outputWidth, outputHeight)
-    ctx.drawImage(img, 0, 0, outputWidth, outputHeight)
-    return frameCanvas
+    const call = ++captureCallCount
+    const t0 = performance.now()
+    try {
+      const body = withBakedComputedStyles(bakeEls(), () =>
+        serializer.serializeToString(exportTarget.node)
+      )
+      const url =
+        dataUrlHead + encodedOpen + encodeURIComponent(body) + encodedClose
+      // `Image.decode()` rejects on SVG-with-<foreignObject> in some Firefox
+      // builds, so wait on load/error events — reliable in every engine.
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => resolve(image)
+        image.onerror = () =>
+          reject(new Error("Fast capture: SVG frame failed to load"))
+        image.src = url
+      })
+      ctx.clearRect(0, 0, outputWidth, outputHeight)
+      ctx.drawImage(img, 0, 0, outputWidth, outputHeight)
+      if (call <= 4 || call % 30 === 0) {
+        exportDebugLog("debug", "capture.fast", `frame ok (#${call})`, {
+          call,
+          durationMs: Math.round(performance.now() - t0),
+          bodyChars: body.length,
+        })
+      }
+      return frameCanvas
+    } catch (err) {
+      exportDebugLog("error", "capture.fast", `frame failed (#${call})`, {
+        call,
+        durationMs: Math.round(performance.now() - t0),
+        error: err instanceof Error ? err.message : String(err),
+      })
+      throw err
+    }
   }
 
   await warmUpWebKitCapture(captureFrame)
+  getActiveExportDebug()?.setMeta(
+    "fastCaptureCallsAfterWarmup",
+    captureCallCount
+  )
 
   return {
     node: exportTarget.node,

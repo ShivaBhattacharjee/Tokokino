@@ -11,6 +11,7 @@ import {
   type WrappedCanvas,
 } from "mediabunny"
 
+import { exportDebugLog } from "../export-debug"
 import { throwIfAborted } from "../utils"
 
 export type DecodedFrameSource = {
@@ -37,19 +38,55 @@ export async function createDecodedFrameSource(
   src: string,
   signal?: AbortSignal
 ): Promise<DecodedFrameSource | null> {
-  if (typeof VideoDecoder === "undefined") return null
+  if (typeof VideoDecoder === "undefined") {
+    exportDebugLog(
+      "warn",
+      "decode",
+      "VideoDecoder undefined — no WebCodecs decode"
+    )
+    return null
+  }
   let input: Input | null = null
   try {
     throwIfAborted(signal)
+    const t0 = performance.now()
+    exportDebugLog("info", "decode", "fetching source for WebCodecs decode", {
+      srcKind: src.startsWith("blob:")
+        ? "blob"
+        : src.startsWith("data:")
+          ? "data"
+          : "url",
+    })
     const res = await fetch(src)
-    if (!res.ok) return null
+    if (!res.ok) {
+      exportDebugLog("warn", "decode", "source fetch failed", {
+        status: res.status,
+      })
+      return null
+    }
     const blob = await res.blob()
+    exportDebugLog("info", "decode", "source fetched", {
+      byteLength: blob.size,
+      type: blob.type,
+      durationMs: Math.round(performance.now() - t0),
+    })
     input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) })
     const track = await input.getPrimaryVideoTrack()
     if (!track || !(await track.canDecode())) {
+      exportDebugLog(
+        "warn",
+        "decode",
+        "primary track missing or not decodable",
+        {
+          hasTrack: !!track,
+        }
+      )
       input.dispose()
       return null
     }
+    exportDebugLog("info", "decode", "WebCodecs track ready", {
+      durationMs: Math.round(performance.now() - t0),
+    })
     const boundInput = input
     // poolSize 0 → each yielded frame is its own canvas, so holding a reference
     // to the last one across calls is safe (a pooled canvas would be overwritten).
@@ -95,7 +132,10 @@ export async function createDecodedFrameSource(
         boundInput.dispose()
       },
     }
-  } catch {
+  } catch (err) {
+    exportDebugLog("warn", "decode", "createDecodedFrameSource failed", {
+      error: err instanceof Error ? err.message : String(err),
+    })
     input?.dispose()
     return null
   }

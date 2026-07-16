@@ -455,6 +455,7 @@ export function ScreenshotBare({
           ref={setVideoShellRef}
           data-box-hover-target
           data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
+          data-export-stack="media"
           style={videoShellStyle}
           className={cn(
             mediaClassName,
@@ -486,6 +487,7 @@ export function ScreenshotBare({
           shimmer
           data-box-hover-target
           data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
+          data-export-stack="media"
           src={screenshot}
           alt="Screenshot"
           draggable={false}
@@ -503,6 +505,9 @@ export function ScreenshotBare({
       {innerLightingStyle && !screenshotLayer.hidden ? (
         <div
           aria-hidden
+          // Foreground stack: video-media export captures this above the
+          // decoded frame so lighting (and siblings) sit on top of the video.
+          data-export-stack="foreground"
           className={cn(
             "pointer-events-none absolute z-10",
             isScreenshotDragging ||

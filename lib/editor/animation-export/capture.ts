@@ -15,6 +15,11 @@ import {
 } from "../export"
 import type { AnimationClip, CanvasState } from "../state-types"
 import { blankFrame, isDrawImageSource, snapshotFrame } from "./draw-utils"
+import {
+  exportDebugLog,
+  getActiveExportDebug,
+  sampleFrameStats,
+} from "./export-debug"
 import type { AnimationCaptureMode } from "./types"
 import { waitForPaint } from "./utils"
 import type { CloneVideoLayer } from "./video-layer"
@@ -32,18 +37,58 @@ export async function acquireAnimationCapture(
   targetWidth: number,
   mode: AnimationCaptureMode
 ): Promise<AnimationCapture> {
-  if (mode === "legacy") return prepareAnimationCapture(canvasId, targetWidth)
-  if (mode === "fast") return prepareFastAnimationCapture(canvasId, targetWidth)
+  exportDebugLog("info", "capture.acquire", "resolving capture strategy", {
+    mode,
+    targetWidth,
+    canvasId,
+  })
+  if (mode === "legacy") {
+    const cap = await prepareAnimationCapture(canvasId, targetWidth)
+    exportDebugLog("info", "capture.acquire", "using legacy html-to-image", {
+      width: cap.width,
+      height: cap.height,
+      needsPaint: cap.needsPaint,
+    })
+    getActiveExportDebug()?.setMeta("captureStrategy", "legacy")
+    return cap
+  }
+  if (mode === "fast") {
+    const cap = await prepareFastAnimationCapture(canvasId, targetWidth)
+    exportDebugLog("info", "capture.acquire", "using fast path", {
+      width: cap.width,
+      height: cap.height,
+      needsPaint: cap.needsPaint,
+    })
+    getActiveExportDebug()?.setMeta("captureStrategy", "fast")
+    return cap
+  }
 
   // auto
   try {
-    return await prepareFastAnimationCapture(canvasId, targetWidth)
+    const cap = await prepareFastAnimationCapture(canvasId, targetWidth)
+    exportDebugLog("info", "capture.acquire", "auto → fast path", {
+      width: cap.width,
+      height: cap.height,
+      needsPaint: cap.needsPaint,
+    })
+    getActiveExportDebug()?.setMeta("captureStrategy", "auto-fast")
+    return cap
   } catch (err) {
     console.warn(
       "[export] fast capture setup failed, using html-to-image:",
       err
     )
-    return prepareAnimationCapture(canvasId, targetWidth)
+    exportDebugLog(
+      "warn",
+      "capture.acquire",
+      "fast setup failed, falling back to legacy html-to-image",
+      {
+        error: err instanceof Error ? err.message : String(err),
+      }
+    )
+    const cap = await prepareAnimationCapture(canvasId, targetWidth)
+    getActiveExportDebug()?.setMeta("captureStrategy", "auto-legacy-fallback")
+    return cap
   }
 }
 
@@ -89,8 +134,16 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
  * `makeExportStyle`) and the effect is reconstructed here in 2D: blur the frame,
  * keep it only inside the masked band, and composite it back at the overlay's
  * (possibly animated) opacity. Reads the live clone so crossfades are respected.
+ *
+ * Must run on the *finished* frame: these overlays sit at z-index 200, above the
+ * media, so the blur is meant to catch the screenshot/video too — not just the
+ * backdrop. Only `blur`/`stage` are tagged; the gradient portrait modes render
+ * natively and are never neutralized.
  */
-function drawPortraitDepthOfField(frame: HTMLCanvasElement, node: HTMLElement) {
+export function drawPortraitDepthOfField(
+  frame: HTMLCanvasElement,
+  node: HTMLElement
+) {
   const els = node.querySelectorAll<HTMLElement>("[data-export-portrait-fx]")
   if (els.length === 0) return
   const ctx = frame.getContext("2d")
@@ -189,6 +242,7 @@ export async function captureStableFrame(
   timeMs: number,
   videoLayer?: CloneVideoLayer | null
 ): Promise<HTMLCanvasElement> {
+  const t0 = performance.now()
   // Non-null only for a video canvas: paints this frame's decoded pixels into
   // the clone, which otherwise rasterizes the video's box empty.
   await videoLayer?.paint(timeMs)
@@ -198,17 +252,40 @@ export async function captureStableFrame(
   // reads live computed styles and does.
   if (capture.needsPaint) await waitForPaint()
   let raw: unknown
+  let usedBlank = false
+  let retried = false
   try {
     raw = await capture.captureFrame()
-  } catch {
+  } catch (err) {
+    exportDebugLog(
+      "warn",
+      "capture.stable",
+      "captureFrame threw — returning blank frame",
+      {
+        timeMs,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    )
+    usedBlank = true
     return blankFrame(capture.width, capture.height)
   }
   // html-to-image is flaky on some browsers — one retry after another paint.
   if (!isDrawImageSource(raw)) {
+    retried = true
     if (capture.needsPaint) await waitForPaint()
     try {
       raw = await capture.captureFrame()
-    } catch {
+    } catch (err) {
+      exportDebugLog(
+        "warn",
+        "capture.stable",
+        "captureFrame retry threw — returning blank frame",
+        {
+          timeMs,
+          error: err instanceof Error ? err.message : String(err),
+        }
+      )
+      usedBlank = true
       return blankFrame(capture.width, capture.height)
     }
   }
@@ -216,5 +293,18 @@ export async function captureStableFrame(
   // Re-draw portrait blur/stage DoF (backdrop-filter can't rasterize) as content,
   // before any watermark. Reads the clone so animated crossfade opacity applies.
   drawPortraitDepthOfField(frame, capture.node)
+
+  const dbg = getActiveExportDebug()
+  if (dbg) {
+    // Approximate frame index from time for sampling throttle.
+    const approxIndex = Math.max(0, Math.round(timeMs / 33.33))
+    dbg.logFrameSample("capture.stable", approxIndex, 9999, frame, {
+      timeMs,
+      retried,
+      usedBlank,
+      durationMs: Math.round(performance.now() - t0),
+      stats: sampleFrameStats(frame),
+    })
+  }
   return frame
 }
