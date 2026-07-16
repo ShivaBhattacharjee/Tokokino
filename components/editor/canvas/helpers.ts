@@ -525,7 +525,13 @@ export function framePositionedStyle({
     top: "50%",
     transform: framePositionTransform({ anchor, offset, transform, rotation }),
     transformOrigin: "center",
-    transformStyle: "preserve-3d",
+    // Deliberately no preserve-3d. Everything in this box is coplanar (the frame
+    // chrome and the lighting overlay above it), and a 3D rendering context makes
+    // WebKit sort children by depth rather than honor z-index — painting the
+    // z-10 lighting behind the opaque frame. It only appeared to work when a
+    // shadow or enhance filter was set, since a non-none `filter` is a grouping
+    // property that forces transform-style to compute to flat. `perspective()`
+    // in the transform tilts this element either way.
     filter,
     ...(layer
       ? {
