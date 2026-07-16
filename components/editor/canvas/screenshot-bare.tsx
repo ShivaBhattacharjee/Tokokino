@@ -483,7 +483,7 @@ export function ScreenshotBare({
       ) : (
         <ShimmerImage
           ref={imageRef}
-          shimmer={false}
+          shimmer
           data-box-hover-target
           data-editor-shadow-box-target={shadowBoxTarget ? "" : undefined}
           src={screenshot}

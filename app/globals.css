@@ -273,11 +273,53 @@
     background-size: 200% 100%;
     animation: text-shimmer 1.8s linear infinite;
   }
+  /*
+   * Image / box loading shimmer — pure CSS so it tracks light/dark theme tokens.
+   * Base = --muted. Sweep band = muted mixed with --foreground so light mode
+   * gets a soft dark streak and dark mode gets a soft light streak.
+   */
+  @keyframes image-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  .image-shimmer {
+    --image-shimmer-base: var(--muted);
+    --image-shimmer-band: color-mix(
+      in oklch,
+      var(--foreground) 10%,
+      var(--muted)
+    );
+    background-color: var(--image-shimmer-base);
+    background-image: linear-gradient(
+      105deg,
+      var(--image-shimmer-base) 0%,
+      var(--image-shimmer-base) 38%,
+      var(--image-shimmer-band) 50%,
+      var(--image-shimmer-base) 62%,
+      var(--image-shimmer-base) 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: image-shimmer 2s ease-in-out infinite;
+  }
+  .dark .image-shimmer {
+    /* Slightly stronger band on dark surfaces so the sweep stays visible. */
+    --image-shimmer-band: color-mix(
+      in oklch,
+      var(--foreground) 14%,
+      var(--muted)
+    );
+  }
   @media (prefers-reduced-motion: reduce) {
     [aria-hidden="true"] *,
     .animate-beam,
     .animate-indeterminate-sweep,
-    .animate-text-shimmer {
+    .animate-text-shimmer,
+    .image-shimmer {
       animation: none !important;
     }
     .screenshot-edit-popover[data-state="open"] {

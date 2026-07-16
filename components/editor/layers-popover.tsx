@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/popover"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { Slider } from "@/components/ui/slider"
+import { fullPageCaptureMediaStyle } from "@/lib/editor/full-page-capture"
 import {
   backgroundCss,
   type AssetBlendMode,
@@ -77,6 +78,8 @@ type EditorLayer = {
   opacity: number
   blendMode: AssetBlendMode
   thumbnail?: string
+  /** Mirrors canvas full-page crop so the layer thumb matches the stage. */
+  thumbnailObjectPosition?: string
 }
 
 const ASSET_BLEND_MODES: { id: AssetBlendMode; label: string }[] = [
@@ -117,6 +120,7 @@ const restrictLayerDrag: Modifier = ({
 export function LayersPanelContent({ flat }: { flat?: boolean }) {
   const {
     screenshot,
+    fullPageCapture,
     background,
     screenshotLayer,
     updateScreenshotLayer,
@@ -174,6 +178,8 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
         opacity: screenshotLayer.opacity,
         blendMode: screenshotLayer.blendMode,
         thumbnail: screenshot,
+        thumbnailObjectPosition: fullPageCaptureMediaStyle(fullPageCapture)
+          ?.objectPosition as string | undefined,
       })
     }
 
@@ -223,6 +229,8 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
         opacity: screenshotLayer.opacity,
         blendMode: screenshotLayer.blendMode,
         thumbnail: slot.src ?? undefined,
+        thumbnailObjectPosition: fullPageCaptureMediaStyle(slot.fullPageCapture)
+          ?.objectPosition as string | undefined,
       })
     }
 
@@ -280,6 +288,7 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
     annotations,
     annotationShapes,
     frame.id,
+    fullPageCapture,
     screenshot,
     screenshotLayer,
     screenshotSlots,
@@ -593,6 +602,11 @@ function LayerRow({
             alt=""
             draggable={false}
             className="size-full object-cover"
+            style={
+              layer.thumbnailObjectPosition
+                ? { objectPosition: layer.thumbnailObjectPosition }
+                : undefined
+            }
           />
         ) : (
           <LayerIcon type={layer.type} />

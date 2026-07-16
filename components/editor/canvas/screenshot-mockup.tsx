@@ -257,7 +257,7 @@ export function ScreenshotMockup({
             ) : (
               <ShimmerImage
                 ref={imageRef}
-                shimmer={false}
+                shimmer
                 src={screenshot}
                 alt="Screenshot"
                 draggable={false}

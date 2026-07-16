@@ -477,10 +477,15 @@ export function AnimateBar() {
                         <img
                           src={layer.src}
                           alt=""
-                          className="h-full w-full object-cover"
+                          className="size-full object-cover"
+                          style={
+                            layer.objectPosition
+                              ? { objectPosition: layer.objectPosition }
+                              : undefined
+                          }
                         />
                       ) : (
-                        <span className="flex h-full w-full items-center justify-center bg-foreground/10">
+                        <span className="flex size-full items-center justify-center bg-foreground/10">
                           <RiImageAddLine className="size-4 text-muted-foreground" />
                         </span>
                       )}

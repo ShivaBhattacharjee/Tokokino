@@ -521,12 +521,21 @@ function CanvasViewInner({
           fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
+        // API captures are always full-page (screenshotOptions.fullPage).
         setMainScreenshotImage(dataUrl, true)
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Could not capture screenshot"
         )
       }
+    },
+    [setMainScreenshotImage]
+  )
+
+  /** Pre-captured R2 demos are full-page PNGs — same path as /api/screenshot. */
+  const handleDemoScreenshot = React.useCallback(
+    (src: string) => {
+      setMainScreenshotImage(src, true)
     },
     [setMainScreenshotImage]
   )
@@ -1091,6 +1100,7 @@ function CanvasViewInner({
               previewMode={isCanvasPreview}
               emptyCompact={inRowMode}
               onCapture={handleCaptureWebsite}
+              onDemo={handleDemoScreenshot}
               captureDefaultDevice={captureDefaultDevice}
               captureStateKey={mainCaptureStateKey}
               mediaStyle={fullPageMediaStyle}
@@ -1315,6 +1325,7 @@ function CanvasViewInner({
                   addressValue={frameAddress}
                   onAddressChange={setFrameAddress}
                   onCapture={handleCaptureWebsite}
+                  onDemo={handleDemoScreenshot}
                   defaultCaptureDevice={captureDefaultDevice}
                   captureStateKey={mainCaptureStateKey}
                   compact={
@@ -1342,6 +1353,7 @@ function CanvasViewInner({
                   isDragOver={isDragOver}
                   onBrowse={() => fileInputRef.current?.click()}
                   onCapture={handleCaptureWebsite}
+                  onDemo={handleDemoScreenshot}
                   defaultCaptureDevice={captureDefaultDevice}
                   defaultCaptureOrientation={frame.orientation}
                   captureStateKey={mainCaptureStateKey}
@@ -1376,6 +1388,7 @@ function CanvasViewInner({
                   isDragOver={isDragOver}
                   onBrowse={() => fileInputRef.current?.click()}
                   onCapture={handleCaptureWebsite}
+                  onDemo={handleDemoScreenshot}
                   onLoadTweet={handleLoadTweet}
                   defaultCaptureDevice={captureDefaultDevice}
                   captureStateKey={mainCaptureStateKey}

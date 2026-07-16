@@ -9,10 +9,15 @@ type ShimmerImageProps = Omit<
   "src"
 > & {
   src: string
-  /** Fill the box with a calm placeholder tint until the image paints. */
+  /** Show an animated theme-aware shimmer until the image paints. Defaults to true. */
   shimmer?: boolean
 }
 
+/**
+ * Image that shows a light/dark-aware CSS shimmer while the bitmap loads.
+ * Uses `--muted` + a soft `--foreground` mix so the sweep tracks the theme
+ * without hard-coded hex colors or SVG data URLs.
+ */
 export const ShimmerImage = React.forwardRef<
   HTMLImageElement,
   ShimmerImageProps
@@ -51,6 +56,8 @@ export const ShimmerImage = React.forwardRef<
     [ref]
   )
 
+  const showShimmer = shimmer && !loaded
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -60,15 +67,27 @@ export const ShimmerImage = React.forwardRef<
       alt={imgProps.alt}
       onLoad={handleLoad}
       data-loaded={loaded ? "true" : "false"}
-      className={cn(
-        // A still tint, deliberately not animated. Any looping animation reads
-        // as a blink when the load finishes partway through its cycle, which no
-        // start-delay can prevent — a thumbnail grid mostly resolves inside one
-        // period, so the effect only ever showed as flicker.
-        shimmer && !loaded && "bg-muted",
-        className
-      )}
+      className={cn(showShimmer && "image-shimmer", className)}
       style={style}
     />
   )
 })
+
+/**
+ * Standalone shimmer block (no image) — for skeleton grids like Open Project.
+ * Same theme tokens as {@link ShimmerImage}.
+ */
+export function ShimmerBox({
+  className,
+  style,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      aria-hidden
+      className={cn("image-shimmer", className)}
+      style={style}
+      {...props}
+    />
+  )
+}

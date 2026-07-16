@@ -69,6 +69,8 @@ type ScreenshotFrameContentProps = {
    */
   isScreenshotSelected?: boolean
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
   /** Whether videos may be uploaded here (false for extra slots / multi-shot
@@ -132,6 +134,7 @@ export function ScreenshotFrameContent({
   innerLightingStyle,
   isScreenshotSelected = false,
   onCapture,
+  onDemo,
   captureDefaultDevice,
   captureStateKey,
   allowVideo = true,
@@ -309,6 +312,7 @@ export function ScreenshotFrameContent({
         addressValue={addressValue}
         onAddressChange={onAddressChange}
         onCapture={onCapture}
+        onDemo={onDemo}
         defaultCaptureDevice={captureDefaultDevice}
         captureStateKey={captureStateKey}
         allowVideo={allowVideo}
@@ -332,6 +336,7 @@ export function ScreenshotFrameContent({
         isDragOver={isDragOver}
         onBrowse={onBrowse}
         onCapture={onCapture}
+        onDemo={onDemo}
         defaultCaptureDevice={captureDefaultDevice}
         defaultCaptureOrientation={frame.orientation}
         captureStateKey={captureStateKey}
@@ -377,6 +382,7 @@ export function ScreenshotFrameContent({
           isDragOver={isDragOver}
           onBrowse={onBrowse}
           onCapture={onCapture}
+          onDemo={onDemo}
           defaultCaptureDevice={captureDefaultDevice}
           captureStateKey={captureStateKey}
           allowVideo={allowVideo}
@@ -394,6 +400,7 @@ export function ScreenshotFrameContent({
             isDragOver={isDragOver}
             onBrowse={onBrowse}
             onCapture={onCapture}
+            onDemo={onDemo}
             defaultCaptureDevice={captureDefaultDevice}
             captureStateKey={captureStateKey}
             allowVideo={allowVideo}

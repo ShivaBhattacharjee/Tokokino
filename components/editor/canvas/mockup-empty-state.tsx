@@ -40,6 +40,8 @@ type MockupEmptyStateProps = {
   scopeToMinSide?: boolean
   innerLightingStyle?: React.CSSProperties | null
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   defaultCaptureOrientation?: "vertical" | "horizontal"
   captureStateKey?: string
@@ -68,6 +70,7 @@ export function MockupEmptyState({
   scopeToMinSide = false,
   innerLightingStyle,
   onCapture,
+  onDemo,
   defaultCaptureDevice,
   defaultCaptureOrientation,
   captureStateKey,
@@ -135,6 +138,7 @@ export function MockupEmptyState({
               isDragOver={isDragOver}
               onBrowse={onBrowse}
               onCapture={onCapture}
+              onDemo={onDemo}
               defaultCaptureDevice={defaultCaptureDevice}
               defaultCaptureOrientation={defaultCaptureOrientation}
               captureStateKey={captureStateKey}

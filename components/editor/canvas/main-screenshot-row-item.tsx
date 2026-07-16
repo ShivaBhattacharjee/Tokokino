@@ -77,6 +77,8 @@ type MainScreenshotRenderProps = {
   innerLightingStyle?: React.CSSProperties | null
   mediaStyle?: React.CSSProperties
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
 }
@@ -119,6 +121,7 @@ export function MainScreenshotRender({
   innerLightingStyle,
   mediaStyle,
   onCapture,
+  onDemo,
   captureDefaultDevice,
   captureStateKey,
 }: MainScreenshotRenderProps) {
@@ -261,6 +264,7 @@ export function MainScreenshotRender({
               onDelete={onDelete}
               innerLightingStyle={innerLightingStyle}
               onCapture={onCapture}
+              onDemo={onDemo}
               captureDefaultDevice={captureDefaultDevice}
               captureStateKey={captureStateKey}
             />
@@ -351,6 +355,8 @@ type MainScreenshotRowItemProps = {
   innerLightingStyle?: React.CSSProperties | null
   mediaStyle?: React.CSSProperties
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
 }
@@ -397,6 +403,7 @@ export function MainScreenshotRowItem({
   innerLightingStyle,
   mediaStyle,
   onCapture,
+  onDemo,
   captureDefaultDevice,
   captureStateKey,
 }: MainScreenshotRowItemProps) {
@@ -465,6 +472,7 @@ export function MainScreenshotRowItem({
         innerLightingStyle={innerLightingStyle}
         mediaStyle={mediaStyle}
         onCapture={onCapture}
+        onDemo={onDemo}
         captureDefaultDevice={captureDefaultDevice}
         captureStateKey={captureStateKey}
       />

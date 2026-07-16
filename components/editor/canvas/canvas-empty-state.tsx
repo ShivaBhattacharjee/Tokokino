@@ -17,6 +17,8 @@ type CanvasEmptyStateProps = {
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   isActive?: boolean
@@ -52,6 +54,7 @@ export function CanvasEmptyState({
   onBrowse,
   onCapture,
   onLoadTweet,
+  onDemo,
   defaultCaptureDevice,
   captureStateKey,
   isActive = false,
@@ -161,6 +164,7 @@ export function CanvasEmptyState({
             onBrowse={onBrowse}
             onCapture={onCapture}
             onLoadTweet={onLoadTweet}
+            onDemo={onDemo}
             compact={useCompact}
             allowVideo={allowVideo}
             defaultCaptureDevice={defaultCaptureDevice}
@@ -206,6 +210,7 @@ export function CanvasEmptyState({
           onBrowse={onBrowse}
           onCapture={onCapture}
           onLoadTweet={onLoadTweet}
+          onDemo={onDemo}
           compact={useCompact}
           allowVideo={allowVideo}
           defaultCaptureDevice={defaultCaptureDevice}

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Skeleton } from "@/components/ui/skeleton"
+import { ShimmerBox } from "@/components/ui/shimmer-image"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
 import { useEditor } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
@@ -83,8 +83,7 @@ export function MediaPreparingState({
         }}
       >
         <InnerLightingOverlay style={innerLightingStyle} />
-        {/* Stock shadcn Skeleton — bg-muted + pulse, theme tokens for light/dark. */}
-        <Skeleton className="absolute inset-0 size-full rounded-3xl" />
+        <ShimmerBox className="absolute inset-0 size-full rounded-3xl" />
         <div className="absolute inset-0 flex items-center justify-center px-4">
           <span
             aria-hidden

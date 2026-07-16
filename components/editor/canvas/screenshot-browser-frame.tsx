@@ -102,6 +102,8 @@ type BrowserFrameEmptyStateProps = {
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
   compact?: boolean
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   innerLightingStyle?: React.CSSProperties | null
@@ -210,7 +212,7 @@ export function ScreenshotBrowserFrame({
             onMediaElement={onMediaElement}
             mediaStyle={mediaStyle}
             imageFit={objectFit}
-            shimmer={false}
+            shimmer
             className="h-full w-full"
           />
         ) : frameId === CHROME_BROWSER_FRAME_ID ? (
@@ -226,7 +228,7 @@ export function ScreenshotBrowserFrame({
             onMediaElement={onMediaElement}
             mediaStyle={mediaStyle}
             imageFit={objectFit}
-            shimmer={false}
+            shimmer
             className="h-full w-full"
           />
         ) : (
@@ -242,7 +244,7 @@ export function ScreenshotBrowserFrame({
             onMediaElement={onMediaElement}
             mediaStyle={mediaStyle}
             imageFit={objectFit}
-            shimmer={false}
+            shimmer
             className="h-full w-full"
           />
         )}
@@ -323,6 +325,7 @@ export function BrowserFrameEmptyState({
   onPointerUp,
   compact = false,
   onCapture,
+  onDemo,
   defaultCaptureDevice,
   captureStateKey,
   innerLightingStyle,
@@ -374,6 +377,7 @@ export function BrowserFrameEmptyState({
               onUrlChange={setUrl}
               onBrowse={onBrowse}
               onCapture={onCapture}
+              onDemo={onDemo}
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
@@ -393,6 +397,7 @@ export function BrowserFrameEmptyState({
               onUrlChange={setUrl}
               onBrowse={onBrowse}
               onCapture={onCapture}
+              onDemo={onDemo}
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
@@ -412,6 +417,7 @@ export function BrowserFrameEmptyState({
               onUrlChange={setUrl}
               onBrowse={onBrowse}
               onCapture={onCapture}
+              onDemo={onDemo}
               defaultCaptureDevice={defaultCaptureDevice}
               captureStateKey={captureStateKey}
               compact={compact}
@@ -444,6 +450,7 @@ export function BrowserFrameEmptyState({
             isDragOver={isDragOver}
             onBrowse={onBrowse}
             onCapture={onCapture}
+            onDemo={onDemo}
             defaultCaptureDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
             allowVideo={allowVideo}
@@ -462,6 +469,7 @@ function BrowserFrameEmptyContent({
   isDragOver,
   onBrowse,
   onCapture,
+  onDemo,
   defaultCaptureDevice,
   captureStateKey,
   compact = false,
@@ -472,6 +480,7 @@ function BrowserFrameEmptyContent({
   onUrlChange: (url: string) => void
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  onDemo?: (src: string) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   compact?: boolean
@@ -492,6 +501,7 @@ function BrowserFrameEmptyContent({
             isDragOver={isDragOver}
             onBrowse={onBrowse}
             onCapture={onCapture}
+            onDemo={onDemo}
             defaultDevice={defaultCaptureDevice}
             captureStateKey={captureStateKey}
             allowVideo={allowVideo}
@@ -508,6 +518,7 @@ function BrowserFrameCompactUpload({
   isDragOver,
   onBrowse,
   onCapture,
+  onDemo,
   defaultCaptureDevice,
   captureStateKey,
   allowVideo = true,
@@ -515,6 +526,7 @@ function BrowserFrameCompactUpload({
   isDragOver: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  onDemo?: (src: string) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
   allowVideo?: boolean
@@ -533,6 +545,7 @@ function BrowserFrameCompactUpload({
         isDragOver={isDragOver}
         onBrowse={onBrowse}
         onCapture={onCapture}
+        onDemo={onDemo}
         defaultDevice={defaultCaptureDevice}
         captureStateKey={captureStateKey}
         allowVideo={allowVideo}

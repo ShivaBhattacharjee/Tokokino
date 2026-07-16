@@ -34,6 +34,12 @@ export type ClipDragMode = "move" | "trim" | "trim-start"
 
 export const RAZOR_CURSOR = sharedRazorCursor
 
+/** Timeline clip thumbnail — `objectPosition` mirrors full-page canvas crop. */
+export type ClipThumb = {
+  src: string
+  objectPosition?: string
+}
+
 type TimelineClipProps = {
   clip: AnimationClip
   left: number
@@ -60,7 +66,7 @@ type TimelineClipProps = {
    * Thumbnail(s) of the screenshot(s) this clip animates. One image renders as a
    * single preview; multiple (an "all" clip) render as a small grid.
    */
-  images: string[]
+  images: ClipThumb[]
   /** Which inspector properties this clip animates — rendered as small icons. */
   iconKeys: ClipIconKey[]
   dupShortcut: string
@@ -202,25 +208,39 @@ export function TimelineClip({
             {images.length === 0 ? (
               <span className="h-7 w-12 rounded-[5px] bg-foreground/10 ring-1 ring-foreground/10" />
             ) : images.length === 1 ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={images[0]}
-                alt=""
-                className="h-7 max-w-[64px] rounded-[5px] object-cover ring-1 ring-foreground/10"
-              />
+              // Fixed box + object-cover so tall full-page captures crop like the
+              // canvas (not shrink to a 2px-wide intrinsic strip).
+              <span className="relative h-7 w-12 overflow-hidden rounded-[5px] ring-1 ring-foreground/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={images[0].src}
+                  alt=""
+                  className="size-full object-cover"
+                  style={
+                    images[0].objectPosition
+                      ? { objectPosition: images[0].objectPosition }
+                      : undefined
+                  }
+                />
+              </span>
             ) : (
               // Up to 4 thumbnails in a 2-col grid; a "+N" chip if there are more.
               <div className="grid max-w-[68px] grid-cols-2 gap-[2px]">
-                {images.slice(0, 4).map((src, i) => (
+                {images.slice(0, 4).map((thumb, i) => (
                   <div
                     key={i}
                     className="relative h-3.5 w-[22px] overflow-hidden rounded-[3px] ring-1 ring-foreground/10"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={src}
+                      src={thumb.src}
                       alt=""
-                      className="h-full w-full object-cover"
+                      className="size-full object-cover"
+                      style={
+                        thumb.objectPosition
+                          ? { objectPosition: thumb.objectPosition }
+                          : undefined
+                      }
                     />
                     {i === 3 && images.length > 4 && (
                       <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[9px] font-semibold text-white">

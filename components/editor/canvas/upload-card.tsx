@@ -5,6 +5,7 @@ import {
   RiAddLine,
   RiBlueskyFill,
   RiCameraLine,
+  RiImageLine,
   RiLink,
   RiLoader4Line,
   RiSettings3Line,
@@ -14,6 +15,7 @@ import {
 
 import { motion, LayoutGroup } from "motion/react"
 
+import { pickRandomDemoScreenshot } from "@/lib/editor/demo-screenshots"
 import { cn } from "@/lib/utils"
 import {
   Popover,
@@ -396,6 +398,11 @@ type UploadCardProps = {
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   /** When provided, X/Twitter status URLs load a tweet card instead of a screenshot. */
   onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
+  /**
+   * Load a pre-captured full-page demo screenshot (hosted on R2). When omitted,
+   * the demo button is hidden.
+   */
+  onDemo?: (src: string) => void | Promise<void>
   showHint?: boolean
   /** Pass custom className overrides for the outer card shell */
   className?: string
@@ -420,6 +427,7 @@ export function UploadCard({
   onBrowse,
   onCapture,
   onLoadTweet,
+  onDemo,
   showHint = false,
   className,
   fluid = false,
@@ -448,7 +456,9 @@ export function UploadCard({
   const [isCapturing, setIsCapturing] = React.useState(() =>
     captureSessions.has(captureStateKey ?? "")
   )
+  const [isLoadingDemo, setIsLoadingDemo] = React.useState(false)
   const userTouchedDeviceRef = React.useRef(false)
+  const isBusy = isCapturing || isLoadingDemo
   React.useEffect(() => {
     if (persistedCaptureRef.current) return
     if (userTouchedDeviceRef.current) return
@@ -519,7 +529,7 @@ export function UploadCard({
   async function handleCapture(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation()
     if (isTweetUrl) {
-      if (!onLoadTweet || isCapturing) return
+      if (!onLoadTweet || isBusy) return
       setIsCapturing(true)
       setTweetError(null)
       try {
@@ -534,7 +544,7 @@ export function UploadCard({
       }
       return
     }
-    if (!parsedUrl.success || isCapturing || !onCapture) return
+    if (!parsedUrl.success || isBusy || !onCapture) return
     const captureUrl = parsedUrl.data
     setUrl(captureUrl)
     persistedCaptureRef.current = Boolean(captureStateKey)
@@ -551,9 +561,26 @@ export function UploadCard({
     }
   }
 
+  async function handleDemo(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!onDemo || isBusy) return
+    setIsLoadingDemo(true)
+    setTweetError(null)
+    try {
+      const demo = pickRandomDemoScreenshot()
+      await onDemo(demo.url)
+    } catch (err) {
+      setTweetError(
+        err instanceof Error ? err.message : "Could not load demo screenshot"
+      )
+    } finally {
+      setIsLoadingDemo(false)
+    }
+  }
+
   const captureDisabled = isTweetUrl
-    ? isCapturing
-    : !onCapture || !parsedUrl.success || isCapturing
+    ? isBusy
+    : !onCapture || !parsedUrl.success || isBusy
   const captureLabel = isCapturing
     ? isTweetUrl
       ? "Loading post…"
@@ -650,6 +677,7 @@ export function UploadCard({
               onBrowse={onBrowse}
               onCapture={onCapture}
               onLoadTweet={onLoadTweet}
+              onDemo={onDemo}
               showHint={showHint}
               allowVideo={allowVideo}
               defaultDevice={defaultDevice}
@@ -743,6 +771,26 @@ export function UploadCard({
         )}
         {captureLabel}
       </button>
+      {onDemo ? (
+        <button
+          type="button"
+          disabled={isBusy}
+          aria-busy={isLoadingDemo}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            void handleDemo(e)
+          }}
+          className={cn(sizing.captureButton, isBusy && sizing.captureDisabled)}
+        >
+          {isLoadingDemo ? (
+            <RiLoader4Line className={cn(sizing.icon, "animate-spin")} />
+          ) : (
+            <RiImageLine className={sizing.icon} />
+          )}
+          {isLoadingDemo ? "Loading demo…" : "Load demo screenshot"}
+        </button>
+      ) : null}
       {tweetError ? (
         <p className="px-1 text-[11px] leading-tight text-destructive">
           {tweetError}

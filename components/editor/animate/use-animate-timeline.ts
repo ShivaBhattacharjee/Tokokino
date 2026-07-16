@@ -29,6 +29,7 @@ import {
   videoElementHasAudio,
 } from "@/lib/editor/media-type"
 import { isApplePlatform } from "@/lib/editor/shortcuts"
+import { fullPageCaptureMediaStyle } from "@/lib/editor/full-page-capture"
 import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
 import { useVideoFilmstrip } from "@/lib/editor/video-filmstrip"
 import {
@@ -38,7 +39,7 @@ import {
 } from "@/lib/editor/video-mute-preference"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 
-import type { ClipDragMode, ClipIconKey } from "./timeline-clip"
+import type { ClipDragMode, ClipIconKey, ClipThumb } from "./timeline-clip"
 import type { VideoTrimDragMode } from "./timeline-video-clip"
 
 export function useAnimateTimeline() {
@@ -46,6 +47,7 @@ export function useAnimateTimeline() {
     useAnimationPlayer()
 
   const screenshot = useActiveCanvasField((c) => c.screenshot) ?? null
+  const fullPageCapture = useActiveCanvasField((c) => c.fullPageCapture)
   const screenshotSlots = useActiveCanvasField((c) => c.screenshotSlots ?? [])
   const clips = useActiveCanvasField((c) => c.animation?.clips ?? [])
   const videoClips = useActiveCanvasField((c) => c.videoClips ?? null)
@@ -77,6 +79,9 @@ export function useAnimateTimeline() {
       .filter((clip) => clip.endMs - clip.startMs >= MIN_CLIP_MS)
   }, [videoClips, videoSourceDurationMs])
 
+  const mainObjectPosition = fullPageCaptureMediaStyle(fullPageCapture)
+    ?.objectPosition as string | undefined
+
   const layers = React.useMemo(
     () => [
       {
@@ -85,13 +90,17 @@ export function useAnimateTimeline() {
         isVideo: mainIsVideo,
         filmstrip: mainIsVideo ? mainFilmstrip : null,
         videoClips: mainIsVideo ? resolvedVideoClips : [],
+        // Keep timeline thumbs in sync with canvas full-page crop.
+        objectPosition: mainIsVideo ? undefined : mainObjectPosition,
       },
       ...screenshotSlots.map((slot) => ({
         id: slot.id,
         src: slot.src,
         isVideo: false,
         filmstrip: null,
-        videoClips: [],
+        videoClips: [] as typeof resolvedVideoClips,
+        objectPosition: fullPageCaptureMediaStyle(slot.fullPageCapture)
+          ?.objectPosition as string | undefined,
       })),
     ],
     [
@@ -100,6 +109,7 @@ export function useAnimateTimeline() {
       mainIsVideo,
       mainFilmstrip,
       resolvedVideoClips,
+      mainObjectPosition,
     ]
   )
 
@@ -1495,25 +1505,45 @@ export function useAnimateTimeline() {
 
   const ticks = computeTicks(timelineEndMs, pxPerSecond)
 
-  const mainThumbSrc = mainIsVideo
-    ? (mainFilmstrip?.frames[0] ?? null)
+  const mainThumb: ClipThumb | null = mainIsVideo
+    ? mainFilmstrip?.frames[0]
+      ? { src: mainFilmstrip.frames[0] }
+      : null
     : screenshot
+      ? { src: screenshot, objectPosition: mainObjectPosition }
+      : null
   const resolveClipImages = React.useCallback(
-    (clip: (typeof clips)[number]): string[] => {
+    (clip: (typeof clips)[number]): ClipThumb[] => {
       const target = clip.target ?? { scope: "all" as const }
       if (target.scope === "slot") {
         const slot = screenshotSlots.find((s) => s.id === target.slotId)
-        const src = slot?.src ?? mainThumbSrc
-        return src ? [src] : []
+        if (slot?.src) {
+          return [
+            {
+              src: slot.src,
+              objectPosition: fullPageCaptureMediaStyle(slot.fullPageCapture)
+                ?.objectPosition as string | undefined,
+            },
+          ]
+        }
+        return mainThumb ? [mainThumb] : []
       }
       if (target.scope === "main") {
-        return mainThumbSrc ? [mainThumbSrc] : []
+        return mainThumb ? [mainThumb] : []
       }
-      return [mainThumbSrc, ...screenshotSlots.map((s) => s.src)].filter(
-        (src): src is string => Boolean(src)
-      )
+      const thumbs: ClipThumb[] = []
+      if (mainThumb) thumbs.push(mainThumb)
+      for (const slot of screenshotSlots) {
+        if (!slot.src) continue
+        thumbs.push({
+          src: slot.src,
+          objectPosition: fullPageCaptureMediaStyle(slot.fullPageCapture)
+            ?.objectPosition as string | undefined,
+        })
+      }
+      return thumbs
     },
-    [mainThumbSrc, screenshotSlots]
+    [mainThumb, screenshotSlots]
   )
 
   const resolveClipIcons = React.useCallback(

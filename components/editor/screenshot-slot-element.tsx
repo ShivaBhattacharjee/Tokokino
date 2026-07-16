@@ -116,6 +116,8 @@ type ScreenshotSlotRenderProps = {
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void
   previewMode?: boolean
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
 }
@@ -178,6 +180,7 @@ export function ScreenshotSlotRender({
   onDrop,
   previewMode = false,
   onCapture,
+  onDemo,
   captureDefaultDevice,
   captureStateKey,
 }: ScreenshotSlotRenderProps) {
@@ -414,6 +417,7 @@ export function ScreenshotSlotRender({
                 onDelete={onDeleteFromMenu}
                 innerLightingStyle={innerLightingStyle}
                 onCapture={onCapture}
+                onDemo={onDemo}
                 captureDefaultDevice={captureDefaultDevice}
                 captureStateKey={captureStateKey}
               />
@@ -651,6 +655,7 @@ export function ScreenshotSlotView({
           fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
+        // API captures are always full-page (screenshotOptions.fullPage).
         setFullPageScreenshotSlot(slot.id, dataUrl)
       } catch (err) {
         toast.error(
@@ -660,6 +665,15 @@ export function ScreenshotSlotView({
     },
     [setFullPageScreenshotSlot, slot.id]
   )
+
+  /** Pre-captured R2 demos are full-page PNGs — same path as /api/screenshot. */
+  const handleSlotDemo = React.useCallback(
+    (src: string) => {
+      setFullPageScreenshotSlot(slot.id, src)
+    },
+    [setFullPageScreenshotSlot, slot.id]
+  )
+
   const handleFullPageScroll = React.useCallback(
     (scrollPosition: number) =>
       setFullPageScreenshotSlotScrollPosition(slot.id, scrollPosition),
@@ -842,6 +856,7 @@ export function ScreenshotSlotView({
           void handleFiles(e.dataTransfer.files)
         }}
         onCapture={handleSlotCapture}
+        onDemo={handleSlotDemo}
         captureDefaultDevice={captureDefaultDevice}
         captureStateKey={captureStateKey}
       />

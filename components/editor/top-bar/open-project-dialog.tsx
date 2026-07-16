@@ -36,8 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
-import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { ShimmerBox, ShimmerImage } from "@/components/ui/shimmer-image"
 import { Button } from "@/components/ui/button"
 import {
   Pagination,
@@ -283,7 +282,7 @@ function ProjectTypeRail({
 
 const SKELETON_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const
 
-/** Stable shadcn skeleton grid — fixed keys/sizes so pulse doesn't remount-flicker. */
+/** Animated shimmer grid while drafts load — matches thumbnail card proportions. */
 function DraftGridSkeleton() {
   return (
     <div
@@ -293,9 +292,9 @@ function DraftGridSkeleton() {
     >
       {SKELETON_KEYS.map((key) => (
         <div key={key} className="flex flex-col gap-2">
-          <Skeleton className="aspect-[16/10] w-full rounded-md" />
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-2.5 w-20" />
+          <ShimmerBox className="aspect-[16/10] w-full rounded-md" />
+          <ShimmerBox className="h-3 w-28 rounded-sm" />
+          <ShimmerBox className="h-2.5 w-20 rounded-sm" />
         </div>
       ))}
     </div>

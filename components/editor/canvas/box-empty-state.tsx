@@ -17,6 +17,8 @@ type BoxEmptyStateProps = {
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
+  /** Full-page demo screenshot (same semantics as API capture). */
+  onDemo?: (src: string) => void | Promise<void>
   url?: string
   onUrlChange?: (value: string) => void
   /** Force compact `+` trigger. Otherwise auto-detected by container width. */
@@ -53,6 +55,7 @@ export function BoxEmptyState({
   defaultCaptureOrientation,
   captureStateKey,
   onLoadTweet,
+  onDemo,
 }: BoxEmptyStateProps) {
   const handleCapture = onCapture
     ? (url: string, settings: CaptureSettings) => onCapture(url, settings)
@@ -95,6 +98,7 @@ export function BoxEmptyState({
             onBrowse={onBrowse}
             onCapture={handleCapture}
             onLoadTweet={onLoadTweet}
+            onDemo={onDemo}
             showHint
             allowVideo={allowVideo}
             defaultDevice={defaultCaptureDevice}
@@ -118,6 +122,7 @@ export function BoxEmptyState({
               onBrowse={onBrowse}
               onCapture={handleCapture}
               onLoadTweet={onLoadTweet}
+              onDemo={onDemo}
               showHint
               allowVideo={allowVideo}
               defaultDevice={defaultCaptureDevice}
@@ -137,6 +142,7 @@ export function BoxEmptyState({
               onBrowse={onBrowse}
               onCapture={handleCapture}
               onLoadTweet={onLoadTweet}
+              onDemo={onDemo}
               showHint
               allowVideo={allowVideo}
               defaultDevice={defaultCaptureDevice}
