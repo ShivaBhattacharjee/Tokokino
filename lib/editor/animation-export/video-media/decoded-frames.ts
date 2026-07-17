@@ -72,13 +72,51 @@ export async function createDecodedFrameSource(
     })
     input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) })
     const track = await input.getPrimaryVideoTrack()
-    if (!track || !(await track.canDecode())) {
+    const canDecode = track ? await track.canDecode() : false
+    if (!track || !canDecode) {
+      // Report exactly why this clip won't decode: the codec, its full parameter
+      // string, whether mediabunny could build a decoder config at all, and what
+      // the browser's own VideoDecoder.isConfigSupported says about it. This is
+      // the difference between "unknown codec" and "WebKit refuses this profile",
+      // and it decides whether the flickery DOM-seek fallback was avoidable.
+      let codec: string | null = null
+      let codecString: string | null = null
+      let decoderConfig: VideoDecoderConfig | null = null
+      let isConfigSupported: boolean | null = null
+      try {
+        codec = track ? await track.getCodec() : null
+        codecString = track ? await track.getCodecParameterString() : null
+        decoderConfig = track ? await track.getDecoderConfig() : null
+        if (decoderConfig && typeof VideoDecoder !== "undefined") {
+          isConfigSupported =
+            (await VideoDecoder.isConfigSupported(decoderConfig)).supported ??
+            null
+        }
+      } catch (probeErr) {
+        exportDebugLog("warn", "decode", "decodability probe threw", {
+          error:
+            probeErr instanceof Error ? probeErr.message : String(probeErr),
+        })
+      }
       exportDebugLog(
         "warn",
         "decode",
         "primary track missing or not decodable",
         {
           hasTrack: !!track,
+          canDecode,
+          codec,
+          codecString,
+          hasDecoderConfig: !!decoderConfig,
+          decoderConfig: decoderConfig
+            ? {
+                codec: decoderConfig.codec,
+                codedWidth: decoderConfig.codedWidth,
+                codedHeight: decoderConfig.codedHeight,
+                hasDescription: !!decoderConfig.description,
+              }
+            : null,
+          isConfigSupported,
         }
       )
       input.dispose()

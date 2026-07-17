@@ -123,6 +123,32 @@ function resolveTransformCarrier(
 }
 
 /**
+ * The corner radius (in `localW`-box px) that clips the video's box.
+ *
+ * The rounding lives on whichever ancestor actually clips the media — for a
+ * device frame the square-cornered outer shell has none and the rounded screen
+ * glass carries it a couple levels down. Walk from the video up to the shell,
+ * take the first rounded ancestor and rescale its authored radius from that
+ * element's own layout width to the projected box, so the rounded corners land
+ * exactly where the bezel expects them.
+ */
+function resolveVideoClipRadius(
+  video: HTMLElement,
+  shell: HTMLElement,
+  localW: number
+): number {
+  let node: HTMLElement | null = video
+  while (node) {
+    const r = parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0
+    const w = node.offsetWidth
+    if (r > 0 && w > 0) return r * (localW / w)
+    if (node === shell) break
+    node = node.parentElement
+  }
+  return 0
+}
+
+/**
  * Neutralize a transform without removing it.
  *
  * A computed `transform` other than `none` makes an element the containing block
@@ -979,20 +1005,70 @@ function shadowExtentPx(el: HTMLElement): number {
 }
 
 /**
- * Build the single foreground raster drawn over every composited frame.
+ * Whether `el` paints above `video` in the live DOM's stacking order.
  *
- * Perspective-carrying layers are projected individually (the raster would
- * flatten them); everything else comes from one flat capture. The projected ones
- * are painted first: they are locked to the media box and sit at the bottom of
- * the foreground (inner lighting is z-10, below text/overlays/annotations).
+ * The two-pass split must honor this: a foreground-tagged layer (annotation,
+ * asset, text) shares the screenshot's `z-index: 60 + n` scale and can be ordered
+ * *behind* the screenshot, where it belongs under the video, not over it. CSS
+ * stacks the two at their nearest common ancestor — the child on each branch is
+ * what actually competes — by z-index, then document order.
+ */
+function paintsAboveVideo(
+  el: HTMLElement,
+  video: HTMLElement,
+  root: HTMLElement
+): boolean {
+  const chainOf = (node: HTMLElement): HTMLElement[] => {
+    const chain: HTMLElement[] = []
+    let n: HTMLElement | null = node
+    while (n) {
+      chain.push(n)
+      if (n === root) break
+      n = n.parentElement
+    }
+    return chain
+  }
+  const elChain = chainOf(el)
+  const vChain = chainOf(video)
+  const vIndex = new Map(vChain.map((n, i) => [n, i]))
+  const commonAt = elChain.findIndex((n) => vIndex.has(n))
+  if (commonAt < 0) return true // disjoint trees — keep on top
+  const common = elChain[commonAt]
+  const elBranch = elChain[commonAt - 1]
+  const vBranch = vChain[(vIndex.get(common) ?? 0) - 1]
+  // One is an ancestor of the other: a descendant always paints over its box.
+  if (!elBranch) return false
+  if (!vBranch) return true
+  const z = (n: HTMLElement) => {
+    const v = parseInt(getComputedStyle(n).zIndex, 10)
+    return Number.isNaN(v) ? 0 : v
+  }
+  const ze = z(elBranch)
+  const zv = z(vBranch)
+  if (ze !== zv) return ze > zv
+  return Boolean(
+    vBranch.compareDocumentPosition(elBranch) & Node.DOCUMENT_POSITION_FOLLOWING
+  )
+}
+
+/**
+ * Build a raster layer from a set of nodes, projecting each perspective-carrying
+ * one individually (the flat raster would flatten it) and capturing the rest in
+ * one pass. Projected ones are painted first: they are locked to the media box
+ * and sit at the bottom (inner lighting is z-10, below text/overlays).
+ *
+ * `els` is passed explicitly so the caller can split the foreground by z-order —
+ * layers ordered behind the screenshot are composited under the video instead.
  */
 async function buildForegroundLayer(
   capture: AnimationCapture,
+  els: HTMLElement[],
   scale: number,
   width: number,
-  height: number
+  height: number,
+  label = "foreground groups"
 ): Promise<HTMLCanvasElement | null> {
-  const all = queryForeground(capture.node)
+  const all = els
   if (all.length === 0) return null
   // Each foreground node is projected on its own if anything bends it — whether
   // it carries the transform or inherits one from a tilted wrapper.
@@ -1004,7 +1080,7 @@ async function buildForegroundLayer(
     else flat.push(el)
   }
 
-  exportDebugLog("info", "renderer.composite", "foreground groups", {
+  exportDebugLog("info", "renderer.composite", label, {
     total: all.length,
     perspective: perspective.length,
     flat: flat.length,
@@ -1048,6 +1124,78 @@ async function buildForegroundLayer(
       }
     } finally {
       restore()
+    }
+  }
+
+  return painted ? out : null
+}
+
+/**
+ * Re-project a device frame's chrome (bezel + notch) so it composites *over* the
+ * decoded video, matching its real z-10 order in the DOM.
+ *
+ * The chrome is left untagged so it stays baked into the underlay shell, where it
+ * casts the frame's drop-shadow. That copy is buried by an opaque cover/fill
+ * video, so this pass paints the bezel back on top. The shadow filter lives on an
+ * ancestor (`data-editor-shadow-filter-target`); it is neutralized here so the
+ * on-top copy carries only the bezel, not a second phone-shaped shadow.
+ */
+async function buildFrameChromeLayer(
+  capture: AnimationCapture,
+  shell: HTMLElement,
+  scale: number,
+  width: number,
+  height: number
+): Promise<HTMLCanvasElement | null> {
+  const chromes = Array.from(
+    shell.querySelectorAll<HTMLElement>("[data-export-frame-chrome]")
+  )
+  if (chromes.length === 0) return null
+
+  const out = document.createElement("canvas")
+  out.width = width
+  out.height = height
+  const ctx = out.getContext("2d")
+  if (!ctx) return null
+  let painted = false
+
+  for (const chrome of chromes) {
+    const shadowHost = chrome.closest<HTMLElement>(
+      "[data-editor-shadow-filter-target]"
+    )
+    const prevFilter = shadowHost?.style.filter
+    if (shadowHost) shadowHost.style.filter = "none"
+    try {
+      const layer = projectionFor(capture.node, chrome)
+      if (layer) {
+        const canvas = await captureProjectedElement(
+          capture,
+          layer,
+          scale,
+          width,
+          height
+        )
+        if (canvas) {
+          ctx.drawImage(canvas, 0, 0)
+          painted = true
+        }
+      } else {
+        // Untilted frame: no perspective to undo — capture it in place.
+        const restore = applyExportStackVisibility(capture.node, "foreground", {
+          only: [chrome],
+        })
+        try {
+          const raster = await captureForegroundLayer(capture)
+          if (raster) {
+            ctx.drawImage(raster, 0, 0)
+            painted = true
+          }
+        } finally {
+          restore()
+        }
+      }
+    } finally {
+      if (shadowHost) shadowHost.style.filter = prevFilter ?? ""
     }
   }
 
@@ -1122,7 +1270,6 @@ async function createCompositeRenderer(
   })
 
   const stackCounts = countExportStack(capture.node)
-  const hasForeground = queryForeground(capture.node).length > 0
   exportDebugLog("info", "renderer.composite", "export stack", {
     ...stackCounts,
     enhance: mediaFx?.enhance ?? "off",
@@ -1188,7 +1335,48 @@ async function createCompositeRenderer(
   const underlayProjected = projected.filter(
     ({ el }) => !foregroundEls.some((f) => f === el || f.contains(el))
   )
+
+  // Split the foreground by real stacking order: layers the user sent behind the
+  // screenshot must composite under the video, not over it. Only meaningful when
+  // the shell is projected (drawn separately, below) — otherwise it is baked into
+  // the backdrop template and there is no seam to slip a layer beneath.
+  const canOrderBelow = underlayProjected.length > 0
+  const aboveEls: HTMLElement[] = []
+  const belowEls: HTMLElement[] = []
+  for (const el of foregroundEls) {
+    if (canOrderBelow && !paintsAboveVideo(el, video, capture.node)) {
+      belowEls.push(el)
+    } else {
+      aboveEls.push(el)
+    }
+  }
+  exportDebugLog("info", "renderer.composite", "foreground z-split", {
+    above: aboveEls.length,
+    below: belowEls.length,
+    canOrderBelow,
+  })
+
   const tctx = templateCopy.getContext("2d")
+
+  // Behind-the-screenshot layers first, so the projected shell paints over them.
+  if (belowEls.length > 0) {
+    const belowLayer = await buildForegroundLayer(
+      capture,
+      belowEls,
+      scale,
+      templateCopy.width,
+      templateCopy.height,
+      "underlay foreground groups"
+    )
+    if (belowLayer && tctx) {
+      tctx.drawImage(belowLayer, 0, 0)
+      getActiveExportDebug()?.addLayerSnapshot(
+        "underlay-foreground",
+        belowLayer
+      )
+    }
+  }
+
   for (const layer of underlayProjected) {
     const canvas = await captureProjectedElement(
       capture,
@@ -1207,9 +1395,10 @@ async function createCompositeRenderer(
   // This is what makes the stacking general: the editor decides what's above the
   // media via data-export-stack, not this renderer.
   let foregroundLayer: HTMLCanvasElement | null = null
-  if (hasForeground) {
+  if (aboveEls.length > 0) {
     foregroundLayer = await buildForegroundLayer(
       capture,
+      aboveEls,
       scale,
       templateCopy.width,
       templateCopy.height
@@ -1217,6 +1406,19 @@ async function createCompositeRenderer(
     if (foregroundLayer) {
       getActiveExportDebug()?.addLayerSnapshot("foreground", foregroundLayer)
     }
+  }
+
+  // Device-frame chrome (bezel + notch), re-drawn over the video since its
+  // underlay copy is buried by an opaque cover/fill fit.
+  const frameChromeLayer = await buildFrameChromeLayer(
+    capture,
+    shell,
+    scale,
+    templateCopy.width,
+    templateCopy.height
+  )
+  if (frameChromeLayer) {
+    getActiveExportDebug()?.addLayerSnapshot("frame-chrome", frameChromeLayer)
   }
 
   const templateStats = sampleFrameStats(templateCopy)
@@ -1288,8 +1490,11 @@ async function createCompositeRenderer(
     corners: quad?.corners ?? null,
   })
 
-  // Border-radius lives on the shell; pass a synthetic style source for local paint.
-  const shellRadius = parseFloat(getComputedStyle(shell).borderRadius) || 0
+  // Corner rounding that clips the video's own box. It is NOT on the tilt shell:
+  // for a device frame that outer div is square-cornered and the rounded screen
+  // glass sits a couple levels down. Without it the video keeps sharp corners
+  // that poke out past the bezel's rounded silhouette (cover/fill especially).
+  const shellRadius = resolveVideoClipRadius(video, shell, localW)
   let warpUsed: "gl" | "grid" | null = null
 
   return async (i: number) => {
@@ -1381,6 +1586,10 @@ async function createCompositeRenderer(
         }
       }
     }
+
+    // The device bezel/notch masks the video edges before the editor's own
+    // foreground (text, annotations) is stacked above the whole device.
+    if (frameChromeLayer) sctx.drawImage(frameChromeLayer, 0, 0)
 
     // Everything the editor stacks above the media, back on top of the video.
     if (foregroundLayer) sctx.drawImage(foregroundLayer, 0, 0)

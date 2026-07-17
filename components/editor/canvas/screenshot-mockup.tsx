@@ -275,6 +275,12 @@ export function ScreenshotMockup({
           alt=""
           draggable={false}
           data-editor-enhance-filter=""
+          // Frame chrome (bezel + notch) sits above the media at z-10. The
+          // video-media composite paints the decoded frame in 2D over the
+          // underlay, so it must re-draw this on top or an opaque cover-fit video
+          // would bury the bezel. It stays untagged (in the underlay too) so the
+          // frame's drop-shadow keeps following the PNG silhouette.
+          data-export-frame-chrome=""
           className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain select-none"
         />
 
