@@ -537,7 +537,7 @@ export class ExportDebugSession {
    */
   addLayerSnapshot(name: string, canvas: HTMLCanvasElement) {
     if (this.finished) return
-    if (Object.keys(this.layers).length >= 8) return
+    if (Object.keys(this.layers).length >= 20) return
     if (!canvas.width || !canvas.height) return
     try {
       this.layers[name] = canvas.toDataURL("image/png")

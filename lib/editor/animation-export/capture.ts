@@ -125,6 +125,141 @@ function applyExportFrame(
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 
 /**
+ * Whether `CanvasRenderingContext2D.filter` actually blurs. WebKit accepts the
+ * assignment but ignores it — `drawImage` comes back sharp — so a plain
+ * `ctx.filter = "blur()"` silently no-ops the portrait DoF on Safari. Probed once
+ * by blurring a 1px dark dot and checking the darkness bled to its neighbour.
+ */
+let canvasFilterBlurs: boolean | null = null
+function supportsCanvasFilterBlur(): boolean {
+  if (canvasFilterBlurs !== null) return canvasFilterBlurs
+  try {
+    const c = document.createElement("canvas")
+    c.width = 3
+    c.height = 1
+    const cx = c.getContext("2d", { willReadFrequently: true })
+    if (!cx) return (canvasFilterBlurs = false)
+    cx.fillStyle = "#fff"
+    cx.fillRect(0, 0, 3, 1)
+    cx.filter = "blur(1px)"
+    cx.fillStyle = "#000"
+    cx.fillRect(1, 0, 1, 1)
+    cx.filter = "none"
+    // If blur worked the black bled into pixel 0, dropping it below white.
+    canvasFilterBlurs = cx.getImageData(0, 0, 1, 1).data[0] < 250
+  } catch {
+    canvasFilterBlurs = false
+  }
+  return canvasFilterBlurs
+}
+
+function makeCanvas(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement("canvas")
+  c.width = Math.max(1, Math.round(w))
+  c.height = Math.max(1, Math.round(h))
+  return c
+}
+
+/**
+ * One separable box-blur pass, edge-clamped, reading `src` and writing `dst`
+ * (they must differ — a sliding window can't blur in place). `stride`/`count` and
+ * `lineStride`/`lines` let the same code run horizontally and vertically.
+ */
+function boxBlurPass(
+  src: Uint8ClampedArray,
+  dst: Uint8ClampedArray,
+  lines: number,
+  lineStart: number,
+  lineStride: number,
+  count: number,
+  stride: number,
+  radius: number
+): void {
+  const norm = 1 / (radius * 2 + 1)
+  for (let line = 0; line < lines; line++) {
+    const base = line * lineStride + lineStart
+    for (let c = 0; c < 4; c++) {
+      let sum = 0
+      for (let k = -radius; k <= radius; k++) {
+        const i = k < 0 ? 0 : k >= count ? count - 1 : k
+        sum += src[base + i * stride + c]
+      }
+      for (let x = 0; x < count; x++) {
+        dst[base + x * stride + c] = sum * norm
+        const addI = x + radius + 1
+        const subI = x - radius
+        const a = addI >= count ? count - 1 : addI
+        const s = subI < 0 ? 0 : subI
+        sum += src[base + a * stride + c] - src[base + s * stride + c]
+      }
+    }
+  }
+}
+
+/**
+ * Blur `src` into `dstCtx`. Native canvas `filter` where it works; on WebKit a
+ * real 3-pass separable box blur (a close, smooth Gaussian approximation —
+ * `ctx.filter` no-ops and a downscale/upscale trick prints visible blocks). Run
+ * at a capped working resolution: a heavy blur carries no fine detail, so
+ * shrinking first keeps 4K/8K fast without changing the look.
+ */
+function blurFrameInto(
+  dstCtx: CanvasRenderingContext2D,
+  src: HTMLCanvasElement,
+  blurPx: number
+): void {
+  const w = src.width
+  const h = src.height
+  if (blurPx < 0.5) {
+    dstCtx.drawImage(src, 0, 0)
+    return
+  }
+  if (supportsCanvasFilterBlur()) {
+    dstCtx.filter = `blur(${blurPx}px)`
+    dstCtx.drawImage(src, 0, 0)
+    dstCtx.filter = "none"
+    return
+  }
+
+  const MAX_WORK_W = 1280
+  const scale = Math.min(1, MAX_WORK_W / w)
+  const ww = Math.max(1, Math.round(w * scale))
+  const wh = Math.max(1, Math.round(h * scale))
+  const work = makeCanvas(ww, wh)
+  const wctx = work.getContext("2d", { willReadFrequently: true })
+  if (!wctx) {
+    dstCtx.drawImage(src, 0, 0)
+    return
+  }
+  wctx.imageSmoothingEnabled = true
+  wctx.imageSmoothingQuality = "high"
+  wctx.drawImage(src, 0, 0, w, h, 0, 0, ww, wh)
+
+  // CSS blur(σ) is a Gaussian of std-dev σ; three box passes of radius ≈ σ
+  // approximate it well. Clamp so a 1px working buffer can't underflow.
+  const radius = Math.max(
+    1,
+    Math.min(Math.round(blurPx * scale), (Math.min(ww, wh) >> 1) - 1)
+  )
+  if (radius >= 1) {
+    const img = wctx.getImageData(0, 0, ww, wh)
+    const a = img.data
+    const b = new Uint8ClampedArray(a.length)
+    for (let pass = 0; pass < 3; pass++) {
+      // Horizontal: each row, pixels stride 4, rows stride ww*4.
+      boxBlurPass(a, b, wh, 0, ww * 4, ww, 4, radius)
+      // Vertical: each column, pixels stride ww*4, columns stride 4.
+      boxBlurPass(b, a, ww, 0, 4, wh, ww * 4, radius)
+    }
+    wctx.putImageData(img, 0, 0)
+  }
+
+  dstCtx.imageSmoothingEnabled = true
+  dstCtx.imageSmoothingQuality = "high"
+  dstCtx.drawImage(work, 0, 0, ww, wh, 0, 0, w, h)
+}
+
+/**
  * Re-draw portrait `blur`/`stage` depth-of-field onto a captured frame.
  *
  * These modes fake DoF with `backdrop-filter: blur()` + a vertical gradient mask
@@ -140,16 +275,42 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
  * backdrop. Only `blur`/`stage` are tagged; the gradient portrait modes render
  * natively and are never neutralized.
  */
+/** The debug session the portrait numbers were last logged for (once per export). */
+let portraitDbgSession: unknown = null
+
 export function drawPortraitDepthOfField(
   frame: HTMLCanvasElement,
   node: HTMLElement
 ) {
+  const dbgSession = getActiveExportDebug()
+  const portraitDbgLogged =
+    dbgSession != null && dbgSession === portraitDbgSession
   const els = node.querySelectorAll<HTMLElement>("[data-export-portrait-fx]")
   if (els.length === 0) return
   const ctx = frame.getContext("2d")
   const nodeRect = node.getBoundingClientRect()
   if (!ctx || !nodeRect.height) return
+  // Geometry (box position/height) maps the clone's own layout → frame px.
   const scaleY = frame.height / nodeRect.height
+
+  // Blur magnitude is different: the overlay's blur is `Xem` — a FIXED px size
+  // that doesn't scale with the canvas. The export clone lays out larger than the
+  // live editor canvas (it's sized to the export resolution), so that fixed blur
+  // renders proportionally weaker on the clone than the user sees on screen — and
+  // weaker still at 4K/8K. Reference the live canvas the effect was calibrated
+  // against so the blur keeps the same fraction of the frame it has in the editor.
+  // offsetHeight ignores the editor's zoom transform (display-only, must not leak
+  // into the export). Falls back to the clone when the live canvas isn't found.
+  const canvasId = node.getAttribute("data-canvas-id")
+  const liveCanvas = canvasId
+    ? document.querySelector<HTMLElement>(
+        `[data-canvas-id="${canvasId}"]:not([data-export-scope])`
+      )
+    : null
+  const blurScaleY =
+    liveCanvas && liveCanvas.offsetHeight > 0
+      ? frame.height / liveCanvas.offsetHeight
+      : scaleY
 
   for (const el of Array.from(els)) {
     const cs = window.getComputedStyle(el)
@@ -190,7 +351,43 @@ export function drawPortraitDepthOfField(
 
     const blurEm = (100 - clamp01(distance / 100) * 100) * 0.01
     const fontSize = parseFloat(cs.fontSize) || 16
-    const blurPx = blurEm * fontSize * scaleY
+    const blurPx = blurEm * fontSize * blurScaleY
+
+    // Dump the reconstruction as PNG layers (once per export) so the blur can be
+    // inspected directly instead of inferred from the numbers.
+    const doSnapshot = !!dbgSession && !portraitDbgLogged
+    if (dbgSession && !portraitDbgLogged) {
+      portraitDbgSession = dbgSession
+      getActiveExportDebug()?.addLayerSnapshot("portrait-before", frame)
+      exportDebugLog(
+        "info",
+        "renderer.portrait",
+        "depth-of-field reconstruct",
+        {
+          mode,
+          opacity,
+          position,
+          distance,
+          intensity,
+          fontSizePx: fontSize,
+          scaleY: Number(scaleY.toFixed(3)),
+          blurScaleY: Number(blurScaleY.toFixed(3)),
+          liveCanvasH: liveCanvas?.offsetHeight ?? null,
+          cloneH: Math.round(nodeRect.height),
+          blurEm: Number(blurEm.toFixed(3)),
+          blurPx: Number(blurPx.toFixed(2)),
+          maskStops: {
+            s0: Number(s0.toFixed(3)),
+            s1: Number(s1.toFixed(3)),
+            s2: Number(s2.toFixed(3)),
+          },
+          boxTop: Math.round(boxTop),
+          boxH: Math.round(boxH),
+          frame: { w: frame.width, h: frame.height },
+          willBlur: blurPx >= 0.5,
+        }
+      )
+    }
 
     if (blurPx >= 0.5) {
       const layer = document.createElement("canvas")
@@ -198,12 +395,14 @@ export function drawPortraitDepthOfField(
       layer.height = frame.height
       const lc = layer.getContext("2d")
       if (lc) {
-        lc.filter = `blur(${blurPx}px)`
-        lc.drawImage(frame, 0, 0)
-        lc.filter = "none"
+        // ctx.filter blur no-ops on WebKit — use the feature-tested blur instead.
+        blurFrameInto(lc, frame, blurPx)
         lc.globalCompositeOperation = "destination-in"
         lc.fillStyle = makeMask(lc)
         lc.fillRect(0, boxTop, frame.width, boxH)
+        if (doSnapshot) {
+          getActiveExportDebug()?.addLayerSnapshot("portrait-blur-layer", layer)
+        }
         ctx.save()
         ctx.globalAlpha = opacity
         ctx.drawImage(layer, 0, 0)
@@ -230,6 +429,10 @@ export function drawPortraitDepthOfField(
           ctx.restore()
         }
       }
+    }
+
+    if (doSnapshot) {
+      getActiveExportDebug()?.addLayerSnapshot("portrait-after", frame)
     }
   }
 }
