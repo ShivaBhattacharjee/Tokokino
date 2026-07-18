@@ -1521,15 +1521,17 @@ export function useAnimateTimeline() {
     (timelineMs: number): ClipThumb | null => {
       const strip = mainFilmstrip
       if (!strip || strip.frames.length === 0) return null
-      const covering =
-        resolvedVideoClips.find(
-          (c) =>
-            timelineMs >= c.timelineStartMs &&
-            timelineMs < c.timelineStartMs + (c.endMs - c.startMs)
-        ) ?? resolvedVideoClips[0]
-      const sourceMs = covering
-        ? covering.startMs + Math.max(0, timelineMs - covering.timelineStartMs)
-        : timelineMs
+      // No fallback to a neighbouring clip: a moment in a gap between trimmed
+      // clips has no video, so it gets no thumbnail rather than a frame sampled
+      // from an unrelated clip.
+      const covering = resolvedVideoClips.find(
+        (c) =>
+          timelineMs >= c.timelineStartMs &&
+          timelineMs < c.timelineStartMs + (c.endMs - c.startMs)
+      )
+      if (!covering) return null
+      const sourceMs =
+        covering.startMs + Math.max(0, timelineMs - covering.timelineStartMs)
       const frac =
         strip.durationMs > 0
           ? Math.max(0, Math.min(1, sourceMs / strip.durationMs))
