@@ -12,7 +12,7 @@ import {
 } from "mediabunny"
 
 import { registerDav1dAv1Decoder } from "./dav1d-av1-decoder"
-import { throwIfAborted } from "../utils"
+import { AnimationExportAbortedError, throwIfAborted } from "../utils"
 
 export type DecodedFrameSource = {
   /** Decoded frame whose start timestamp is ≤ `t` seconds, or null if none. */
@@ -42,7 +42,7 @@ export async function createDecodedFrameSource(
   let usingDav1dFallback = false
   try {
     throwIfAborted(signal)
-    const res = await fetch(src)
+    const res = await fetch(src, { signal })
     if (!res.ok) return null
     const blob = await res.blob()
     input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) })
@@ -126,6 +126,15 @@ export async function createDecodedFrameSource(
     }
   } catch (error) {
     input?.dispose()
+    // Cancellation must propagate — swallowing it to null would make the caller
+    // treat an aborted export as an unsupported codec and fall back to the DOM
+    // video path instead of stopping.
+    if (
+      error instanceof AnimationExportAbortedError ||
+      (error instanceof DOMException && error.name === "AbortError")
+    ) {
+      throw error
+    }
     if (usingDav1dFallback) {
       throw new Error("The dav1d AV1 export fallback could not initialize", {
         cause: error,

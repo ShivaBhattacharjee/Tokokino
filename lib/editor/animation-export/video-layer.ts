@@ -133,9 +133,11 @@ function replaceVideoWithFrameImage(video: HTMLVideoElement): {
 
       try {
         context.drawImage(frame, 0, 0, width, height)
-        // This is an intermediate frame, not the final export. Keep it lossless
-        // so the final video encoder is the only lossy color conversion.
-        image.src = raster.toDataURL("image/png")
+        // JPEG, not PNG: frames are photographic and always opaque, and a PNG
+        // encode per frame would dominate the per-frame cost of the export.
+        // html-to-image decodes this URL back into pixels before encoding, so
+        // using PNG here does not remove a lossy encoding step.
+        image.src = raster.toDataURL("image/jpeg", 0.92)
         await image.decode().catch(() => undefined)
         return image.naturalWidth > 0 && image.naturalHeight > 0
       } catch {

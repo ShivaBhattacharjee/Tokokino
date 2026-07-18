@@ -57,10 +57,13 @@ type Dav1dDecoder = {
 let registered = false
 
 const isSupportedAv1Profile = (config: VideoDecoderConfig) =>
-  // The bundled dav1d bridge exposes 8-bit 4:2:0 frames. Do not claim support
-  // for high-bit-depth, monochrome or 4:4:4 content that it cannot safely turn
-  // into a WebCodecs I420 frame.
-  /^av01\.0\.\d{2}[MH]\.08(?:\.|$)/.test(config.codec)
+  // The bundled dav1d bridge only emits WebCodecs I420 frames, i.e. profile-0,
+  // 8-bit, non-monochrome 4:2:0. The AV1 codec string is
+  // `av01.P.LLT.DD[.M.CCC…]`; the chroma fields are optional and default to
+  // 4:2:0 when absent. Accept the short form, or the extended form only when it
+  // declares monochrome=0 and 4:2:0 subsampling (CCC starting "11"). Reject
+  // monochrome and 4:2:2 / 4:4:4 configs the bridge cannot turn into I420.
+  /^av01\.0\.\d{2}[MH]\.08(?:\.0\.11\d.*)?$/.test(config.codec)
 
 const copyPlane = (
   source: Dav1dPlane,

@@ -407,8 +407,11 @@ export async function captureStableFrame(
   // A non-empty canvas is not necessarily complete on WebKit. Its foreignObject
   // capture can omit the just-swapped video image for one frame, leaving a large
   // transparent hole. Retry after paint; if it remains partial, hold the last
-  // complete canvas so the encoded video stays temporally stable.
-  let incompleteCapture = hasMissingCaptureLayer(frame)
+  // complete canvas so the encoded video stays temporally stable. This only
+  // applies to video captures — a still canvas may be legitimately transparent
+  // (no background, rounded corners), which must not be mistaken for a hole and
+  // replaced with a stale cached frame.
+  let incompleteCapture = videoLayer ? hasMissingCaptureLayer(frame) : false
   let incompleteRetries = 0
   while (incompleteCapture && incompleteRetries < 2) {
     incompleteRetries++

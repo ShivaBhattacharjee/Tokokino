@@ -715,9 +715,16 @@ function buildNativeInnerLightingLayer(
   for (const el of layers) {
     const rect = el.getBoundingClientRect()
     if (!rect.width || !rect.height) continue
+    const projected = projectionFor(root, el)
+    // drawImageToQuadWarp maps the texture across the quad's *local* box, so a
+    // projected layer's texture must be built in local (untransformed) pixels —
+    // `rect` is the perspective-bent AABB and would paint the lighting at the
+    // wrong aspect. Non-projected layers keep their on-screen rect.
+    const texW = projected ? projected.quad.localW : rect.width
+    const texH = projected ? projected.quad.localH : rect.height
     const texture = document.createElement("canvas")
-    texture.width = Math.max(1, Math.round(rect.width))
-    texture.height = Math.max(1, Math.round(rect.height))
+    texture.width = Math.max(1, Math.round(texW))
+    texture.height = Math.max(1, Math.round(texH))
     const textureCtx = texture.getContext("2d")
     if (!textureCtx) continue
     const radius = Math.max(
@@ -731,7 +738,6 @@ function buildNativeInnerLightingLayer(
     }
     paintInnerLighting(textureCtx, texture.width, texture.height, lighting)
 
-    const projected = projectionFor(root, el)
     if (projected) {
       const { quad } = projected
       const projectUV: UvProjectorH = (u, v) => {

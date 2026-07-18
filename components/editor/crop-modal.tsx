@@ -133,20 +133,24 @@ export function CropModal({
       ? targetAspect
       : null
   const defaultAspect = safeTargetAspect ?? 16 / 10
+  // `null` aspect means free-form: width/height drag independently.
   const [aspectOverride, setAspectOverride] = React.useState<{
     defaultAspect: number
-    aspect: number
+    aspect: number | null
   } | null>(null)
   const [loadedFile, setLoadedFile] = React.useState<{
     url: string
     file: File
   } | null>(null)
+  // Default to free-form (null) until the user picks a ratio; `defaultAspect`
+  // still backs the "Canvas" chip below.
   const aspect =
     aspectOverride?.defaultAspect === defaultAspect
       ? aspectOverride.aspect
-      : defaultAspect
+      : null
+  const isFree = aspect === null
   const setAspect = React.useCallback(
-    (nextAspect: number) => {
+    (nextAspect: number | null) => {
       setAspectOverride({ defaultAspect, aspect: nextAspect })
     },
     [defaultAspect]
@@ -275,12 +279,12 @@ export function CropModal({
         </div>
 
         <ImageCrop
-          key={aspect}
+          key={aspect ?? "free"}
           file={file}
-          aspect={aspect}
+          aspect={aspect ?? undefined}
           keepSelection
           initialCrop={
-            Math.abs(aspect - targetPreset.aspect) < 0.01
+            aspect === null || Math.abs(aspect - targetPreset.aspect) < 0.01
               ? initialPercentCrop
               : undefined
           }
@@ -310,8 +314,30 @@ export function CropModal({
           <div className="flex items-center justify-between gap-4 border-t border-border/50 bg-background/40 px-4 py-3">
             {/* Aspect chips */}
             <div className="flex min-w-0 flex-1 [scrollbar-width:none] items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+              <button
+                onClick={() => setAspect(null)}
+                className={cn(
+                  "group flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium tracking-tight transition-all",
+                  isFree
+                    ? "border-foreground/80 bg-foreground text-background"
+                    : "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:bg-secondary/60 hover:text-foreground"
+                )}
+                aria-pressed={isFree}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "block size-3.5 shrink-0 rounded-[2px] border border-dashed transition-colors",
+                    isFree
+                      ? "border-background/70"
+                      : "border-current opacity-70"
+                  )}
+                />
+                <span className="leading-none">Free</span>
+              </button>
               {presets.map((p) => {
-                const isActive = Math.abs(aspect - p.aspect) < 0.01
+                const isActive =
+                  aspect !== null && Math.abs(aspect - p.aspect) < 0.01
                 return (
                   <button
                     key={p.label}

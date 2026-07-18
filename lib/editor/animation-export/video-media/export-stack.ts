@@ -80,7 +80,16 @@ export function applyExportStackVisibility(
     set(root, "hidden")
     // `only` narrows the pass to specific elements, so a layer that must be
     // projected by hand can be isolated and captured on its own.
-    for (const el of options.only ?? foreground) set(el, "visible")
+    const only = options.only
+    for (const el of only ?? foreground) set(el, "visible")
+    // A selected element turns its nested foreground descendants visible too
+    // (visibility inherits). Re-hide every foreground node that was not itself
+    // selected, so an isolated pass captures only its targets and nested layers
+    // are not double-drawn — they composite in their own pass.
+    if (only) {
+      const selected = new Set(only)
+      for (const el of foreground) if (!selected.has(el)) set(el, "hidden")
+    }
     // A <video> nested inside a foreground node would come back visible with it.
     for (const el of videos) set(el, "hidden")
   }

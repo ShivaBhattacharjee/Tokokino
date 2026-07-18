@@ -89,7 +89,11 @@ export function DraftDownloadProgress({
 
   return createPortal(
     <div className="pointer-events-none fixed right-4 bottom-4 z-60 w-[300px] max-w-[calc(100vw-2rem)]">
-      <div className="pointer-events-auto flex flex-col gap-2.5 rounded-lg border border-border/70 bg-popover/95 p-3.5 text-popover-foreground shadow-2xl ring-1 ring-foreground/5 backdrop-blur-sm">
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-auto flex flex-col gap-2.5 rounded-lg border border-border/70 bg-popover/95 p-3.5 text-popover-foreground shadow-2xl ring-1 ring-foreground/5 backdrop-blur-sm"
+      >
         <div className="flex items-center gap-2.5">
           <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <RiDownloadCloud2Line className="size-4 animate-pulse" />
@@ -109,7 +113,14 @@ export function DraftDownloadProgress({
             </span>
           ) : null}
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          role="progressbar"
+          aria-label={name ? `Opening ${name}` : "Downloading video"}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={hasTotal ? percent : undefined}
+          className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        >
           {hasTotal ? (
             <div
               className="h-full rounded-full bg-primary transition-[width] duration-200"

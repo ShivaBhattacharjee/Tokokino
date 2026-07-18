@@ -381,14 +381,18 @@ export function AssetElementView({
           }}
           className={cn(
             "block h-full w-full select-none",
-            asset.heightPct != null ? "object-fill" : "object-contain",
-            isSelected &&
-              !previewMode &&
-              "outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+            asset.heightPct != null ? "object-fill" : "object-contain"
           )}
         />
         {isSelected && !previewMode ? (
           <>
+            {/* Selection ring — a separate overlay (not a class on the exported
+                image) so export CSS strips it via data-selection-border. */}
+            <div
+              aria-hidden
+              data-selection-border="true"
+              className="pointer-events-none absolute inset-0 outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
+            />
             {/* Resize handles - 4 edges + 4 corners */}
             {(
               [
@@ -453,6 +457,7 @@ export function AssetElementView({
               <button
                 key={id}
                 aria-label={`Resize ${id}`}
+                data-export-hidden="true"
                 onPointerDown={startResize(id)}
                 onPointerMove={moveResize}
                 onPointerUp={endResize}

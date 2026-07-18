@@ -22,6 +22,7 @@ import { captureClipPose, useEditorStore } from "../store"
 import { acquireAnimationCapture, suppressCloneTransitions } from "./capture"
 import { encodeGif } from "./gif"
 import { prepareCloneVideoLayer } from "./video-layer"
+import type { CloneVideoLayer } from "./video-layer"
 import {
   MAX_FRAMES,
   type AnimationExportBlobResult,
@@ -86,63 +87,67 @@ async function encodeAnimation(
 ): Promise<AnimationExportBlobResult> {
   const { onProgress, signal } = options
   const progress = createProgressReporter(onProgress)
+  throwIfAborted(signal)
+  progress.report("preparing", 0, 1)
+
+  const state = useEditorStore.getState()
+  const canvas = state.present.canvases.find((c) => c.id === canvasId)
+  const animation = canvas?.animation
+  if (!canvas || !animation) throw new Error("Nothing to export")
+
+  const { durationMs } = animation
+  const clips =
+    state.isAnimateMode && state.selectedAnimationClipId
+      ? animation.clips.map((clip) =>
+          clip.id === state.selectedAnimationClipId
+            ? { ...clip, pose: captureClipPose(canvas) }
+            : clip
+        )
+      : animation.clips
+  if (!clips.length) throw new Error("Add at least one keyframe before sharing")
+
+  const fps = Math.max(1, Math.min(60, options.fps ?? 30))
+  const frameCount = Math.min(
+    MAX_FRAMES,
+    Math.max(1, Math.round((durationMs / 1000) * fps))
+  )
+  const frameDurationMs = 1000 / fps
+  const targetWidth =
+    options.targetWidth ??
+    (options.format === "gif" ? 720 : options.format === "mp4" ? 1080 : 1080)
+
+  // Added unless explicitly disabled — mirrors the still-image export toggle.
+  // Preload the logo and the real Inter family together so every frame's canvas
+  // text rasterizes identically across OSes (no per-platform system-ui fallback).
+  const watermark =
+    options.watermark === false
+      ? null
+      : await (async () => {
+          const [logo, fontStack] = await Promise.all([
+            loadWatermarkLogo(),
+            resolveWatermarkFontStack(),
+          ])
+          return { logo, fontStack }
+        })()
+
+  throwIfAborted(signal)
+  const capture = await acquireAnimationCapture(
+    canvasId,
+    targetWidth,
+    options.capture ?? "auto"
+  )
+
+  // Cleanup starts here — before any clone mutation or video-layer prep — so a
+  // failure in prepareCloneVideoLayer (e.g. dav1d init) still releases the
+  // acquired capture.
+  let videoLayer: CloneVideoLayer | null = null
   try {
-    throwIfAborted(signal)
-    progress.report("preparing", 0, 1)
-
-    const state = useEditorStore.getState()
-    const canvas = state.present.canvases.find((c) => c.id === canvasId)
-    const animation = canvas?.animation
-    if (!canvas || !animation) throw new Error("Nothing to export")
-
-    const { durationMs } = animation
-    const clips =
-      state.isAnimateMode && state.selectedAnimationClipId
-        ? animation.clips.map((clip) =>
-            clip.id === state.selectedAnimationClipId
-              ? { ...clip, pose: captureClipPose(canvas) }
-              : clip
-          )
-        : animation.clips
-    if (!clips.length)
-      throw new Error("Add at least one keyframe before sharing")
-
-    const fps = Math.max(1, Math.min(60, options.fps ?? 30))
-    const frameCount = Math.min(
-      MAX_FRAMES,
-      Math.max(1, Math.round((durationMs / 1000) * fps))
-    )
-    const frameDurationMs = 1000 / fps
-    const targetWidth =
-      options.targetWidth ??
-      (options.format === "gif" ? 720 : options.format === "mp4" ? 1080 : 1080)
-
-    // Added unless explicitly disabled — mirrors the still-image export toggle.
-    // Preload the logo and the real Inter family together so every frame's canvas
-    // text rasterizes identically across OSes (no per-platform system-ui fallback).
-    const watermark =
-      options.watermark === false
-        ? null
-        : await (async () => {
-            const [logo, fontStack] = await Promise.all([
-              loadWatermarkLogo(),
-              resolveWatermarkFontStack(),
-            ])
-            return { logo, fontStack }
-          })()
-
-    throwIfAborted(signal)
-    const capture = await acquireAnimationCapture(
-      canvasId,
-      targetWidth,
-      options.capture ?? "auto"
-    )
     suppressCloneTransitions(capture.node)
 
     // A `<video>` renders nothing once the clone is serialized into an SVG, so a
     // video canvas needs its frames decoded and painted in per capture.
     const screenshot = canvas.screenshot
-    const videoLayer =
+    videoLayer =
       screenshot && isVideoSrc(screenshot)
         ? await prepareCloneVideoLayer({
             node: capture.node,
@@ -167,45 +172,37 @@ async function encodeAnimation(
       videoLayer,
     }
 
-    try {
-      let blob: Blob
-      let encoder: string
-      if (options.format === "gif") {
-        encoder = "gif"
-        blob = await encodeGif(ctx)
+    let blob: Blob
+    if (options.format === "gif") {
+      blob = await encodeGif(ctx)
+    } else {
+      const encoded = await tryEncodeWithMediabunny(ctx, options.format)
+      if (encoded) {
+        blob = encoded
       } else {
-        const encoded = await tryEncodeWithMediabunny(ctx, options.format)
-        if (encoded) {
-          encoder = "mediabunny"
-          blob = encoded
-        } else {
-          if (options.format === "mp4") {
-            throw new Error(
-              "MP4 export needs WebCodecs (Chrome, Edge, or Safari 17+). Try WebM or update your browser."
-            )
-          }
-          // WebM fallback — MediaRecorder (also fully local)
-          encoder = "mediarecorder-webm"
-          blob = await encodeWebmMediaRecorder({
-            ...ctx,
-            durationMs,
-          })
+        if (options.format === "mp4") {
+          throw new Error(
+            "MP4 export needs WebCodecs (Chrome, Edge, or Safari 17+). Try WebM or update your browser."
+          )
         }
+        // WebM fallback — MediaRecorder (also fully local)
+        blob = await encodeWebmMediaRecorder({
+          ...ctx,
+          durationMs,
+        })
       }
-      progress.report("finishing", 1, 1)
-      const { contentType, extension } = animationMimeAndExt(options.format)
-      // Prefer the blob's own type when the encoder set one.
-      return {
-        blob,
-        contentType: blob.type || contentType,
-        extension,
-      }
-    } finally {
-      videoLayer?.cleanup()
-      clearAnimationFrameVars(capture.node, clips)
-      capture.cleanup()
     }
-  } catch (err) {
-    throw err
+    progress.report("finishing", 1, 1)
+    const { contentType, extension } = animationMimeAndExt(options.format)
+    // Prefer the blob's own type when the encoder set one.
+    return {
+      blob,
+      contentType: blob.type || contentType,
+      extension,
+    }
+  } finally {
+    videoLayer?.cleanup()
+    clearAnimationFrameVars(capture.node, clips)
+    capture.cleanup()
   }
 }

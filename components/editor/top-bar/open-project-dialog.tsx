@@ -94,12 +94,16 @@ function DraftCard({
   draft,
   isCurrent,
   isOpening,
+  busy,
   onOpen,
   onDelete,
 }: {
   draft: DraftListItem
   isCurrent: boolean
+  /** This card is the one being opened — shows the spinner overlay. */
   isOpening: boolean
+  /** Any card is being opened — every card is locked out until it settles. */
+  busy: boolean
   onOpen: () => void
   onDelete: () => void
 }) {
@@ -112,13 +116,15 @@ function DraftCard({
       <button
         type="button"
         onClick={onOpen}
-        disabled={isOpening}
+        disabled={busy}
         className={cn(
           "flex w-full flex-col overflow-hidden rounded-md border bg-secondary/30 text-left transition-colors",
           isCurrent
             ? "border-primary"
             : "border-border/50 hover:border-primary/55",
-          isOpening && "cursor-not-allowed opacity-60"
+          busy && "cursor-not-allowed",
+          busy && !isOpening && "opacity-50",
+          isOpening && "opacity-60"
         )}
       >
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary/40">
@@ -167,8 +173,9 @@ function DraftCard({
           e.stopPropagation()
           onDelete()
         }}
+        disabled={busy}
         aria-label={`Delete ${draft.name}`}
-        className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-border/60 bg-background/85 text-muted-foreground opacity-100 shadow-sm transition-opacity hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+        className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-border/60 bg-background/85 text-muted-foreground opacity-100 shadow-sm transition-opacity hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus:opacity-100 disabled:pointer-events-none disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
       >
         <RiDeleteBinLine className="size-3.5" />
       </button>
@@ -396,6 +403,7 @@ export function OpenProjectDialog({
   const [drafts, setDrafts] = React.useState<DraftListItem[] | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
+  const openingRef = React.useRef(false)
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null
   )
@@ -511,10 +519,16 @@ export function OpenProjectDialog({
   }
 
   const handleOpen = async (id: string) => {
+    // Synchronous guard: setBusyId is async, so a rapid second click (same or
+    // another card) would otherwise start a concurrent open before the state
+    // update lands. The ref rejects re-entry the instant the first call begins.
+    if (openingRef.current) return
+    openingRef.current = true
     setBusyId(id)
     try {
       await onOpenDraft(id)
     } finally {
+      openingRef.current = false
       setBusyId(null)
     }
   }
@@ -727,6 +741,7 @@ export function OpenProjectDialog({
                           draft={draft}
                           isCurrent={currentDraftId === draft.id}
                           isOpening={busyId === draft.id}
+                          busy={busyId !== null}
                           onOpen={() => void handleOpen(draft.id)}
                           onDelete={() => setConfirmDeleteId(draft.id)}
                         />

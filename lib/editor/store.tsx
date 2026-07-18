@@ -260,30 +260,48 @@ const EFFECT_SLOT_POSE_FIELDS: Partial<
   lighting: ["lighting"],
 }
 
+const poseValueEq = (a: unknown, b: unknown): boolean =>
+  a === b || JSON.stringify(a) === JSON.stringify(b)
+
 /**
  * Copy just the fields owned by `effects` from `edited` onto `basePose`, so
  * applying one inspector edit across a multi-selection updates only that
  * property on every selected clip and leaves each clip's other keyframed values
  * intact.
+ *
+ * `before`/`edited` are the canvas pose just before and after the edit. Only
+ * fields (and slots) that actually changed between them are merged: an effect
+ * can own several fields (e.g. zoom owns both the main and per-slot scale), so
+ * editing one must not overwrite a clip's keyframed value for the others. This
+ * keeps `setScale` from propagating slot scale and `updateScreenshotSlot` from
+ * propagating main fields or unrelated slots.
  */
 const mergeEffectsIntoPose = (
   basePose: ClipBaseline,
+  before: ClipBaseline,
   edited: ClipBaseline,
   effects: AnimationEffect[]
 ): ClipBaseline => {
   const next: ClipBaseline = { ...basePose, slots: { ...basePose.slots } }
+  const nextRec = next as Record<string, unknown>
   for (const effect of effects) {
-    for (const field of EFFECT_MAIN_POSE_FIELDS[effect])
-      (next as Record<string, unknown>)[field] = edited[field]
+    for (const field of EFFECT_MAIN_POSE_FIELDS[effect]) {
+      if (poseValueEq(before[field], edited[field])) continue
+      nextRec[field] = edited[field]
+    }
     const slotFields = EFFECT_SLOT_POSE_FIELDS[effect]
     if (!slotFields) continue
     for (const [slotId, editedSlot] of Object.entries(edited.slots)) {
       const target = next.slots[slotId]
       if (!target) continue
-      const mergedSlot = { ...target }
-      for (const field of slotFields)
-        (mergedSlot as Record<string, unknown>)[field] = editedSlot[field]
-      next.slots[slotId] = mergedSlot
+      const beforeSlot = before.slots[slotId]
+      let mergedSlot = target
+      for (const field of slotFields) {
+        if (poseValueEq(beforeSlot?.[field], editedSlot[field])) continue
+        if (mergedSlot === target) mergedSlot = { ...target }
+        ;(mergedSlot as Record<string, unknown>)[field] = editedSlot[field]
+      }
+      if (mergedSlot !== target) next.slots[slotId] = mergedSlot
     }
   }
   return next
@@ -1183,6 +1201,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         if (!selId && multiIds.length > 1) {
           const idSet = new Set(multiIds)
           if (!anim.clips.some((c) => idSet.has(c.id))) return base
+          const beforePose = captureClipPose(canvas)
           const editedPose = captureClipPose({
             ...canvas,
             ...base,
@@ -1200,7 +1219,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 return {
                   ...c,
                   effects: merged,
-                  pose: mergeEffectsIntoPose(basePose, editedPose, list),
+                  pose: mergeEffectsIntoPose(
+                    basePose,
+                    beforePose,
+                    editedPose,
+                    list
+                  ),
                 }
               }),
             },
