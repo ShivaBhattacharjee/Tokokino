@@ -200,6 +200,58 @@ describe("animation clip multi-selection", () => {
     })
   })
 
+  describe("inspector edits route to every clip in a multi-selection", () => {
+    it("records the effect and its value on all selected clips", () => {
+      const [a, b, c] = addClips(3)
+      store.getState().setIsAnimateMode(true)
+      store.getState().setAnimationClipSelection([a, b])
+
+      store.getState().setPadding(180)
+
+      // Both selected clips animate padding to the new value...
+      expect(clipById(a)!.effects).toContain("padding")
+      expect(clipById(b)!.effects).toContain("padding")
+      expect(clipById(a)!.pose?.padding).toBe(180)
+      expect(clipById(b)!.pose?.padding).toBe(180)
+      // ...and the untouched clip keeps its own effects.
+      expect(clipById(c)!.effects ?? []).not.toContain("padding")
+    })
+
+    it("only writes the edited field, leaving each clip's other pose values", () => {
+      const [a, b] = addClips(2)
+      store.getState().setIsAnimateMode(true)
+      // Give A a distinct scale keyframe before the group edit.
+      store.getState().selectAnimationClip(a)
+      store.getState().setScale(150)
+
+      store.getState().setAnimationClipSelection([a, b])
+      store.getState().setPadding(200)
+
+      // The group padding edit lands on both...
+      expect(clipById(a)!.pose?.padding).toBe(200)
+      expect(clipById(b)!.pose?.padding).toBe(200)
+      // ...without clobbering A's earlier zoom keyframe.
+      expect(clipById(a)!.effects).toContain("zoom")
+      expect(clipById(a)!.pose?.scale).toBe(150)
+    })
+
+    it("applies multi-field effects (tilt + zoom) to every selected clip", () => {
+      const [a, b] = addClips(2)
+      store.getState().setIsAnimateMode(true)
+      store.getState().setAnimationClipSelection([a, b])
+
+      store.getState().setTiltAndScale({ rx: 10, ry: 20, rz: 0 }, 130)
+
+      for (const id of [a, b]) {
+        expect(clipById(id)!.effects).toEqual(
+          expect.arrayContaining(["tilt", "zoom"])
+        )
+        expect(clipById(id)!.pose?.tilt).toEqual({ rx: 10, ry: 20, rz: 0 })
+        expect(clipById(id)!.pose?.scale).toBe(130)
+      }
+    })
+  })
+
   describe("selection invariants across animate mode", () => {
     it("opens the last clip (and syncs the set) on entering animate mode", () => {
       const ids = addClips(3)

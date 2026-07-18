@@ -1,9 +1,55 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveVideoSourceTimeMs } from "@/lib/editor/animation-export/video-layer"
+import {
+  resolveVideoSegments,
+  resolveVideoSourceTimeMs,
+} from "@/lib/editor/animation-export/video-layer"
 import type { VideoTimelineClip } from "@/lib/editor/state-types"
 
 const DURATION = 10_000
+
+describe("resolveVideoSegments", () => {
+  it("uses one full-source segment when no timeline clips exist", () => {
+    expect(resolveVideoSegments([], DURATION)).toEqual([
+      {
+        sourceStartMs: 0,
+        sourceEndMs: DURATION,
+        timelineStartMs: 0,
+      },
+    ])
+  })
+
+  it("clamps invalid trim and timeline values to the source bounds", () => {
+    const clips: VideoTimelineClip[] = [
+      {
+        id: "invalid",
+        timelineStartMs: -500,
+        startMs: -1_000,
+        endMs: 30_000,
+      },
+    ]
+
+    expect(resolveVideoSegments(clips, DURATION)).toEqual([
+      {
+        sourceStartMs: 0,
+        sourceEndMs: DURATION,
+        timelineStartMs: 0,
+      },
+    ])
+  })
+
+  it("keeps split timeline clips independent after normalization", () => {
+    const clips: VideoTimelineClip[] = [
+      { id: "a", timelineStartMs: 0, startMs: 7_000, endMs: 12_000 },
+      { id: "b", timelineStartMs: 3_000, startMs: 1_000, endMs: 3_000 },
+    ]
+
+    expect(resolveVideoSegments(clips, DURATION)).toEqual([
+      { sourceStartMs: 7_000, sourceEndMs: DURATION, timelineStartMs: 0 },
+      { sourceStartMs: 1_000, sourceEndMs: 3_000, timelineStartMs: 3_000 },
+    ])
+  })
+})
 
 describe("resolveVideoSourceTimeMs", () => {
   it("plays the whole source when no clips are set", () => {

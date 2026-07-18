@@ -94,14 +94,12 @@ function DraftCard({
   draft,
   isCurrent,
   isOpening,
-  openProgress,
   onOpen,
   onDelete,
 }: {
   draft: DraftListItem
   isCurrent: boolean
   isOpening: boolean
-  openProgress: { current: number; total: number } | null
   onOpen: () => void
   onDelete: () => void
 }) {
@@ -147,24 +145,7 @@ function DraftCard({
           {isOpening ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 px-3 text-center text-[11px] font-medium text-foreground backdrop-blur-sm">
               <RiLoader4Line className="size-5 animate-spin text-primary" />
-              {/* Only videos are fetched on open, so a project without one
-                  reports no progress — say "Opening" rather than claim a
-                  download that is not happening. */}
-              <span>
-                {openProgress && openProgress.total > 0
-                  ? `Downloading video ${Math.min(100, Math.round((openProgress.current / openProgress.total) * 100))}%`
-                  : "Opening…"}
-              </span>
-              {openProgress && openProgress.total > 0 ? (
-                <div className="h-1 w-28 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-primary transition-[width]"
-                    style={{
-                      width: `${Math.min(100, Math.round((openProgress.current / openProgress.total) * 100))}%`,
-                    }}
-                  />
-                </div>
-              ) : null}
+              <span>Opening…</span>
             </div>
           ) : null}
         </div>
@@ -409,19 +390,12 @@ export function OpenProjectDialog({
   hasUnsavedWork?: boolean
   /** Prefer Present or Animate tab when the dialog opens. Defaults to Present. */
   defaultKind?: ProjectKind
-  onOpenDraft: (
-    id: string,
-    onProgress?: (progress: { current: number; total: number }) => void
-  ) => void | Promise<void>
+  onOpenDraft: (id: string) => void | Promise<void>
   onCreateNew: () => void
 }) {
   const [drafts, setDrafts] = React.useState<DraftListItem[] | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
-  const [openProgress, setOpenProgress] = React.useState<{
-    current: number
-    total: number
-  } | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null
   )
@@ -538,12 +512,10 @@ export function OpenProjectDialog({
 
   const handleOpen = async (id: string) => {
     setBusyId(id)
-    setOpenProgress(null)
     try {
-      await onOpenDraft(id, setOpenProgress)
+      await onOpenDraft(id)
     } finally {
       setBusyId(null)
-      setOpenProgress(null)
     }
   }
 
@@ -755,9 +727,6 @@ export function OpenProjectDialog({
                           draft={draft}
                           isCurrent={currentDraftId === draft.id}
                           isOpening={busyId === draft.id}
-                          openProgress={
-                            busyId === draft.id ? openProgress : null
-                          }
                           onOpen={() => void handleOpen(draft.id)}
                           onDelete={() => setConfirmDeleteId(draft.id)}
                         />

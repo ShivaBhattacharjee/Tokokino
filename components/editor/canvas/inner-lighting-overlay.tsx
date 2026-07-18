@@ -20,6 +20,7 @@ export function InnerLightingOverlay({
     <div
       aria-hidden
       data-export-stack="foreground"
+      data-export-inner-lighting=""
       className={cn("pointer-events-none absolute inset-0 z-10", className)}
       style={style}
     />

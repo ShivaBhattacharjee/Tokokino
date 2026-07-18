@@ -18,6 +18,7 @@ import type {
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
 import { VideoIdlePoster } from "./video-idle-poster"
 import { useVideoPreload } from "./use-video-preload"
+import { parseAspectRatio } from "./helpers"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -217,6 +218,35 @@ export function ScreenshotBare({
 
   // Ignore stale measurements after switching away from nested contain.
   const measuredContainSize = isNestedContain ? nestedContainSize : null
+  const resolvedVideoAspect = cropAspectRatio ?? videoIntrinsicAspect
+
+  // A bare contain video still has a screen-sized shell so it can be positioned
+  // and tilted, but the visible 16:9 pixels occupy only part of that shell.
+  // Keep lighting and the selection ring on the visible pixels, not on the
+  // transparent letterbox around them. The export compositor measures this same
+  // node, so it now receives identical geometry to the editor.
+  const containVideoContent = (() => {
+    if (
+      !isVideo ||
+      activeCrop ||
+      objectFit !== "contain" ||
+      !isFreePlaced ||
+      !placementDims ||
+      !resolvedVideoAspect
+    ) {
+      return null
+    }
+    const aspect = parseAspectRatio(resolvedVideoAspect)
+    if (!aspect) return null
+    const width = Math.min(placementDims.imgW, placementDims.imgH * aspect)
+    const height = width / aspect
+    return {
+      width,
+      height,
+      x: (placementDims.imgW - width) / 2,
+      y: (placementDims.imgH - height) / 2,
+    }
+  })()
 
   // Image position/transform (mirrors historical bare layout).
   const imagePositionStyle: React.CSSProperties = isNestedContain
@@ -271,20 +301,27 @@ export function ScreenshotBare({
         }
     : isNested
       ? { inset: 0, width: "100%", height: "100%" }
-      : isFreePlaced && placementDims
+      : containVideoContent
         ? {
-            left: leftStyle,
-            top: topStyle,
-            width: placementDims.imgW,
-            height: placementDims.imgH,
+            left: `calc(${leftStyle} + ${containVideoContent.x}px)`,
+            top: `calc(${topStyle} + ${containVideoContent.y}px)`,
+            width: containVideoContent.width,
+            height: containVideoContent.height,
           }
-        : {
-            // Cover/fill-style full stage, or pre-measure fallback.
-            left: leftStyle,
-            top: topStyle,
-            width: "100%",
-            height: "100%",
-          }
+        : isFreePlaced && placementDims
+          ? {
+              left: leftStyle,
+              top: topStyle,
+              width: placementDims.imgW,
+              height: placementDims.imgH,
+            }
+          : {
+              // Cover/fill-style full stage, or pre-measure fallback.
+              left: leftStyle,
+              top: topStyle,
+              width: "100%",
+              height: "100%",
+            }
 
   // Free-placed / positioned: left/top already place the box — same 3D
   // transform as the image (no extra translate). Nested multi cover/fill: 3D
@@ -349,8 +386,6 @@ export function ScreenshotBare({
           : null),
       }
     : undefined
-
-  const resolvedVideoAspect = cropAspectRatio ?? videoIntrinsicAspect
 
   // Video contain shells must never rely on the <video> intrinsic box — Safari
   // reports 0×0 until metadata, and width/height:auto + aspect-ratio alone can
@@ -459,7 +494,10 @@ export function ScreenshotBare({
           style={videoShellStyle}
           className={cn(
             mediaClassName,
-            "overflow-hidden bg-black",
+            "overflow-hidden",
+            // Letterbox space belongs to the canvas backdrop, not an invented
+            // black bezel. Cover/fill still need their opaque video plate.
+            objectFit !== "contain" && "bg-black",
             !resolvedVideoAspect && "transition-none"
           )}
           onClick={(e) =>
@@ -508,6 +546,7 @@ export function ScreenshotBare({
           // Foreground stack: video-media export captures this above the
           // decoded frame so lighting (and siblings) sit on top of the video.
           data-export-stack="foreground"
+          data-export-inner-lighting=""
           className={cn(
             "pointer-events-none absolute z-10",
             isScreenshotDragging ||

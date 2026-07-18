@@ -23,22 +23,14 @@
 
 import { supportsObjectViewBox } from "../../crop-utils"
 import { enhanceFilterCss } from "../../css-utils"
+import { hexToRgb } from "../../color-utils"
 import type { AnimationCapture } from "../../export"
-import type { EnhancePreset } from "../../state-types"
+import type { BackdropLighting, EnhancePreset } from "../../state-types"
 import { drawPortraitDepthOfField } from "../capture"
-import {
-  exportDebugLog,
-  getActiveExportDebug,
-  sampleFrameStats,
-} from "../export-debug"
 import { waitForPaint } from "../utils"
 import type { DecodedFrameSource } from "./decoded-frames"
 import { seekTo, waitForVideoFrame } from "./dom-video"
-import {
-  applyExportStackVisibility,
-  countExportStack,
-  queryForeground,
-} from "./export-stack"
+import { applyExportStackVisibility, queryForeground } from "./export-stack"
 import type { FramePlan, RenderFrame } from "./frames"
 import { measureVideoRegion } from "./region"
 import { drawImageToQuadGL, type QuadCornerH } from "./warp-gl"
@@ -53,6 +45,71 @@ type Point = { x: number; y: number }
  */
 export type VideoMediaFx = {
   enhance?: EnhancePreset | null
+  /**
+   * Inner lighting is painted directly onto the decoded frame instead of being
+   * rasterized from CSS in Safari's SVG foreignObject implementation.
+   */
+  innerLighting?: BackdropLighting | null
+}
+
+function lightingPoint(direction: string) {
+  if (direction === "center") return { x: 50, y: 50 }
+  const match = direction.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/)
+  const row = Number(match?.[1])
+  const col = Number(match?.[2])
+  if (!Number.isFinite(row) || !Number.isFinite(col)) return { x: 50, y: 50 }
+  return {
+    x: Math.max(-4, Math.min(8, col)) * 25,
+    y: Math.max(-4, Math.min(8, row)) * 25,
+  }
+}
+
+function rgba(color: string, alpha: number) {
+  const { r, g, b } = hexToRgb(color || "#ffffff")
+  return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`
+}
+
+/** Paint the same two-gradient treatment as `lightingOverlayCss` in canvas. */
+function paintInnerLighting(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  lighting: BackdropLighting | null | undefined
+) {
+  if (!lighting || lighting.intensity <= 0 || !width || !height) return
+  const intensity = Math.max(0, Math.min(100, lighting.intensity)) / 100
+  const opacity = 0.15 + intensity * 0.85
+  const { x, y } = lightingPoint(lighting.direction)
+  const cx = (x / 100) * width
+  const cy = (y / 100) * height
+  const radius = Math.max(
+    Math.hypot(cx, cy),
+    Math.hypot(width - cx, cy),
+    Math.hypot(width - cx, height - cy),
+    Math.hypot(cx, height - cy)
+  )
+
+  ctx.save()
+  ctx.globalAlpha = opacity
+  const radial = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
+  radial.addColorStop(0, rgba(lighting.color, 0.56))
+  radial.addColorStop(0.22, rgba(lighting.color, 0.32))
+  radial.addColorStop(0.58, rgba(lighting.color, 0))
+  ctx.fillStyle = radial
+  ctx.fillRect(0, 0, width, height)
+
+  const dx = x - 50
+  const dy = y - 50
+  const startX = dx < -6 ? 0 : dx > 6 ? width : width / 2
+  const startY = dy < -6 ? 0 : dy > 6 ? height : height / 2
+  const endX = startX === 0 ? width : startX === width ? 0 : width / 2
+  const endY = startY === 0 ? height : startY === height ? 0 : height / 2
+  const linear = ctx.createLinearGradient(startX, startY, endX, endY)
+  linear.addColorStop(0, rgba(lighting.color, 0.22))
+  linear.addColorStop(0.62, rgba(lighting.color, 0))
+  ctx.fillStyle = linear
+  ctx.fillRect(0, 0, width, height)
+  ctx.restore()
 }
 
 /** Wait for an `<img>` to finish decoding a new `src` (or fail open). */
@@ -558,7 +615,6 @@ function drawImageToQuad(
 /**
  * Paint a decoded frame into a local buffer the size of the shell's layout box,
  * honoring object-fit/object-position and the media's own enhance filter.
- * Overlays that sit above the media come from the foreground pass, not here.
  */
 function paintFrameToLocalBox(
   frame: CanvasImageSource,
@@ -624,13 +680,93 @@ function paintFrameToLocalBox(
   return buf
 }
 
+function overlapsVideoBox(layer: HTMLElement, video: HTMLVideoElement) {
+  const a = layer.getBoundingClientRect()
+  const b = video.getBoundingClientRect()
+  const overlap =
+    Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+    Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+  const smaller = Math.min(a.width * a.height, b.width * b.height)
+  return smaller > 0 && overlap / smaller >= 0.9
+}
+
+/**
+ * Build inner lighting from the overlay's actual DOM bounds, then project that
+ * texture through its own quad. The light is not necessarily the same size as
+ * the video's object-fit box — applying it to the video buffer creates false
+ * letterbox bands.
+ */
+function buildNativeInnerLightingLayer(
+  root: HTMLElement,
+  layers: HTMLElement[],
+  lighting: BackdropLighting,
+  scale: number,
+  width: number,
+  height: number
+): HTMLCanvasElement | null {
+  if (layers.length === 0) return null
+  const out = document.createElement("canvas")
+  out.width = width
+  out.height = height
+  const outCtx = out.getContext("2d")
+  if (!outCtx) return null
+
+  let painted = false
+  for (const el of layers) {
+    const rect = el.getBoundingClientRect()
+    if (!rect.width || !rect.height) continue
+    const texture = document.createElement("canvas")
+    texture.width = Math.max(1, Math.round(rect.width))
+    texture.height = Math.max(1, Math.round(rect.height))
+    const textureCtx = texture.getContext("2d")
+    if (!textureCtx) continue
+    const radius = Math.max(
+      0,
+      parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
+    )
+    if (radius > 0 && typeof textureCtx.roundRect === "function") {
+      textureCtx.beginPath()
+      textureCtx.roundRect(0, 0, texture.width, texture.height, radius)
+      textureCtx.clip()
+    }
+    paintInnerLighting(textureCtx, texture.width, texture.height, lighting)
+
+    const projected = projectionFor(root, el)
+    if (projected) {
+      const { quad } = projected
+      const projectUV: UvProjectorH = (u, v) => {
+        const point = quad.projectH(u * quad.localW, v * quad.localH)
+        return { x: point.x * scale, y: point.y * scale, w: point.w }
+      }
+      drawImageToQuadWarp(
+        outCtx,
+        texture,
+        texture.width,
+        texture.height,
+        projectUV,
+        chooseQuadSubdivision(projectUV)
+      )
+    } else {
+      const rootRect = root.getBoundingClientRect()
+      outCtx.drawImage(
+        texture,
+        (rect.left - rootRect.left) * scale,
+        (rect.top - rootRect.top) * scale,
+        rect.width * scale,
+        rect.height * scale
+      )
+    }
+    painted = true
+  }
+  return painted ? out : null
+}
+
 /**
  * Capture a scene template, retrying on Safari when html-to-image returns an
  * empty/near-empty raster (common on the first few foreignObject paints).
  */
 async function captureSceneTemplate(
-  capture: AnimationCapture,
-  label: string
+  capture: AnimationCapture
 ): Promise<HTMLCanvasElement> {
   const isWebKit = !supportsObjectViewBox()
   const maxAttempts = isWebKit ? 8 : 2
@@ -644,19 +780,10 @@ async function captureSceneTemplate(
     let frame: HTMLCanvasElement
     try {
       frame = await capture.captureFrame()
-    } catch (err) {
-      exportDebugLog(
-        "warn",
-        label,
-        `template capture attempt ${attempt + 1} threw`,
-        {
-          error: err instanceof Error ? err.message : String(err),
-        }
-      )
+    } catch {
       continue
     }
-    const stats = sampleFrameStats(frame)
-    const score = stats?.nonBlackPct ?? 0
+    const score = nonBlackPct(frame)
     if (score > bestScore) {
       bestScore = score
       best = frame
@@ -665,11 +792,6 @@ async function captureSceneTemplate(
     // produced a non-zero canvas. For video-hidden templates, mesh backgrounds
     // typically land around 10–20% non-black.
     if (frame.width > 0 && frame.height > 0 && score >= 1) {
-      if (attempt > 0) {
-        exportDebugLog("info", label, `template ok on attempt ${attempt + 1}`, {
-          score,
-        })
-      }
       return frame
     }
   }
@@ -709,6 +831,26 @@ function opaquePct(canvas: HTMLCanvasElement): number {
   return seen ? (opaque / seen) * 100 : 0
 }
 
+/** Fraction of sampled pixels that are not effectively black (0–100). */
+function nonBlackPct(canvas: HTMLCanvasElement): number {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
+  if (!ctx || !canvas.width || !canvas.height) return 0
+  const width = Math.min(64, canvas.width)
+  const height = Math.min(40, canvas.height)
+  const sample = document.createElement("canvas")
+  sample.width = width
+  sample.height = height
+  const sampleCtx = sample.getContext("2d", { willReadFrequently: true })
+  if (!sampleCtx) return 0
+  sampleCtx.drawImage(canvas, 0, 0, width, height)
+  const pixels = sampleCtx.getImageData(0, 0, width, height).data
+  let nonBlack = 0
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i] > 8 || pixels[i + 1] > 8 || pixels[i + 2] > 8) nonBlack++
+  }
+  return (nonBlack / (pixels.length / 4)) * 100
+}
+
 /**
  * Capture the foreground pass: everything above the media on a transparent
  * field. Unlike the scene template this is legitimately empty when the canvas
@@ -730,13 +872,7 @@ async function captureForegroundLayer(
     let frame: HTMLCanvasElement
     try {
       frame = await capture.captureFrame()
-    } catch (err) {
-      exportDebugLog(
-        "warn",
-        "renderer.composite",
-        `foreground capture attempt ${attempt + 1} threw`,
-        { error: err instanceof Error ? err.message : String(err) }
-      )
+    } catch {
       continue
     }
     if (!frame.width || !frame.height) continue
@@ -746,27 +882,10 @@ async function captureForegroundLayer(
       best = copyCanvas(frame)
     }
     if (score > 0.05) {
-      exportDebugLog(
-        "info",
-        "renderer.composite",
-        "foreground layer captured",
-        {
-          attempt: attempt + 1,
-          opaquePct: Number(score.toFixed(2)),
-          width: frame.width,
-          height: frame.height,
-        }
-      )
       return best
     }
   }
 
-  exportDebugLog(
-    "warn",
-    "renderer.composite",
-    "foreground layer came back empty — overlays may be missing",
-    { opaquePct: Number(Math.max(0, bestScore).toFixed(2)) }
-  )
   return best
 }
 
@@ -848,9 +967,6 @@ function overlayVideoFrameImage(
  * gives the raster nothing to flatten; the projection is then ours to do, with
  * the same maths the video goes through.
  */
-/** Distinguishes snapshots when several layers share a stack tag (or none). */
-let projectedSeq = 0
-
 async function captureProjectedElement(
   capture: AnimationCapture,
   layer: ProjectedLayer,
@@ -861,8 +977,6 @@ async function captureProjectedElement(
   excludeForeground: HTMLElement[] = []
 ): Promise<HTMLCanvasElement | null> {
   const { el, carrier, quad } = layer
-  const seq = projectedSeq++
-  const tag = `${seq}-${el.getAttribute("data-export-stack") ?? "untagged"}`
 
   // box-shadow / drop-shadow paint outside the border box and are transformed
   // with the element, so the texture has to include them or a tilted shadow gets
@@ -913,39 +1027,17 @@ async function captureProjectedElement(
     restoreVisibility()
   }
   if (!raster) return null
-  getActiveExportDebug()?.addLayerSnapshot(`raster-${tag}`, raster)
-
   // Lift the placed box (plus the shadow margin) out as the quad texture.
   const boxW = quad.localW + pad * 2
   const boxH = quad.localH + pad * 2
   const cropW = Math.max(1, Math.round(boxW * scale))
   const cropH = Math.max(1, Math.round(boxH * scale))
-  if (
-    cropX < 0 ||
-    cropY < 0 ||
-    cropX + cropW > raster.width + 1 ||
-    cropY + cropH > raster.height + 1
-  ) {
-    exportDebugLog(
-      "warn",
-      "renderer.composite",
-      "layer texture is clipped by the capture canvas — it will warp in undersized",
-      {
-        tag: el.tagName,
-        stack: el.getAttribute("data-export-stack"),
-        crop: { x: cropX, y: cropY, w: cropW, h: cropH },
-        raster: { w: raster.width, h: raster.height },
-      }
-    )
-  }
   const local = document.createElement("canvas")
   local.width = cropW
   local.height = cropH
   const lctx = local.getContext("2d")
   if (!lctx) return null
   lctx.drawImage(raster, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
-
-  getActiveExportDebug()?.addLayerSnapshot(`tex-${tag}`, local)
 
   const out = document.createElement("canvas")
   out.width = width
@@ -959,7 +1051,7 @@ async function captureProjectedElement(
     return { x: p.x * scale, y: p.y * scale, w: p.w }
   }
   const subdivisions = chooseQuadSubdivision(projectUV)
-  const warp = drawImageToQuadWarp(
+  drawImageToQuadWarp(
     octx,
     local,
     local.width,
@@ -967,15 +1059,6 @@ async function captureProjectedElement(
     projectUV,
     subdivisions
   )
-  exportDebugLog("info", "renderer.composite", "projected layer", {
-    tag: el.tagName,
-    stack: el.getAttribute("data-export-stack"),
-    warp,
-    subdivisions,
-    localW: quad.localW,
-    localH: quad.localH,
-    shadowPadPx: pad,
-  })
   return out
 }
 
@@ -1066,7 +1149,7 @@ async function buildForegroundLayer(
   scale: number,
   width: number,
   height: number,
-  label = "foreground groups"
+  _label = "foreground groups"
 ): Promise<HTMLCanvasElement | null> {
   const all = els
   if (all.length === 0) return null
@@ -1079,17 +1162,6 @@ async function buildForegroundLayer(
     if (layer) perspective.push(layer)
     else flat.push(el)
   }
-
-  exportDebugLog("info", "renderer.composite", label, {
-    total: all.length,
-    perspective: perspective.length,
-    flat: flat.length,
-  })
-  getActiveExportDebug()?.setMeta("foregroundGroups", {
-    total: all.length,
-    perspective: perspective.length,
-    flat: flat.length,
-  })
 
   const out = document.createElement("canvas")
   out.width = width
@@ -1223,11 +1295,6 @@ async function createCompositeRenderer(
     naturalH = seed ? Number((seed as { height?: unknown }).height) || 0 : 0
   }
   if (!naturalW || !naturalH) {
-    exportDebugLog(
-      "warn",
-      "renderer.composite",
-      "no natural video size — cannot composite"
-    )
     return null
   }
 
@@ -1244,49 +1311,7 @@ async function createCompositeRenderer(
   const region = measureVideoRegion(capture.node, video)
 
   if (!quad && !region) {
-    exportDebugLog(
-      "warn",
-      "renderer.composite",
-      "no video geometry — cannot composite"
-    )
     return null
-  }
-
-  exportDebugLog("info", "renderer.composite", "geometry measured", {
-    hasQuad: !!quad,
-    hasRegion: !!region,
-    naturalW,
-    naturalH,
-    carrierTag: carrier?.tagName ?? null,
-    carrierIsVideoParent: carrier === video.parentElement,
-    carrierHasTransform: !!carrier,
-    videoHasTransform:
-      getComputedStyle(video).transform !== "none" &&
-      !!getComputedStyle(video).transform,
-    quad: quad
-      ? { corners: quad.corners, localW: quad.localW, localH: quad.localH }
-      : null,
-    region,
-  })
-
-  const stackCounts = countExportStack(capture.node)
-  exportDebugLog("info", "renderer.composite", "export stack", {
-    ...stackCounts,
-    enhance: mediaFx?.enhance ?? "off",
-  })
-
-  // Reference: the untouched scene as the browser itself composites it, before
-  // any layer is hidden. The video usually won't rasterize here (that's the
-  // whole reason for this pipeline), but the backdrop, shell and foreground do —
-  // so this is the ground truth for *framing*, independent of our own maths.
-  // Only when a debug session is listening: it costs a full extra capture.
-  const dbgSession = getActiveExportDebug()
-  if (dbgSession) {
-    try {
-      dbgSession.addLayerSnapshot("reference", await capture.captureFrame())
-    } catch {
-      // Diagnostic only — never fail an export over it.
-    }
   }
 
   // Every element whose box the raster would flatten — the media shell (with its
@@ -1294,22 +1319,6 @@ async function createCompositeRenderer(
   // are kept out of the flat passes and projected individually below, so nothing
   // depends on WebKit getting perspective right.
   const projected = collectProjectedLayers(capture.node)
-  exportDebugLog("info", "renderer.composite", "perspective audit", {
-    projectedLayers: projected.map(({ el, quad: q }) => ({
-      tag: el.tagName,
-      stack: el.getAttribute("data-export-stack"),
-      shadowPadPx: shadowExtentPx(el),
-      localW: Math.round(q.localW),
-      localH: Math.round(q.localH),
-    })),
-  })
-  getActiveExportDebug()?.setMeta(
-    "projectedLayers",
-    projected.map(({ el }) => ({
-      tag: el.tagName,
-      stack: el.getAttribute("data-export-stack"),
-    }))
-  )
 
   // Pass 1 — underlay: backdrop only. Anything bent by perspective is excluded
   // and re-projected; without perspective the raster is faithful and stays put.
@@ -1318,8 +1327,7 @@ async function createCompositeRenderer(
   })
   if (capture.needsPaint) await waitForPaint()
 
-  const templateStarted = performance.now()
-  const template = await captureSceneTemplate(capture, "renderer.composite")
+  const template = await captureSceneTemplate(capture)
   const templateCopy = copyCanvas(template)
   restoreUnderlay()
 
@@ -1332,6 +1340,31 @@ async function createCompositeRenderer(
   // underlay: this is what puts the plate, border, radius, frame chrome and
   // shadow back — in the right shape — under the video drawn into the same quad.
   const foregroundEls = queryForeground(capture.node)
+  // Inner lighting has a matching canvas implementation in
+  // `paintFrameToLocalBox`. Keeping it in the SVG foreground pass on Safari
+  // produces the horizontal grey wash shown in the exported video, so omit
+  // only the layer that actually covers this main video. Other screenshot-slot
+  // lights remain normal foreground elements.
+  const nativeInnerLighting = mediaFx?.innerLighting
+    ? foregroundEls.filter(
+        (el) =>
+          el.hasAttribute("data-export-inner-lighting") &&
+          overlapsVideoBox(el, video)
+      )
+    : []
+  const compositedForegroundEls = foregroundEls.filter(
+    (el) => !nativeInnerLighting.includes(el)
+  )
+  const nativeInnerLightingLayer = mediaFx?.innerLighting
+    ? buildNativeInnerLightingLayer(
+        capture.node,
+        nativeInnerLighting,
+        mediaFx.innerLighting,
+        scale,
+        templateCopy.width,
+        templateCopy.height
+      )
+    : null
   const underlayProjected = projected.filter(
     ({ el }) => !foregroundEls.some((f) => f === el || f.contains(el))
   )
@@ -1343,19 +1376,13 @@ async function createCompositeRenderer(
   const canOrderBelow = underlayProjected.length > 0
   const aboveEls: HTMLElement[] = []
   const belowEls: HTMLElement[] = []
-  for (const el of foregroundEls) {
+  for (const el of compositedForegroundEls) {
     if (canOrderBelow && !paintsAboveVideo(el, video, capture.node)) {
       belowEls.push(el)
     } else {
       aboveEls.push(el)
     }
   }
-  exportDebugLog("info", "renderer.composite", "foreground z-split", {
-    above: aboveEls.length,
-    below: belowEls.length,
-    canOrderBelow,
-  })
-
   const tctx = templateCopy.getContext("2d")
 
   // Behind-the-screenshot layers first, so the projected shell paints over them.
@@ -1370,10 +1397,6 @@ async function createCompositeRenderer(
     )
     if (belowLayer && tctx) {
       tctx.drawImage(belowLayer, 0, 0)
-      getActiveExportDebug()?.addLayerSnapshot(
-        "underlay-foreground",
-        belowLayer
-      )
     }
   }
 
@@ -1384,12 +1407,10 @@ async function createCompositeRenderer(
       scale,
       templateCopy.width,
       templateCopy.height,
-      foregroundEls
+      compositedForegroundEls
     )
     if (canvas && tctx) tctx.drawImage(canvas, 0, 0)
   }
-  getActiveExportDebug()?.addLayerSnapshot("underlay", templateCopy)
-
   // Pass 2 — foreground: inner lighting, overlay textures, text, assets,
   // annotations and slots, built once and drawn over every composited frame.
   // This is what makes the stacking general: the editor decides what's above the
@@ -1403,9 +1424,6 @@ async function createCompositeRenderer(
       templateCopy.width,
       templateCopy.height
     )
-    if (foregroundLayer) {
-      getActiveExportDebug()?.addLayerSnapshot("foreground", foregroundLayer)
-    }
   }
 
   // Device-frame chrome (bezel + notch), re-drawn over the video since its
@@ -1417,39 +1435,6 @@ async function createCompositeRenderer(
     templateCopy.width,
     templateCopy.height
   )
-  if (frameChromeLayer) {
-    getActiveExportDebug()?.addLayerSnapshot("frame-chrome", frameChromeLayer)
-  }
-
-  const templateStats = sampleFrameStats(templateCopy)
-  exportDebugLog("info", "renderer.composite", "scene template captured", {
-    durationMs: Math.round(performance.now() - templateStarted),
-    width: templateCopy.width,
-    height: templateCopy.height,
-    stats: templateStats,
-  })
-  getActiveExportDebug()?.setMeta("compositeTemplate", {
-    width: templateCopy.width,
-    height: templateCopy.height,
-    stats: templateStats,
-    region,
-    quad: quad
-      ? { corners: quad.corners, localW: quad.localW, localH: quad.localH }
-      : null,
-    shell: {
-      tag: shell.tagName,
-      localW: quad?.localW ?? null,
-      localH: quad?.localH ?? null,
-    },
-    stack: {
-      ...stackCounts,
-      hasForegroundLayer: !!foregroundLayer,
-      foregroundOpaquePct: foregroundLayer
-        ? Number(opaquePct(foregroundLayer).toFixed(2))
-        : 0,
-    },
-  })
-
   const scratch = document.createElement("canvas")
   scratch.width = templateCopy.width
   scratch.height = templateCopy.height
@@ -1469,49 +1454,22 @@ async function createCompositeRenderer(
 
   const useQuad = !!projectUV
   const subdivisions = projectUV ? chooseQuadSubdivision(projectUV) : 1
-  exportDebugLog(
-    "info",
-    "renderer.composite",
-    useQuad ? "using projected-quad composite" : "using AABB region composite",
-    {
-      scale,
-      localW,
-      localH,
-      hasPerspective: quad?.hasPerspective ?? false,
-      subdivisions,
-      affineErrorPx: projectUV
-        ? Number(quadAffineError(projectUV, subdivisions).toFixed(3))
-        : null,
-    }
-  )
-  getActiveExportDebug()?.setMeta("compositeQuad", {
-    hasPerspective: quad?.hasPerspective ?? false,
-    subdivisions,
-    corners: quad?.corners ?? null,
-  })
 
   // Corner rounding that clips the video's own box. It is NOT on the tilt shell:
   // for a device frame that outer div is square-cornered and the rounded screen
   // glass sits a couple levels down. Without it the video keeps sharp corners
   // that poke out past the bezel's rounded silhouette (cover/fill especially).
   const shellRadius = resolveVideoClipRadius(video, shell, localW)
-  let warpUsed: "gl" | "grid" | null = null
 
   return async (i: number) => {
-    const t0 = performance.now()
     const t = plan.timeForFrame(i)
     const frame = await decoded.getFrameAt(t)
     sctx.clearRect(0, 0, scratch.width, scratch.height)
     sctx.drawImage(templateCopy, 0, 0)
 
-    let drewVideo = false
-    let frameW = 0
-    let frameH = 0
     if (frame) {
       const fw = Number((frame as { width?: unknown }).width) || naturalW
       const fh = Number((frame as { height?: unknown }).height) || naturalH
-      frameW = fw
-      frameH = fh
       if (fw > 0 && fh > 0) {
         if (useQuad && projectUV) {
           // Paint object-fit into the shell's local box, using the <video>'s
@@ -1527,7 +1485,7 @@ async function createCompositeRenderer(
             mediaFx
           )
           if (local) {
-            warpUsed = drawImageToQuadWarp(
+            drawImageToQuadWarp(
               sctx,
               local,
               local.width,
@@ -1535,7 +1493,6 @@ async function createCompositeRenderer(
               projectUV,
               subdivisions
             )
-            drewVideo = true
           }
         } else if (region) {
           // AABB path: paint into a local box (with fx) then drawImage that.
@@ -1582,36 +1539,18 @@ async function createCompositeRenderer(
             )
           }
           sctx.restore()
-          drewVideo = true
         }
       }
     }
 
     // The device bezel/notch masks the video edges before the editor's own
     // foreground (text, annotations) is stacked above the whole device.
+    if (nativeInnerLightingLayer) sctx.drawImage(nativeInnerLightingLayer, 0, 0)
     if (frameChromeLayer) sctx.drawImage(frameChromeLayer, 0, 0)
 
     // Everything the editor stacks above the media, back on top of the video.
     if (foregroundLayer) sctx.drawImage(foregroundLayer, 0, 0)
 
-    // One fully composited frame, to compare against the layers that built it.
-    if (i === 0) getActiveExportDebug()?.addLayerSnapshot("frame0", scratch)
-
-    getActiveExportDebug()?.logFrameSample(
-      "renderer.composite",
-      i,
-      plan.frameCount,
-      scratch,
-      {
-        strategy: useQuad ? "composite-quad" : "composite-aabb",
-        timeSec: t,
-        drewVideo,
-        warp: warpUsed,
-        drewForeground: !!foregroundLayer,
-        decodedFrameSize: { w: frameW, h: frameH },
-        durationMs: Math.round(performance.now() - t0),
-      }
-    )
     return scratch
   }
 }
@@ -1629,26 +1568,12 @@ function createRasterRenderer(
   signal?: AbortSignal
 ): RenderFrame {
   const paintOverlay = decoded ? overlayVideoFrameImage(video) : null
-  const strategy =
-    decoded && paintOverlay
-      ? "raster-overlay-img"
-      : decoded
-        ? "raster-decoded-no-overlay"
-        : "raster-dom-seek"
   const isWebKit = !supportsObjectViewBox()
-  exportDebugLog("info", "renderer.raster", "using raster path", {
-    strategy,
-    hasDecoded: !!decoded,
-    hasOverlay: !!paintOverlay,
-    supportsObjectViewBox: supportsObjectViewBox(),
-  })
-  getActiveExportDebug()?.setMeta("rendererStrategy", strategy)
 
   // Background-only captures sit ~13% non-black; with video ~70%.
   const minNonBlack = 25
 
   return async (i: number) => {
-    const t0 = performance.now()
     const t = plan.timeForFrame(i)
     let drewDecoded = false
     if (decoded && paintOverlay) {
@@ -1664,49 +1589,17 @@ function createRasterRenderer(
     if (capture.needsPaint) await waitForPaint()
 
     let out: HTMLCanvasElement
-    let attempts = 1
-    try {
-      out = await capture.captureFrame()
-      if (isWebKit && drewDecoded) {
-        // Nested images inside SVG foreignObject load async on WebKit — most
-        // first paints miss the video (background-only). Retry until the video
-        // area shows up or we exhaust attempts.
-        for (let attempt = 0; attempt < 10; attempt++) {
-          const stats = sampleFrameStats(out)
-          if ((stats?.nonBlackPct ?? 0) >= minNonBlack) break
-          await sleep(16 + attempt * 12)
-          out = await capture.captureFrame()
-          attempts++
-        }
+    out = await capture.captureFrame()
+    if (isWebKit && drewDecoded) {
+      // Nested images inside SVG foreignObject load async on WebKit — most
+      // first paints miss the video (background-only). Retry until the video
+      // area shows up or we exhaust attempts.
+      for (let attempt = 0; attempt < 10; attempt++) {
+        if (nonBlackPct(out) >= minNonBlack) break
+        await sleep(16 + attempt * 12)
+        out = await capture.captureFrame()
       }
-    } catch (err) {
-      exportDebugLog(
-        "error",
-        "renderer.raster",
-        `captureFrame failed at ${i}`,
-        {
-          frameIndex: i,
-          timeSec: t,
-          error: err instanceof Error ? err.message : String(err),
-        }
-      )
-      throw err
     }
-    getActiveExportDebug()?.logFrameSample(
-      "renderer.raster",
-      i,
-      plan.frameCount,
-      out,
-      {
-        strategy,
-        timeSec: t,
-        drewDecoded,
-        attempts,
-        durationMs: Math.round(performance.now() - t0),
-        videoReadyState: video.readyState,
-        videoCurrentTime: video.currentTime,
-      }
-    )
     return out
   }
 }
@@ -1726,11 +1619,6 @@ function withPortraitDepthOfField(
   node: HTMLElement
 ): RenderFrame {
   const count = node.querySelectorAll("[data-export-portrait-fx]").length
-  exportDebugLog("info", "renderer.portrait", "portrait depth-of-field", {
-    overlays: count,
-    applied: count > 0,
-  })
-  getActiveExportDebug()?.setMeta("portraitFx", { overlays: count })
   if (count === 0) return render
   return async (i: number) => {
     const frame = await render(i)
@@ -1744,13 +1632,13 @@ function withPortraitDepthOfField(
  *
  * Always prefers composite when WebCodecs frames are available — including
  * tilted videos (projected quad). Per-frame foreignObject raster of a changing
- * video overlay flickers hard on Safari (debug logs: ~80% frames background-only).
+ * video overlay flickers hard on Safari.
  */
 export async function createFrameRenderer({
   capture,
   video,
   decoded,
-  tilted,
+  tilted: _tilted,
   plan,
   signal,
   mediaFx,
@@ -1764,14 +1652,6 @@ export async function createFrameRenderer({
   /** Media-pixel effects (enhance) re-applied to the decoded frame. */
   mediaFx?: VideoMediaFx | null
 }): Promise<RenderFrame> {
-  exportDebugLog("info", "renderer", "selecting strategy", {
-    hasDecoded: !!decoded,
-    tilted,
-    videoWidth: video.videoWidth,
-    videoHeight: video.videoHeight,
-    frameCount: plan.frameCount,
-    mediaFx: { enhance: mediaFx?.enhance ?? null },
-  })
   if (decoded) {
     const composite = await createCompositeRenderer(
       capture,
@@ -1781,17 +1661,8 @@ export async function createFrameRenderer({
       mediaFx
     )
     if (composite) {
-      exportDebugLog("info", "renderer", "selected composite strategy", {
-        tilted,
-      })
-      getActiveExportDebug()?.setMeta("rendererStrategy", "composite")
       return withPortraitDepthOfField(composite, capture.node)
     }
-    exportDebugLog(
-      "warn",
-      "renderer",
-      "composite unavailable, falling back to raster"
-    )
   }
   return withPortraitDepthOfField(
     createRasterRenderer(capture, video, decoded, plan, signal),

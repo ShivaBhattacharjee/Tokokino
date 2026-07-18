@@ -223,6 +223,72 @@ const applyPoseToCanvas = (
   }),
 })
 
+/** Main-pose fields each animation effect owns. Used to copy just the edited
+ * property into every clip of a multi-selection (leaving the rest intact). */
+const EFFECT_MAIN_POSE_FIELDS: Record<
+  AnimationEffect,
+  readonly (keyof ClipBaseline)[]
+> = {
+  position: ["screenshotPosition", "screenshotOffset"],
+  zoom: ["scale"],
+  tilt: ["tilt"],
+  padding: ["padding"],
+  shadow: ["shadow"],
+  background: ["background"],
+  backdrop: ["backdropEffects"],
+  canvasRadius: ["canvasBorderRadius"],
+  lighting: ["lighting"],
+  filter: ["filter"],
+  portrait: ["portrait"],
+  pattern: ["pattern"],
+  overlay: ["overlay"],
+  border: ["border"],
+  borderRadius: ["borderRadius"],
+}
+
+/** Per-slot pose fields an effect owns (only the slot-animatable ones). */
+const EFFECT_SLOT_POSE_FIELDS: Partial<
+  Record<AnimationEffect, readonly (keyof ClipSlotPose)[]>
+> = {
+  position: ["xPct", "yPct"],
+  zoom: ["scale"],
+  tilt: ["tilt", "rotation"],
+  padding: ["padding"],
+  shadow: ["shadow"],
+  border: ["border"],
+  borderRadius: ["borderRadius"],
+  lighting: ["lighting"],
+}
+
+/**
+ * Copy just the fields owned by `effects` from `edited` onto `basePose`, so
+ * applying one inspector edit across a multi-selection updates only that
+ * property on every selected clip and leaves each clip's other keyframed values
+ * intact.
+ */
+const mergeEffectsIntoPose = (
+  basePose: ClipBaseline,
+  edited: ClipBaseline,
+  effects: AnimationEffect[]
+): ClipBaseline => {
+  const next: ClipBaseline = { ...basePose, slots: { ...basePose.slots } }
+  for (const effect of effects) {
+    for (const field of EFFECT_MAIN_POSE_FIELDS[effect])
+      (next as Record<string, unknown>)[field] = edited[field]
+    const slotFields = EFFECT_SLOT_POSE_FIELDS[effect]
+    if (!slotFields) continue
+    for (const [slotId, editedSlot] of Object.entries(edited.slots)) {
+      const target = next.slots[slotId]
+      if (!target) continue
+      const mergedSlot = { ...target }
+      for (const field of slotFields)
+        (mergedSlot as Record<string, unknown>)[field] = editedSlot[field]
+      next.slots[slotId] = mergedSlot
+    }
+  }
+  return next
+}
+
 /**
  * The resolved look AT a keyframe: for each effect, the value from the latest
  * keyframe that owns it at/before `target` (so held effects from earlier
@@ -1106,9 +1172,42 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       (canvas, state) => {
         const base = typeof patch === "function" ? patch(canvas, state) : patch
         const full = get()
-        const selId = full.selectedAnimationClipId
-        if (!full.isAnimateMode || !selId) return base
+        if (!full.isAnimateMode) return base
         const anim = getCanvasAnimation(canvas)
+        const selId = full.selectedAnimationClipId
+
+        // Multi-selection opens no single keyframe (primary = null), so route the
+        // edit to EVERY selected clip: record the effect on each and write its new
+        // value into each clip's pose, leaving their other keyframed values intact.
+        const multiIds = full.selectedAnimationClipIds
+        if (!selId && multiIds.length > 1) {
+          const idSet = new Set(multiIds)
+          if (!anim.clips.some((c) => idSet.has(c.id))) return base
+          const editedPose = captureClipPose({
+            ...canvas,
+            ...base,
+          })
+          return {
+            ...base,
+            animation: {
+              ...anim,
+              clips: anim.clips.map((c) => {
+                if (!idSet.has(c.id)) return c
+                const owned = c.effects ?? []
+                const merged = Array.from(new Set([...owned, ...list]))
+                const basePose =
+                  c.pose ?? resolveKeyframePose(canvas, anim.clips, c)
+                return {
+                  ...c,
+                  effects: merged,
+                  pose: mergeEffectsIntoPose(basePose, editedPose, list),
+                }
+              }),
+            },
+          }
+        }
+
+        if (!selId) return base
         const clip = anim.clips.find((c) => c.id === selId)
         if (!clip) return base
         const owned = clip.effects ?? []

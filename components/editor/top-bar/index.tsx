@@ -16,6 +16,10 @@ import { useShallow } from "zustand/react/shallow"
 
 import { LoginForm } from "@/app/login/login-form"
 import { BrandLogo } from "@/components/editor/brand-logo"
+import {
+  DraftDownloadProgress,
+  type DraftDownloadState,
+} from "@/components/editor/draft-download-progress"
 import { FeedbackDialog } from "@/components/editor/top-bar/feedback-dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
@@ -270,6 +274,8 @@ export function TopBar() {
   const [draftNameOpen, setDraftNameOpen] = React.useState(false)
   const [openProjectDialogOpen, setOpenProjectDialogOpen] =
     React.useState(false)
+  const [draftDownload, setDraftDownload] =
+    React.useState<DraftDownloadState | null>(null)
   const [isDraftSaving, setIsDraftSaving] = React.useState(false)
   const [draftUploadProgress, setDraftUploadProgress] =
     React.useState<DraftVideoUploadProgress | null>(null)
@@ -998,7 +1004,8 @@ export function TopBar() {
   const handleOpenDraft = React.useCallback(
     async (
       id: string,
-      onProgress?: (progress: DraftVideoDownloadProgress) => void
+      onProgress?: (progress: DraftVideoDownloadProgress) => void,
+      onMeta?: (name: string) => void
     ) => {
       try {
         const res = await fetch(`/api/drafts/${id}`, {
@@ -1016,6 +1023,7 @@ export function TopBar() {
         if (!res.ok || !data?.draft?.state) {
           throw new Error(data?.error ?? "Could not load draft")
         }
+        onMeta?.(data.draft.name)
         const { present, ui } = unwrapDraftState(data.draft.state)
         const hydratedPresent = await downloadDraftVideos(present, onProgress)
         loadDraftState(
@@ -1405,13 +1413,34 @@ export function TopBar() {
           hasUnsavedWork={hasUnsavedWork}
           defaultKind="style"
           onOpenDraft={async (id) => {
-            const ok = await handleOpenDraft(id)
-            if (ok) setOpenProjectDialogOpen(false)
+            // Keep the picker open while the video downloads; the corner widget
+            // (higher z-index than the dialog) shows progress on top of it. Only
+            // close once the draft is fully loaded.
+            let name: string | null = null
+            try {
+              const ok = await handleOpenDraft(
+                id,
+                (p) =>
+                  setDraftDownload({
+                    name,
+                    current: p.current,
+                    total: p.total,
+                  }),
+                (n) => {
+                  name = n
+                }
+              )
+              if (ok) setOpenProjectDialogOpen(false)
+            } finally {
+              setDraftDownload(null)
+            }
           }}
           onCreateNew={() => {
             reset()
           }}
         />
+
+        <DraftDownloadProgress download={draftDownload} />
 
         <MobileSaveDialog
           open={mobileSaveOpen}

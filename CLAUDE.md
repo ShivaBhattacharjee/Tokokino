@@ -11,6 +11,7 @@
 - Tailwind CSS v4 + shadcn components + Radix UI primitives
 - better-auth (email + Google OAuth), Cloudflare D1 via Drizzle, Cloudflare R2 via AWS S3 SDK
 - `html-to-image` for canvas capture, `motion` for animation, `@dnd-kit` for drag-and-drop
+- Mediabunny + WebCodecs for on-device video export, with a bundled dav1d AV1 WebAssembly fallback for Safari/WebKit
 - Zod v4 (`zod/v4`) for input validation
 - TypeScript strict mode
 

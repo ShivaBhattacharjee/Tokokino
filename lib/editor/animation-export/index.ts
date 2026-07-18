@@ -20,11 +20,6 @@ import { clearAnimationFrameVars } from "../apply-animation-frame"
 import { isVideoSrc } from "../media-type"
 import { captureClipPose, useEditorStore } from "../store"
 import { acquireAnimationCapture, suppressCloneTransitions } from "./capture"
-import {
-  collectCanvasStyleSnapshot,
-  startExportDebug,
-  type ExportDebugSession,
-} from "./export-debug"
 import { encodeGif } from "./gif"
 import { prepareCloneVideoLayer } from "./video-layer"
 import {
@@ -91,8 +86,6 @@ async function encodeAnimation(
 ): Promise<AnimationExportBlobResult> {
   const { onProgress, signal } = options
   const progress = createProgressReporter(onProgress)
-  const dbg: ExportDebugSession | null = startExportDebug("animation", canvasId)
-
   try {
     throwIfAborted(signal)
     progress.report("preparing", 0, 1)
@@ -124,31 +117,6 @@ async function encodeAnimation(
       options.targetWidth ??
       (options.format === "gif" ? 720 : options.format === "mp4" ? 1080 : 1080)
 
-    dbg?.mergeMeta({
-      options: {
-        format: options.format,
-        fps,
-        targetWidth,
-        capture: options.capture ?? "auto",
-        watermark: options.watermark !== false,
-        asBlob: !!options.asBlob,
-      },
-      canvasStyle: collectCanvasStyleSnapshot(canvas),
-      animation: {
-        durationMs,
-        clipCount: clips.length,
-        frameCount,
-        frameDurationMs,
-      },
-    })
-    dbg?.info("prepare", "starting animation encode", {
-      format: options.format,
-      fps,
-      frameCount,
-      targetWidth,
-      captureMode: options.capture ?? "auto",
-    })
-
     // Added unless explicitly disabled — mirrors the still-image export toggle.
     // Preload the logo and the real Inter family together so every frame's canvas
     // text rasterizes identically across OSes (no per-platform system-ui fallback).
@@ -164,28 +132,12 @@ async function encodeAnimation(
           })()
 
     throwIfAborted(signal)
-    dbg?.info("capture", "acquireAnimationCapture begin", {
-      mode: options.capture ?? "auto",
-    })
-    const captureStarted = performance.now()
     const capture = await acquireAnimationCapture(
       canvasId,
       targetWidth,
       options.capture ?? "auto"
     )
-    dbg?.info("capture", "acquireAnimationCapture done", {
-      durationMs: Math.round(performance.now() - captureStarted),
-      width: capture.width,
-      height: capture.height,
-      needsPaint: capture.needsPaint,
-    })
-    dbg?.setMeta("capture", {
-      width: capture.width,
-      height: capture.height,
-      needsPaint: capture.needsPaint,
-    })
     suppressCloneTransitions(capture.node)
-    dbg?.logCloneFilters(capture.node)
 
     // A `<video>` renders nothing once the clone is serialized into an SVG, so a
     // video canvas needs its frames decoded and painted in per capture.
@@ -199,15 +151,6 @@ async function encodeAnimation(
             signal,
           })
         : null
-    dbg?.info(
-      "video-layer",
-      videoLayer ? "clone video layer ready" : "no video layer",
-      {
-        hasVideoLayer: !!videoLayer,
-        sourceDurationMs: videoLayer?.sourceDurationMs ?? null,
-      }
-    )
-
     progress.report("preparing", 1, 1)
 
     const ctx: CaptureCtx = {
@@ -243,7 +186,6 @@ async function encodeAnimation(
           }
           // WebM fallback — MediaRecorder (also fully local)
           encoder = "mediarecorder-webm"
-          dbg?.warn("encode", "falling back to MediaRecorder WebM")
           blob = await encodeWebmMediaRecorder({
             ...ctx,
             durationMs,
@@ -252,21 +194,6 @@ async function encodeAnimation(
       }
       progress.report("finishing", 1, 1)
       const { contentType, extension } = animationMimeAndExt(options.format)
-      dbg?.mergeMeta({
-        encoder,
-        result: {
-          contentType: blob.type || contentType,
-          extension,
-          blobSize: blob.size,
-          blobType: blob.type,
-        },
-      })
-      dbg?.info("result", "animation encode complete", {
-        encoder,
-        blobSize: blob.size,
-        extension,
-      })
-      await dbg?.flush("success")
       // Prefer the blob's own type when the encoder set one.
       return {
         blob,
@@ -277,17 +204,8 @@ async function encodeAnimation(
       videoLayer?.cleanup()
       clearAnimationFrameVars(capture.node, clips)
       capture.cleanup()
-      dbg?.info("capture", "capture cleaned up")
     }
   } catch (err) {
-    const aborted = err instanceof AnimationExportAbortedError
-    dbg?.error("export", aborted ? "export aborted" : "export failed", {
-      error:
-        err instanceof Error
-          ? { name: err.name, message: err.message, stack: err.stack }
-          : String(err),
-    })
-    await dbg?.flush(aborted ? "aborted" : "error", err)
     throw err
   }
 }

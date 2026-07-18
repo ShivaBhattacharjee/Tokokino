@@ -15,11 +15,6 @@ import {
 } from "../export"
 import type { AnimationClip, CanvasState } from "../state-types"
 import { blankFrame, isDrawImageSource, snapshotFrame } from "./draw-utils"
-import {
-  exportDebugLog,
-  getActiveExportDebug,
-  sampleFrameStats,
-} from "./export-debug"
 import type { AnimationCaptureMode } from "./types"
 import { waitForPaint } from "./utils"
 import type { CloneVideoLayer } from "./video-layer"
@@ -37,58 +32,18 @@ export async function acquireAnimationCapture(
   targetWidth: number,
   mode: AnimationCaptureMode
 ): Promise<AnimationCapture> {
-  exportDebugLog("info", "capture.acquire", "resolving capture strategy", {
-    mode,
-    targetWidth,
-    canvasId,
-  })
   if (mode === "legacy") {
-    const cap = await prepareAnimationCapture(canvasId, targetWidth)
-    exportDebugLog("info", "capture.acquire", "using legacy html-to-image", {
-      width: cap.width,
-      height: cap.height,
-      needsPaint: cap.needsPaint,
-    })
-    getActiveExportDebug()?.setMeta("captureStrategy", "legacy")
-    return cap
+    return prepareAnimationCapture(canvasId, targetWidth)
   }
   if (mode === "fast") {
-    const cap = await prepareFastAnimationCapture(canvasId, targetWidth)
-    exportDebugLog("info", "capture.acquire", "using fast path", {
-      width: cap.width,
-      height: cap.height,
-      needsPaint: cap.needsPaint,
-    })
-    getActiveExportDebug()?.setMeta("captureStrategy", "fast")
-    return cap
+    return prepareFastAnimationCapture(canvasId, targetWidth)
   }
 
   // auto
   try {
-    const cap = await prepareFastAnimationCapture(canvasId, targetWidth)
-    exportDebugLog("info", "capture.acquire", "auto → fast path", {
-      width: cap.width,
-      height: cap.height,
-      needsPaint: cap.needsPaint,
-    })
-    getActiveExportDebug()?.setMeta("captureStrategy", "auto-fast")
-    return cap
-  } catch (err) {
-    console.warn(
-      "[export] fast capture setup failed, using html-to-image:",
-      err
-    )
-    exportDebugLog(
-      "warn",
-      "capture.acquire",
-      "fast setup failed, falling back to legacy html-to-image",
-      {
-        error: err instanceof Error ? err.message : String(err),
-      }
-    )
-    const cap = await prepareAnimationCapture(canvasId, targetWidth)
-    getActiveExportDebug()?.setMeta("captureStrategy", "auto-legacy-fallback")
-    return cap
+    return await prepareFastAnimationCapture(canvasId, targetWidth)
+  } catch {
+    return prepareAnimationCapture(canvasId, targetWidth)
   }
 }
 
@@ -123,6 +78,33 @@ function applyExportFrame(
 }
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
+
+// WebKit can return a structurally valid foreignObject raster while one of its
+// image layers is still transparent. Keep the previous complete canvas for the
+// rare retry that remains partial, rather than encoding a one-frame hole.
+const lastCompleteCaptureFrame = new WeakMap<
+  AnimationCapture,
+  HTMLCanvasElement
+>()
+
+function hasMissingCaptureLayer(frame: HTMLCanvasElement) {
+  const sample = document.createElement("canvas")
+  sample.width = Math.min(64, frame.width)
+  sample.height = Math.min(40, frame.height)
+  const ctx = sample.getContext("2d", { willReadFrequently: true })
+  if (!ctx || !sample.width || !sample.height) return false
+  ctx.drawImage(frame, 0, 0, sample.width, sample.height)
+  const pixels = ctx.getImageData(0, 0, sample.width, sample.height).data
+  let transparent = 0
+  let alphaTotal = 0
+  for (let i = 3; i < pixels.length; i += 4) {
+    const alpha = pixels[i]
+    alphaTotal += alpha
+    if (alpha === 0) transparent++
+  }
+  const pixelCount = pixels.length / 4
+  return transparent / pixelCount >= 0.04 && alphaTotal / pixelCount < 250
+}
 
 /**
  * Whether `CanvasRenderingContext2D.filter` actually blurs. WebKit accepts the
@@ -275,16 +257,10 @@ function blurFrameInto(
  * backdrop. Only `blur`/`stage` are tagged; the gradient portrait modes render
  * natively and are never neutralized.
  */
-/** The debug session the portrait numbers were last logged for (once per export). */
-let portraitDbgSession: unknown = null
-
 export function drawPortraitDepthOfField(
   frame: HTMLCanvasElement,
   node: HTMLElement
 ) {
-  const dbgSession = getActiveExportDebug()
-  const portraitDbgLogged =
-    dbgSession != null && dbgSession === portraitDbgSession
   const els = node.querySelectorAll<HTMLElement>("[data-export-portrait-fx]")
   if (els.length === 0) return
   const ctx = frame.getContext("2d")
@@ -353,42 +329,6 @@ export function drawPortraitDepthOfField(
     const fontSize = parseFloat(cs.fontSize) || 16
     const blurPx = blurEm * fontSize * blurScaleY
 
-    // Dump the reconstruction as PNG layers (once per export) so the blur can be
-    // inspected directly instead of inferred from the numbers.
-    const doSnapshot = !!dbgSession && !portraitDbgLogged
-    if (dbgSession && !portraitDbgLogged) {
-      portraitDbgSession = dbgSession
-      getActiveExportDebug()?.addLayerSnapshot("portrait-before", frame)
-      exportDebugLog(
-        "info",
-        "renderer.portrait",
-        "depth-of-field reconstruct",
-        {
-          mode,
-          opacity,
-          position,
-          distance,
-          intensity,
-          fontSizePx: fontSize,
-          scaleY: Number(scaleY.toFixed(3)),
-          blurScaleY: Number(blurScaleY.toFixed(3)),
-          liveCanvasH: liveCanvas?.offsetHeight ?? null,
-          cloneH: Math.round(nodeRect.height),
-          blurEm: Number(blurEm.toFixed(3)),
-          blurPx: Number(blurPx.toFixed(2)),
-          maskStops: {
-            s0: Number(s0.toFixed(3)),
-            s1: Number(s1.toFixed(3)),
-            s2: Number(s2.toFixed(3)),
-          },
-          boxTop: Math.round(boxTop),
-          boxH: Math.round(boxH),
-          frame: { w: frame.width, h: frame.height },
-          willBlur: blurPx >= 0.5,
-        }
-      )
-    }
-
     if (blurPx >= 0.5) {
       const layer = document.createElement("canvas")
       layer.width = frame.width
@@ -400,9 +340,6 @@ export function drawPortraitDepthOfField(
         lc.globalCompositeOperation = "destination-in"
         lc.fillStyle = makeMask(lc)
         lc.fillRect(0, boxTop, frame.width, boxH)
-        if (doSnapshot) {
-          getActiveExportDebug()?.addLayerSnapshot("portrait-blur-layer", layer)
-        }
         ctx.save()
         ctx.globalAlpha = opacity
         ctx.drawImage(layer, 0, 0)
@@ -430,10 +367,6 @@ export function drawPortraitDepthOfField(
         }
       }
     }
-
-    if (doSnapshot) {
-      getActiveExportDebug()?.addLayerSnapshot("portrait-after", frame)
-    }
   }
 }
 
@@ -445,69 +378,68 @@ export async function captureStableFrame(
   timeMs: number,
   videoLayer?: CloneVideoLayer | null
 ): Promise<HTMLCanvasElement> {
-  const t0 = performance.now()
   // Non-null only for a video canvas: paints this frame's decoded pixels into
   // the clone, which otherwise rasterizes the video's box empty.
   await videoLayer?.paint(timeMs)
   applyExportFrame(capture.node, canvas, globalAspect, clips, timeMs)
   // The fast path serializes the clone's inline styles synchronously, so it
-  // needs no browser paint between mutation and capture. The html-to-image path
-  // reads live computed styles and does.
-  if (capture.needsPaint) await waitForPaint()
+  // normally needs no browser paint between mutation and capture. A video layer
+  // is different: its PNG data URL was just swapped into an <img>, and WebKit
+  // can serialize the old/transparent compositor state until the next paint.
+  if (capture.needsPaint || videoLayer) await waitForPaint()
   let raw: unknown
-  let usedBlank = false
-  let retried = false
   try {
     raw = await capture.captureFrame()
-  } catch (err) {
-    exportDebugLog(
-      "warn",
-      "capture.stable",
-      "captureFrame threw — returning blank frame",
-      {
-        timeMs,
-        error: err instanceof Error ? err.message : String(err),
-      }
-    )
-    usedBlank = true
+  } catch {
     return blankFrame(capture.width, capture.height)
   }
   // html-to-image is flaky on some browsers — one retry after another paint.
   if (!isDrawImageSource(raw)) {
-    retried = true
     if (capture.needsPaint) await waitForPaint()
     try {
       raw = await capture.captureFrame()
-    } catch (err) {
-      exportDebugLog(
-        "warn",
-        "capture.stable",
-        "captureFrame retry threw — returning blank frame",
-        {
-          timeMs,
-          error: err instanceof Error ? err.message : String(err),
-        }
-      )
-      usedBlank = true
+    } catch {
       return blankFrame(capture.width, capture.height)
     }
   }
-  const frame = snapshotFrame(raw, capture.width, capture.height)
+  let frame = snapshotFrame(raw, capture.width, capture.height)
+
+  // A non-empty canvas is not necessarily complete on WebKit. Its foreignObject
+  // capture can omit the just-swapped video image for one frame, leaving a large
+  // transparent hole. Retry after paint; if it remains partial, hold the last
+  // complete canvas so the encoded video stays temporally stable.
+  let incompleteCapture = hasMissingCaptureLayer(frame)
+  let incompleteRetries = 0
+  while (incompleteCapture && incompleteRetries < 2) {
+    incompleteRetries++
+    await waitForPaint()
+    try {
+      const retryRaw = await capture.captureFrame()
+      if (!isDrawImageSource(retryRaw)) continue
+      const retryFrame = snapshotFrame(retryRaw, capture.width, capture.height)
+      frame = retryFrame
+      incompleteCapture = hasMissingCaptureLayer(frame)
+    } catch {}
+  }
+
+  if (incompleteCapture) {
+    const previous = lastCompleteCaptureFrame.get(capture)
+    if (previous) {
+      frame = snapshotFrame(previous, capture.width, capture.height)
+    }
+  }
+
+  if (!incompleteCapture) {
+    lastCompleteCaptureFrame.set(
+      capture,
+      snapshotFrame(frame, frame.width, frame.height)
+    )
+  }
   // Re-draw portrait blur/stage DoF (backdrop-filter can't rasterize) as content,
   // before any watermark. Reads the clone so animated crossfade opacity applies.
+  // The cache above intentionally remains pre-portrait, so a fallback does not
+  // apply the blur/stage treatment twice.
   drawPortraitDepthOfField(frame, capture.node)
 
-  const dbg = getActiveExportDebug()
-  if (dbg) {
-    // Approximate frame index from time for sampling throttle.
-    const approxIndex = Math.max(0, Math.round(timeMs / 33.33))
-    dbg.logFrameSample("capture.stable", approxIndex, 9999, frame, {
-      timeMs,
-      retried,
-      usedBlank,
-      durationMs: Math.round(performance.now() - t0),
-      stats: sampleFrameStats(frame),
-    })
-  }
   return frame
 }

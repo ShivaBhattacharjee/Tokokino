@@ -20,6 +20,8 @@ Tokokino is a client-heavy screenshot composer built with Next.js. It focuses on
 - Next.js `15.5.18`, React `19.2.x`, TypeScript `5.9.x`
 - Zustand for editor state
 - Tailwind CSS v4 + shadcn/ui
+- Mediabunny + WebCodecs for local video encoding and audio muxing
+- Bundled AV1 WebAssembly decoder fallback for Safari/WebKit video export (runs entirely client-side when native AV1 decode is unavailable)
 - OpenNext Cloudflare for build/deploy runtime
 - Cloudflare D1 (`TOKOKINO_DB`) for app/auth metadata
 - Cloudflare R2 for share/draft/media storage

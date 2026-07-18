@@ -240,19 +240,14 @@ describe("OpenProjectDialog", () => {
     expect(onOpenDraft.mock.calls[0]?.[0]).toBe("d1")
   })
 
-  it("shows download progress while opening a video draft", async () => {
+  it("shows an opening state while a draft is loading", async () => {
     vi.stubGlobal("fetch", mockFetch())
     let finish!: () => void
     const onOpenDraft = vi.fn(
-      (
-        _id: string,
-        onProgress?: (progress: { current: number; total: number }) => void
-      ) => {
-        onProgress?.({ current: 42, total: 100 })
-        return new Promise<void>((resolve) => {
+      () =>
+        new Promise<void>((resolve) => {
           finish = resolve
         })
-      }
     )
     const user = userEvent.setup()
     render(
@@ -270,7 +265,7 @@ describe("OpenProjectDialog", () => {
     )
     await user.click(screen.getByText("First Project").closest("button")!)
 
-    expect(screen.getByText("Downloading video 42%")).toBeInTheDocument()
+    expect(screen.getByText("Opening…")).toBeInTheDocument()
     finish()
   })
 
