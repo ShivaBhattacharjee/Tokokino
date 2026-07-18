@@ -7,6 +7,7 @@ import {
   getDraft,
   getDraftMetadata,
   getUserDraftStorageUsage,
+  renameDraft,
   updateDraft,
 } from "@/lib/draft-db"
 import { deleteDraftState, deleteDraftThumbnail } from "@/lib/draft-storage"
@@ -18,6 +19,7 @@ import {
 } from "@/lib/draft-media-db"
 import { deleteDraftMediaObject } from "@/lib/draft-storage"
 import {
+  DRAFT_NAME_MAX_LENGTH,
   MAX_DRAFT_BYTES,
   countCanvasesInDraftState,
   extractDraftMediaIds,
@@ -167,6 +169,40 @@ export async function PUT(
         : "Could not save draft"
     return NextResponse.json({ error: message }, { status: 500 })
   }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireSession(request)
+  if (!auth.ok) return auth.response
+  const { id } = await params
+
+  const body = (await request.json().catch(() => null)) as {
+    name?: unknown
+  } | null
+  const name = typeof body?.name === "string" ? body.name.trim() : ""
+  if (!name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 })
+  }
+  if (name.length > DRAFT_NAME_MAX_LENGTH) {
+    return NextResponse.json(
+      { error: `Name must be ${DRAFT_NAME_MAX_LENGTH} characters or fewer` },
+      { status: 400 }
+    )
+  }
+
+  const updated = await renameDraft({
+    id,
+    userId: auth.session.user.id,
+    name,
+  })
+  if (!updated) {
+    return NextResponse.json({ error: "Draft not found" }, { status: 404 })
+  }
+
+  return NextResponse.json({ draft: { id, name } })
 }
 
 export async function DELETE(

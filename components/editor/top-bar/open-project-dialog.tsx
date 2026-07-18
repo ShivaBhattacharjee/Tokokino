@@ -10,6 +10,8 @@ import {
   RiFilmLine,
   RiLayoutGridLine,
   RiLoader4Line,
+  RiMore2Fill,
+  RiPencilLine,
 } from "@remixicon/react"
 import { toast } from "sonner"
 
@@ -27,8 +29,18 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { DRAFT_NAME_MAX_LENGTH } from "@/lib/schemas/draft"
 import {
   Select,
   SelectContent,
@@ -97,6 +109,7 @@ function DraftCard({
   busy,
   onOpen,
   onDelete,
+  onRename,
 }: {
   draft: DraftListItem
   isCurrent: boolean
@@ -106,6 +119,7 @@ function DraftCard({
   busy: boolean
   onOpen: () => void
   onDelete: () => void
+  onRename: () => void
 }) {
   const updated = formatRelativeDate(draft.updatedAt)
   const [thumbError, setThumbError] = React.useState(false)
@@ -167,18 +181,36 @@ function DraftCard({
           </div>
         </div>
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onDelete()
-        }}
-        disabled={busy}
-        aria-label={`Delete ${draft.name}`}
-        className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-border/60 bg-background/85 text-muted-foreground opacity-100 shadow-sm transition-opacity hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus:opacity-100 disabled:pointer-events-none disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
-      >
-        <RiDeleteBinLine className="size-3.5" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            disabled={busy}
+            aria-label={`Project options for ${draft.name}`}
+            className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-border/60 bg-background/85 text-muted-foreground shadow-sm transition-colors hover:border-primary/45 hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-40 data-[state=open]:border-primary/45 data-[state=open]:text-foreground"
+          >
+            <RiMore2Fill className="size-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuItem
+            onSelect={onRename}
+            className="cursor-pointer gap-2"
+          >
+            <RiPencilLine className="size-4" />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={onDelete}
+            className="cursor-pointer gap-2"
+          >
+            <RiDeleteBinLine className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
@@ -202,13 +234,13 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("style")}
           className={cn(
-            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
+            "flex items-center gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
             kind === "style"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
           )}
         >
-          <RiLayoutGridLine className="mt-0.5 size-4 shrink-0" />
+          <RiLayoutGridLine className="size-4 shrink-0" />
           <span className="min-w-0">
             <span className="block text-[12px] font-medium">Present</span>
             <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
@@ -220,13 +252,13 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("video")}
           className={cn(
-            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
+            "flex items-center gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
             kind === "video"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
           )}
         >
-          <RiFilmLine className="mt-0.5 size-4 shrink-0" />
+          <RiFilmLine className="size-4 shrink-0" />
           <span className="min-w-0">
             <span className="block text-[12px] font-medium">Videos</span>
             <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
@@ -238,13 +270,13 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("animate")}
           className={cn(
-            "flex items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
+            "flex items-center gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
             kind === "animate"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
           )}
         >
-          <RiFilmLine className="mt-0.5 size-4 shrink-0" />
+          <RiFilmLine className="size-4 shrink-0" />
           <span className="min-w-0">
             <span className="block text-[12px] font-medium">Animate</span>
             <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
@@ -381,6 +413,76 @@ function ProjectPagination({
   )
 }
 
+function RenameDraftDialog({
+  open,
+  onOpenChange,
+  currentName,
+  onRename,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentName: string
+  onRename: (name: string) => void
+}) {
+  const [name, setName] = React.useState(currentName)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setName(currentName)
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+    }
+  }, [open, currentName])
+
+  const trimmed = name.trim()
+  const canSubmit = trimmed.length > 0 && trimmed !== currentName
+
+  const submit = () => {
+    if (!canSubmit) return
+    onRename(trimmed)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle>Rename project</DialogTitle>
+          <DialogDescription>Give this project a new name.</DialogDescription>
+        </DialogHeader>
+        <Input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Project name"
+          maxLength={DRAFT_NAME_MAX_LENGTH}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              submit()
+            }
+          }}
+        />
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button size="lg" onClick={submit} disabled={!canSubmit}>
+            Rename
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function OpenProjectDialog({
   open,
   onOpenChange,
@@ -407,6 +509,7 @@ export function OpenProjectDialog({
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null
   )
+  const [renameId, setRenameId] = React.useState<string | null>(null)
   const [confirmNewOpen, setConfirmNewOpen] = React.useState(false)
   const [sort, setSort] = React.useState<SortOrder>("latest")
   // Always start Present unless an explicit defaultKind is provided at open.
@@ -569,6 +672,39 @@ export function OpenProjectDialog({
     }
   }
 
+  const handleRename = async (id: string, name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const snapshot = drafts
+    const target = snapshot?.find((d) => d.id === id)
+    if (!target || target.name === trimmed) return
+
+    setDrafts(
+      (prev) =>
+        prev?.map((d) => (d.id === id ? { ...d, name: trimmed } : d)) ?? prev
+    )
+
+    try {
+      const res = await fetch(`/api/drafts/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: string
+        } | null
+        throw new Error(data?.error ?? "Could not rename draft")
+      }
+      toast.success("Project renamed")
+    } catch (err) {
+      console.error(err)
+      setDrafts(snapshot)
+      toast.error(err instanceof Error ? err.message : "Could not rename draft")
+    }
+  }
+
   const requestCreateNew = () => {
     if (hasUnsavedWork) {
       setConfirmNewOpen(true)
@@ -585,9 +721,21 @@ export function OpenProjectDialog({
   }
 
   const draftToDelete = drafts?.find((d) => d.id === confirmDeleteId) ?? null
+  const draftToRename = drafts?.find((d) => d.id === renameId) ?? null
 
   return (
     <>
+      <RenameDraftDialog
+        open={renameId !== null}
+        onOpenChange={(next) => {
+          if (!next) setRenameId(null)
+        }}
+        currentName={draftToRename?.name ?? ""}
+        onRename={(name) => {
+          if (renameId) void handleRename(renameId, name)
+          setRenameId(null)
+        }}
+      />
       <AlertDialog
         open={confirmDeleteId !== null}
         onOpenChange={(next) => {
@@ -744,6 +892,7 @@ export function OpenProjectDialog({
                           busy={busyId !== null}
                           onOpen={() => void handleOpen(draft.id)}
                           onDelete={() => setConfirmDeleteId(draft.id)}
+                          onRename={() => setRenameId(draft.id)}
                         />
                       ))}
                     </div>

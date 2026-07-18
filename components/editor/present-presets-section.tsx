@@ -107,6 +107,7 @@ export function PresentPresetsSection({
   const customPresetsLoaded = useEditorStore((s) => s.customPresetsLoaded)
   const setCustomPresets = useEditorStore((s) => s.setCustomPresets)
   const removeCustomPreset = useEditorStore((s) => s.removeCustomPreset)
+  const updateCustomPreset = useEditorStore((s) => s.updateCustomPreset)
   const activeCustomPresetId = useEditorStore((s) => s.activeCustomPresetId)
   const setActiveCustomPresetId = useEditorStore(
     (s) => s.setActiveCustomPresetId
@@ -238,6 +239,33 @@ export function PresentPresetsSection({
       }
     },
     [customPresets, removeCustomPreset, setCustomPresets]
+  )
+  const handleRenameCustomPreset = React.useCallback(
+    async (id: string, name: string) => {
+      const trimmed = name.trim()
+      if (!trimmed) return
+      const target = customPresets.find((p) => p.id === id)
+      if (!target || target.name === trimmed) return
+      const previousName = target.name
+      updateCustomPreset(id, { name: trimmed })
+      try {
+        const res = await fetch(`/api/presets/${id}`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed }),
+        })
+        if (!res.ok) {
+          throw new Error("Rename failed")
+        }
+        toast.success("Preset renamed")
+      } catch (err) {
+        console.error(err)
+        updateCustomPreset(id, { name: previousName })
+        toast.error("Could not rename preset")
+      }
+    },
+    [customPresets, updateCustomPreset]
   )
   const copyCurrentLayout = React.useCallback(async () => {
     const capture = buildLayoutPresetCapture({
@@ -578,6 +606,7 @@ export function PresentPresetsSection({
             onApplyLayout={applyLayoutPreset}
             onApplyCustom={applyCustomPreset}
             onDeleteCustom={handleDeleteCustomPreset}
+            onRenameCustom={handleRenameCustomPreset}
           />
         )
 

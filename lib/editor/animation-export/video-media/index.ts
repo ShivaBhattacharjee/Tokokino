@@ -68,127 +68,121 @@ async function encodeVideoMedia(
   const { onProgress, signal } = options
   const progress = createProgressReporter(onProgress)
 
+  throwIfAborted(signal)
+  progress.report("preparing", 0, 1)
+
+  const state = useEditorStore.getState()
+  const canvas = state.present.canvases.find((c) => c.id === canvasId)
+  if (!canvas || !canvas.screenshot || !isVideoSrc(canvas.screenshot)) {
+    throw new Error("Canvas has no video to export")
+  }
+
+  const format = options.format
+  const fps = Math.max(1, Math.min(60, options.fps ?? 30))
+  const targetWidth = even(options.targetWidth ?? 1080)
+
+  const watermark: WatermarkAssets | null =
+    options.watermark === false
+      ? null
+      : await (async () => {
+          const [logo, fontStack] = await Promise.all([
+            loadWatermarkLogo(),
+            resolveWatermarkFontStack(),
+          ])
+          return { logo, fontStack }
+        })()
+  // Offscreen clone of the styled canvas, rasterized per frame (handles tilt,
+  // crop, frames, shadow — everything the DOM renders).
+  const capture = await prepareAnimationCapture(canvasId, targetWidth)
+
   try {
-    throwIfAborted(signal)
-    progress.report("preparing", 0, 1)
+    const cloneVideo = capture.node.querySelector("video")
+    if (!cloneVideo) throw new Error("Video element not found in export clone")
+    cloneVideo.muted = true
+    cloneVideo.preload = "auto"
+    await waitForVideoReady(cloneVideo)
 
-    const state = useEditorStore.getState()
-    const canvas = state.present.canvases.find((c) => c.id === canvasId)
-    if (!canvas || !canvas.screenshot || !isVideoSrc(canvas.screenshot)) {
-      throw new Error("Canvas has no video to export")
+    const durationSec = cloneVideo.duration
+    if (!Number.isFinite(durationSec) || durationSec <= 0) {
+      throw new Error("Video has no readable duration")
     }
+    const plan = planFrames(durationSec, fps)
 
-    const format = options.format
-    const fps = Math.max(1, Math.min(60, options.fps ?? 30))
-    const targetWidth = even(options.targetWidth ?? 1080)
+    const width = even(capture.width)
+    const height = even(capture.height)
+    const encodeCanvas = document.createElement("canvas")
+    encodeCanvas.width = width
+    encodeCanvas.height = height
+    const ctx = encodeCanvas.getContext("2d")
+    if (!ctx) throw new Error("Could not get 2d context")
 
-    const watermark: WatermarkAssets | null =
-      options.watermark === false
-        ? null
-        : await (async () => {
-            const [logo, fontStack] = await Promise.all([
-              loadWatermarkLogo(),
-              resolveWatermarkFontStack(),
-            ])
-            return { logo, fontStack }
-          })()
-    // Offscreen clone of the styled canvas, rasterized per frame (handles tilt,
-    // crop, frames, shadow — everything the DOM renders).
-    const capture = await prepareAnimationCapture(canvasId, targetWidth)
+    // Safari/Firefox render a live <video> unreliably inside html-to-image's
+    // serialized SVG (foreignObject), and rasterizing it per frame flickers.
+    // There we decode frames with WebCodecs (mediabunny). Chromium rasterizes the
+    // <video> in SVG fine, so it keeps the DOM-seek path. If decode isn't possible
+    // (codec not WebCodecs-decodable), fall back to the DOM path too.
+    const useDomPath = supportsObjectViewBox()
+    const decoded = useDomPath
+      ? null
+      : await createDecodedFrameSource(canvas.screenshot, signal)
+
+    const tilt = canvas.tilt
+    const tilted = !!tilt && (tilt.rx !== 0 || tilt.ry !== 0 || tilt.rz !== 0)
+    // The composite renderer owns the decoded pixels. Re-apply media effects
+    // there, including inner lighting: Safari can otherwise mis-rasterize its
+    // CSS gradient through the foreground SVG pass.
+    const mediaFx = {
+      enhance: canvas.enhance,
+      innerLighting:
+        !supportsObjectViewBox() && canvas.backdrop.lighting.target === "inner"
+          ? canvas.backdrop.lighting
+          : null,
+    }
+    const renderFrame = await createFrameRenderer({
+      capture,
+      video: cloneVideo,
+      decoded,
+      tilted,
+      plan,
+      signal,
+      mediaFx,
+    })
 
     try {
-      const cloneVideo = capture.node.querySelector("video")
-      if (!cloneVideo)
-        throw new Error("Video element not found in export clone")
-      cloneVideo.muted = true
-      cloneVideo.preload = "auto"
-      await waitForVideoReady(cloneVideo)
+      const blob =
+        format === "gif"
+          ? await encodeGif(
+              ctx,
+              encodeCanvas,
+              renderFrame,
+              watermark,
+              plan,
+              progress,
+              signal
+            )
+          : await encodeMp4OrWebm(
+              format,
+              ctx,
+              encodeCanvas,
+              renderFrame,
+              watermark,
+              plan,
+              progress,
+              // Exact export length (frameCount / fps), not the raw clip
+              // duration — keeps audio aligned with the styled video track.
+              exportAudioDurationSec(plan),
+              canvas.screenshot,
+              signal
+            )
 
-      const durationSec = cloneVideo.duration
-      if (!Number.isFinite(durationSec) || durationSec <= 0) {
-        throw new Error("Video has no readable duration")
-      }
-      const plan = planFrames(durationSec, fps)
-
-      const width = even(capture.width)
-      const height = even(capture.height)
-      const encodeCanvas = document.createElement("canvas")
-      encodeCanvas.width = width
-      encodeCanvas.height = height
-      const ctx = encodeCanvas.getContext("2d")
-      if (!ctx) throw new Error("Could not get 2d context")
-
-      // Safari/Firefox render a live <video> unreliably inside html-to-image's
-      // serialized SVG (foreignObject), and rasterizing it per frame flickers.
-      // There we decode frames with WebCodecs (mediabunny). Chromium rasterizes the
-      // <video> in SVG fine, so it keeps the DOM-seek path. If decode isn't possible
-      // (codec not WebCodecs-decodable), fall back to the DOM path too.
-      const useDomPath = supportsObjectViewBox()
-      const decoded = useDomPath
-        ? null
-        : await createDecodedFrameSource(canvas.screenshot, signal)
-
-      const tilt = canvas.tilt
-      const tilted = !!tilt && (tilt.rx !== 0 || tilt.ry !== 0 || tilt.rz !== 0)
-      // The composite renderer owns the decoded pixels. Re-apply media effects
-      // there, including inner lighting: Safari can otherwise mis-rasterize its
-      // CSS gradient through the foreground SVG pass.
-      const mediaFx = {
-        enhance: canvas.enhance,
-        innerLighting:
-          !supportsObjectViewBox() &&
-          canvas.backdrop.lighting.target === "inner"
-            ? canvas.backdrop.lighting
-            : null,
-      }
-      const renderFrame = await createFrameRenderer({
-        capture,
-        video: cloneVideo,
-        decoded,
-        tilted,
-        plan,
-        signal,
-        mediaFx,
-      })
-
-      try {
-        const blob =
-          format === "gif"
-            ? await encodeGif(
-                ctx,
-                encodeCanvas,
-                renderFrame,
-                watermark,
-                plan,
-                progress,
-                signal
-              )
-            : await encodeMp4OrWebm(
-                format,
-                ctx,
-                encodeCanvas,
-                renderFrame,
-                watermark,
-                plan,
-                progress,
-                // Exact export length (frameCount / fps), not the raw clip
-                // duration — keeps audio aligned with the styled video track.
-                exportAudioDurationSec(plan),
-                canvas.screenshot,
-                signal
-              )
-
-        progress.report("finishing", 1, 1)
-        const { contentType, extension } = animationMimeAndExt(format)
-        return { blob, contentType, extension }
-      } finally {
-        decoded?.cleanup()
-      }
+      progress.report("finishing", 1, 1)
+      const { contentType, extension } = animationMimeAndExt(format)
+      return { blob, contentType, extension }
     } finally {
-      capture.cleanup()
+      decoded?.cleanup()
     }
-  } catch (err) {
-    throw err
+  } finally {
+    capture.cleanup()
   }
 }
 

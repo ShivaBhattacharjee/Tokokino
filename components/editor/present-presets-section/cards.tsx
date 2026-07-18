@@ -1,7 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { RiCheckLine, RiDeleteBinLine } from "@remixicon/react"
+import {
+  RiCheckLine,
+  RiDeleteBinLine,
+  RiMore2Fill,
+  RiPencilLine,
+} from "@remixicon/react"
 
 import { CanvasView } from "@/components/editor/canvas"
 import { BASE_CANVAS_WIDTH } from "@/components/editor/canvas/constants"
@@ -15,6 +20,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +43,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PRESET_NAME_MAX_LENGTH } from "@/lib/schemas/preset"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
@@ -78,6 +100,7 @@ export function PresetCardsBody({
   onApplyLayout,
   onApplyCustom,
   onDeleteCustom,
+  onRenameCustom,
 }: {
   displayTab: PresetTab
   horizontal: boolean
@@ -97,6 +120,7 @@ export function PresetCardsBody({
   onApplyLayout: (preset: LayoutPreset) => void
   onApplyCustom: (preset: CustomPresetSummary) => void
   onDeleteCustom: (id: string) => void | Promise<void>
+  onRenameCustom: (id: string, name: string) => void | Promise<void>
 }) {
   return (
     <>
@@ -154,6 +178,7 @@ export function PresetCardsBody({
           aspect={aspect}
           onApply={onApplyCustom}
           onDelete={onDeleteCustom}
+          onRename={onRenameCustom}
         />
       )}
     </>
@@ -212,6 +237,7 @@ function CustomPresetList({
   horizontal = false,
   onApply,
   onDelete,
+  onRename,
 }: {
   presets: CustomPresetSummary[]
   loading: boolean
@@ -223,6 +249,7 @@ function CustomPresetList({
   horizontal?: boolean
   onApply: (preset: CustomPresetSummary) => void
   onDelete: (id: string) => void | Promise<void>
+  onRename: (id: string, name: string) => void | Promise<void>
 }) {
   if (loading) {
     const aw = aspect.w || 16
@@ -296,6 +323,7 @@ function CustomPresetList({
             active={activeCustomPresetId === preset.id}
             onApply={onApply}
             onDelete={onDelete}
+            onRename={onRename}
           />
         </PresetCardSlot>
       ))}
@@ -340,6 +368,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   active,
   onApply,
   onDelete,
+  onRename,
 }: {
   preset: CustomPresetSummary
   canvas: CanvasState
@@ -348,6 +377,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   active: boolean
   onApply: (preset: CustomPresetSummary) => void
   onDelete: (id: string) => void | Promise<void>
+  onRename: (id: string, name: string) => void | Promise<void>
 }) {
   const aw = aspect.w || 16
   const ah = aspect.h || 10
@@ -424,6 +454,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   }, [canvas, preset])
 
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [renameOpen, setRenameOpen] = React.useState(false)
   const disabledReason =
     canvas.tweet && preset.geometry.slots.length > 0
       ? "Social posts use one content slot."
@@ -451,18 +482,42 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
           previewId={`_preset_preview_custom_${preset.id}`}
         />
       </PresetCardShell>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Preset options for ${preset.name}`}
+            className="absolute top-3 right-3 z-[1] inline-flex size-6 items-center justify-center rounded-full border border-white/12 bg-background/80 text-muted-foreground transition-colors hover:border-primary/45 hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 data-[state=open]:border-primary/45 data-[state=open]:text-foreground"
+          >
+            <RiMore2Fill className="size-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuItem
+            onSelect={() => setRenameOpen(true)}
+            className="cursor-pointer gap-2"
+          >
+            <RiPencilLine className="size-4" />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setDeleteOpen(true)}
+            className="cursor-pointer gap-2"
+          >
+            <RiDeleteBinLine className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <RenamePresetDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        currentName={preset.name}
+        onRename={(name) => onRename(preset.id, name)}
+      />
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            setDeleteOpen(true)
-          }}
-          aria-label={`Delete ${preset.name}`}
-          className="absolute top-3 right-3 z-[1] inline-flex size-6 items-center justify-center rounded-full border border-white/12 bg-background/80 text-muted-foreground opacity-0 transition-opacity group-hover/preset:opacity-100 hover:border-destructive/45 hover:text-destructive focus:opacity-100 [@media(hover:none)]:opacity-100"
-        >
-          <RiDeleteBinLine className="size-3.5" />
-        </button>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete preset?</AlertDialogTitle>
@@ -485,6 +540,77 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
     </div>
   )
 })
+
+function RenamePresetDialog({
+  open,
+  onOpenChange,
+  currentName,
+  onRename,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentName: string
+  onRename: (name: string) => void | Promise<void>
+}) {
+  const [name, setName] = React.useState(currentName)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setName(currentName)
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+    }
+  }, [open, currentName])
+
+  const trimmed = name.trim()
+  const canSubmit = trimmed.length > 0 && trimmed !== currentName
+
+  const submit = React.useCallback(() => {
+    if (!canSubmit) return
+    void onRename(trimmed)
+    onOpenChange(false)
+  }, [canSubmit, onOpenChange, onRename, trimmed])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-5 p-6 sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle>Rename preset</DialogTitle>
+          <DialogDescription>Give this preset a new name.</DialogDescription>
+        </DialogHeader>
+        <Input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Preset name"
+          maxLength={PRESET_NAME_MAX_LENGTH}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              submit()
+            }
+          }}
+        />
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button size="lg" onClick={submit} disabled={!canSubmit}>
+            Rename
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 /**
  * Defer the heavy preview render until the card scrolls near the viewport.

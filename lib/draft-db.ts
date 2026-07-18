@@ -250,6 +250,26 @@ export async function updateDraft({
   }
 }
 
+export async function renameDraft({
+  id,
+  userId,
+  name,
+}: {
+  id: string
+  userId: string
+  name: string
+}) {
+  const existing = await getDraftMetadata({ id, userId })
+  if (!existing) return null
+
+  await getDb()
+    .update(drafts)
+    .set({ name, updatedAt: toD1Date(new Date()) })
+    .where(and(eq(drafts.id, id), eq(drafts.userId, userId)))
+
+  return getDraftMetadata({ id, userId })
+}
+
 export async function setDraftThumbnail({
   id,
   userId,
