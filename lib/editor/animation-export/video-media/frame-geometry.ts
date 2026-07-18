@@ -214,9 +214,14 @@ export function projectElementQuad(
     const p = new DOMPoint(targetX + x, targetY + y, 0, 1).matrixTransform(
       localMatrix
     )
-    // w <= 0 is behind the camera — no sane 2D image; fall back to no divide.
-    const w = p.w > 1e-6 ? p.w : 1
-    return { x: carrierOx + p.x / w, y: carrierOy + p.y / w, w }
+    // Only a finite, positive w is a real perspective divide. A non-positive or
+    // non-finite w means the corner is at/behind the camera — skip the divide
+    // and hand the bad w straight to the GL guard (warp-gl) to reject the quad,
+    // rather than faking w = 1 and letting mis-sized geometry through.
+    if (Number.isFinite(p.w) && p.w > 1e-6) {
+      return { x: carrierOx + p.x / p.w, y: carrierOy + p.y / p.w, w: p.w }
+    }
+    return { x: carrierOx + p.x, y: carrierOy + p.y, w: p.w }
   }
   const project = (x: number, y: number): Point => {
     const { x: px, y: py } = projectH(x, y)

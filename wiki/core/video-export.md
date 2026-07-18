@@ -216,7 +216,7 @@ flowchart LR
 |---|---|
 | `VideoMediaExportOptions` | Format, fps, width, watermark, progress, abort, `asBlob` |
 | `FramePlan` | Duration, fps, frame count, per-frame timestamps |
-| `RenderFrame` | `(index) => Promise<void>` — paints into the encode canvas |
+| `RenderFrame` | `(index) => Promise<HTMLCanvasElement>` — returns the captured frame canvas passed to `blitFrame` |
 | `DecodedFrameSource` | Iterator + cleanup over decoded canvases |
 | `VideoRegion` | Src/dest rects for flat compositing |
 | `VideoMediaFx` | Enhance + optional inner lighting reapplied on pixels |

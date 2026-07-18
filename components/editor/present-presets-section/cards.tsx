@@ -584,6 +584,7 @@ function RenamePresetDialog({
         </DialogHeader>
         <Input
           ref={inputRef}
+          aria-label="Preset name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Preset name"

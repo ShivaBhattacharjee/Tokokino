@@ -520,6 +520,7 @@ export function OpenProjectDialog({
   const [loading, setLoading] = React.useState(false)
   const wasOpenRef = React.useRef(false)
   const fetchGenRef = React.useRef(0)
+  const renameOpsRef = React.useRef<Map<string, number>>(new Map())
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   // Full skeleton only when we have nothing to show yet (open / type switch).
@@ -675,9 +676,11 @@ export function OpenProjectDialog({
   const handleRename = async (id: string, name: string) => {
     const trimmed = name.trim()
     if (!trimmed) return
-    const snapshot = drafts
-    const target = snapshot?.find((d) => d.id === id)
+    const target = drafts?.find((d) => d.id === id)
     if (!target || target.name === trimmed) return
+    const previousName = target.name
+    const opId = (renameOpsRef.current.get(id) ?? 0) + 1
+    renameOpsRef.current.set(id, opId)
 
     setDrafts(
       (prev) =>
@@ -700,8 +703,19 @@ export function OpenProjectDialog({
       toast.success("Project renamed")
     } catch (err) {
       console.error(err)
-      setDrafts(snapshot)
-      toast.error(err instanceof Error ? err.message : "Could not rename draft")
+      // Only roll back this draft's name, and only if a newer rename hasn't
+      // superseded this request — so a stale failure can't rewind later state.
+      if (renameOpsRef.current.get(id) === opId) {
+        setDrafts(
+          (prev) =>
+            prev?.map((d) =>
+              d.id === id ? { ...d, name: previousName } : d
+            ) ?? prev
+        )
+        toast.error(
+          err instanceof Error ? err.message : "Could not rename draft"
+        )
+      }
     }
   }
 

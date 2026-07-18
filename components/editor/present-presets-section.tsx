@@ -93,6 +93,7 @@ export function PresentPresetsSection({
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
   const addScreenshotSlot = useEditorStore((s) => s.addScreenshotSlot)
   const presetMotionCleanupRef = React.useRef<(() => void) | null>(null)
+  const renameOpsRef = React.useRef<Map<string, number>>(new Map())
   const tab = useEditorStore((s) => s.presetTab)
   const setTab = useEditorStore((s) => s.setPresetTab)
   const activeLayoutPresetId = useEditorStore((s) => s.activeLayoutPresetId)
@@ -247,6 +248,8 @@ export function PresentPresetsSection({
       const target = customPresets.find((p) => p.id === id)
       if (!target || target.name === trimmed) return
       const previousName = target.name
+      const opId = (renameOpsRef.current.get(id) ?? 0) + 1
+      renameOpsRef.current.set(id, opId)
       updateCustomPreset(id, { name: trimmed })
       try {
         const res = await fetch(`/api/presets/${id}`, {
@@ -261,8 +264,12 @@ export function PresentPresetsSection({
         toast.success("Preset renamed")
       } catch (err) {
         console.error(err)
-        updateCustomPreset(id, { name: previousName })
-        toast.error("Could not rename preset")
+        // Only roll back if no newer rename has superseded this one, so a
+        // stale failure can't clobber a later successful name.
+        if (renameOpsRef.current.get(id) === opId) {
+          updateCustomPreset(id, { name: previousName })
+          toast.error("Could not rename preset")
+        }
       }
     },
     [customPresets, updateCustomPreset]
