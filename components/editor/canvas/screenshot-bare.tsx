@@ -363,9 +363,10 @@ export function ScreenshotBare({
     screenshotLayer.hidden && "pointer-events-none",
     isScreenshotDragging || suppressTransition || activeTool === "position"
       ? "cursor-grabbing transition-none"
-      : // Never transition layout (left/top/size) — first measure after load would
-        // otherwise look like a zoom/slide-in. Transform/opacity still ease.
-        "transition-[transform,opacity,filter,box-shadow] duration-300 ease-out",
+      : // Bare media must follow tilt previews immediately. A transform transition
+        // makes the bitmap and its lighting gradient settle on different frames
+        // in WebKit, producing a visible trailing glow.
+        "transition-none",
     activeTool === "pointer" && "cursor-grab",
     isScreenshotSelected && activeTool === "pointer" && "outline-none"
   )
@@ -548,20 +549,12 @@ export function ScreenshotBare({
           // decoded frame so lighting (and siblings) sit on top of the video.
           data-export-stack="foreground"
           data-export-inner-lighting=""
-          className={cn(
-            "pointer-events-none absolute z-10",
-            isScreenshotDragging ||
-              suppressTransition ||
-              activeTool === "position"
-              ? "transition-none"
-              : "transition-[transform,opacity,filter] duration-300 ease-out"
-          )}
+          className="pointer-events-none absolute z-10 transition-none"
           style={{
             ...innerLightingStyle,
             ...lightSizeStyle,
             ...lightTransform,
             borderRadius: imgStyle.borderRadius,
-            // Keep the light above the image stacking context
             zIndex: 10,
           }}
         />
@@ -575,14 +568,7 @@ export function ScreenshotBare({
         <div
           aria-hidden
           data-selection-border="true"
-          className={cn(
-            "pointer-events-none absolute z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed",
-            isScreenshotDragging ||
-              suppressTransition ||
-              activeTool === "position"
-              ? "transition-none"
-              : "transition-[transform,opacity,filter] duration-300 ease-out"
-          )}
+          className="pointer-events-none absolute z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 transition-none outline-dashed"
           style={{
             ...lightSizeStyle,
             ...lightTransform,
