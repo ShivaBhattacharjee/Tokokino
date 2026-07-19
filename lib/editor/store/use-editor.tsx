@@ -300,6 +300,8 @@ export function useEditor(): EditorContext {
     setActiveCustomPresetId: store.setActiveCustomPresetId,
     setActiveSinglePresetId: store.setActiveSinglePresetId,
     setCustomPresets: store.setCustomPresets,
+    clearCustomPresets: store.clearCustomPresets,
+    loadCustomPresets: store.loadCustomPresets,
     addCustomPreset: store.addCustomPreset,
     updateCustomPreset: store.updateCustomPreset,
     removeCustomPreset: store.removeCustomPreset,

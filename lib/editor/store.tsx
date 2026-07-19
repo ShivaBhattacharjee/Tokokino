@@ -758,6 +758,13 @@ export type EditorActions = {
   setActiveCustomPresetId: (id: string | null) => void
   setActiveSinglePresetId: (id: string | null) => void
   setCustomPresets: (presets: CustomPresetSummary[]) => void
+  /** Logout / session clear — empties the list without marking a successful load. */
+  clearCustomPresets: () => void
+  /**
+   * Fetch the signed-in user's custom presets once. Dedupes in-flight calls so
+   * multiple mounted Preset sections (desktop + iPad sidebars) share one request.
+   */
+  loadCustomPresets: (userId: string) => void
   addCustomPreset: (preset: CustomPresetSummary) => void
   updateCustomPreset: (id: string, patch: Partial<CustomPresetSummary>) => void
   removeCustomPreset: (id: string) => void
@@ -1064,6 +1071,9 @@ export type EditorStore = {
   activeSinglePresetId: string | null
   customPresets: CustomPresetSummary[]
   customPresetsLoaded: boolean
+  customPresetsLoading: boolean
+  /** User id the current `customPresets` list was fetched for. */
+  customPresetsForUserId: string | null
   currentDraft: CurrentDraftInfo | null
 } & EditorActions
 
@@ -1329,6 +1339,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     activeSinglePresetId: null,
     customPresets: [],
     customPresetsLoaded: false,
+    customPresetsLoading: false,
+    customPresetsForUserId: null,
     currentDraft: null,
 
     setActiveTool: (t) => commit({ activeTool: t }, null),
@@ -1338,6 +1350,46 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setActiveSinglePresetId: (id) => set({ activeSinglePresetId: id }),
     setCustomPresets: (presets) =>
       set({ customPresets: presets, customPresetsLoaded: true }),
+    clearCustomPresets: () =>
+      set({
+        customPresets: [],
+        customPresetsLoaded: false,
+        customPresetsLoading: false,
+        customPresetsForUserId: null,
+      }),
+    loadCustomPresets: (userId) => {
+      const state = get()
+      if (state.customPresetsLoading) return
+      if (state.customPresetsLoaded && state.customPresetsForUserId === userId)
+        return
+      set({ customPresetsLoading: true })
+      void fetch("/api/presets", { credentials: "include" })
+        .then(async (res) => {
+          if (!res.ok) return [] as CustomPresetSummary[]
+          const body: { presets: CustomPresetSummary[] } = await res.json()
+          return body.presets
+        })
+        .then((presets) => {
+          // Drop if cleared/logged out while the request was in flight.
+          if (!get().customPresetsLoading) return
+          set({
+            customPresets: presets,
+            customPresetsLoaded: true,
+            customPresetsLoading: false,
+            customPresetsForUserId: userId,
+          })
+        })
+        .catch((err) => {
+          console.warn("Could not load custom presets", err)
+          if (!get().customPresetsLoading) return
+          set({
+            customPresets: [],
+            customPresetsLoaded: true,
+            customPresetsLoading: false,
+            customPresetsForUserId: userId,
+          })
+        })
+    },
     addCustomPreset: (preset) =>
       set((state) => ({
         customPresets: [preset, ...state.customPresets],

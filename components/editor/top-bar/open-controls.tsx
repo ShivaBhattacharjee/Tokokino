@@ -40,11 +40,11 @@ export function OpenControls({
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="start" className="w-52">
-        <DropdownMenuItem onClick={onOpenImage}>
+        <DropdownMenuItem className="cursor-pointer" onClick={onOpenImage}>
           <RiImageAddLine />
           Open image
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onOpenProject}>
+        <DropdownMenuItem className="cursor-pointer" onClick={onOpenProject}>
           <RiFolderOpenLine />
           Open project…
         </DropdownMenuItem>

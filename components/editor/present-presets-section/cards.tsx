@@ -42,7 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Skeleton } from "@/components/ui/skeleton"
+import { ShimmerBox } from "@/components/ui/shimmer-image"
 import { PRESET_NAME_MAX_LENGTH } from "@/lib/schemas/preset"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
 import { isVideoSrc } from "@/lib/editor/media-type"
@@ -257,20 +257,19 @@ function CustomPresetList({
     const aspectStyle: React.CSSProperties = { aspectRatio: `${aw} / ${ah}` }
     return (
       <PresetCardRow horizontal={horizontal} aspect={aspect}>
-        {Array.from({ length: 2 }).map((_, i) => (
+        {Array.from({ length: horizontal ? 2 : 3 }).map((_, i) => (
           <PresetCardSlot key={i} horizontal={horizontal}>
             {/* Mirror PresetCardShell exactly so the loading state doesn't
-                shift size/spacing when the real cards swap in. */}
-            <div
-              className={cn(
-                "w-full overflow-hidden rounded-[8px] border border-white/12 bg-white/[0.045] p-1.5",
-                !horizontal && i === 1 && "md:hidden"
-              )}
-            >
-              <Skeleton className="w-full rounded-[6px]" style={aspectStyle} />
+                shift size/spacing when the real cards swap in. Desktop shows
+                three placeholders so we don't flash a single card then jump. */}
+            <div className="w-full overflow-hidden rounded-[8px] border border-white/12 bg-white/[0.045] p-1.5">
+              <ShimmerBox
+                className="w-full rounded-[6px]"
+                style={aspectStyle}
+              />
               <div className="mt-1.5 flex items-center justify-between gap-1.5">
-                <Skeleton className="h-3 w-2/3 rounded" />
-                <Skeleton className="size-5 shrink-0 rounded-full" />
+                <ShimmerBox className="h-3 w-2/3 rounded" />
+                <ShimmerBox className="size-5 shrink-0 rounded-full" />
               </div>
             </div>
           </PresetCardSlot>
@@ -472,7 +471,9 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
         onApply={handleApply}
         aspectStyle={aspectStyle}
         intrinsicSize="auto 220px"
-        eager={horizontal}
+        // Custom lists are short — mount every preview immediately so refresh
+        // doesn't paint one card via IntersectionObserver then drip in the rest.
+        eager
         name={preset.name}
         disabledReason={disabledReason}
       >
@@ -709,7 +710,11 @@ const PresetCardShell = React.memo(function PresetCardShell({
         className="relative isolate w-full overflow-hidden rounded-[6px] [&_*]:pointer-events-none"
         style={aspectStyle}
       >
-        {visible ? children : null}
+        {visible ? (
+          children
+        ) : (
+          <ShimmerBox className="absolute inset-0 size-full" />
+        )}
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-1.5">
         <p className="truncate text-[11px] leading-tight font-medium">{name}</p>

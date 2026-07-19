@@ -106,7 +106,10 @@ export function PresentPresetsSection({
   )
   const customPresets = useEditorStore((s) => s.customPresets)
   const customPresetsLoaded = useEditorStore((s) => s.customPresetsLoaded)
+  const customPresetsLoading = useEditorStore((s) => s.customPresetsLoading)
   const setCustomPresets = useEditorStore((s) => s.setCustomPresets)
+  const clearCustomPresets = useEditorStore((s) => s.clearCustomPresets)
+  const loadCustomPresets = useEditorStore((s) => s.loadCustomPresets)
   const removeCustomPreset = useEditorStore((s) => s.removeCustomPreset)
   const updateCustomPreset = useEditorStore((s) => s.updateCustomPreset)
   const activeCustomPresetId = useEditorStore((s) => s.activeCustomPresetId)
@@ -133,7 +136,6 @@ export function PresentPresetsSection({
   >({})
   const { data: session, isPending: isAuthPending } = useSession()
   const userId = session?.user?.id ?? null
-  const [customPresetsLoading, setCustomPresetsLoading] = React.useState(false)
 
   const rememberBulkPresetUi = React.useCallback(
     (patch: Partial<CanvasPresetUi> & { tab: PresetTab }) => {
@@ -191,34 +193,21 @@ export function PresentPresetsSection({
   )
 
   React.useEffect(() => {
+    // Wait for session resolution — treating "auth pending" as logged-out used
+    // to mark an empty list as loaded, which flashed "No presets yet" between
+    // the skeleton and the real fetch.
+    if (isAuthPending) return
+
     if (!userId) {
-      setCustomPresets([])
+      clearCustomPresets()
       return
     }
-    let cancelled = false
-    queueMicrotask(() => {
-      if (!cancelled) setCustomPresetsLoading(true)
-    })
-    fetch("/api/presets", { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) return null
-        const body: { presets: CustomPresetSummary[] } = await res.json()
-        return body
-      })
-      .then((data) => {
-        if (cancelled || !data) return
-        setCustomPresets(data.presets)
-      })
-      .catch((err) => {
-        console.warn("Could not load custom presets", err)
-      })
-      .finally(() => {
-        if (!cancelled) setCustomPresetsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [userId, setCustomPresets])
+
+    // Store-level load dedupes across desktop + iPad sidebar mounts and is not
+    // cancelled by React Strict Mode remounts (which used to abort mid-flight
+    // and briefly leave a partial list on screen).
+    loadCustomPresets(userId)
+  }, [userId, isAuthPending, loadCustomPresets, clearCustomPresets])
 
   const handleDeleteCustomPreset = React.useCallback(
     async (id: string) => {
