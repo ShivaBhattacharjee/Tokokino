@@ -161,6 +161,7 @@ export function projectElementQuad(
   const oy = box.top - rootRect.top
 
   const untransformed = (): QuadProjection => {
+    /** Axis-aligned map from local box coords into root space. */
     const project = (x: number, y: number) => ({ x: ox + x, y: oy + y })
     return {
       projectH: (x, y) => ({ ...project(x, y), w: 1 }),

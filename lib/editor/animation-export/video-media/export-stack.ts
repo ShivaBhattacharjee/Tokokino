@@ -28,12 +28,14 @@ export const EXPORT_STACK = {
 
 type VisibilityRestore = () => void
 
+/** Elements tagged with `data-export-stack` for the given layer. */
 function queryStack(root: HTMLElement, layer: ExportStackLayer): HTMLElement[] {
   return Array.from(
     root.querySelectorAll<HTMLElement>(`[${EXPORT_STACK_ATTR}="${layer}"]`)
   )
 }
 
+/** Foreground-tagged nodes (text, assets, overlays, slots, etc.). */
 export function queryForeground(root: HTMLElement): HTMLElement[] {
   return queryStack(root, "foreground")
 }
@@ -63,6 +65,7 @@ export function applyExportStackVisibility(
   options: { alsoHide?: HTMLElement[]; only?: HTMLElement[] } = {}
 ): VisibilityRestore {
   const prev = new Map<HTMLElement, string>()
+  /** Record prior visibility once, then set the inline value. */
   const set = (el: HTMLElement, value: string) => {
     if (!prev.has(el)) prev.set(el, el.style.visibility)
     el.style.visibility = value
@@ -99,6 +102,7 @@ export function applyExportStackVisibility(
   }
 }
 
+/** Counts of tagged stack layers (and live videos) under `root` — test helper. */
 export function countExportStack(root: HTMLElement) {
   return {
     underlay: queryStack(root, "underlay").length,

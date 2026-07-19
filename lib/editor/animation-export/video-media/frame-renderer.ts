@@ -106,6 +106,7 @@ export function paintFrameToLocalBox(
     dw = fw * s
     dh = fh * s
     const pos = style.objectPosition.split(" ")
+    /** Parse one object-position token (px or %) into an offset along `slack`. */
     const parsePos = (raw: string | undefined, slack: number) => {
       if (!raw) return slack / 2
       const n = parseFloat(raw)
@@ -130,6 +131,10 @@ export function paintFrameToLocalBox(
   return buf
 }
 
+/**
+ * True when `layer`'s layout box overlaps the video box by ≥90% of the smaller
+ * area — used to decide which overlays ride with the media shell.
+ */
 function overlapsVideoBox(layer: HTMLElement, video: HTMLVideoElement) {
   const a = layer.getBoundingClientRect()
   const b = video.getBoundingClientRect()
@@ -486,6 +491,7 @@ export function paintsAboveVideo(
   // One is an ancestor of the other: a descendant always paints over its box.
   if (!elBranch) return false
   if (!vBranch) return true
+  /** Numeric z-index, treating `auto` as 0. */
   const z = (n: HTMLElement) => {
     const v = parseInt(getComputedStyle(n).zIndex, 10)
     return Number.isNaN(v) ? 0 : v

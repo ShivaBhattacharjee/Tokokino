@@ -138,6 +138,7 @@ function sampleRaster(canvas: HTMLCanvasElement): Uint8ClampedArray | null {
   }
 }
 
+/** Mean absolute channel delta below this threshold means two samples match. */
 function samplesMatch(
   a: Uint8ClampedArray | null,
   b: Uint8ClampedArray | null
@@ -192,9 +193,11 @@ const underlayCache = new WeakMap<AnimationCapture, UnderlayCacheEntry[]>()
 const UNDERLAY_CACHE_MAX_ENTRIES = 6
 const UNDERLAY_CACHE_MAX_BYTES = 96 * 1024 * 1024
 
+/** RGBA byte size of a canvas buffer (width × height × 4). */
 const canvasBytes = (canvas: HTMLCanvasElement) =>
   canvas.width * canvas.height * 4
 
+/** Look up a settled underlay raster for this capture + backdrop-var key. */
 function cachedUnderlay(
   capture: AnimationCapture,
   key: string
@@ -204,6 +207,10 @@ function cachedUnderlay(
   return hit ? hit.canvas : null
 }
 
+/**
+ * Store an underlay raster, evicting oldest entries when the per-capture
+ * entry or byte budget is exceeded (always keeps at least one).
+ */
 function storeUnderlay(
   capture: AnimationCapture,
   key: string,

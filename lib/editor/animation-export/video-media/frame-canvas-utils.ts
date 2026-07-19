@@ -16,6 +16,7 @@ export function setImageSource(
   })
 }
 
+/** Resolve after `ms` — used between Safari foreignObject capture retries. */
 export function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }

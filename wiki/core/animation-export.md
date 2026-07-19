@@ -57,7 +57,7 @@ sequenceDiagram
     Orch->>VL: decode + replace &lt;video&gt; with JPEG &lt;img&gt;
   end
   loop each frame t
-    Orch->>Frame: paint videoLayer → applyAnimationFrameAtTime → rasterize
+    Orch->>Frame: applyAnimationFrameAtTime → layered getFrame | videoLayer paint → rasterize
     Frame-->>Enc: ImageBitmap / canvas
   end
   Orch->>Enc: optional prepareAnimationAudio

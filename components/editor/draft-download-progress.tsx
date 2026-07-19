@@ -13,6 +13,7 @@ export type DraftDownloadState = {
   total: number
 }
 
+/** Format a byte count as a short human string (B / KB / MB / GB). */
 function formatBytes(bytes: number) {
   if (bytes <= 0) return "0 MB"
   const units = ["B", "KB", "MB", "GB"]
@@ -24,6 +25,7 @@ function formatBytes(bytes: number) {
   return `${value.toFixed(value >= 100 || i <= 1 ? 0 : 1)} ${units[i]}`
 }
 
+/** Format remaining seconds as `Ns left` / `Nm Ns left`, or null if unknown. */
 function formatEta(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return null
   const s = Math.ceil(seconds)

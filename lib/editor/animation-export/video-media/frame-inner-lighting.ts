@@ -31,6 +31,7 @@ export type VideoMediaFx = {
   innerLighting?: BackdropLighting | null
 }
 
+/** Map a lighting direction token (center or `row-col`) to percent coords. */
 function lightingPoint(direction: string) {
   if (direction === "center") return { x: 50, y: 50 }
   const match = direction.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/)
@@ -43,6 +44,7 @@ function lightingPoint(direction: string) {
   }
 }
 
+/** Hex color + alpha → `rgba(...)` string for canvas fills. */
 function rgba(color: string, alpha: number) {
   const { r, g, b } = hexToRgb(color || "#ffffff")
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`

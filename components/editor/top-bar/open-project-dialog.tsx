@@ -441,6 +441,7 @@ function RenameDraftDialog({
   const trimmed = name.trim()
   const canSubmit = trimmed.length > 0 && trimmed !== currentName
 
+  /** Commit the trimmed name when it differs from the current one. */
   const submit = () => {
     if (!canSubmit) return
     onRename(trimmed)
@@ -673,6 +674,7 @@ export function OpenProjectDialog({
     }
   }
 
+  /** Optimistically rename a draft, rolling back only if this op is still latest. */
   const handleRename = async (id: string, name: string) => {
     const trimmed = name.trim()
     if (!trimmed) return

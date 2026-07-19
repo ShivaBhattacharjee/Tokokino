@@ -250,6 +250,7 @@ export async function updateDraft({
   }
 }
 
+/** Rename a draft owned by `userId`; returns updated metadata or null if missing. */
 export async function renameDraft({
   id,
   userId,

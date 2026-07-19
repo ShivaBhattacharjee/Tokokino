@@ -88,6 +88,11 @@ const lastCompleteCaptureFrame = new WeakMap<
   HTMLCanvasElement
 >()
 
+/**
+ * Heuristic for a foreignObject raster that looks complete but is missing an
+ * image layer (large transparent share with low mean alpha). Used to hold the
+ * previous complete frame instead of encoding a one-frame hole.
+ */
 function hasMissingCaptureLayer(frame: HTMLCanvasElement) {
   const sample = document.createElement("canvas")
   sample.width = Math.min(64, frame.width)
@@ -107,13 +112,15 @@ function hasMissingCaptureLayer(frame: HTMLCanvasElement) {
   return transparent / pixelCount >= 0.04 && alphaTotal / pixelCount < 250
 }
 
+/** Cached probe result for {@link supportsCanvasFilterBlur}. */
+let canvasFilterBlurs: boolean | null = null
+
 /**
  * Whether `CanvasRenderingContext2D.filter` actually blurs. WebKit accepts the
  * assignment but ignores it — `drawImage` comes back sharp — so a plain
  * `ctx.filter = "blur()"` silently no-ops the portrait DoF on Safari. Probed once
  * by blurring a 1px dark dot and checking the darkness bled to its neighbour.
  */
-let canvasFilterBlurs: boolean | null = null
 function supportsCanvasFilterBlur(): boolean {
   if (canvasFilterBlurs !== null) return canvasFilterBlurs
   try {
@@ -136,6 +143,7 @@ function supportsCanvasFilterBlur(): boolean {
   return canvasFilterBlurs
 }
 
+/** Allocate a canvas of at least 1×1 with rounded integer dimensions. */
 function makeCanvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement("canvas")
   c.width = Math.max(1, Math.round(w))
@@ -371,6 +379,11 @@ export function drawPortraitDepthOfField(
   }
 }
 
+/**
+ * Apply the keyframe pose at `timeMs`, then rasterize one export frame.
+ * Prefers WebKit layered capture when perspective would flatten in FO;
+ * otherwise paints the video JPEG bridge (if any) and runs a single-pass capture.
+ */
 export async function captureStableFrame(
   capture: AnimationCapture,
   canvas: CanvasState,

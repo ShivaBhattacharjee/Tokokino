@@ -225,6 +225,7 @@ export function ScreenshotBare({
   // Keep lighting and the selection ring on the visible pixels, not on the
   // transparent letterbox around them. The export compositor measures this same
   // node, so it now receives identical geometry to the editor.
+  /** Visible contain-video rect inside the free-placed shell, or null. */
   const containVideoContent = (() => {
     if (
       !isVideo ||

@@ -846,6 +846,7 @@ function LayerThumbnail({
     const video = videoRef.current
     if (!video) return
 
+    /** Seek slightly off 0 so WebKit/Firefox decode a visible poster frame. */
     const paintIdleFrame = () => {
       if (video.videoWidth <= 0) return
       try {

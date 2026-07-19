@@ -1139,6 +1139,12 @@ const clearClipEffectsInArray = (
   return clips.map((c) => (c.id === id ? cleared : c))
 }
 
+// Identity of the newest custom-presets request. A response that doesn't match
+// is stale — cleared/logged out, or superseded by a load for another account —
+// and must not commit results or touch the loading flag.
+let customPresetsRequestToken = 0
+let customPresetsInFlightUserId: string | null = null
+
 export const useEditorStore = create<EditorStore>((set, get) => {
   const commit = (patch: SetPatch, group: string | null) => {
     const state = get()
@@ -1350,19 +1356,40 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setActiveSinglePresetId: (id) => set({ activeSinglePresetId: id }),
     setCustomPresets: (presets) =>
       set({ customPresets: presets, customPresetsLoaded: true }),
-    clearCustomPresets: () =>
+    clearCustomPresets: () => {
+      customPresetsRequestToken++
+      customPresetsInFlightUserId = null
       set({
         customPresets: [],
         customPresetsLoaded: false,
         customPresetsLoading: false,
         customPresetsForUserId: null,
-      }),
+      })
+    },
     loadCustomPresets: (userId) => {
       const state = get()
-      if (state.customPresetsLoading) return
       if (state.customPresetsLoaded && state.customPresetsForUserId === userId)
         return
-      set({ customPresetsLoading: true })
+      // Dedupe concurrent mounts only for the SAME account. A load for a
+      // different user supersedes the in-flight request instead of being
+      // blocked by it — its late response is dropped by the token check.
+      if (state.customPresetsLoading && customPresetsInFlightUserId === userId)
+        return
+      const token = ++customPresetsRequestToken
+      customPresetsInFlightUserId = userId
+      set({
+        customPresetsLoading: true,
+        // Account switch: never show the previous account's presets while the
+        // new list loads.
+        ...(state.customPresetsForUserId !== null &&
+        state.customPresetsForUserId !== userId
+          ? {
+              customPresets: [],
+              customPresetsLoaded: false,
+              customPresetsForUserId: null,
+            }
+          : {}),
+      })
       void fetch("/api/presets", { credentials: "include" })
         .then(async (res) => {
           if (!res.ok) return [] as CustomPresetSummary[]
@@ -1370,8 +1397,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           return body.presets
         })
         .then((presets) => {
-          // Drop if cleared/logged out while the request was in flight.
-          if (!get().customPresetsLoading) return
+          // Stale: cleared/logged out, or another account's load took over.
+          if (token !== customPresetsRequestToken) return
+          customPresetsInFlightUserId = null
           set({
             customPresets: presets,
             customPresetsLoaded: true,
@@ -1381,7 +1409,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         })
         .catch((err) => {
           console.warn("Could not load custom presets", err)
-          if (!get().customPresetsLoading) return
+          if (token !== customPresetsRequestToken) return
+          customPresetsInFlightUserId = null
           set({
             customPresets: [],
             customPresetsLoaded: true,

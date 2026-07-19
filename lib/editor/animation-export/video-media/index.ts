@@ -61,6 +61,7 @@ export function canvasIsVideoMedia(canvasId: string): boolean {
   return !!canvas && isVideoSrc(canvas.screenshot)
 }
 
+/** Capture → plan → decode → render → encode for a styled video canvas. */
 async function encodeVideoMedia(
   canvasId: string,
   options: VideoMediaExportOptions

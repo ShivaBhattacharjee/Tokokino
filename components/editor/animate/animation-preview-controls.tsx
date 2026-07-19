@@ -27,6 +27,7 @@ export function AnimationPreviewControls() {
 
   React.useEffect(() => {
     if (!toggle) return
+    /** Space toggles play/pause when focus is not in a form field. */
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat) return
       if (e.metaKey || e.ctrlKey || e.altKey) return

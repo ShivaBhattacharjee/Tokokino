@@ -68,6 +68,7 @@ type GLWarper = {
 let warper: GLWarper | null = null
 let unavailable = false
 
+/** Compile a WebGL shader; returns null on compile failure. */
 function compile(
   gl: WebGLRenderingContext,
   type: number,
@@ -84,6 +85,7 @@ function compile(
   return shader
 }
 
+/** Build the shared GL warper (program, buffer, texture) or null if WebGL fails. */
 function createWarper(): GLWarper | null {
   if (typeof document === "undefined") return null
   const canvas = document.createElement("canvas")
@@ -144,6 +146,7 @@ function createWarper(): GLWarper | null {
   }
 }
 
+/** Lazy singleton accessor; remembers permanent unavailability. */
 function getWarper(): GLWarper | null {
   if (unavailable) return null
   if (warper) return warper
@@ -222,6 +225,7 @@ export function drawImageToQuadGL(
 
   const [tl, tr, br, bl] = corners
   // pos.xy, uv.xy, q — two triangles sharing the TL→BR diagonal.
+  /** One interleaved vertex: position, UV, and homogeneous w. */
   const v = (c: QuadCornerH, u: number, t: number) => [c.x, c.y, u, t, c.w]
   const data = new Float32Array([
     ...v(tl, 0, 0),

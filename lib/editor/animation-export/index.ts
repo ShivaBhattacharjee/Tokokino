@@ -81,6 +81,7 @@ export async function exportAnimationBlob(
   return encodeAnimation(canvasId, { ...options, asBlob: true })
 }
 
+/** Shared Animate-mode encode path used by download and asBlob share. */
 async function encodeAnimation(
   canvasId: string,
   options: AnimationExportOptions
