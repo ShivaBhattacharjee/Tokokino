@@ -42,3 +42,5 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 pack
+# local export debug dumps
+debug/

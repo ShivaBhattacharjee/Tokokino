@@ -10,11 +10,24 @@ import {
 } from "@/lib/editor/animation-export/video-media/audio"
 import { seekTo } from "@/lib/editor/animation-export/video-media/dom-video"
 import {
+  applyExportStackVisibility,
+  countExportStack,
+} from "@/lib/editor/animation-export/video-media/export-stack"
+import {
   MAX_GIF_TOTAL_PIXELS,
   gifExportExceedsMemory,
 } from "@/lib/editor/animation-export/video-media/encode-gif"
+import {
+  chooseQuadSubdivision,
+  quadAffineError,
+} from "@/lib/editor/animation-export/video-media/frame-renderer"
 import { planFrames } from "@/lib/editor/animation-export/video-media/frames"
 import { measureVideoRegion } from "@/lib/editor/animation-export/video-media/region"
+import {
+  drawImageToQuadGL,
+  resetQuadWarperForTest,
+  type QuadCornerH,
+} from "@/lib/editor/animation-export/video-media/warp-gl"
 import { AnimationExportAbortedError } from "@/lib/editor/animation-export/utils"
 import { useEditorStore } from "@/lib/editor/store"
 import { Mp4OutputFormat, WebMOutputFormat } from "mediabunny"
@@ -482,5 +495,260 @@ describe("canvasIsVideoMedia", () => {
 
   it("is false for an unknown canvas id", () => {
     expect(canvasIsVideoMedia("does-not-exist")).toBe(false)
+  })
+})
+
+describe("export stack visibility", () => {
+  /**
+   * Scene shaped like the real canvas: a backdrop, a media shell holding the
+   * <video>, a foreground overlay that must land on top of the video, and an
+   * untagged node that belongs to neither pass.
+   */
+  function buildScene() {
+    const root = document.createElement("div")
+    root.innerHTML = `
+      <div data-export-stack="underlay" id="backdrop"></div>
+      <div data-export-stack="media" id="shell">
+        <video id="video"></video>
+      </div>
+      <div data-export-stack="foreground" id="lighting"></div>
+      <div id="untagged"></div>
+    `
+    document.body.appendChild(root)
+    const el = (id: string) => root.querySelector<HTMLElement>(`#${id}`)!
+    return { root, el }
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
+
+  it("underlay pass keeps the backdrop and media shell but drops the video", () => {
+    const { root, el } = buildScene()
+    applyExportStackVisibility(root, "underlay")
+
+    // The shell stays visible so its shadow/radius/letterbox plate bake in
+    // behind the composited video.
+    expect(el("backdrop").style.visibility).not.toBe("hidden")
+    expect(el("shell").style.visibility).not.toBe("hidden")
+    expect(el("video").style.visibility).toBe("hidden")
+    expect(el("lighting").style.visibility).toBe("hidden")
+  })
+
+  it("foreground pass hides by exclusion so untagged nodes can't draw twice", () => {
+    const { root, el } = buildScene()
+    applyExportStackVisibility(root, "foreground")
+
+    // visibility inherits, so hiding the root and re-showing only foreground
+    // leaves everything else — tagged or not — out of the transparent raster.
+    expect(root.style.visibility).toBe("hidden")
+    expect(el("lighting").style.visibility).toBe("visible")
+    expect(el("untagged").style.visibility).not.toBe("visible")
+    expect(el("video").style.visibility).toBe("hidden")
+  })
+
+  it("restores every touched style after a pass", () => {
+    const { root, el } = buildScene()
+    el("lighting").style.visibility = "visible"
+
+    const restoreUnderlay = applyExportStackVisibility(root, "underlay")
+    restoreUnderlay()
+    const restoreForeground = applyExportStackVisibility(root, "foreground")
+    restoreForeground()
+
+    expect(root.style.visibility).toBe("")
+    expect(el("shell").style.visibility).toBe("")
+    expect(el("video").style.visibility).toBe("")
+    expect(el("untagged").style.visibility).toBe("")
+    expect(el("lighting").style.visibility).toBe("visible")
+  })
+
+  it("counts each layer for the export debug log", () => {
+    const { root } = buildScene()
+    expect(countExportStack(root)).toEqual({
+      underlay: 1,
+      media: 1,
+      foreground: 1,
+      videos: 1,
+    })
+  })
+})
+
+describe("perspective quad subdivision", () => {
+  const W = 1026.6875
+  const H = 614
+
+  /**
+   * The real shell matrix from a Safari export log (tilt rx15/ry20/rz-9). The
+   * 4th column is non-zero — the editor's tilt bakes perspective() in, so a
+   * point's w varies (~0.82–1.18) and CSS divides by it to flatten to 2D.
+   */
+  const M = [
+    0.928123, -0.063673, -0.366787, 0.000262, 0.147, 0.967881, 0.203952,
+    -0.000146, 0.34202, -0.24321, 0.907673, -0.000648, 0, 0, 0, 1,
+  ]
+
+  /** Apply the column-major matrix about the box centre, then divide by w. */
+  function project(u: number, v: number) {
+    const x = u * W - W / 2
+    const y = v * H - H / 2
+    const at = (r: number, c: number) => M[c * 4 + r]
+    const tx = at(0, 0) * x + at(0, 1) * y + at(0, 3)
+    const ty = at(1, 0) * x + at(1, 1) * y + at(1, 3)
+    const tw = at(3, 0) * x + at(3, 1) * y + at(3, 3)
+    return { x: tx / tw + W / 2, y: ty / tw + H / 2 }
+  }
+
+  it("two triangles cannot approximate a perspective quad", () => {
+    // Why subdivision exists at all: the old 1×1 affine map bowed the video by
+    // ~100px, which is what mis-drew the tilted export.
+    expect(quadAffineError(project, 1)).toBeGreaterThan(50)
+  })
+
+  it("error shrinks monotonically as the grid refines", () => {
+    const errors = [1, 2, 4, 8, 16].map((n) => quadAffineError(project, n))
+    for (let i = 1; i < errors.length; i++) {
+      expect(errors[i]).toBeLessThan(errors[i - 1])
+    }
+  })
+
+  it("picks a grid that holds the affine error under a pixel", () => {
+    const n = chooseQuadSubdivision(project)
+    expect(n).toBeGreaterThan(1)
+    expect(quadAffineError(project, n)).toBeLessThanOrEqual(0.5)
+  })
+
+  it("does not subdivide when there is no perspective", () => {
+    // Pure rotate/scale/translate is affine, so one cell is already exact.
+    const affine = (u: number, v: number) => ({
+      x: 0.8 * (u * W) - 0.3 * (v * H) + 12,
+      y: 0.2 * (u * W) + 0.9 * (v * H) - 5,
+    })
+    expect(quadAffineError(affine, 1)).toBeLessThan(1e-6)
+    expect(chooseQuadSubdivision(affine)).toBe(1)
+  })
+})
+
+describe("export stack — media shell in the underlay", () => {
+  function scene() {
+    const root = document.createElement("div")
+    root.innerHTML = `
+      <div data-export-stack="underlay" id="backdrop"></div>
+      <div data-export-stack="media" id="shell"><video id="video"></video></div>
+      <div data-export-stack="foreground" id="lighting"></div>
+    `
+    document.body.appendChild(root)
+    return {
+      root,
+      el: (id: string) => root.querySelector<HTMLElement>(`#${id}`)!,
+    }
+  }
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
+
+  it("keeps the shell by default so its shadow and plate bake in", () => {
+    const { root, el } = scene()
+    applyExportStackVisibility(root, "underlay")
+    expect(el("shell").style.visibility).not.toBe("hidden")
+  })
+
+  it("drops a bent layer when asked, without touching the backdrop", () => {
+    // WebKit rasterizes a perspective transform inside foreignObject flattened,
+    // so a tilted shell would bake in at the wrong shape and fight the
+    // correctly-projected video — the second-plate artifact.
+    const { root, el } = scene()
+    applyExportStackVisibility(root, "underlay", { alsoHide: [el("shell")] })
+    expect(el("shell").style.visibility).toBe("hidden")
+    expect(el("backdrop").style.visibility).not.toBe("hidden")
+  })
+
+  it("restores the shell after an alsoHide pass", () => {
+    const { root, el } = scene()
+    const restore = applyExportStackVisibility(root, "underlay", {
+      alsoHide: [el("shell")],
+    })
+    restore()
+    expect(el("shell").style.visibility).toBe("")
+  })
+})
+
+describe("export stack — isolating single layers", () => {
+  function scene() {
+    const root = document.createElement("div")
+    root.innerHTML = `
+      <div data-export-stack="underlay" id="backdrop"></div>
+      <div data-export-stack="media" id="shell"><video id="video"></video></div>
+      <div data-export-stack="foreground" id="lighting"></div>
+      <div data-export-stack="foreground" id="text"></div>
+    `
+    document.body.appendChild(root)
+    return {
+      root,
+      el: (id: string) => root.querySelector<HTMLElement>(`#${id}`)!,
+    }
+  }
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
+
+  it("shows only the named foreground layers", () => {
+    // Perspective-carrying layers are captured one at a time so they can be
+    // projected by hand; the rest come from one flat pass.
+    const { root, el } = scene()
+    applyExportStackVisibility(root, "foreground", {
+      only: [el("lighting")],
+    })
+    expect(el("lighting").style.visibility).toBe("visible")
+    expect(el("text").style.visibility).not.toBe("visible")
+    expect(root.style.visibility).toBe("hidden")
+  })
+
+  it("shows every foreground layer when not narrowed", () => {
+    const { root, el } = scene()
+    applyExportStackVisibility(root, "foreground")
+    expect(el("lighting").style.visibility).toBe("visible")
+    expect(el("text").style.visibility).toBe("visible")
+  })
+})
+
+describe("drawImageToQuadGL", () => {
+  beforeEach(() => resetQuadWarperForTest())
+  afterEach(() => resetQuadWarperForTest())
+
+  const quad = (): [QuadCornerH, QuadCornerH, QuadCornerH, QuadCornerH] => [
+    { x: 0, y: 0, w: 1.1 },
+    { x: 100, y: 10, w: 0.9 },
+    { x: 100, y: 100, w: 0.9 },
+    { x: 0, y: 90, w: 1.1 },
+  ]
+
+  function ctx2d(w = 128, h = 128) {
+    const c = document.createElement("canvas")
+    c.width = w
+    c.height = h
+    return {
+      drawImage: () => {},
+      canvas: c,
+    } as unknown as CanvasRenderingContext2D
+  }
+
+  it("reports failure instead of throwing when WebGL is unavailable", () => {
+    // jsdom has no WebGL — the same shape as a browser that denies a context,
+    // which must degrade to the 2D grid rather than kill the export.
+    const img = document.createElement("canvas")
+    expect(drawImageToQuadGL(ctx2d(), img, 64, 64, quad())).toBe(false)
+  })
+
+  it("rejects a quad with a corner at or behind the eye plane", () => {
+    const img = document.createElement("canvas")
+    const behind = quad()
+    behind[1] = { x: 100, y: 10, w: -0.2 }
+    expect(drawImageToQuadGL(ctx2d(), img, 64, 64, behind)).toBe(false)
+  })
+
+  it("rejects a zero-sized destination", () => {
+    const img = document.createElement("canvas")
+    expect(drawImageToQuadGL(ctx2d(0, 0), img, 64, 64, quad())).toBe(false)
   })
 })

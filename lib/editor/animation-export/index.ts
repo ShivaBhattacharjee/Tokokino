@@ -22,6 +22,7 @@ import { captureClipPose, useEditorStore } from "../store"
 import { acquireAnimationCapture, suppressCloneTransitions } from "./capture"
 import { encodeGif } from "./gif"
 import { prepareCloneVideoLayer } from "./video-layer"
+import type { CloneVideoLayer } from "./video-layer"
 import {
   MAX_FRAMES,
   type AnimationExportBlobResult,
@@ -29,6 +30,7 @@ import {
   type CaptureCtx,
 } from "./types"
 import {
+  AnimationExportAbortedError,
   animationMimeAndExt,
   createProgressReporter,
   resolveAnimationDownloadFilename,
@@ -79,6 +81,7 @@ export async function exportAnimationBlob(
   return encodeAnimation(canvasId, { ...options, asBlob: true })
 }
 
+/** Shared Animate-mode encode path used by download and asBlob share. */
 async function encodeAnimation(
   canvasId: string,
   options: AnimationExportOptions
@@ -134,38 +137,42 @@ async function encodeAnimation(
     targetWidth,
     options.capture ?? "auto"
   )
-  suppressCloneTransitions(capture.node)
 
-  // A `<video>` renders nothing once the clone is serialized into an SVG, so a
-  // video canvas needs its frames decoded and painted in per capture.
-  const screenshot = canvas.screenshot
-  const videoLayer =
-    screenshot && isVideoSrc(screenshot)
-      ? await prepareCloneVideoLayer({
-          node: capture.node,
-          src: screenshot,
-          videoClips: canvas.videoClips ?? [],
-          signal,
-        })
-      : null
-
-  progress.report("preparing", 1, 1)
-
-  const ctx: CaptureCtx = {
-    capture,
-    canvas,
-    globalAspect: state.present.aspect,
-    clips,
-    frameCount,
-    frameDurationMs,
-    fps,
-    progress,
-    signal,
-    watermark,
-    videoLayer,
-  }
-
+  // Cleanup starts here — before any clone mutation or video-layer prep — so a
+  // failure in prepareCloneVideoLayer (e.g. dav1d init) still releases the
+  // acquired capture.
+  let videoLayer: CloneVideoLayer | null = null
   try {
+    suppressCloneTransitions(capture.node)
+
+    // A `<video>` renders nothing once the clone is serialized into an SVG, so a
+    // video canvas needs its frames decoded and painted in per capture.
+    const screenshot = canvas.screenshot
+    videoLayer =
+      screenshot && isVideoSrc(screenshot)
+        ? await prepareCloneVideoLayer({
+            node: capture.node,
+            src: screenshot,
+            videoClips: canvas.videoClips ?? [],
+            signal,
+          })
+        : null
+    progress.report("preparing", 1, 1)
+
+    const ctx: CaptureCtx = {
+      capture,
+      canvas,
+      globalAspect: state.present.aspect,
+      clips,
+      frameCount,
+      frameDurationMs,
+      fps,
+      progress,
+      signal,
+      watermark,
+      videoLayer,
+    }
+
     let blob: Blob
     if (options.format === "gif") {
       blob = await encodeGif(ctx)

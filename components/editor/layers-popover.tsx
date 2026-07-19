@@ -29,6 +29,7 @@ import {
   RiDraggable,
   RiEyeCloseLine,
   RiEyeLine,
+  RiFilmLine,
   RiGalleryLine,
   RiImage2Line,
   RiLock2Line,
@@ -47,6 +48,7 @@ import {
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { Slider } from "@/components/ui/slider"
 import { fullPageCaptureMediaStyle } from "@/lib/editor/full-page-capture"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import {
   backgroundCss,
   type AssetBlendMode,
@@ -167,12 +169,13 @@ export function LayersPanelContent({ flat }: { flat?: boolean }) {
     const next: EditorLayer[] = []
 
     if (screenshot) {
+      const video = isVideoSrc(screenshot)
       next.push({
         key: "screenshot:main",
         id: "main",
         type: "screenshot",
-        name: "Screenshot",
-        meta: "Base image",
+        name: video ? "Video" : "Screenshot",
+        meta: video ? "Video" : "Base image",
         zIndex: screenshotLayer.zIndex,
         hidden: screenshotLayer.hidden,
         opacity: screenshotLayer.opacity,
@@ -597,16 +600,11 @@ function LayerRow({
       </button>
       <span className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border/60 bg-background/60 text-muted-foreground">
         {layer.thumbnail ? (
-          <ShimmerImage
+          <LayerThumbnail
+            key={layer.thumbnail}
             src={layer.thumbnail}
-            alt=""
-            draggable={false}
-            className="size-full object-cover"
-            style={
-              layer.thumbnailObjectPosition
-                ? { objectPosition: layer.thumbnailObjectPosition }
-                : undefined
-            }
+            objectPosition={layer.thumbnailObjectPosition}
+            fallbackType={layer.type}
           />
         ) : (
           <LayerIcon type={layer.type} />
@@ -825,7 +823,93 @@ function BackgroundLayerPreview({
   )
 }
 
-function LayerIcon({ type }: { type: EditableLayerType }) {
+/**
+ * Video blob / draft URLs can't be used as `<img src>` — the browser never
+ * paints a frame, so the Layers row used to show a broken placeholder. Use a
+ * muted `<video>` thumb (and nudge Safari/Firefox to decode one idle frame).
+ */
+function LayerThumbnail({
+  src,
+  objectPosition,
+  fallbackType,
+}: {
+  src: string
+  objectPosition?: string
+  fallbackType: EditableLayerType
+}) {
+  const isVideo = isVideoSrc(src)
+  const videoRef = React.useRef<HTMLVideoElement | null>(null)
+  const [failed, setFailed] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!isVideo) return
+    const video = videoRef.current
+    if (!video) return
+
+    /** Seek slightly off 0 so WebKit/Firefox decode a visible poster frame. */
+    const paintIdleFrame = () => {
+      if (video.videoWidth <= 0) return
+      try {
+        // Nudge off 0 so WebKit/Firefox decode a visible poster frame.
+        if (video.currentTime < 0.001) {
+          video.currentTime = Math.min(
+            0.05,
+            Number.isFinite(video.duration) && video.duration > 0
+              ? Math.max(video.duration / 100, 0.001)
+              : 0.05
+          )
+        }
+      } catch {
+        // Detached / not-seekable — keep whatever frame we have.
+      }
+    }
+
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      paintIdleFrame()
+      return
+    }
+    video.addEventListener("loadedmetadata", paintIdleFrame, { once: true })
+    return () => video.removeEventListener("loadedmetadata", paintIdleFrame)
+  }, [isVideo, src])
+
+  if (failed) return <LayerIcon type={fallbackType} isVideo={isVideo} />
+
+  if (isVideo) {
+    return (
+      <video
+        ref={videoRef}
+        src={src}
+        muted
+        playsInline
+        preload="metadata"
+        draggable={false}
+        className="size-full object-cover"
+        style={objectPosition ? { objectPosition } : undefined}
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+
+  return (
+    <ShimmerImage
+      src={src}
+      alt=""
+      draggable={false}
+      className="size-full object-cover"
+      style={objectPosition ? { objectPosition } : undefined}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
+function LayerIcon({
+  type,
+  isVideo = false,
+}: {
+  type: EditableLayerType
+  isVideo?: boolean
+}) {
+  if (isVideo) return <RiFilmLine className="size-3.5" />
   if (type === "text") return <RiText className="size-3.5" />
   if (type === "annotation") return <RiPencilRulerLine className="size-3.5" />
   if (type === "slot") return <RiGalleryLine className="size-3.5" />

@@ -54,6 +54,7 @@ export async function isWebmExportSupported(): Promise<boolean> {
   }
 }
 
+/** Try Mediabunny/WebCodecs encode; returns null if unavailable or unsupported. */
 export async function tryEncodeWithMediabunny(
   ctx: CaptureCtx,
   format: "webm" | "mp4"
@@ -196,7 +197,6 @@ export async function tryEncodeWithMediabunny(
       throw err
     }
     // Fall through to MediaRecorder for WebM only.
-    console.warn("[export] WebCodecs encode failed, trying fallback:", err)
     return null
   } finally {
     signal?.removeEventListener("abort", onAbort)

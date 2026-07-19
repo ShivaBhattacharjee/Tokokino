@@ -3,18 +3,16 @@
  *
  * `exportAnimation` rasterizes the offscreen clone through a serialized
  * `<foreignObject>`, and a `<video>` never renders there: its `blob:` source
- * can't load in the isolated SVG, so the clip's box comes out empty (WebKit
- * paints its default media controls into the gap). Nothing in that pipeline ever
- * seeks or decodes the clone's video either, so even a loadable source would
- * stay frozen.
+ * can't load in the isolated SVG, so the clip's box comes out empty. Nothing in
+ * that pipeline seeks or decodes the clone's video either, so even a loadable
+ * source would stay frozen.
  *
  * The video-media export dodges this by rasterizing the scene once and compositing
  * decoded frames onto a fixed rect — which keyframes rule out, since they move
- * and tilt the video box every frame. So instead swap the clone's `<video>` for
- * an `<img>` that inherits its classes and inline styles (crop, object-fit,
- * radius and frame layout keep working, and the frame's natural size still
- * drives them), then repoint `src` at each decoded frame before capture. A data
- * URI `<img>` rasterizes in every engine, on both capture paths.
+ * and tilt the video box every frame. Replace the clone's video with a normal
+ * `<img>` and update its data URL per frame instead: Safari serializes the image
+ * reliably while the surrounding DOM keeps every animated transform, effect,
+ * crop and frame.
  */
 
 import type { VideoTimelineClip } from "../state-types"
@@ -29,18 +27,6 @@ const DEFAULT_VIDEO_CLIP: VideoTimelineClip = {
   endMs: null,
 }
 
-/** Attributes that only mean something on a `<video>`, or that we drive ourselves. */
-const DROPPED_VIDEO_ATTRIBUTES = new Set([
-  "src",
-  "poster",
-  "preload",
-  "controls",
-  "autoplay",
-  "loop",
-  "muted",
-  "playsinline",
-])
-
 /** A slice of the source clip, and where it sits on the animation timeline. */
 export type VideoSegment = {
   sourceStartMs: number
@@ -51,7 +37,7 @@ export type VideoSegment = {
 /**
  * Normalize `videoClips` into segments, clamped to the source's real length —
  * the trim model `use-animate-timeline` resolves for the timeline UI. Frames and
- * audio both derive their timing from this, so they can't drift apart.
+ * audio both derive their timing from this, so they cannot drift apart.
  */
 export function resolveVideoSegments(
   clips: readonly VideoTimelineClip[],
@@ -93,24 +79,89 @@ export function resolveVideoSourceTimeMs(
 export type CloneVideoLayer = {
   /** Paint the frame the timeline shows at `timelineMs`. Call before capture. */
   paint: (timelineMs: number) => Promise<void>
+  /**
+   * The decoded source frame at `timelineMs`, without the JPEG round-trip into
+   * the clone's `<img>` — for callers that composite the pixels themselves.
+   * Holds the last decoded frame outside every clip, like `paint`.
+   */
+  getFrame: (timelineMs: number) => Promise<CanvasImageSource | null>
+  /** The `<img>` standing in for the serialized `<video>` in the clone. */
+  mediaElement: HTMLImageElement
   /** The source clip's real length — what the trim model is clamped against. */
   sourceDurationMs: number
   cleanup: () => void
 }
 
-function setImageSource(img: HTMLImageElement, url: string): Promise<void> {
-  return new Promise<void>((resolve) => {
-    img.onload = () => resolve()
-    // Keep whatever the img already showed rather than failing the whole export.
-    img.onerror = () => resolve()
-    img.src = url
-  })
+const VIDEO_ONLY_ATTRIBUTES = new Set([
+  "src",
+  "poster",
+  "preload",
+  "autoplay",
+  "loop",
+  "muted",
+  "playsinline",
+  "controls",
+])
+
+/**
+ * Replace the serialized media element with an image shell that has exactly the
+ * same layout classes and inline styles. Data-URI images are the dynamic source
+ * WebKit reliably resolves inside an SVG `<foreignObject>`.
+ */
+function replaceVideoWithFrameImage(video: HTMLVideoElement): {
+  paint: (frame: CanvasImageSource) => Promise<boolean>
+  image: HTMLImageElement
+} | null {
+  const image = document.createElement("img")
+  image.alt = ""
+  image.decoding = "sync"
+  image.draggable = false
+
+  for (const attribute of Array.from(video.attributes)) {
+    if (VIDEO_ONLY_ATTRIBUTES.has(attribute.name.toLowerCase())) continue
+    image.setAttribute(attribute.name, attribute.value)
+  }
+
+  const raster = document.createElement("canvas")
+  const context = raster.getContext("2d", { willReadFrequently: true })
+  if (!context) return null
+
+  video.replaceWith(image)
+
+  return {
+    image,
+    paint: async (frame) => {
+      const width = "width" in frame ? Number(frame.width) : 0
+      const height = "height" in frame ? Number(frame.height) : 0
+      if (!width || !height) return false
+      if (raster.width !== width || raster.height !== height) {
+        raster.width = width
+        raster.height = height
+      } else {
+        context.clearRect(0, 0, width, height)
+      }
+
+      try {
+        context.drawImage(frame, 0, 0, width, height)
+        // JPEG, not PNG: frames are photographic and always opaque, and a PNG
+        // encode per frame would dominate the per-frame cost of the export.
+        // html-to-image decodes this URL back into pixels before encoding, so
+        // using PNG here does not remove a lossy encoding step.
+        image.src = raster.toDataURL("image/jpeg", 0.92)
+        await image.decode().catch(() => undefined)
+        return image.naturalWidth > 0 && image.naturalHeight > 0
+      } catch {
+        // Preserve the previous valid image rather than replacing it with black.
+        return false
+      }
+    },
+  }
 }
 
 /**
- * Replace the clone's `<video>` with an `<img>` we repaint per frame. Returns
- * null when the clip can't be decoded here (no WebCodecs, or a codec this engine
- * won't take) — the export then renders as it did before rather than failing.
+ * Replace the serialized clone video with per-frame static image data. Returns
+ * null when the clip cannot be decoded here — the export then uses its existing
+ * fallback path.
  */
 export async function prepareCloneVideoLayer({
   node,
@@ -129,7 +180,7 @@ export async function prepareCloneVideoLayer({
   const decoded = await createDecodedFrameSource(src, signal)
   if (!decoded) return null
 
-  // The clone's <video> is loaded only for its duration, which anchors the trim
+  // The clone's video is loaded only for its duration, which anchors the trim
   // math the same way the filmstrip's does on the timeline.
   let sourceDurationMs: number
   try {
@@ -146,57 +197,31 @@ export async function prepareCloneVideoLayer({
     return null
   }
 
-  const img = document.createElement("img")
-  for (const attribute of Array.from(video.attributes)) {
-    if (DROPPED_VIDEO_ATTRIBUTES.has(attribute.name)) continue
-    img.setAttribute(attribute.name, attribute.value)
-  }
-  video.replaceWith(img)
-
-  const scratch = document.createElement("canvas")
-  // A GPU-backed 2D context can read back black for decoded video on WebKit
-  // (bug #237424); the CPU path this forces returns the real pixels.
-  const ctx = scratch.getContext("2d", { willReadFrequently: true })
-  if (!ctx) {
+  const frameImage = replaceVideoWithFrameImage(video)
+  if (!frameImage) {
     decoded.cleanup()
     return null
   }
 
   let lastFrame: CanvasImageSource | null = null
-
   const paintSourceMs = async (sourceMs: number) => {
     const frame = await decoded.getFrameAt(sourceMs / 1000)
     // The decoder hands back the same canvas until the next frame starts, so
     // exporting above the source's fps re-encodes identical pixels without this.
     if (!frame || frame === lastFrame) return
 
-    const w = Number((frame as { width?: unknown }).width) || 0
-    const h = Number((frame as { height?: unknown }).height) || 0
-    if (w <= 0 || h <= 0) return
-    if (scratch.width !== w || scratch.height !== h) {
-      scratch.width = w
-      scratch.height = h
-    } else {
-      ctx.clearRect(0, 0, w, h)
-    }
-    try {
-      ctx.drawImage(frame, 0, 0, w, h)
-    } catch {
-      return
-    }
-    // JPEG, not PNG: frames are photographic and always opaque, and a PNG encode
-    // per frame would dominate the per-frame cost of the export.
-    await setImageSource(img, scratch.toDataURL("image/jpeg", 0.92))
+    if (!(await frameImage.paint(frame))) return
     lastFrame = frame
   }
 
-  // Seed a frame before any capture: a src-less <img> has no intrinsic size, and
-  // the layout around it (contain shells, crop) is measured against that box.
+  // Seed a frame before any capture so the image has intrinsic pixels before
+  // the clone's layout is serialized.
   const firstClip = videoClips.length > 0 ? videoClips : [DEFAULT_VIDEO_CLIP]
   await paintSourceMs(
     Math.max(0, Math.min(...firstClip.map((clip) => clip.startMs)))
   )
 
+  let lastDecodedFrame: CanvasImageSource | null = null
   return {
     paint: async (timelineMs) => {
       const sourceMs = resolveVideoSourceTimeMs(
@@ -205,9 +230,21 @@ export async function prepareCloneVideoLayer({
         sourceDurationMs
       )
       // Outside every clip — hold whatever frame is already painted.
-      if (sourceMs === null) return
-      await paintSourceMs(sourceMs)
+      if (sourceMs !== null) await paintSourceMs(sourceMs)
     },
+    getFrame: async (timelineMs) => {
+      const sourceMs = resolveVideoSourceTimeMs(
+        videoClips,
+        timelineMs,
+        sourceDurationMs
+      )
+      if (sourceMs !== null) {
+        const frame = await decoded.getFrameAt(sourceMs / 1000)
+        if (frame) lastDecodedFrame = frame
+      }
+      return lastDecodedFrame
+    },
+    mediaElement: frameImage.image,
     sourceDurationMs,
     cleanup: () => decoded.cleanup(),
   }

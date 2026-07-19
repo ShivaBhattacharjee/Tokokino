@@ -23,6 +23,7 @@ import {
 import { prepareSourceAudio } from "./audio"
 import { blitFrame, type FramePlan, type RenderFrame } from "./frames"
 
+/** Encode planned frames to MP4 or WebM via Mediabunny + WebCodecs. */
 export async function encodeMp4OrWebm(
   format: "mp4" | "webm",
   ctx: CanvasRenderingContext2D,
@@ -47,7 +48,9 @@ export async function encodeMp4OrWebm(
     height: encodeCanvas.height,
     bitrate: QUALITY_HIGH,
   })
-  if (!codec) throw new Error("No supported video codec for this format")
+  if (!codec) {
+    throw new Error("No supported video codec for this format")
+  }
 
   const outputFormat =
     format === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat()
@@ -59,7 +62,6 @@ export async function encodeMp4OrWebm(
     durationSec,
     signal
   )
-
   const target = new BufferTarget()
   const output = new Output({
     format: outputFormat,

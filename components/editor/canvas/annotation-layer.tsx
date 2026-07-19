@@ -53,6 +53,7 @@ export function AnnotationLayer({
         <svg
           key={stroke.id}
           aria-hidden
+          data-export-stack="foreground"
           className="pointer-events-none absolute inset-0 h-full w-full touch-none"
           style={{
             zIndex: 60 + (stroke.zIndex ?? 0),

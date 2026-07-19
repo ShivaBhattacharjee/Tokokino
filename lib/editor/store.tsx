@@ -223,6 +223,90 @@ const applyPoseToCanvas = (
   }),
 })
 
+/** Main-pose fields each animation effect owns. Used to copy just the edited
+ * property into every clip of a multi-selection (leaving the rest intact). */
+const EFFECT_MAIN_POSE_FIELDS: Record<
+  AnimationEffect,
+  readonly (keyof ClipBaseline)[]
+> = {
+  position: ["screenshotPosition", "screenshotOffset"],
+  zoom: ["scale"],
+  tilt: ["tilt"],
+  padding: ["padding"],
+  shadow: ["shadow"],
+  background: ["background"],
+  backdrop: ["backdropEffects"],
+  canvasRadius: ["canvasBorderRadius"],
+  lighting: ["lighting"],
+  filter: ["filter"],
+  portrait: ["portrait"],
+  pattern: ["pattern"],
+  overlay: ["overlay"],
+  border: ["border"],
+  borderRadius: ["borderRadius"],
+}
+
+/** Per-slot pose fields an effect owns (only the slot-animatable ones). */
+const EFFECT_SLOT_POSE_FIELDS: Partial<
+  Record<AnimationEffect, readonly (keyof ClipSlotPose)[]>
+> = {
+  position: ["xPct", "yPct"],
+  zoom: ["scale"],
+  tilt: ["tilt", "rotation"],
+  padding: ["padding"],
+  shadow: ["shadow"],
+  border: ["border"],
+  borderRadius: ["borderRadius"],
+  lighting: ["lighting"],
+}
+
+const poseValueEq = (a: unknown, b: unknown): boolean =>
+  a === b || JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * Copy just the fields owned by `effects` from `edited` onto `basePose`, so
+ * applying one inspector edit across a multi-selection updates only that
+ * property on every selected clip and leaves each clip's other keyframed values
+ * intact.
+ *
+ * `before`/`edited` are the canvas pose just before and after the edit. Only
+ * fields (and slots) that actually changed between them are merged: an effect
+ * can own several fields (e.g. zoom owns both the main and per-slot scale), so
+ * editing one must not overwrite a clip's keyframed value for the others. This
+ * keeps `setScale` from propagating slot scale and `updateScreenshotSlot` from
+ * propagating main fields or unrelated slots.
+ */
+const mergeEffectsIntoPose = (
+  basePose: ClipBaseline,
+  before: ClipBaseline,
+  edited: ClipBaseline,
+  effects: AnimationEffect[]
+): ClipBaseline => {
+  const next: ClipBaseline = { ...basePose, slots: { ...basePose.slots } }
+  const nextRec = next as Record<string, unknown>
+  for (const effect of effects) {
+    for (const field of EFFECT_MAIN_POSE_FIELDS[effect]) {
+      if (poseValueEq(before[field], edited[field])) continue
+      nextRec[field] = edited[field]
+    }
+    const slotFields = EFFECT_SLOT_POSE_FIELDS[effect]
+    if (!slotFields) continue
+    for (const [slotId, editedSlot] of Object.entries(edited.slots)) {
+      const target = next.slots[slotId]
+      if (!target) continue
+      const beforeSlot = before.slots[slotId]
+      let mergedSlot = target
+      for (const field of slotFields) {
+        if (poseValueEq(beforeSlot?.[field], editedSlot[field])) continue
+        if (mergedSlot === target) mergedSlot = { ...target }
+        ;(mergedSlot as Record<string, unknown>)[field] = editedSlot[field]
+      }
+      if (mergedSlot !== target) next.slots[slotId] = mergedSlot
+    }
+  }
+  return next
+}
+
 /**
  * The resolved look AT a keyframe: for each effect, the value from the latest
  * keyframe that owns it at/before `target` (so held effects from earlier
@@ -674,6 +758,13 @@ export type EditorActions = {
   setActiveCustomPresetId: (id: string | null) => void
   setActiveSinglePresetId: (id: string | null) => void
   setCustomPresets: (presets: CustomPresetSummary[]) => void
+  /** Logout / session clear — empties the list without marking a successful load. */
+  clearCustomPresets: () => void
+  /**
+   * Fetch the signed-in user's custom presets once. Dedupes in-flight calls so
+   * multiple mounted Preset sections (desktop + iPad sidebars) share one request.
+   */
+  loadCustomPresets: (userId: string) => void
   addCustomPreset: (preset: CustomPresetSummary) => void
   updateCustomPreset: (id: string, patch: Partial<CustomPresetSummary>) => void
   removeCustomPreset: (id: string) => void
@@ -980,6 +1071,9 @@ export type EditorStore = {
   activeSinglePresetId: string | null
   customPresets: CustomPresetSummary[]
   customPresetsLoaded: boolean
+  customPresetsLoading: boolean
+  /** User id the current `customPresets` list was fetched for. */
+  customPresetsForUserId: string | null
   currentDraft: CurrentDraftInfo | null
 } & EditorActions
 
@@ -1045,6 +1139,12 @@ const clearClipEffectsInArray = (
   return clips.map((c) => (c.id === id ? cleared : c))
 }
 
+// Identity of the newest custom-presets request. A response that doesn't match
+// is stale — cleared/logged out, or superseded by a load for another account —
+// and must not commit results or touch the loading flag.
+let customPresetsRequestToken = 0
+let customPresetsInFlightUserId: string | null = null
+
 export const useEditorStore = create<EditorStore>((set, get) => {
   const commit = (patch: SetPatch, group: string | null) => {
     const state = get()
@@ -1106,9 +1206,48 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       (canvas, state) => {
         const base = typeof patch === "function" ? patch(canvas, state) : patch
         const full = get()
-        const selId = full.selectedAnimationClipId
-        if (!full.isAnimateMode || !selId) return base
+        if (!full.isAnimateMode) return base
         const anim = getCanvasAnimation(canvas)
+        const selId = full.selectedAnimationClipId
+
+        // Multi-selection opens no single keyframe (primary = null), so route the
+        // edit to EVERY selected clip: record the effect on each and write its new
+        // value into each clip's pose, leaving their other keyframed values intact.
+        const multiIds = full.selectedAnimationClipIds
+        if (!selId && multiIds.length > 1) {
+          const idSet = new Set(multiIds)
+          if (!anim.clips.some((c) => idSet.has(c.id))) return base
+          const beforePose = captureClipPose(canvas)
+          const editedPose = captureClipPose({
+            ...canvas,
+            ...base,
+          })
+          return {
+            ...base,
+            animation: {
+              ...anim,
+              clips: anim.clips.map((c) => {
+                if (!idSet.has(c.id)) return c
+                const owned = c.effects ?? []
+                const merged = Array.from(new Set([...owned, ...list]))
+                const basePose =
+                  c.pose ?? resolveKeyframePose(canvas, anim.clips, c)
+                return {
+                  ...c,
+                  effects: merged,
+                  pose: mergeEffectsIntoPose(
+                    basePose,
+                    beforePose,
+                    editedPose,
+                    list
+                  ),
+                }
+              }),
+            },
+          }
+        }
+
+        if (!selId) return base
         const clip = anim.clips.find((c) => c.id === selId)
         if (!clip) return base
         const owned = clip.effects ?? []
@@ -1206,6 +1345,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     activeSinglePresetId: null,
     customPresets: [],
     customPresetsLoaded: false,
+    customPresetsLoading: false,
+    customPresetsForUserId: null,
     currentDraft: null,
 
     setActiveTool: (t) => commit({ activeTool: t }, null),
@@ -1215,6 +1356,69 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setActiveSinglePresetId: (id) => set({ activeSinglePresetId: id }),
     setCustomPresets: (presets) =>
       set({ customPresets: presets, customPresetsLoaded: true }),
+    clearCustomPresets: () => {
+      customPresetsRequestToken++
+      customPresetsInFlightUserId = null
+      set({
+        customPresets: [],
+        customPresetsLoaded: false,
+        customPresetsLoading: false,
+        customPresetsForUserId: null,
+      })
+    },
+    loadCustomPresets: (userId) => {
+      const state = get()
+      if (state.customPresetsLoaded && state.customPresetsForUserId === userId)
+        return
+      // Dedupe concurrent mounts only for the SAME account. A load for a
+      // different user supersedes the in-flight request instead of being
+      // blocked by it — its late response is dropped by the token check.
+      if (state.customPresetsLoading && customPresetsInFlightUserId === userId)
+        return
+      const token = ++customPresetsRequestToken
+      customPresetsInFlightUserId = userId
+      set({
+        customPresetsLoading: true,
+        // Account switch: never show the previous account's presets while the
+        // new list loads.
+        ...(state.customPresetsForUserId !== null &&
+        state.customPresetsForUserId !== userId
+          ? {
+              customPresets: [],
+              customPresetsLoaded: false,
+              customPresetsForUserId: null,
+            }
+          : {}),
+      })
+      void fetch("/api/presets", { credentials: "include" })
+        .then(async (res) => {
+          if (!res.ok) return [] as CustomPresetSummary[]
+          const body: { presets: CustomPresetSummary[] } = await res.json()
+          return body.presets
+        })
+        .then((presets) => {
+          // Stale: cleared/logged out, or another account's load took over.
+          if (token !== customPresetsRequestToken) return
+          customPresetsInFlightUserId = null
+          set({
+            customPresets: presets,
+            customPresetsLoaded: true,
+            customPresetsLoading: false,
+            customPresetsForUserId: userId,
+          })
+        })
+        .catch((err) => {
+          console.warn("Could not load custom presets", err)
+          if (token !== customPresetsRequestToken) return
+          customPresetsInFlightUserId = null
+          set({
+            customPresets: [],
+            customPresetsLoaded: true,
+            customPresetsLoading: false,
+            customPresetsForUserId: userId,
+          })
+        })
+    },
     addCustomPreset: (preset) =>
       set((state) => ({
         customPresets: [preset, ...state.customPresets],

@@ -102,9 +102,6 @@ vi.mock("@/hooks/use-animation-player", () => ({
   AnimationPlayerProvider: ({ children }: { children: React.ReactNode }) =>
     children,
 }))
-vi.mock("@/components/editor/chrome-recommended-dialog", () => ({
-  ChromeRecommendedDialog: stub("chrome-recommended-dialog"),
-}))
 vi.mock("@/components/editor/top-bar", () => ({ TopBar: stub("top-bar") }))
 vi.mock("@/components/editor/effects-sidebar", () => ({
   EffectsSidebar: stub("effects-sidebar"),

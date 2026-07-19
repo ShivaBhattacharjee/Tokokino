@@ -307,7 +307,13 @@ function CanvasBackdropImpl({
   )
 
   return (
-    <>
+    // data-export-stack=underlay: video-media export composites the decoded
+    // frame between this backdrop and foreground overlays (text/lighting/…).
+    <div
+      data-export-stack="underlay"
+      className="pointer-events-none absolute inset-0"
+      aria-hidden
+    >
       {/*
         Background + patterns + noise form the blend group: the noise layer uses
         mix-blend-overlay and only ever needs to blend against these siblings.
@@ -572,7 +578,7 @@ function CanvasBackdropImpl({
           }}
         />
       ) : null}
-    </>
+    </div>
   )
 }
 

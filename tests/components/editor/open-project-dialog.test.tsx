@@ -1,9 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { OpenProjectDialog } from "@/components/editor/top-bar/open-project-dialog"
 import { buildPageItems } from "@/lib/pagination"
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}))
 
 /**
  * `OpenProjectDialog` — lists saved drafts fetched from /api/drafts and opens
@@ -240,19 +244,14 @@ describe("OpenProjectDialog", () => {
     expect(onOpenDraft.mock.calls[0]?.[0]).toBe("d1")
   })
 
-  it("shows download progress while opening a video draft", async () => {
+  it("shows an opening state while a draft is loading", async () => {
     vi.stubGlobal("fetch", mockFetch())
     let finish!: () => void
     const onOpenDraft = vi.fn(
-      (
-        _id: string,
-        onProgress?: (progress: { current: number; total: number }) => void
-      ) => {
-        onProgress?.({ current: 42, total: 100 })
-        return new Promise<void>((resolve) => {
+      () =>
+        new Promise<void>((resolve) => {
           finish = resolve
         })
-      }
     )
     const user = userEvent.setup()
     render(
@@ -270,11 +269,11 @@ describe("OpenProjectDialog", () => {
     )
     await user.click(screen.getByText("First Project").closest("button")!)
 
-    expect(screen.getByText("Downloading video 42%")).toBeInTheDocument()
+    expect(screen.getByText("Opening…")).toBeInTheDocument()
     finish()
   })
 
-  it("offers a delete control per draft", async () => {
+  it("offers an always-visible options menu per draft", async () => {
     vi.stubGlobal("fetch", mockFetch())
     render(
       <OpenProjectDialog
@@ -287,9 +286,141 @@ describe("OpenProjectDialog", () => {
     )
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Delete First Project" })
+        screen.getByRole("button", {
+          name: "Project options for First Project",
+        })
       ).toBeInTheDocument()
     )
+  })
+
+  it("exposes Rename and Delete inside the options menu", async () => {
+    vi.stubGlobal("fetch", mockFetch())
+    const user = userEvent.setup()
+    render(
+      <OpenProjectDialog
+        open
+        onOpenChange={() => {}}
+        currentDraftId={null}
+        onOpenDraft={() => {}}
+        onCreateNew={() => {}}
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByText("First Project")).toBeInTheDocument()
+    )
+    await user.click(
+      screen.getByRole("button", { name: "Project options for First Project" })
+    )
+    expect(
+      await screen.findByRole("menuitem", { name: "Rename" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument()
+  })
+
+  it("opens a rename dialog pre-filled with the current name", async () => {
+    vi.stubGlobal("fetch", mockFetch())
+    const user = userEvent.setup()
+    render(
+      <OpenProjectDialog
+        open
+        onOpenChange={() => {}}
+        currentDraftId={null}
+        onOpenDraft={() => {}}
+        onCreateNew={() => {}}
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByText("First Project")).toBeInTheDocument()
+    )
+    await user.click(
+      screen.getByRole("button", { name: "Project options for First Project" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "Rename" }))
+
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByText("Rename project")).toBeInTheDocument()
+    const input = within(dialog).getByRole<HTMLInputElement>("textbox")
+    expect(input.value).toBe("First Project")
+    // Unchanged name keeps the confirm disabled.
+    expect(
+      within(dialog).getByRole("button", { name: "Rename" })
+    ).toBeDisabled()
+  })
+
+  it("PATCHes the trimmed new name and updates the card optimistically", async () => {
+    const fetchMock = mockFetch()
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    render(
+      <OpenProjectDialog
+        open
+        onOpenChange={() => {}}
+        currentDraftId={null}
+        onOpenDraft={() => {}}
+        onCreateNew={() => {}}
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByText("First Project")).toBeInTheDocument()
+    )
+    await user.click(
+      screen.getByRole("button", { name: "Project options for First Project" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "Rename" }))
+
+    const dialog = await screen.findByRole("dialog")
+    const input = within(dialog).getByRole("textbox")
+    await user.clear(input)
+    await user.type(input, "  Renamed Project  ")
+    await user.click(within(dialog).getByRole("button", { name: "Rename" }))
+
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        (call) => (call[1] as RequestInit | undefined)?.method === "PATCH"
+      )
+      expect(patch).toBeTruthy()
+      expect(String(patch?.[0])).toBe("/api/drafts/d1")
+      expect(JSON.parse((patch?.[1] as RequestInit).body as string)).toEqual({
+        name: "Renamed Project",
+      })
+    })
+    expect(await screen.findByText("Renamed Project")).toBeInTheDocument()
+  })
+
+  it("deletes from the options menu after confirmation", async () => {
+    const fetchMock = mockFetch()
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    render(
+      <OpenProjectDialog
+        open
+        onOpenChange={() => {}}
+        currentDraftId={null}
+        onOpenDraft={() => {}}
+        onCreateNew={() => {}}
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByText("Second Project")).toBeInTheDocument()
+    )
+    await user.click(
+      screen.getByRole("button", { name: "Project options for Second Project" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }))
+
+    const alert = await screen.findByRole("alertdialog")
+    expect(
+      within(alert).getByText(/Delete .*Second Project/)
+    ).toBeInTheDocument()
+    await user.click(within(alert).getByRole("button", { name: "Delete" }))
+
+    await waitFor(() => {
+      const del = fetchMock.mock.calls.find(
+        (call) => (call[1] as RequestInit | undefined)?.method === "DELETE"
+      )
+      expect(del).toBeTruthy()
+      expect(String(del?.[0])).toBe("/api/drafts/d2")
+    })
   })
 
   it("creates a new project immediately when there is no unsaved work", async () => {

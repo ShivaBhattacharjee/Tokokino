@@ -104,6 +104,7 @@ export function TextElementView({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         data-editor-text-id={text.id}
+        data-export-stack="foreground"
         onClick={(e) => {
           e.stopPropagation()
           selectTextElement()

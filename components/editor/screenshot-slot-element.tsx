@@ -307,6 +307,7 @@ export function ScreenshotSlotRender({
       data-box-hover-target={previewMode ? undefined : ""}
       data-screenshot-slot-id={previewMode ? undefined : slot.id}
       data-editor-shadow-preview-scope={previewMode ? undefined : slot.id}
+      data-export-stack="foreground"
       onPointerDown={previewMode ? undefined : onPointerDown}
       onPointerMove={previewMode ? undefined : onPointerMove}
       onPointerUp={previewMode ? undefined : onPointerUp}

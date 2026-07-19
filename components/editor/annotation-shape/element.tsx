@@ -493,6 +493,7 @@ export function AnnotationShapeElement({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         data-annotation-shape-id={shape.id}
+        data-export-stack="foreground"
         style={{
           left: `var(--editor-position-x, ${shape.xPct}%)`,
           top: `var(--editor-position-y, ${shape.yPct}%)`,

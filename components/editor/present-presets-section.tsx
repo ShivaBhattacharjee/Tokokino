@@ -93,6 +93,7 @@ export function PresentPresetsSection({
   const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
   const addScreenshotSlot = useEditorStore((s) => s.addScreenshotSlot)
   const presetMotionCleanupRef = React.useRef<(() => void) | null>(null)
+  const renameOpsRef = React.useRef<Map<string, number>>(new Map())
   const tab = useEditorStore((s) => s.presetTab)
   const setTab = useEditorStore((s) => s.setPresetTab)
   const activeLayoutPresetId = useEditorStore((s) => s.activeLayoutPresetId)
@@ -105,8 +106,12 @@ export function PresentPresetsSection({
   )
   const customPresets = useEditorStore((s) => s.customPresets)
   const customPresetsLoaded = useEditorStore((s) => s.customPresetsLoaded)
+  const customPresetsLoading = useEditorStore((s) => s.customPresetsLoading)
   const setCustomPresets = useEditorStore((s) => s.setCustomPresets)
+  const clearCustomPresets = useEditorStore((s) => s.clearCustomPresets)
+  const loadCustomPresets = useEditorStore((s) => s.loadCustomPresets)
   const removeCustomPreset = useEditorStore((s) => s.removeCustomPreset)
+  const updateCustomPreset = useEditorStore((s) => s.updateCustomPreset)
   const activeCustomPresetId = useEditorStore((s) => s.activeCustomPresetId)
   const setActiveCustomPresetId = useEditorStore(
     (s) => s.setActiveCustomPresetId
@@ -131,7 +136,6 @@ export function PresentPresetsSection({
   >({})
   const { data: session, isPending: isAuthPending } = useSession()
   const userId = session?.user?.id ?? null
-  const [customPresetsLoading, setCustomPresetsLoading] = React.useState(false)
 
   const rememberBulkPresetUi = React.useCallback(
     (patch: Partial<CanvasPresetUi> & { tab: PresetTab }) => {
@@ -189,34 +193,21 @@ export function PresentPresetsSection({
   )
 
   React.useEffect(() => {
+    // Wait for session resolution — treating "auth pending" as logged-out used
+    // to mark an empty list as loaded, which flashed "No presets yet" between
+    // the skeleton and the real fetch.
+    if (isAuthPending) return
+
     if (!userId) {
-      setCustomPresets([])
+      clearCustomPresets()
       return
     }
-    let cancelled = false
-    queueMicrotask(() => {
-      if (!cancelled) setCustomPresetsLoading(true)
-    })
-    fetch("/api/presets", { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) return null
-        const body: { presets: CustomPresetSummary[] } = await res.json()
-        return body
-      })
-      .then((data) => {
-        if (cancelled || !data) return
-        setCustomPresets(data.presets)
-      })
-      .catch((err) => {
-        console.warn("Could not load custom presets", err)
-      })
-      .finally(() => {
-        if (!cancelled) setCustomPresetsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [userId, setCustomPresets])
+
+    // Store-level load dedupes across desktop + iPad sidebar mounts and is not
+    // cancelled by React Strict Mode remounts (which used to abort mid-flight
+    // and briefly leave a partial list on screen).
+    loadCustomPresets(userId)
+  }, [userId, isAuthPending, loadCustomPresets, clearCustomPresets])
 
   const handleDeleteCustomPreset = React.useCallback(
     async (id: string) => {
@@ -238,6 +229,39 @@ export function PresentPresetsSection({
       }
     },
     [customPresets, removeCustomPreset, setCustomPresets]
+  )
+  const handleRenameCustomPreset = React.useCallback(
+    async (id: string, name: string) => {
+      const trimmed = name.trim()
+      if (!trimmed) return
+      const target = customPresets.find((p) => p.id === id)
+      if (!target || target.name === trimmed) return
+      const previousName = target.name
+      const opId = (renameOpsRef.current.get(id) ?? 0) + 1
+      renameOpsRef.current.set(id, opId)
+      updateCustomPreset(id, { name: trimmed })
+      try {
+        const res = await fetch(`/api/presets/${id}`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed }),
+        })
+        if (!res.ok) {
+          throw new Error("Rename failed")
+        }
+        toast.success("Preset renamed")
+      } catch (err) {
+        console.error(err)
+        // Only roll back if no newer rename has superseded this one, so a
+        // stale failure can't clobber a later successful name.
+        if (renameOpsRef.current.get(id) === opId) {
+          updateCustomPreset(id, { name: previousName })
+          toast.error("Could not rename preset")
+        }
+      }
+    },
+    [customPresets, updateCustomPreset]
   )
   const copyCurrentLayout = React.useCallback(async () => {
     const capture = buildLayoutPresetCapture({
@@ -578,6 +602,7 @@ export function PresentPresetsSection({
             onApplyLayout={applyLayoutPreset}
             onApplyCustom={applyCustomPreset}
             onDeleteCustom={handleDeleteCustomPreset}
+            onRenameCustom={handleRenameCustomPreset}
           />
         )
 

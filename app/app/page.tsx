@@ -19,7 +19,6 @@ import { AnimationPlayerProvider } from "@/hooks/use-animation-player"
 import { Inspector } from "@/components/editor/inspector"
 import { IpadSidebar } from "@/components/editor/ipad-sidebar"
 import { MobileControls } from "@/components/editor/mobile-controls"
-import { ChromeRecommendedDialog } from "@/components/editor/chrome-recommended-dialog"
 import { TopBar } from "@/components/editor/top-bar"
 import { EditorProvider, useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
@@ -111,6 +110,33 @@ function EditorLayout() {
         <AnimatePresence>
           {isPreviewMode && (
             <motion.div
+              key="exit-preview"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="fixed top-4 left-1/2 z-50 -translate-x-1/2"
+            >
+              <Button
+                onClick={() => {
+                  setIsPreviewMode(false)
+                  setIsPreviewAutoScroll(false)
+                  setSettingsOpen(false)
+                }}
+                className="h-10 cursor-pointer border border-foreground/15 bg-background/80 px-4 text-foreground shadow-xl backdrop-blur-md hover:bg-background/95"
+              >
+                <RiEyeLine className="mr-2 size-4" />
+                Exit Preview
+                <kbd className="ml-2 rounded border border-foreground/15 bg-foreground/8 px-1.5 py-0.5 font-mono text-[10px] text-foreground/70">
+                  Esc
+                </kbd>
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {isPreviewMode && (isAnimateMode || hasMultipleCanvases) && (
+            <motion.div
+              key="preview-controls"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
@@ -192,7 +218,6 @@ function EditorLayout() {
                 )}
               </AnimatePresence>
 
-              {/* Bottom bar */}
               <div className="flex items-center gap-2">
                 {/* Animation preview → play/pause; slideshow controls make no
                     sense for a single animated canvas. */}
@@ -241,22 +266,6 @@ function EditorLayout() {
                     </button>
                   </div>
                 )}
-
-                {/* Exit Preview */}
-                <Button
-                  onClick={() => {
-                    setIsPreviewMode(false)
-                    setIsPreviewAutoScroll(false)
-                    setSettingsOpen(false)
-                  }}
-                  className="h-10 cursor-pointer border border-foreground/15 bg-background/80 px-4 text-foreground shadow-xl backdrop-blur-md hover:bg-background/95"
-                >
-                  <RiEyeLine className="mr-2 size-4" />
-                  Exit Preview
-                  <kbd className="ml-2 rounded border border-foreground/15 bg-foreground/8 px-1.5 py-0.5 font-mono text-[10px] text-foreground/70">
-                    Esc
-                  </kbd>
-                </Button>
               </div>
             </motion.div>
           )}
@@ -356,7 +365,6 @@ function EditorLayout() {
 export default function ScreenshotsPage() {
   return (
     <EditorProvider>
-      <ChromeRecommendedDialog />
       <EditorLayout />
     </EditorProvider>
   )

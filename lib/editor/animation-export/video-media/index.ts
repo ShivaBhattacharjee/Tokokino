@@ -3,11 +3,10 @@
  * downloadable video (MP4/WebM) or GIF, with all styling applied.
  *
  * The styled scene (background, shadow, frame, border, tilt, crop…) always
- * comes from an offscreen clone rasterized with html-to-image; how the moving
- * video pixels get in depends on the engine — see `frame-renderer.ts`, which
- * picks between compositing WebCodecs-decoded frames onto a one-off scene
- * raster (Safari/Firefox) and per-frame rasterization of a seeked `<video>`
- * (Chromium).
+ * comes from an offscreen clone rasterized once with html-to-image; decoded
+ * video frames are then composited in 2D (including CSS 3D tilt via projected
+ * quads). Per-frame foreignObject re-raster of a changing video overlay
+ * flickers on Safari — see `frame-renderer.ts`.
  *
  * This module wires those pieces together: plan the frames (`frames.ts`), build
  * the renderer, and hand it to the GIF (`encode-gif.ts`) or MP4/WebM
@@ -25,6 +24,7 @@ import type {
   WatermarkAssets,
 } from "../types"
 import {
+  AnimationExportAbortedError,
   animationMimeAndExt,
   createProgressReporter,
   even,
@@ -61,6 +61,7 @@ export function canvasIsVideoMedia(canvasId: string): boolean {
   return !!canvas && isVideoSrc(canvas.screenshot)
 }
 
+/** Capture → plan → decode → render → encode for a styled video canvas. */
 async function encodeVideoMedia(
   canvasId: string,
   options: VideoMediaExportOptions
@@ -91,10 +92,10 @@ async function encodeVideoMedia(
           ])
           return { logo, fontStack }
         })()
-
   // Offscreen clone of the styled canvas, rasterized per frame (handles tilt,
   // crop, frames, shadow — everything the DOM renders).
   const capture = await prepareAnimationCapture(canvasId, targetWidth)
+
   try {
     const cloneVideo = capture.node.querySelector("video")
     if (!cloneVideo) throw new Error("Video element not found in export clone")
@@ -121,12 +122,23 @@ async function encodeVideoMedia(
     // There we decode frames with WebCodecs (mediabunny). Chromium rasterizes the
     // <video> in SVG fine, so it keeps the DOM-seek path. If decode isn't possible
     // (codec not WebCodecs-decodable), fall back to the DOM path too.
-    const decoded = supportsObjectViewBox()
+    const useDomPath = supportsObjectViewBox()
+    const decoded = useDomPath
       ? null
       : await createDecodedFrameSource(canvas.screenshot, signal)
 
     const tilt = canvas.tilt
     const tilted = !!tilt && (tilt.rx !== 0 || tilt.ry !== 0 || tilt.rz !== 0)
+    // The composite renderer owns the decoded pixels. Re-apply media effects
+    // there, including inner lighting: Safari can otherwise mis-rasterize its
+    // CSS gradient through the foreground SVG pass.
+    const mediaFx = {
+      enhance: canvas.enhance,
+      innerLighting:
+        !supportsObjectViewBox() && canvas.backdrop.lighting.target === "inner"
+          ? canvas.backdrop.lighting
+          : null,
+    }
     const renderFrame = await createFrameRenderer({
       capture,
       video: cloneVideo,
@@ -134,6 +146,7 @@ async function encodeVideoMedia(
       tilted,
       plan,
       signal,
+      mediaFx,
     })
 
     try {

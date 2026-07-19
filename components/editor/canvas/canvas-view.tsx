@@ -1436,6 +1436,7 @@ function CanvasViewInner({
                     return style ? (
                       <div
                         aria-hidden
+                        data-export-stack="foreground"
                         className="pointer-events-none absolute inset-0 bg-cover bg-center"
                         style={{ ...style, zIndex: 200 }}
                       />
@@ -1453,6 +1454,7 @@ function CanvasViewInner({
                   <div
                     key={layer.id}
                     aria-hidden
+                    data-export-stack="foreground"
                     className="pointer-events-none absolute inset-0 bg-cover bg-center"
                     style={{ ...style, zIndex: 200 }}
                   />
@@ -1462,6 +1464,7 @@ function CanvasViewInner({
           ) : overlay.id !== null && overlay.position === "overlay" ? (
             <div
               aria-hidden
+              data-export-stack="foreground"
               className="pointer-events-none absolute inset-0 bg-cover bg-center"
               style={{
                 backgroundImage: `url("${overlayUrl(overlay.id)}")`,
