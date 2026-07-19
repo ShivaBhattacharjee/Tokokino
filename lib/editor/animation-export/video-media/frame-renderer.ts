@@ -63,12 +63,14 @@ export type { VideoMediaFx } from "./frame-inner-lighting"
 /**
  * Paint a decoded frame into a local buffer the size of the shell's layout box,
  * honoring object-fit/object-position and the media's own enhance filter.
+ * `media` is the element whose computed styles govern fit/position — the
+ * `<video>` here, or the `<img>` standing in for it in the Animate clone.
  */
-function paintFrameToLocalBox(
+export function paintFrameToLocalBox(
   frame: CanvasImageSource,
   localW: number,
   localH: number,
-  video: HTMLVideoElement,
+  media: HTMLElement,
   fw: number,
   fh: number,
   borderRadius = 0,
@@ -80,7 +82,7 @@ function paintFrameToLocalBox(
   const ctx = buf.getContext("2d", { willReadFrequently: true })
   if (!ctx) return null
 
-  const style = getComputedStyle(video)
+  const style = getComputedStyle(media)
   const fit = style.objectFit || "contain"
   const radius =
     borderRadius > 0
@@ -282,25 +284,39 @@ function overlayVideoFrameImage(
   }
 }
 
+/** Untransformed padded raster of a projected element, plus its geometry. */
+export type ProjectedElementTexture = {
+  texture: HTMLCanvasElement
+  /** Shadow margin baked around the border box, in root CSS px. */
+  pad: number
+  /** Padded box size, in root CSS px. */
+  boxW: number
+  boxH: number
+  /** The hidden media element's box relative to the padded box, root CSS px. */
+  mediaBox: { x: number; y: number; w: number; h: number } | null
+}
+
 /**
- * Rasterize one foreground element with its transform removed, then project it
- * ourselves onto its own quad.
+ * Rasterize one element with its transform removed, as a reusable texture.
  *
- * WebKit bakes a perspective transform flat inside foreignObject, so an overlay
- * that carries the media's tilt (inner lighting) comes back the wrong shape and
- * sits misaligned over the correctly-projected video. Capturing it untransformed
- * gives the raster nothing to flatten; the projection is then ours to do, with
- * the same maths the video goes through.
+ * WebKit bakes a perspective transform flat inside foreignObject, so a tilted
+ * box comes back the wrong shape. Capturing it untransformed gives the raster
+ * nothing to flatten; the projection is then ours to do (warpProjectedTexture).
+ * Splitting texture from warp lets a caller whose tilt *changes* per frame
+ * (Animate export) capture once and re-project cheaply.
+ *
+ * `hideMedia` keeps a per-frame media element (the Animate clone's video
+ * `<img>`) out of the texture and reports where its box sits, so the caller
+ * can paint decoded frames straight into the texture instead.
  */
-async function captureProjectedElement(
+export async function captureProjectedElementTexture(
   capture: AnimationCapture,
   layer: ProjectedLayer,
   scale: number,
-  width: number,
-  height: number,
   /** Foreground nodes inside `el` — they composite above the video, not here. */
-  excludeForeground: HTMLElement[] = []
-): Promise<HTMLCanvasElement | null> {
+  excludeForeground: HTMLElement[] = [],
+  hideMedia: HTMLElement | null = null
+): Promise<ProjectedElementTexture | null> {
   const { el, carrier, quad } = layer
 
   // box-shadow / drop-shadow paint outside the border box and are transformed
@@ -323,6 +339,8 @@ async function captureProjectedElement(
         f.style.visibility = prev
       }
     })
+  const prevMediaVisibility = hideMedia?.style.visibility
+  if (hideMedia) hideMedia.style.visibility = "hidden"
   // Neutralize the transform on the *carrier*: `el` may merely inherit it, and
   // clearing a child that reports transform:none would change nothing.
   const prevTransform = carrier.style.transform
@@ -342,12 +360,24 @@ async function captureProjectedElement(
   const placed = el.getBoundingClientRect()
   const cropX = Math.round((placed.left - rootRect.left - pad) * scale)
   const cropY = Math.round((placed.top - rootRect.top - pad) * scale)
+  const mediaBox = hideMedia
+    ? (() => {
+        const rect = hideMedia.getBoundingClientRect()
+        return {
+          x: rect.left - placed.left + pad,
+          y: rect.top - placed.top + pad,
+          w: rect.width,
+          h: rect.height,
+        }
+      })()
+    : null
 
   let raster: HTMLCanvasElement | null = null
   try {
     raster = await captureForegroundLayer(capture)
   } finally {
     carrier.style.transform = prevTransform
+    if (hideMedia) hideMedia.style.visibility = prevMediaVisibility ?? ""
     for (const restore of restoreHidden) restore()
     restoreVisibility()
   }
@@ -363,7 +393,17 @@ async function captureProjectedElement(
   const lctx = local.getContext("2d")
   if (!lctx) return null
   lctx.drawImage(raster, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+  return { texture: local, pad, boxW, boxH, mediaBox }
+}
 
+/** Project a captured texture onto `quad`, into a fresh width×height canvas. */
+export function warpProjectedTexture(
+  tex: Pick<ProjectedElementTexture, "texture" | "pad" | "boxW" | "boxH">,
+  quad: ProjectedLayer["quad"],
+  scale: number,
+  width: number,
+  height: number
+): HTMLCanvasElement | null {
   const out = document.createElement("canvas")
   out.width = width
   out.height = height
@@ -372,19 +412,43 @@ async function captureProjectedElement(
   // The padded box maps through the same matrix — it is linear, so points
   // outside the border box project just as correctly as the corners.
   const projectUV: UvProjectorH = (u, v) => {
-    const p = quad.projectH(u * boxW - pad, v * boxH - pad)
+    const p = quad.projectH(u * tex.boxW - tex.pad, v * tex.boxH - tex.pad)
     return { x: p.x * scale, y: p.y * scale, w: p.w }
   }
   const subdivisions = chooseQuadSubdivision(projectUV)
   drawImageToQuadWarp(
     octx,
-    local,
-    local.width,
-    local.height,
+    tex.texture,
+    tex.texture.width,
+    tex.texture.height,
     projectUV,
     subdivisions
   )
   return out
+}
+
+/**
+ * Rasterize one foreground element with its transform removed, then project it
+ * ourselves onto its own quad. Texture capture + warp in one step, for callers
+ * whose geometry is stable across frames.
+ */
+export async function captureProjectedElement(
+  capture: AnimationCapture,
+  layer: ProjectedLayer,
+  scale: number,
+  width: number,
+  height: number,
+  /** Foreground nodes inside `el` — they composite above the video, not here. */
+  excludeForeground: HTMLElement[] = []
+): Promise<HTMLCanvasElement | null> {
+  const tex = await captureProjectedElementTexture(
+    capture,
+    layer,
+    scale,
+    excludeForeground
+  )
+  if (!tex) return null
+  return warpProjectedTexture(tex, layer.quad, scale, width, height)
 }
 
 /**
@@ -396,7 +460,7 @@ async function captureProjectedElement(
  * stacks the two at their nearest common ancestor — the child on each branch is
  * what actually competes — by z-index, then document order.
  */
-function paintsAboveVideo(
+export function paintsAboveVideo(
   el: HTMLElement,
   video: HTMLElement,
   root: HTMLElement
@@ -443,7 +507,7 @@ function paintsAboveVideo(
  * `els` is passed explicitly so the caller can split the foreground by z-order —
  * layers ordered behind the screenshot are composited under the video instead.
  */
-async function buildForegroundLayer(
+export async function buildForegroundLayer(
   capture: AnimationCapture,
   els: HTMLElement[],
   scale: number,
@@ -512,7 +576,7 @@ async function buildForegroundLayer(
  * ancestor (`data-editor-shadow-filter-target`); it is neutralized here so the
  * on-top copy carries only the bezel, not a second phone-shaped shadow.
  */
-async function buildFrameChromeLayer(
+export async function buildFrameChromeLayer(
   capture: AnimationCapture,
   shell: HTMLElement,
   scale: number,

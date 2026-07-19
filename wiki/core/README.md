@@ -158,7 +158,7 @@ Details: [canvas.md](./canvas.md).
 Still / animation / video encode internals:
 
 - Shared capture prep: `lib/editor/export.ts` (`AnimationCapture`, asset rewrite, portrait DoF)
-- Keyframes: [animation-export.md](./animation-export.md)
+- Keyframes: [animation-export.md](./animation-export.md) (WebKit uses layered underlay/shell/warp when tilt flattens in FO)
 - Styled video: [video-export.md](./video-export.md)
 
 ```mermaid

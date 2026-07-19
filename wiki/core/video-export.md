@@ -138,11 +138,15 @@ flowchart TD
 | Concern | Module |
 |---|---|
 | Flat geometry from object-fit | `region.ts` |
-| CSS 3D → screen quads | `frame-geometry.ts` |
+| CSS 3D → screen quads | `frame-geometry.ts` (`collectProjectedLayers`, optional `includeFlat`) |
 | Seamless perspective warp | `warp-gl.ts` (avoids Canvas2D seam lattice) |
+| Untransformed texture + warp | `captureProjectedElementTexture` / `warpProjectedTexture` (exported; Animate reuses) |
+| Local media box paint | `paintFrameToLocalBox` (video or stand-in `<img>`) |
 | Inner lighting on WebKit | `frame-inner-lighting.ts` |
 | Canvas probes / copies | `frame-canvas-utils.ts` |
 | Stack show/hide | `export-stack.ts` |
+
+Animate-mode WebKit capture (`../webkit-layered-frame.ts`) reuses these primitives so a tilting shell can cache one untransformed texture and re-project each frame — see [animation-export.md](./animation-export.md#webkit-layered-capture-webkit-layered-frame).
 
 ---
 
@@ -195,8 +199,8 @@ flowchart LR
 |---|---|
 | `index.ts` | Orchestrate capture → plan → decode → render → encode |
 | `frames.ts` | `planFrames`, `blitFrame` |
-| `frame-renderer.ts` | Build `RenderFrame`; sandwich underlay / media / foreground |
-| `frame-geometry.ts` | Project CSS 3D layers; clip radius; warp dispatch |
+| `frame-renderer.ts` | Build `RenderFrame`; sandwich underlay / media / foreground; export texture/warp helpers for Animate |
+| `frame-geometry.ts` | Project CSS 3D layers; `includeFlat` for Animate zero-tilt continuity; clip radius; warp dispatch |
 | `warp-gl.ts` | WebGL perspective-correct quad warp |
 | `frame-inner-lighting.ts` | Paint inner lighting when CSS gradient breaks in FO |
 | `frame-canvas-utils.ts` | Opaque/non-black probes, canvas copy, shadow extent |
@@ -245,7 +249,8 @@ flowchart LR
 | Trigger | Video canvas, no visual keyframes | Animate clips present |
 | Capture mode | Legacy only | auto / fast / legacy |
 | Scene motion | Static styling; video pixels change | CSS / timeline changes every frame |
-| Video handling | Composite into fixed slot | JPEG `<img>` bridge inside animated tree |
+| Video handling | Composite into fixed slot | Plain: JPEG `<img>` bridge; WebKit layered: `getFrame` into cached shell + warp |
+| WebKit perspective | Once-raster underlay/FG + per-frame media warp | Same primitives via `webkit-layered-frame` (per-frame pose) |
 | Frame cap | None (GIF has pixel budget) | `MAX_FRAMES = 600` |
 | Audio | `prepareSourceAudio` | `prepareAnimationAudio` (segment-aware) |
 | Entry | `exportVideoMedia` | `exportAnimation*` |

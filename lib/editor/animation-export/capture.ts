@@ -18,6 +18,7 @@ import { blankFrame, isDrawImageSource, snapshotFrame } from "./draw-utils"
 import type { AnimationCaptureMode } from "./types"
 import { waitForPaint } from "./utils"
 import type { CloneVideoLayer } from "./video-layer"
+import { captureLayeredAnimationFrame } from "./webkit-layered-frame"
 
 /**
  * Resolve the frame-capture strategy and build it, honoring the requested mode.
@@ -378,15 +379,37 @@ export async function captureStableFrame(
   timeMs: number,
   videoLayer?: CloneVideoLayer | null
 ): Promise<HTMLCanvasElement> {
+  applyExportFrame(capture.node, canvas, globalAspect, clips, timeMs)
+
+  // WebKit flattens perspective inside the foreignObject raster, so a frame
+  // with a transformed media shell is composited from flat passes with the
+  // shell projected by hand. It draws decoded video pixels directly from the
+  // video layer, so it runs before (and instead of) the per-frame JPEG
+  // round-trip into the clone's <img>. Null on engines that raster
+  // perspective correctly or on failure — then the single-pass capture below
+  // runs. Deliberately does not feed lastCompleteCaptureFrame: its passes
+  // retry internally, and holding one of its frames could hand a mismatched
+  // fallback to the plain path's incomplete-capture recovery.
+  const layered = await captureLayeredAnimationFrame(capture, {
+    timelineMs: timeMs,
+    videoLayer,
+    enhance: canvas.enhance,
+  }).catch(() => null)
+  if (layered) {
+    const frame = snapshotFrame(layered, capture.width, capture.height)
+    drawPortraitDepthOfField(frame, capture.node)
+    return frame
+  }
+
   // Non-null only for a video canvas: paints this frame's decoded pixels into
   // the clone, which otherwise rasterizes the video's box empty.
   await videoLayer?.paint(timeMs)
-  applyExportFrame(capture.node, canvas, globalAspect, clips, timeMs)
   // The fast path serializes the clone's inline styles synchronously, so it
   // normally needs no browser paint between mutation and capture. A video layer
   // is different: its PNG data URL was just swapped into an <img>, and WebKit
   // can serialize the old/transparent compositor state until the next paint.
   if (capture.needsPaint || videoLayer) await waitForPaint()
+
   let raw: unknown
   try {
     raw = await capture.captureFrame()

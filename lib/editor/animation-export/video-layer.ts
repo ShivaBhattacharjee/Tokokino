@@ -79,6 +79,14 @@ export function resolveVideoSourceTimeMs(
 export type CloneVideoLayer = {
   /** Paint the frame the timeline shows at `timelineMs`. Call before capture. */
   paint: (timelineMs: number) => Promise<void>
+  /**
+   * The decoded source frame at `timelineMs`, without the JPEG round-trip into
+   * the clone's `<img>` — for callers that composite the pixels themselves.
+   * Holds the last decoded frame outside every clip, like `paint`.
+   */
+  getFrame: (timelineMs: number) => Promise<CanvasImageSource | null>
+  /** The `<img>` standing in for the serialized `<video>` in the clone. */
+  mediaElement: HTMLImageElement
   /** The source clip's real length — what the trim model is clamped against. */
   sourceDurationMs: number
   cleanup: () => void
@@ -102,6 +110,7 @@ const VIDEO_ONLY_ATTRIBUTES = new Set([
  */
 function replaceVideoWithFrameImage(video: HTMLVideoElement): {
   paint: (frame: CanvasImageSource) => Promise<boolean>
+  image: HTMLImageElement
 } | null {
   const image = document.createElement("img")
   image.alt = ""
@@ -120,6 +129,7 @@ function replaceVideoWithFrameImage(video: HTMLVideoElement): {
   video.replaceWith(image)
 
   return {
+    image,
     paint: async (frame) => {
       const width = "width" in frame ? Number(frame.width) : 0
       const height = "height" in frame ? Number(frame.height) : 0
@@ -211,6 +221,7 @@ export async function prepareCloneVideoLayer({
     Math.max(0, Math.min(...firstClip.map((clip) => clip.startMs)))
   )
 
+  let lastDecodedFrame: CanvasImageSource | null = null
   return {
     paint: async (timelineMs) => {
       const sourceMs = resolveVideoSourceTimeMs(
@@ -221,6 +232,19 @@ export async function prepareCloneVideoLayer({
       // Outside every clip — hold whatever frame is already painted.
       if (sourceMs !== null) await paintSourceMs(sourceMs)
     },
+    getFrame: async (timelineMs) => {
+      const sourceMs = resolveVideoSourceTimeMs(
+        videoClips,
+        timelineMs,
+        sourceDurationMs
+      )
+      if (sourceMs !== null) {
+        const frame = await decoded.getFrameAt(sourceMs / 1000)
+        if (frame) lastDecodedFrame = frame
+      }
+      return lastDecodedFrame
+    },
+    mediaElement: frameImage.image,
     sourceDurationMs,
     cleanup: () => decoded.cleanup(),
   }

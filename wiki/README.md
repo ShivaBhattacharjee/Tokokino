@@ -11,8 +11,8 @@ Engineering notes for how major subsystems fit together. Not product docs; not s
 | [core/drafts.md](./core/drafts.md) | Local IndexedDB autosave + cloud draft save / open |
 | [core/presets.md](./core/presets.md) | Custom preset save / load / apply |
 | [core/share.md](./core/share.md) | Share image, animation, video + public playback |
-| [core/animation-export.md](./core/animation-export.md) | Keyframe / Animate-mode encode (`exportAnimation`) |
-| [core/video-export.md](./core/video-export.md) | Styled video-media encode (`exportVideoMedia`) |
+| [core/animation-export.md](./core/animation-export.md) | Keyframe / Animate-mode encode (`exportAnimation`), incl. WebKit layered capture |
+| [core/video-export.md](./core/video-export.md) | Styled video-media encode (`exportVideoMedia`); shared geometry/warp helpers |
 
 ## Conventions
 

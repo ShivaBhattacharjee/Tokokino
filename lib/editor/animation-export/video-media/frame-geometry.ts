@@ -289,10 +289,18 @@ export function projectionFor(
  * which is what makes a box bend. `matrix3d` is a cheap pre-filter (2D
  * transforms serialize as `matrix`).
  *
+ * `includeFlat` keeps the zero-tilt hits too (their projection is exact — an
+ * axis-aligned quad). The Animate export uses it so a shell whose tilt animates
+ * through 0 stays on one pipeline for every frame instead of flip-flopping
+ * between projected and raw raster.
+ *
  * Nested hits are dropped: projecting an ancestor already carries its subtree,
  * and projecting both would apply the transform twice.
  */
-export function collectProjectedLayers(root: HTMLElement): ProjectedLayer[] {
+export function collectProjectedLayers(
+  root: HTMLElement,
+  options: { includeFlat?: boolean } = {}
+): ProjectedLayer[] {
   const candidates = Array.from(root.querySelectorAll<HTMLElement>("*")).filter(
     (el) => getComputedStyle(el).transform.startsWith("matrix3d(")
   )
@@ -302,7 +310,9 @@ export function collectProjectedLayers(root: HTMLElement): ProjectedLayer[] {
   const layers: ProjectedLayer[] = []
   for (const el of outermost) {
     const quad = projectElementQuad(root, el)
-    if (quad?.hasPerspective) layers.push({ el, carrier: el, quad })
+    if (quad && (quad.hasPerspective || options.includeFlat)) {
+      layers.push({ el, carrier: el, quad })
+    }
   }
   return layers
 }
