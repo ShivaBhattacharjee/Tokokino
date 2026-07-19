@@ -61,7 +61,7 @@ let registered = false
  * (profile-0, 8-bit, non-monochrome 4:2:0). Codec string is
  * `av01.P.LLT.DD[.M.CCC…]`; chroma fields are optional and default to 4:2:0.
  */
-const isSupportedAv1Profile = (config: VideoDecoderConfig) =>
+export const isSupportedAv1Profile = (config: VideoDecoderConfig) =>
   /^av01\.0\.\d{2}[MH]\.08(?:\.0\.11\d.*)?$/.test(config.codec)
 
 /** Copy one Y/U/V plane into a tightly packed I420 buffer at `offset`. */

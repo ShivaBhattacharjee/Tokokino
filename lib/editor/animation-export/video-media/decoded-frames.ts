@@ -11,7 +11,10 @@ import {
   type WrappedCanvas,
 } from "mediabunny"
 
-import { registerDav1dAv1Decoder } from "./dav1d-av1-decoder"
+import {
+  isSupportedAv1Profile,
+  registerDav1dAv1Decoder,
+} from "./dav1d-av1-decoder"
 import { AnimationExportAbortedError, throwIfAborted } from "../utils"
 
 export type DecodedFrameSource = {
@@ -67,10 +70,13 @@ export async function createDecodedFrameSource(
     }
 
     // Mediabunny gives custom decoders precedence, so only register dav1d when
-    // native AV1 support has been explicitly rejected.
+    // native AV1 support has been explicitly rejected. Only treat this as a
+    // dav1d fallback attempt when the profile is one dav1d claims (8-bit
+    // Main/0 4:2:0); unsupported AV1 profiles return null so the caller can
+    // fall back to the DOM-video path.
     if (!nativeCanDecode && codec === "av1") {
       registerDav1dAv1Decoder()
-      usingDav1dFallback = true
+      usingDav1dFallback = !!config && isSupportedAv1Profile(config)
     }
 
     if (!(await track.canDecode())) {
