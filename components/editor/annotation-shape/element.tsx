@@ -4,11 +4,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { RiRefreshLine } from "@remixicon/react"
 
-import {
-  type AnnotationShape,
-  useEditor,
-  useEditorStore,
-} from "@/lib/editor/store"
+import { type AnnotationShape, useEditor } from "@/lib/editor/store"
 import {
   clearElementLivePosition,
   elementPositionVars,
@@ -94,6 +90,7 @@ export function AnnotationShapeElement({
   previewMode?: boolean
 }) {
   const {
+    id: canvasScopeId,
     selectedAnnotationShapeId,
     setSelectedAnnotationShapeId,
     setSelectedTextId,
@@ -107,11 +104,6 @@ export function AnnotationShapeElement({
   const isSelected = selectedAnnotationShapeId === shape.id
   const dashArray = lineDashArray(shape.lineStyle)
   const positionVars = elementPositionVars(shape.id)
-  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
-  const activeCanvasIdRef = React.useRef(activeCanvasId)
-  React.useEffect(() => {
-    activeCanvasIdRef.current = activeCanvasId
-  })
 
   const elRef = React.useRef<HTMLDivElement>(null)
   const selectionChromeRef = React.useRef<HTMLDivElement>(null)
@@ -245,7 +237,7 @@ export function AnnotationShapeElement({
     // shape tracks the drag. The selection chrome is canvas-only UI and never
     // renders in a preview, so it keeps its direct inline write.
     setElementLivePosition(
-      livePreviewRoots(activeCanvasIdRef.current),
+      livePreviewRoots(canvasScopeId),
       shape.id,
       nextX,
       nextY
@@ -269,7 +261,7 @@ export function AnnotationShapeElement({
         xPct: drag.nextXPct,
         yPct: drag.nextYPct,
       })
-      const roots = livePreviewRoots(activeCanvasIdRef.current)
+      const roots = livePreviewRoots(canvasScopeId)
       requestAnimationFrame(() => clearElementLivePosition(roots, shape.id))
     }
     onCenterGuideChange?.({ x: false, y: false })

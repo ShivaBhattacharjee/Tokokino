@@ -31,7 +31,6 @@ import {
   type AssetFilter,
   assetFilterCss,
   useEditor,
-  useEditorStore,
 } from "@/lib/editor/store"
 import {
   clearElementLivePosition,
@@ -88,6 +87,7 @@ export function AssetElementView({
   previewMode?: boolean
 }) {
   const {
+    id: canvasScopeId,
     selectedAssetId,
     setSelectedAssetId,
     setSelectedTextId,
@@ -101,11 +101,6 @@ export function AssetElementView({
   const isSelected = selectedAssetId === asset.id
 
   const positionVars = elementPositionVars(asset.id)
-  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
-  const activeCanvasIdRef = React.useRef(activeCanvasId)
-  React.useEffect(() => {
-    activeCanvasIdRef.current = activeCanvasId
-  })
 
   const elRef = React.useRef<HTMLDivElement>(null)
   const imgRef = React.useRef<HTMLImageElement>(null)
@@ -212,7 +207,7 @@ export function AssetElementView({
     // Broadcasting them from the canvas roots (rather than this element's own
     // inline style) also carries the drag into the preset thumbnails' copy.
     setElementLivePosition(
-      livePreviewRoots(activeCanvasIdRef.current),
+      livePreviewRoots(canvasScopeId),
       asset.id,
       nextX,
       nextY
@@ -231,7 +226,7 @@ export function AssetElementView({
       })
       // Clear a frame later so the committed value takes over from the var
       // without a one-frame jump back to where the drag started.
-      const roots = livePreviewRoots(activeCanvasIdRef.current)
+      const roots = livePreviewRoots(canvasScopeId)
       requestAnimationFrame(() => clearElementLivePosition(roots, asset.id))
     }
     dragRef.current = null

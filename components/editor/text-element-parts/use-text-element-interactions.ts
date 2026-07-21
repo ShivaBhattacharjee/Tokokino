@@ -11,7 +11,6 @@ import {
   type TextElement,
   pickContrastColorAtPosition,
   useEditor,
-  useEditorStore,
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 
@@ -39,6 +38,7 @@ export function useTextElementInteractions({
   onCenterGuideChange,
 }: Pick<TextElementViewProps, "text" | "canvasRef" | "onCenterGuideChange">) {
   const {
+    id: canvasScopeId,
     canvasZoom,
     selectedTextId,
     setSelectedTextId,
@@ -89,15 +89,14 @@ export function useTextElementInteractions({
   const bulkEditModeRef = React.useRef(bulkEditMode)
   const bulkViewportZoomRef = React.useRef(bulkViewportZoom)
   const onCenterGuideChangeRef = React.useRef(onCenterGuideChange)
-  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
-  const activeCanvasIdRef = React.useRef(activeCanvasId)
+  const canvasScopeIdRef = React.useRef(canvasScopeId)
   React.useEffect(() => {
     textRef.current = text
     canvasZoomRef.current = canvasZoom
     bulkEditModeRef.current = bulkEditMode
     bulkViewportZoomRef.current = bulkViewportZoom
     onCenterGuideChangeRef.current = onCenterGuideChange
-    activeCanvasIdRef.current = activeCanvasId
+    canvasScopeIdRef.current = canvasScopeId
   })
 
   const pointerScale = React.useCallback(() => {
@@ -380,7 +379,7 @@ export function useTextElementInteractions({
       // Broadcast rather than writing this element's inline style, so the
       // preset thumbnails' copy of this text follows the drag too.
       setElementLivePosition(
-        livePreviewRoots(activeCanvasIdRef.current),
+        livePreviewRoots(canvasScopeIdRef.current),
         textRef.current.id,
         clampedX,
         clampedY
@@ -447,7 +446,7 @@ export function useTextElementInteractions({
       // Clear a frame after the commit paints, so the committed xPct/yPct
       // takes over from the var without a one-frame jump back to the old spot.
       const textId = textRef.current.id
-      const roots = livePreviewRoots(activeCanvasIdRef.current)
+      const roots = livePreviewRoots(canvasScopeIdRef.current)
       if (typeof requestAnimationFrame === "undefined") {
         clearElementLivePosition(roots, textId)
       } else {
