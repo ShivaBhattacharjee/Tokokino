@@ -141,7 +141,9 @@ export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   overlay: canvas.overlay,
   border: canvas.border,
   borderRadius: canvas.borderRadius,
-  crop: canvas.lastCropRegion ?? undefined,
+  // null (not undefined) so a clip with no crop stays distinguishable from a
+  // pose captured before crop animated — see poseCrop.
+  crop: canvas.lastCropRegion,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
@@ -161,6 +163,15 @@ export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
     ])
   ),
 })
+
+/**
+ * Resolve a pose's crop against the live one. Poses captured before crop
+ * animated omit the key entirely (undefined) and inherit the live crop; an
+ * explicit null means this clip has no crop and must NOT inherit one, or
+ * clearing a crop would come back the moment another clip applied one.
+ */
+const poseCrop = (pose: ClipBaseline, live: CropRegion | null) =>
+  pose.crop !== undefined ? pose.crop : live
 
 /**
  * Load a clip's pose onto the canvas's live/committed style so the inspector and
@@ -188,8 +199,7 @@ const applyPoseToCanvas = (
   border: pose.border ?? canvas.border,
   // Fall back to the live value for poses captured before radius animated.
   borderRadius: pose.borderRadius ?? canvas.borderRadius,
-  // Fall back to the live value for poses captured before crop animated.
-  lastCropRegion: pose.crop ?? canvas.lastCropRegion,
+  lastCropRegion: poseCrop(pose, canvas.lastCropRegion),
   backdrop: {
     ...canvas.backdrop,
     effects: pose.backdropEffects,
@@ -484,10 +494,7 @@ const resolveKeyframePose = (
     pattern: mainReveal("pattern", (p) => p.pattern ?? canvas.backdrop.pattern),
     overlay: mainReveal("overlay", (p) => p.overlay ?? canvas.overlay),
     border: mainReveal("border", (p) => p.border ?? canvas.border),
-    crop: mainReveal(
-      "crop",
-      (p) => p.crop ?? canvas.lastCropRegion ?? undefined
-    ),
+    crop: mainReveal("crop", (p) => poseCrop(p, canvas.lastCropRegion)),
     borderRadius: main(
       "borderRadius",
       (p) => p.borderRadius ?? canvas.borderRadius,

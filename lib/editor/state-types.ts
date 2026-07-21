@@ -445,7 +445,7 @@ export type ClipBaseline = {
    * fixed for the encoder; animating this pans/zooms the visible window inside
    * an unchanged box.
    */
-  crop?: CropRegion
+  crop?: CropRegion | null
   slots: Record<string, ClipSlotPose>
 }
 
