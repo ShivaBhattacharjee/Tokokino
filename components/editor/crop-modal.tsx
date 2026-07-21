@@ -36,12 +36,36 @@ async function urlToFile(url: string, filename: string): Promise<File> {
 }
 
 /**
+ * Where to seek for the crop dialog's still preview: the playhead the user is
+ * cropping against, clamped inside the clip. Only when there is no usable
+ * playhead does it fall back to a small nudge off zero — decoding at exactly 0
+ * yields a black/empty frame on some codecs, which is why the original code
+ * always seeked there, and why cropping six seconds in framed the wrong shot.
+ */
+export function posterSeekTime(atSec: number, duration: number): number {
+  const fallback = Math.min(0.1, duration / 2)
+  if (!Number.isFinite(atSec) || atSec <= 0) return fallback
+  if (!(duration > 0)) return atSec
+  // Never land ON the final boundary — seeking to exactly `duration` decodes
+  // past the last frame and paints black.
+  return Math.min(atSec, Math.max(0, duration - 0.01))
+}
+
+/**
  * Grab a still poster frame from a video src so react-image-crop (which is
  * image-only) has something to draw the crop handles over. The returned frame
  * is only used for handle placement — the video itself is never re-encoded; the
  * caller applies the resulting CropRegion at render time.
+ *
+ * `atSec` is the playhead the user is cropping against. It matters: framing a
+ * crop on frame 0 while the canvas shows six seconds in means placing the
+ * handles over content that isn't on screen.
  */
-async function videoPosterFile(url: string, filename: string): Promise<File> {
+async function videoPosterFile(
+  url: string,
+  filename: string,
+  atSec = 0
+): Promise<File> {
   const video = document.createElement("video")
   video.src = url
   video.muted = true
@@ -63,9 +87,12 @@ async function videoPosterFile(url: string, filename: string): Promise<File> {
       reject(new Error("video load failed"))
     }
     const onLoaded = () => {
-      // Seek slightly in to avoid a black/empty first frame on some codecs.
-      const target = Math.min(0.1, (video.duration || 0) / 2)
-      if (Number.isFinite(target) && target > 0 && video.currentTime === 0) {
+      const target = posterSeekTime(atSec, video.duration || 0)
+      if (
+        Number.isFinite(target) &&
+        target > 0 &&
+        video.currentTime !== target
+      ) {
         video.onseeked = () => {
           cleanup()
           resolve()
@@ -119,6 +146,7 @@ export function CropModal({
   screenshotUrl,
   initialRegion,
   targetAspect,
+  posterTimeSec,
   onCrop,
 }: {
   open: boolean
@@ -126,6 +154,8 @@ export function CropModal({
   screenshotUrl: string | null
   initialRegion?: CropRegion | null
   targetAspect?: number | null
+  /** Video only: the playhead the still preview should show. */
+  posterTimeSec?: number | null
   onCrop: (croppedBase64: string, region: CropRegion) => void
 }) {
   const safeTargetAspect =
@@ -178,13 +208,21 @@ export function CropModal({
     }
   }, [open, screenshotUrl, isVideo])
 
+  // Latched rather than a dependency of the poster effect below: the poster is
+  // the frame that was on screen when the dialog opened, and re-decoding it
+  // every time the playhead moves would fight the user's crop drag.
+  const posterTimeRef = React.useRef(0)
+  React.useEffect(() => {
+    posterTimeRef.current = posterTimeSec ?? 0
+  })
+
   React.useEffect(() => {
     if (!open || !screenshotUrl) return
     if (!isVideo && isDataUrl(screenshotUrl)) return
 
     let cancelled = false
     const loader = isVideo
-      ? videoPosterFile(screenshotUrl, "poster.png")
+      ? videoPosterFile(screenshotUrl, "poster.png", posterTimeRef.current)
       : urlToFile(screenshotUrl, "screenshot.png")
     void loader
       .then((file) => {

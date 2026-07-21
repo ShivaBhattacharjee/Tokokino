@@ -34,6 +34,7 @@ import {
   useEditor,
   useEditorStore,
 } from "@/lib/editor/store"
+import { useVideoRegistry } from "@/lib/editor/video-registry"
 import {
   computeCropTarget,
   cropMediaObjectStyle,
@@ -189,6 +190,7 @@ function CanvasViewInner({
   } = useEditor()
   const scopeId = useCanvasScopeId()
   const isCanvasPreview = useCanvasPreviewMode()
+  const registeredVideos = useVideoRegistry((s) => s.videos)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
@@ -1329,6 +1331,13 @@ function CanvasViewInner({
           screenshotUrl={originalScreenshot ?? screenshot}
           initialRegion={mainCropRequest?.initialRegion}
           targetAspect={mainCropRequest?.aspect}
+          // Read at the render that opens the dialog, so the still preview is
+          // the frame the canvas is actually showing rather than the clip's
+          // first frame. Applies in Animate mode too — the playhead drives this
+          // same element there.
+          posterTimeSec={
+            scopeId ? (registeredVideos[scopeId]?.currentTime ?? null) : null
+          }
           onCrop={(cropped, region) => {
             // Video can't be re-encoded client-side — store a non-destructive
             // render-time crop region instead of a baked bitmap.
