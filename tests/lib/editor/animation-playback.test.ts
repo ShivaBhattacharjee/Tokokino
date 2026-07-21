@@ -452,3 +452,131 @@ describe("cropRegionBetween", () => {
     ).toEqual(to)
   })
 })
+
+describe("return to default (release)", () => {
+  const num = (from: number, to: number, p: number) => lerp(from, to, p)
+  const linear = (t: number) => t
+  // A frame that reaches 10 over [0,1000], then unwinds to rest across 1000ms.
+  const releasing = [
+    {
+      startMs: 0,
+      durationMs: 1000,
+      value: 10,
+      ease: linear,
+      releaseMs: 1000,
+      releaseEase: linear,
+    },
+  ]
+
+  it("sampleKeyframes still holds when a frame has no release", () => {
+    const holding = [{ startMs: 0, durationMs: 1000, value: 10, ease: linear }]
+    expect(sampleKeyframes(holding, 5000, 0, num)).toBe(10)
+    expect(
+      sampleKeyframes(
+        holding.map((f) => ({ ...f, releaseMs: 0 })),
+        5000,
+        0,
+        num
+      )
+    ).toBe(10)
+  })
+
+  it("sampleKeyframes sits on the pose the instant the window ends", () => {
+    expect(sampleKeyframes(releasing, 1000, 0, num)).toBeCloseTo(10, 5)
+  })
+
+  it("sampleKeyframes eases back toward rest across the release", () => {
+    expect(sampleKeyframes(releasing, 1500, 0, num)).toBeCloseTo(5, 5)
+    expect(sampleKeyframes(releasing, 1750, 0, num)).toBeCloseTo(2.5, 5)
+  })
+
+  it("sampleKeyframes lands exactly on rest and stays there", () => {
+    expect(sampleKeyframes(releasing, 2000, 0, num)).toBeCloseTo(0, 5)
+    expect(sampleKeyframes(releasing, 99000, 0, num)).toBeCloseTo(0, 5)
+  })
+
+  it("returns to a non-zero rest, not to zero", () => {
+    expect(sampleKeyframes(releasing, 2000, 4, num)).toBeCloseTo(4, 5)
+  })
+
+  it("releases into a gap rather than holding through it", () => {
+    const frames = [
+      ...releasing,
+      { startMs: 4000, durationMs: 1000, value: 20, ease: linear },
+    ]
+    expect(sampleKeyframes(frames, 1500, 0, num)).toBeCloseTo(5, 5)
+    expect(sampleKeyframes(frames, 3000, 0, num)).toBeCloseTo(0, 5)
+  })
+
+  it("a next frame butted against the release still departs from the full pose", () => {
+    // Chain continuity: B starts the instant A ends, so A has released nothing.
+    const frames = [
+      ...releasing,
+      { startMs: 1000, durationMs: 1000, value: 20, ease: linear },
+    ]
+    expect(sampleKeyframes(frames, 1000, 0, num)).toBeCloseTo(10, 5)
+    expect(sampleKeyframes(frames, 1500, 0, num)).toBeCloseTo(15, 5)
+  })
+
+  it("a next frame starting mid-release departs from the decayed value", () => {
+    // B starts at 1500 — half of A's release, so A reads 5, not 10.
+    const frames = [
+      ...releasing,
+      { startMs: 1500, durationMs: 1000, value: 20, ease: linear },
+    ]
+    expect(sampleKeyframes(frames, 1500, 0, num)).toBeCloseTo(5, 5)
+    expect(sampleKeyframes(frames, 2000, 0, num)).toBeCloseTo(12.5, 5)
+  })
+
+  it("clipsProgressAt unwinds to 0 after a releasing clip", () => {
+    const clips = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "linear",
+        returnToDefault: true,
+      }),
+    ]
+    expect(clipsProgressAt(clips, 1000)).toBeCloseTo(1, 5)
+    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(0.5, 5)
+    expect(clipsProgressAt(clips, 2000)).toBeCloseTo(0, 5)
+    expect(clipsProgressAt(clips, 9000)).toBeCloseTo(0, 5)
+  })
+
+  it("clipsProgressAt unwinds in a gap that follows a releasing clip", () => {
+    const clips = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "linear",
+        returnToDefault: true,
+      }),
+      clip({ id: "b", startMs: 6000, durationMs: 1000 }),
+    ]
+    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(0.5, 5)
+    expect(clipsProgressAt(clips, 4000)).toBeCloseTo(0, 5)
+  })
+
+  it("clipsProgressAt keeps holding for a clip that does not release", () => {
+    const clips = [clip({ id: "a", startMs: 0, durationMs: 1000 })]
+    expect(clipsProgressAt(clips, 9000)).toBe(1)
+  })
+
+  it("speed shortens the release window along with the transition", () => {
+    const clips = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "linear",
+        speed: 2,
+        returnToDefault: true,
+      }),
+    ]
+    // Active (and so release) is 500ms: fully unwound 500ms past the window.
+    expect(clipsProgressAt(clips, 1250)).toBeCloseTo(0.5, 5)
+    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(0, 5)
+  })
+})

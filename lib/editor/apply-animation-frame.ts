@@ -88,7 +88,11 @@ import {
   cropRegionRatio,
   cropViewBoxValue,
 } from "@/lib/editor/crop-utils"
-import { clipProgressEase } from "@/lib/editor/clip-easing"
+import {
+  clipProgressEase,
+  clipReleaseEase,
+  clipReleaseMs,
+} from "@/lib/editor/clip-easing"
 import { captureClipPose } from "@/lib/editor/store"
 import type {
   AnimationClip,
@@ -402,6 +406,8 @@ export function applyAnimationFrameAtTime({
           durationMs: c.durationMs,
           value: value(poseOf(c)),
           ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
         }))
 
     const restFor = <V>(
@@ -519,6 +525,8 @@ export function applyAnimationFrameAtTime({
           durationMs: c.durationMs,
           value: pointFor(pz.screenshotPosition, pz.screenshotOffset),
           ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
         }
       })
       const posRest =
@@ -866,6 +874,8 @@ export function applyAnimationFrameAtTime({
             durationMs: c.durationMs,
             value: { tilt: sp.tilt, rotation: sp.rotation },
             ease: clipProgressEase(c),
+            releaseMs: clipReleaseMs(c),
+            releaseEase: clipReleaseEase(c),
           }
         }),
       playheadMs,
@@ -895,6 +905,8 @@ export function applyAnimationFrameAtTime({
           durationMs: c.durationMs,
           value: slotPoseOf(c).scale,
           ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
         })),
       playheadMs,
       100,
@@ -925,6 +937,8 @@ export function applyAnimationFrameAtTime({
               yPct: sp.yPct ?? slot.yPct,
             },
             ease: clipProgressEase(c),
+            releaseMs: clipReleaseMs(c),
+            releaseEase: clipReleaseEase(c),
           }
         }),
         playheadMs,
@@ -948,6 +962,8 @@ export function applyAnimationFrameAtTime({
           durationMs: c.durationMs,
           value: slotPoseOf(c).shadow ?? INVISIBLE_SHADOW,
           ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
         })),
       playheadMs,
       INVISIBLE_SHADOW
@@ -989,6 +1005,8 @@ export function applyAnimationFrameAtTime({
           durationMs: c.durationMs,
           value: slotPoseOf(c).border ?? committedBorder,
           ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
         })),
       playheadMs,
       slotRestFor("border", (sp) => sp?.border, INVISIBLE_BORDER),
@@ -1011,6 +1029,8 @@ export function applyAnimationFrameAtTime({
           durationMs: c.durationMs,
           value: slotPoseOf(c).borderRadius ?? committedRadius,
           ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
         })),
       playheadMs,
       slotRestFor("borderRadius", (sp) => sp?.borderRadius, committedRadius),
@@ -1031,6 +1051,8 @@ export function applyAnimationFrameAtTime({
           durationMs: c.durationMs,
           value: slotPoseOf(c).padding ?? committedPadding,
           ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
         })),
       playheadMs,
       slotRestFor("padding", (sp) => sp?.padding, committedPadding),
@@ -1051,6 +1073,8 @@ export function applyAnimationFrameAtTime({
         durationMs: c.durationMs,
         value: slotPoseOf(c).lighting ?? REST_LIGHTING,
         ease: clipProgressEase(c),
+        releaseMs: clipReleaseMs(c),
+        releaseEase: clipReleaseEase(c),
       }))
     if (slotLightingFrames.length > 0) {
       const restBase = slotRestFor(

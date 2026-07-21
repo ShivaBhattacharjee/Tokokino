@@ -2884,6 +2884,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             baseline: snapshot,
             // A fresh keyframe owns nothing until you edit an effect on it.
             effects: [],
+            // Set explicitly rather than leaning on the undefined default: new
+            // clips unwind after their window, drafts saved before the release
+            // existed keep holding their pose.
+            returnToDefault: true,
           }
           return {
             animation: { ...animation, clips: [...animation.clips, clip] },

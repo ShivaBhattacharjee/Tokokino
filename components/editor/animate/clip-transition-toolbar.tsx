@@ -9,10 +9,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
 import {
   CLIP_EASING_KINDS,
   CLIP_EASING_LABELS,
   clipEasingKind,
+  clipReturnsToDefault,
   clipSpeed,
   DEFAULT_CLIP_EASING,
   DEFAULT_CLIP_SPEED,
@@ -96,8 +98,14 @@ function TransitionPanel({
   const speed = clipSpeed(clip)
   const [hovered, setHovered] = React.useState<ClipEasingKind | null>(null)
 
+  const returns = clipReturnsToDefault(clip)
+
   const reset = () =>
-    onUpdate({ easing: DEFAULT_CLIP_EASING, speed: DEFAULT_CLIP_SPEED })
+    onUpdate({
+      easing: DEFAULT_CLIP_EASING,
+      speed: DEFAULT_CLIP_SPEED,
+      returnToDefault: true,
+    })
 
   // The slider is driven by the effective transition duration in ms, not the raw
   // speed multiplier: RIGHT (max) = the full clip window (speed 1), and dragging
@@ -192,6 +200,21 @@ function TransitionPanel({
           step={1}
           aria-label="Transition speed"
           onValueChange={([v]) => onSpeedMs(v)}
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-2 pt-0.5">
+        <div className="flex flex-col">
+          <span className="text-[11px] text-foreground">Return to default</span>
+          <span className="text-[10px] text-muted-foreground">
+            Unwinds over {activeMs}ms after the clip
+          </span>
+        </div>
+        <Switch
+          size="sm"
+          checked={returns}
+          aria-label="Return to default after the clip"
+          onCheckedChange={(v) => onUpdate({ returnToDefault: v })}
         />
       </div>
     </div>

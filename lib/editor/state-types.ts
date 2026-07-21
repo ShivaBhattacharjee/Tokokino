@@ -459,6 +459,12 @@ export type AnimationClip = {
   baseline?: ClipBaseline
   easing?: ClipEasingKind
   speed?: number
+  /**
+   * Ease every owned effect back to the pre-clip state once the clip's window
+   * ends, instead of holding the pose for the rest of the timeline. Undefined
+   * reads as off so drafts saved before this existed keep holding.
+   */
+  returnToDefault?: boolean
 }
 
 export type CanvasAnimation = {

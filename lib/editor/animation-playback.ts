@@ -7,7 +7,7 @@
 // turns that progress into concrete CSS override vars. Kept React-free so it's
 // testable and shared between live playback and (later) the exporter.
 
-import { clipProgressEase } from "./clip-easing"
+import { clipProgressEase, clipReleaseEase, clipReleaseMs } from "./clip-easing"
 import { hexToRgb } from "./color-utils"
 import { DEFAULT_CANVAS_BASE } from "./store/defaults"
 import type {
@@ -889,7 +889,8 @@ export function resolveAnimateOverlayStack(
  *  - before the first frame → the neutral `rest` value (reveal origin),
  *  - inside a frame → eased interpolation from the PREVIOUS frame's value (or
  *    `rest` for the first) → this frame's value,
- *  - in a gap after a frame, or past the last → hold that frame's value.
+ *  - in a gap after a frame, or past the last → hold that frame's value, or ease
+ *    it back to `rest` over `releaseMs` when the frame releases.
  * This is the single source of truth for continuity + hold across the timeline.
  */
 export function sampleKeyframes<V>(
@@ -900,6 +901,10 @@ export function sampleKeyframes<V>(
     /** Per-clip progress remap (curve + speed). Falls back to the historic
      * ease-out when a caller doesn't supply the owning clip's easing. */
     ease?: (rawT: number) => number
+    /** Ease back to `rest` over this many ms after the frame ends. 0 = hold. */
+    releaseMs?: number
+    /** Curve for that release. Falls back to the historic ease-out. */
+    releaseEase?: (rawT: number) => number
   }[],
   timeMs: number,
   rest: V,
@@ -907,12 +912,27 @@ export function sampleKeyframes<V>(
 ): V | null {
   if (frames.length === 0) return null
   const sorted = [...frames].sort((a, b) => a.startMs - b.startMs)
+
+  // What frame `i` reads as at a time past its own window: its pose, unwinding
+  // toward rest when it releases. Sampling it AT the next frame's start (rather
+  // than taking the pose flat) is what keeps a chain continuous — a frame that
+  // begins the instant the previous one ends still departs from the full pose,
+  // and one that begins mid-release departs from wherever the release got to.
+  const settledAt = (i: number, at: number): V => {
+    const f = sorted[i]
+    const release = f.releaseMs ?? 0
+    if (release <= 0) return f.value
+    const p = clamp01((at - (f.startMs + f.durationMs)) / release)
+    if (p <= 0) return f.value
+    return lerpValue(f.value, rest, (f.releaseEase ?? easeOut)(p))
+  }
+
   if (timeMs < sorted[0].startMs) return rest
   for (let i = 0; i < sorted.length; i++) {
     const f = sorted[i]
-    if (timeMs < f.startMs) return sorted[i - 1].value // gap → hold previous
+    if (timeMs < f.startMs) return settledAt(i - 1, timeMs) // gap
     if (timeMs <= f.startMs + f.durationMs) {
-      const from = i > 0 ? sorted[i - 1].value : rest
+      const from = i > 0 ? settledAt(i - 1, f.startMs) : rest
       const ease = f.ease ?? easeOut
       return lerpValue(
         from,
@@ -921,7 +941,7 @@ export function sampleKeyframes<V>(
       )
     }
   }
-  return sorted[sorted.length - 1].value // past the end → hold last
+  return settledAt(sorted.length - 1, timeMs) // past the end
 }
 
 /** True when `clip` animates the main screenshot (its own target or "all"). */
@@ -940,7 +960,8 @@ export function clipAffectsSlot(clip: AnimationClip, slotId: string): boolean {
  * Eased 0..1 progress toward the pose for a target's clips at `timeMs`:
  *  - before the first clip starts → 0 (neutral rest),
  *  - inside a clip → eased local progress,
- *  - in a gap after a clip, or past the last clip → 1 (holds the pose).
+ *  - in a gap after a clip, or past the last clip → 1 (holds the pose), or eased
+ *    back down toward 0 when that clip releases.
  * With no clips the target is never animated, so it sits at its full pose (1).
  */
 export function clipsProgressAt(
@@ -949,14 +970,23 @@ export function clipsProgressAt(
 ): number {
   if (clips.length === 0) return 1
   const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+
+  const settledAt = (c: AnimationClip, at: number): number => {
+    const release = clipReleaseMs(c)
+    if (release <= 0) return 1
+    const p = clamp01((at - (c.startMs + c.durationMs)) / release)
+    return 1 - clipReleaseEase(c)(p)
+  }
+
   if (timeMs < sorted[0].startMs) return 0
-  for (const c of sorted) {
-    if (timeMs < c.startMs) return 1 // in a gap that follows an earlier clip
+  for (let i = 0; i < sorted.length; i++) {
+    const c = sorted[i]
+    if (timeMs < c.startMs) return settledAt(sorted[i - 1], timeMs) // gap
     if (timeMs <= c.startMs + c.durationMs) {
       return clipProgressEase(c)((timeMs - c.startMs) / c.durationMs)
     }
   }
-  return 1 // past every clip
+  return settledAt(sorted[sorted.length - 1], timeMs) // past every clip
 }
 
 /**
