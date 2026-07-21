@@ -3,8 +3,15 @@ import { describe, expect, it } from "vitest"
 import {
   computeCoverCropRegion,
   computeCoverCropRegionForAspect,
+  CROP_ANIMATION_VARS,
+  CROP_FIT_ORIGIN_VAR,
+  CROP_FIT_SX_VAR,
+  CROP_SHELL_W_VAR,
+  CROP_VIEW_BOX_VAR,
   cropMediaObjectStyle,
   cropObjectMetrics,
+  cropOriginCss,
+  cropRegionRatio,
   cropRegionMatchesAspect,
   cropViewBoxValue,
   croppedNaturalSize,
@@ -117,5 +124,48 @@ describe("crop utils", () => {
 
   it("reports object-view-box support as a boolean", () => {
     expect(typeof supportsObjectViewBox()).toBe("boolean")
+  })
+})
+
+describe("animated crop fit helpers", () => {
+  it("derives the window's ratio from the region AND the natural size", () => {
+    // Half-width of a 1920x1080 source is 960x1080 → 8:9, not the source's 16:9.
+    expect(
+      cropRegionRatio({ x: 0, y: 0, width: 50, height: 100 }, 1920, 1080)
+    ).toBeCloseTo(960 / 1080, 6)
+    // A square window on a wide source really is square.
+    expect(
+      cropRegionRatio({ x: 0, y: 0, width: 56.25, height: 100 }, 1920, 1080)
+    ).toBeCloseTo(1, 3)
+  })
+
+  it("returns null for a degenerate region rather than a bogus ratio", () => {
+    expect(
+      cropRegionRatio({ x: 0, y: 0, width: 0, height: 50 }, 100, 100)
+    ).toBe(null)
+    expect(cropRegionRatio({ x: 0, y: 0, width: 50, height: 50 }, 0, 100)).toBe(
+      null
+    )
+  })
+
+  it("pivots a fit scale on the window's centre", () => {
+    expect(cropOriginCss({ x: 20, y: 10, width: 40, height: 60 })).toBe(
+      "40% 40%"
+    )
+    expect(cropOriginCss({ x: 0, y: 0, width: 100, height: 100 })).toBe(
+      "50% 50%"
+    )
+  })
+
+  it("clears every crop var it can set", () => {
+    // A var left behind would keep cropping after the effect is removed.
+    for (const name of [
+      CROP_VIEW_BOX_VAR,
+      CROP_SHELL_W_VAR,
+      CROP_FIT_SX_VAR,
+      CROP_FIT_ORIGIN_VAR,
+    ]) {
+      expect(CROP_ANIMATION_VARS).toContain(name)
+    }
   })
 })

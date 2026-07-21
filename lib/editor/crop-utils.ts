@@ -44,6 +44,50 @@ export const CROP_WIDTH_VAR = "--crop-w"
 export const CROP_HEIGHT_VAR = "--crop-h"
 export const CROP_LEFT_VAR = "--crop-left"
 export const CROP_TOP_VAR = "--crop-top"
+/**
+ * Fit-correction vars for an ANIMATED crop. The crop window's aspect can change
+ * every frame, so the shell size (contain) and the video's scale (cover) can't
+ * be static CSS — `apply-animation-frame` recomputes them per frame from the
+ * sampled region, the media's natural size and the stage box.
+ */
+export const CROP_SHELL_W_VAR = "--crop-shell-w"
+export const CROP_SHELL_H_VAR = "--crop-shell-h"
+export const CROP_FIT_SX_VAR = "--crop-fit-sx"
+export const CROP_FIT_SY_VAR = "--crop-fit-sy"
+export const CROP_FIT_ORIGIN_VAR = "--crop-fit-origin"
+
+/** Every crop var, for a single clear when nothing animates the crop. */
+export const CROP_ANIMATION_VARS = [
+  CROP_VIEW_BOX_VAR,
+  CROP_WIDTH_VAR,
+  CROP_HEIGHT_VAR,
+  CROP_LEFT_VAR,
+  CROP_TOP_VAR,
+  CROP_SHELL_W_VAR,
+  CROP_SHELL_H_VAR,
+  CROP_FIT_SX_VAR,
+  CROP_FIT_SY_VAR,
+  CROP_FIT_ORIGIN_VAR,
+]
+
+/**
+ * The crop window's own aspect ratio in source pixels. Percent regions are
+ * relative to the natural size, so both factor in.
+ */
+export function cropRegionRatio(
+  region: CropRegion,
+  naturalW: number,
+  naturalH: number
+) {
+  const w = region.width * naturalW
+  const h = region.height * naturalH
+  return w > 0 && h > 0 ? w / h : null
+}
+
+/** The crop's centre in source coordinates — the point a fit scale pivots on. */
+export function cropOriginCss(region: CropRegion) {
+  return `${region.x + region.width / 2}% ${region.y + region.height / 2}%`
+}
 
 /** The `object-view-box` inset for a region, as a bare value (no var wrapper). */
 export function cropViewBoxValue(region: CropRegion): string {

@@ -273,7 +273,10 @@ function CanvasViewInner({
     imageRef,
     // Include objectFit so contain↔cover remeasures imgW/imgH — inner lighting
     // sizes itself from those dims and would stay at the wrong box otherwise.
-    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}`,
+    // Natural dims cover a media swap: they reset to null and land again on
+    // load, and without them a new image/video keeps the previous media's
+    // measured box (the contain shell is sized from it, so it never resizes).
+    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}:${naturalDims ? `${naturalDims.w}x${naturalDims.h}` : "none"}`,
   })
   const suppressTransitionPlacement = useSuppressTransitionOnChange(
     placementDims
@@ -323,14 +326,18 @@ function CanvasViewInner({
   const canUseNaturalCanvasAspect =
     isAuto && naturalDims && !inRowMode && frame.id === "none"
   // Visible media size after a non-destructive video crop (full size otherwise).
-  const visibleNaturalDims =
+  const croppedDims =
     naturalDims &&
     lastCropRegion &&
-    !cropAnimated &&
     isVideoSrc(screenshot) &&
     isActiveCropRegion(lastCropRegion)
       ? croppedNaturalSize(naturalDims.w, naturalDims.h, lastCropRegion)
-      : naturalDims
+      : null
+  // Drives the CANVAS box (and so the encoder's frame size), which must not move
+  // while a crop animates — see `cropAnimated`.
+  const visibleNaturalDims = cropAnimated
+    ? naturalDims
+    : (croppedDims ?? naturalDims)
   // Auto canvas aspect follows the visible video crop when one is set.
   const autoDims = canUseNaturalCanvasAspect ? visibleNaturalDims : null
   const aw = autoDims ? autoDims.w : aspect.w || 16
@@ -485,10 +492,15 @@ function CanvasViewInner({
   // The bare frame always crops via the overflow polyfill (its <video> carries
   // the crop, not the shell that holds imgStyle — object-view-box can't reach a
   // div), so it needs the shrink-wrap aspect on every browser, not just Safari.
+  // The MEDIA shell's ratio, which decides whether the picture is letterboxed or
+  // stretched — so it must always be the crop's own ratio, even while animating.
+  // Using the canvas dims here made an animated crop render its window blown up
+  // to the full video's ratio, i.e. contain looked like cover.
+  const cropShellDims = croppedDims ?? visibleNaturalDims
   const videoCropAspectRatio =
-    videoCropRegion && visibleNaturalDims
-      ? visibleNaturalDims.w > 0 && visibleNaturalDims.h > 0
-        ? `${visibleNaturalDims.w} / ${visibleNaturalDims.h}`
+    videoCropRegion && cropShellDims
+      ? cropShellDims.w > 0 && cropShellDims.h > 0
+        ? `${cropShellDims.w} / ${cropShellDims.h}`
         : undefined
       : undefined
   // When a clip animates the border, the outline is ALWAYS mounted (even when

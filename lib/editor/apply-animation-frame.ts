@@ -24,7 +24,11 @@ import {
   LIGHTING_IMAGE_VAR,
   LIGHTING_OPACITY_VAR,
 } from "@/components/editor/inspector/backdrop-section-parts/constants"
-import { lightingOverlayValues } from "@/components/editor/canvas/helpers"
+import {
+  coverContainerBox,
+  fitContainBox,
+  lightingOverlayValues,
+} from "@/components/editor/canvas/helpers"
 import {
   backdropEffectsBetween,
   backgroundLayerOpacityVar,
@@ -68,12 +72,20 @@ import {
   SHADOW_PREVIEW_VAR,
 } from "@/lib/editor/css-utils"
 import {
+  CROP_ANIMATION_VARS,
+  CROP_FIT_ORIGIN_VAR,
+  CROP_FIT_SX_VAR,
+  CROP_FIT_SY_VAR,
   CROP_HEIGHT_VAR,
   CROP_LEFT_VAR,
+  CROP_SHELL_H_VAR,
+  CROP_SHELL_W_VAR,
   CROP_TOP_VAR,
   CROP_VIEW_BOX_VAR,
   CROP_WIDTH_VAR,
   cropObjectMetrics,
+  cropOriginCss,
+  cropRegionRatio,
   cropViewBoxValue,
 } from "@/lib/editor/crop-utils"
 import { clipProgressEase } from "@/lib/editor/clip-easing"
@@ -129,13 +141,7 @@ const SCOPE_VARS = [
   BORDER_OFFSET_PREVIEW_VAR,
   SCREENSHOT_RADIUS_PREVIEW_VAR,
 ]
-const CROP_VARS = [
-  CROP_VIEW_BOX_VAR,
-  CROP_WIDTH_VAR,
-  CROP_HEIGHT_VAR,
-  CROP_LEFT_VAR,
-  CROP_TOP_VAR,
-]
+const CROP_VARS = CROP_ANIMATION_VARS
 const CANVAS_FX_VARS = [
   BG_OPACITY_VAR,
   ...CROP_VARS,
@@ -221,6 +227,69 @@ export function clearAnimationFrameVars(
       setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
       clearPositionPreviewVars(slotEl)
     })
+}
+
+/**
+ * Fit correction for an animated crop window.
+ *
+ * The polyfill maps the crop region onto the media shell exactly — i.e. `fill`
+ * semantics — so honouring the canvas's fill mode means giving the shell the
+ * crop's own ratio (contain) or scaling the video up to cover it (cover). The
+ * window's ratio can change every frame, so neither can be static CSS.
+ *
+ * Measures the live DOM because the natural media size and stage box live
+ * nowhere in the state tree. A missing measurement clears the vars rather than
+ * guessing, leaving the committed styles (correct at the open keyframe) in play.
+ */
+function applyCropFitVars(
+  canvasEl: HTMLElement,
+  canvas: CanvasState,
+  region: CropRegion
+) {
+  const clearFit = () => {
+    setVar(canvasEl, CROP_SHELL_W_VAR, null)
+    setVar(canvasEl, CROP_SHELL_H_VAR, null)
+    setVar(canvasEl, CROP_FIT_SX_VAR, null)
+    setVar(canvasEl, CROP_FIT_SY_VAR, null)
+    setVar(canvasEl, CROP_FIT_ORIGIN_VAR, null)
+  }
+
+  const fit = canvas.objectFit ?? "contain"
+  // `fill` stretches the window into the box by definition — nothing to correct.
+  if (fit === "fill") return clearFit()
+
+  const shell = canvasEl.querySelector<HTMLElement>(
+    '[data-export-stack="media"]'
+  )
+  const video = shell?.querySelector("video")
+  const stage = shell?.parentElement
+  if (!shell || !video || !stage) return clearFit()
+
+  const ratio = cropRegionRatio(region, video.videoWidth, video.videoHeight)
+  const stageW = parseFloat(getComputedStyle(stage).width) || stage.clientWidth
+  const stageH =
+    parseFloat(getComputedStyle(stage).height) || stage.clientHeight
+  if (!ratio || !(stageW > 0) || !(stageH > 0)) return clearFit()
+
+  setVar(canvasEl, CROP_FIT_ORIGIN_VAR, cropOriginCss(region))
+
+  if (fit === "contain") {
+    // Shell shrinks to the window's ratio; the mapping is then 1:1, no scale.
+    const box = fitContainBox(stageW, stageH, ratio)
+    setVar(canvasEl, CROP_SHELL_W_VAR, `${box.width}px`)
+    setVar(canvasEl, CROP_SHELL_H_VAR, `${box.height}px`)
+    setVar(canvasEl, CROP_FIT_SX_VAR, "1")
+    setVar(canvasEl, CROP_FIT_SY_VAR, "1")
+    return
+  }
+
+  // cover: the shell stays the stage box (it is the clip), so the window has to
+  // grow past it — scale about the window's own centre and let overflow clip.
+  const box = coverContainerBox(stageW, stageH, ratio)
+  setVar(canvasEl, CROP_SHELL_W_VAR, null)
+  setVar(canvasEl, CROP_SHELL_H_VAR, null)
+  setVar(canvasEl, CROP_FIT_SX_VAR, String(box.width / stageW))
+  setVar(canvasEl, CROP_FIT_SY_VAR, String(box.height / stageH))
 }
 
 export type ApplyAnimationFrameOptions = {
@@ -613,6 +682,7 @@ export function applyAnimationFrameAtTime({
       setVar(canvasEl, CROP_HEIGHT_VAR, metrics.height)
       setVar(canvasEl, CROP_LEFT_VAR, metrics.left)
       setVar(canvasEl, CROP_TOP_VAR, metrics.top)
+      applyCropFitVars(canvasEl, canvas, cropVal)
     } else {
       for (const v of CROP_VARS) setVar(canvasEl, v, null)
     }

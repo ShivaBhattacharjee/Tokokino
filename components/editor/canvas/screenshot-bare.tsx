@@ -6,7 +6,13 @@ import { toast } from "sonner"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 import { cn } from "@/lib/utils"
 import {
+  CROP_FIT_ORIGIN_VAR,
+  CROP_FIT_SX_VAR,
+  CROP_FIT_SY_VAR,
+  CROP_SHELL_H_VAR,
+  CROP_SHELL_W_VAR,
   cropMediaObjectStyle,
+  cropOriginCss,
   isActiveCropRegion,
 } from "@/lib/editor/crop-utils"
 import { isVideoSrc } from "@/lib/editor/media-type"
@@ -407,18 +413,23 @@ export function ScreenshotBare({
    * region every frame, but this scale is computed once from the committed one.
    */
   const cropCoverTransform = (() => {
-    if (!activeCrop || objectFit !== "cover" || !placementDims) return null
+    if (!activeCrop || objectFit !== "cover") return null
     const ratio = cropAspectRatio ? parseAspectRatio(cropAspectRatio) : null
-    if (!ratio) return null
-    const { imgW, imgH } = placementDims
-    if (!(imgW > 0) || !(imgH > 0)) return null
-    const cover = coverContainerBox(imgW, imgH, ratio)
+    // Always emit the vars, even with no static value to compute: an animated
+    // crop needs something to drive, and a neutral 1 is a no-op otherwise.
+    let sx = 1
+    let sy = 1
+    if (ratio && placementDims) {
+      const { imgW, imgH } = placementDims
+      if (imgW > 0 && imgH > 0) {
+        const cover = coverContainerBox(imgW, imgH, ratio)
+        sx = cover.width / imgW
+        sy = cover.height / imgH
+      }
+    }
     return {
-      // The crop's centre in source coordinates — the point that must stay put.
-      transformOrigin: `${activeCrop.x + activeCrop.width / 2}% ${
-        activeCrop.y + activeCrop.height / 2
-      }%`,
-      transform: `scale(${cover.width / imgW}, ${cover.height / imgH})`,
+      transformOrigin: `var(${CROP_FIT_ORIGIN_VAR}, ${cropOriginCss(activeCrop)})`,
+      transform: `scale(var(${CROP_FIT_SX_VAR}, ${sx}), var(${CROP_FIT_SY_VAR}, ${sy}))`,
     } satisfies React.CSSProperties
   })()
 
@@ -430,8 +441,10 @@ export function ScreenshotBare({
         ...(cropAspectRatio ? { aspectRatio: cropAspectRatio } : null),
         ...(cropContainBox
           ? {
-              width: cropContainBox.width,
-              height: cropContainBox.height,
+              // Vars let an animated crop resize the shell per frame; the
+              // measured box is the committed fallback.
+              width: `var(${CROP_SHELL_W_VAR}, ${cropContainBox.width}px)`,
+              height: `var(${CROP_SHELL_H_VAR}, ${cropContainBox.height}px)`,
               maxWidth: "100%",
               maxHeight: "100%",
             }

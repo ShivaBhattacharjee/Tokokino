@@ -9,6 +9,12 @@ export type PlacementDims = {
   imgH: number
 }
 
+const sameDims = (a: PlacementDims, b: PlacementDims) =>
+  a.stageW === b.stageW &&
+  a.stageH === b.stageH &&
+  a.imgW === b.imgW &&
+  a.imgH === b.imgH
+
 export function usePlacementMeasurement({
   enabled,
   stageRef,
@@ -20,8 +26,23 @@ export function usePlacementMeasurement({
   imageRef: React.RefObject<HTMLImageElement | null>
   layoutKey?: string | number
 }) {
-  const [placementDims, setPlacementDims] =
-    React.useState<PlacementDims | null>(null)
+  const [measured, setMeasured] = React.useState<{
+    key: string | number | undefined
+    dims: PlacementDims | null
+  }>({ key: layoutKey, dims: null })
+
+  /**
+   * Contain shells are sized FROM these dims, so a measurement outlives the
+   * layout it described: the shell stays pinned to the old box, the
+   * ResizeObserver never sees a change, and nothing ever re-measures. Swapping
+   * media (e.g. a cropped image → a video) left the new media rendering inside
+   * the previous one's box until a reload.
+   *
+   * Dropping the measurement in the same render the key changes breaks that
+   * loop — the shell falls back to its aspect-driven size, and the layout effect
+   * below measures the real new box.
+   */
+  const placementDims = measured.key === layoutKey ? measured.dims : null
 
   const measurePlacement = React.useCallback(() => {
     const stage = stageRef.current
@@ -37,18 +58,13 @@ export function usePlacementMeasurement({
 
     if (!next.stageW || !next.stageH || !next.imgW || !next.imgH) return
 
-    setPlacementDims((prev) => {
-      if (
-        prev?.stageW === next.stageW &&
-        prev.stageH === next.stageH &&
-        prev.imgW === next.imgW &&
-        prev.imgH === next.imgH
-      ) {
+    setMeasured((prev) => {
+      if (prev.key === layoutKey && prev.dims && sameDims(prev.dims, next)) {
         return prev
       }
-      return next
+      return { key: layoutKey, dims: next }
     })
-  }, [imageRef, stageRef])
+  }, [imageRef, layoutKey, stageRef])
 
   React.useLayoutEffect(() => {
     if (!enabled) return
