@@ -5,6 +5,9 @@ import {
   CLIP_EASING_LABELS,
   clipEasingKind,
   clipProgressEase,
+  clipReleaseEase,
+  clipReleaseMs,
+  clipReturnsToDefault,
   clipSpeed,
   DEFAULT_CLIP_EASING,
   DEFAULT_CLIP_SPEED,
@@ -162,5 +165,58 @@ describe("easingDotAt", () => {
     const end = easingDotAt("linear", 1, size, pad)
     expect(end.x).toBeCloseTo(size - pad, 6)
     expect(end.y).toBeCloseTo(pad, 6)
+  })
+})
+
+describe("clipReturnsToDefault", () => {
+  it("is ON when unset, so every clip releases unless it opts out", () => {
+    // Drafts saved before the release existed carry no flag; they release too.
+    expect(clipReturnsToDefault(clip())).toBe(true)
+  })
+
+  it("passes an explicit choice through", () => {
+    expect(clipReturnsToDefault(clip({ returnToDefault: true }))).toBe(true)
+    expect(clipReturnsToDefault(clip({ returnToDefault: false }))).toBe(false)
+  })
+})
+
+describe("clipReleaseMs", () => {
+  it("is 0 only when the clip opts out of releasing", () => {
+    expect(clipReleaseMs(clip({ returnToDefault: false }))).toBe(0)
+  })
+
+  it("mirrors the clip's window when it releases at full speed", () => {
+    expect(clipReleaseMs(clip({ durationMs: 1200 }))).toBe(1200)
+  })
+
+  it("mirrors the ACTIVE duration, so speed shortens the release too", () => {
+    const fast = clip({ durationMs: 5000, speed: 5 })
+    expect(clipReleaseMs(fast)).toBe(effectiveActiveMs(fast))
+    expect(clipReleaseMs(fast)).toBe(1000)
+  })
+})
+
+describe("clipReleaseEase", () => {
+  it("pins the endpoints so the release starts at the pose and lands on rest", () => {
+    const ease = clipReleaseEase(clip({ easing: "linear" }))
+    expect(ease(0)).toBeCloseTo(0, 6)
+    expect(ease(1)).toBeCloseTo(1, 6)
+  })
+
+  it("uses the clip's own curve", () => {
+    expect(clipReleaseEase(clip({ easing: "linear" }))(0.5)).toBeCloseTo(0.5, 6)
+    expect(clipReleaseEase(clip({ easing: "out" }))(0.5)).toBeCloseTo(0.875, 6)
+  })
+
+  it("drops the speed remap — speed already shortened the release window", () => {
+    const fast = clip({ easing: "linear", speed: 4 })
+    expect(clipProgressEase(fast)(0.5)).toBeCloseTo(1, 6)
+    expect(clipReleaseEase(fast)(0.5)).toBeCloseTo(0.5, 6)
+  })
+
+  it("clamps progress outside 0..1", () => {
+    const ease = clipReleaseEase(clip({ easing: "linear" }))
+    expect(ease(-1)).toBeCloseTo(0, 6)
+    expect(ease(2)).toBeCloseTo(1, 6)
   })
 })

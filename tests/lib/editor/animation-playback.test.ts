@@ -18,6 +18,7 @@ import {
   lerp,
   resolveAnimateFilterStack,
   sampleKeyframes,
+  sampleShadowLayers,
   shadowsDiffer,
 } from "@/lib/editor/animation-playback"
 import type {
@@ -123,14 +124,27 @@ describe("clipsProgressAt", () => {
     expect(clipsProgressAt(clips, 1500)).toBeCloseTo(EASED_HALF, 5)
   })
 
-  it("holds the pose (1) after the clip and in trailing gaps", () => {
-    expect(clipsProgressAt(clips, 5000)).toBe(1)
+  it("holds the pose (1) after the clip when it opts out of releasing", () => {
+    const holding = [
+      clip({
+        id: "a",
+        startMs: 1000,
+        durationMs: 1000,
+        returnToDefault: false,
+      }),
+    ]
+    expect(clipsProgressAt(holding, 5000)).toBe(1)
   })
 
-  it("holds the pose (1) in a gap that follows an earlier clip", () => {
+  it("holds the pose (1) in a gap when both clips opt out", () => {
     const two = [
-      clip({ id: "a", startMs: 0, durationMs: 1000 }),
-      clip({ id: "b", startMs: 4000, durationMs: 1000 }),
+      clip({ id: "a", startMs: 0, durationMs: 1000, returnToDefault: false }),
+      clip({
+        id: "b",
+        startMs: 4000,
+        durationMs: 1000,
+        returnToDefault: false,
+      }),
     ]
     expect(clipsProgressAt(two, 2000)).toBe(1)
   })
@@ -450,5 +464,273 @@ describe("cropRegionBetween", () => {
     expect(
       sampleKeyframes(frames, 500, FULL_CROP_REGION, cropRegionBetween)
     ).toEqual(to)
+  })
+})
+
+describe("return to default (release)", () => {
+  const num = (from: number, to: number, p: number) => lerp(from, to, p)
+  const linear = (t: number) => t
+  // A frame that reaches 10 over [0,1000], then unwinds to rest across 1000ms.
+  const releasing = [
+    {
+      startMs: 0,
+      durationMs: 1000,
+      value: 10,
+      ease: linear,
+      releaseMs: 1000,
+      releaseEase: linear,
+    },
+  ]
+
+  it("sampleKeyframes still holds when a frame has no release", () => {
+    const holding = [{ startMs: 0, durationMs: 1000, value: 10, ease: linear }]
+    expect(sampleKeyframes(holding, 5000, 0, num)).toBe(10)
+    expect(
+      sampleKeyframes(
+        holding.map((f) => ({ ...f, releaseMs: 0 })),
+        5000,
+        0,
+        num
+      )
+    ).toBe(10)
+  })
+
+  it("sampleKeyframes sits on the pose the instant the window ends", () => {
+    expect(sampleKeyframes(releasing, 1000, 0, num)).toBeCloseTo(10, 5)
+  })
+
+  it("sampleKeyframes eases back toward rest across the release", () => {
+    expect(sampleKeyframes(releasing, 1500, 0, num)).toBeCloseTo(5, 5)
+    expect(sampleKeyframes(releasing, 1750, 0, num)).toBeCloseTo(2.5, 5)
+  })
+
+  it("sampleKeyframes lands exactly on rest and stays there", () => {
+    expect(sampleKeyframes(releasing, 2000, 0, num)).toBeCloseTo(0, 5)
+    expect(sampleKeyframes(releasing, 99000, 0, num)).toBeCloseTo(0, 5)
+  })
+
+  it("returns to a non-zero rest, not to zero", () => {
+    expect(sampleKeyframes(releasing, 2000, 4, num)).toBeCloseTo(4, 5)
+  })
+
+  it("releases into a gap rather than holding through it", () => {
+    const frames = [
+      ...releasing,
+      { startMs: 4000, durationMs: 1000, value: 20, ease: linear },
+    ]
+    expect(sampleKeyframes(frames, 1500, 0, num)).toBeCloseTo(5, 5)
+    expect(sampleKeyframes(frames, 3000, 0, num)).toBeCloseTo(0, 5)
+  })
+
+  it("a next frame butted against the release still departs from the full pose", () => {
+    // Chain continuity: B starts the instant A ends, so A has released nothing.
+    const frames = [
+      ...releasing,
+      { startMs: 1000, durationMs: 1000, value: 20, ease: linear },
+    ]
+    expect(sampleKeyframes(frames, 1000, 0, num)).toBeCloseTo(10, 5)
+    expect(sampleKeyframes(frames, 1500, 0, num)).toBeCloseTo(15, 5)
+  })
+
+  it("a next frame starting mid-release departs from the decayed value", () => {
+    // B starts at 1500 — half of A's release, so A reads 5, not 10.
+    const frames = [
+      ...releasing,
+      { startMs: 1500, durationMs: 1000, value: 20, ease: linear },
+    ]
+    expect(sampleKeyframes(frames, 1500, 0, num)).toBeCloseTo(5, 5)
+    expect(sampleKeyframes(frames, 2000, 0, num)).toBeCloseTo(12.5, 5)
+  })
+
+  it("clipsProgressAt unwinds to 0 after a releasing clip", () => {
+    const clips = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "linear",
+        returnToDefault: true,
+      }),
+    ]
+    expect(clipsProgressAt(clips, 1000)).toBeCloseTo(1, 5)
+    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(0.5, 5)
+    expect(clipsProgressAt(clips, 2000)).toBeCloseTo(0, 5)
+    expect(clipsProgressAt(clips, 9000)).toBeCloseTo(0, 5)
+  })
+
+  it("clipsProgressAt unwinds in a gap that follows a releasing clip", () => {
+    const clips = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "linear",
+        returnToDefault: true,
+      }),
+      clip({ id: "b", startMs: 6000, durationMs: 1000 }),
+    ]
+    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(0.5, 5)
+    expect(clipsProgressAt(clips, 4000)).toBeCloseTo(0, 5)
+  })
+
+  it("clipsProgressAt keeps holding for a clip that opts out", () => {
+    const clips = [
+      clip({ id: "a", startMs: 0, durationMs: 1000, returnToDefault: false }),
+    ]
+    expect(clipsProgressAt(clips, 9000)).toBe(1)
+  })
+
+  it("releases by default — an unflagged clip does not hold its pose", () => {
+    const clips = [
+      clip({ id: "a", startMs: 0, durationMs: 1000, easing: "linear" }),
+    ]
+    expect(clipsProgressAt(clips, 2000)).toBeCloseTo(0, 5)
+  })
+
+  it("speed shortens the release window along with the transition", () => {
+    const clips = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "linear",
+        speed: 2,
+        returnToDefault: true,
+      }),
+    ]
+    // Active (and so release) is 500ms: fully unwound 500ms past the window.
+    expect(clipsProgressAt(clips, 1250)).toBeCloseTo(0.5, 5)
+    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(0, 5)
+  })
+})
+
+describe("sampleShadowLayers", () => {
+  const linear = (t: number) => t
+  const none: Shadow = {
+    type: "none",
+    intensity: 0,
+    color: "#000000",
+    lightSource: "center",
+  }
+  const soft: Shadow = {
+    type: "soft",
+    intensity: 80,
+    color: "#000000",
+    lightSource: "center",
+  }
+  const glow: Shadow = {
+    type: "glow",
+    intensity: 60,
+    color: "#ffffff",
+    lightSource: "center",
+  }
+  const frame = (value: Shadow, over: Record<string, unknown> = {}) => ({
+    startMs: 0,
+    durationMs: 1000,
+    value,
+    ease: linear,
+    releaseMs: 1000,
+    releaseEase: linear,
+    ...over,
+  })
+
+  it("returns null when no keyframe animates the shadow", () => {
+    expect(sampleShadowLayers([], 500, none)).toBeNull()
+  })
+
+  it("reveals from the rest shadow", () => {
+    expect(
+      sampleShadowLayers([frame(soft)], 0, none)![0].intensity
+    ).toBeCloseTo(0, 5)
+    expect(
+      sampleShadowLayers([frame(soft)], 500, none)![0].intensity
+    ).toBeCloseTo(40, 5)
+  })
+
+  it("holds the pose past the end when the frame opts out", () => {
+    const holding = [frame(soft, { releaseMs: 0 })]
+    expect(sampleShadowLayers(holding, 9000, none)).toEqual([soft])
+  })
+
+  it("fades back out to an invisible rest on its own type", () => {
+    // Retract semantics: it recedes as a `soft` shadow losing intensity rather
+    // than blinking off, mirroring how it revealed.
+    const mid = sampleShadowLayers([frame(soft)], 1500, none)!
+    expect(mid).toHaveLength(1)
+    expect(mid[0].type).toBe("soft")
+    expect(mid[0].intensity).toBeCloseTo(40, 5)
+
+    expect(sampleShadowLayers([frame(soft)], 2000, none)![0].intensity).toBe(0)
+  })
+
+  it("cross-blends back when rest is a different visible shadow", () => {
+    const mid = sampleShadowLayers([frame(soft)], 1500, glow)!
+    expect(mid.map((s) => s.type)).toEqual(["soft", "glow"])
+    expect(mid[0].intensity).toBeCloseTo(40, 5) // pose easing OUT
+    expect(mid[1].intensity).toBeCloseTo(30, 5) // rest easing back IN
+  })
+
+  it("sits exactly on the pose the instant the window ends", () => {
+    // lightSource normalizes to grid coords through the blend, so compare the
+    // fields the release actually drives.
+    const layers = sampleShadowLayers([frame(soft)], 1000, none)!
+    expect(layers).toHaveLength(1)
+    expect(layers[0].type).toBe(soft.type)
+    expect(layers[0].intensity).toBeCloseTo(soft.intensity, 5)
+  })
+
+  it("releases into a gap instead of holding through it", () => {
+    const frames = [
+      frame(soft),
+      { startMs: 4000, durationMs: 1000, value: glow, ease: linear },
+    ]
+    expect(sampleShadowLayers(frames, 1500, none)![0].intensity).toBeCloseTo(
+      40,
+      5
+    )
+    expect(sampleShadowLayers(frames, 3000, none)![0].intensity).toBe(0)
+  })
+
+  it("a next frame butted against the release departs from the full pose", () => {
+    const frames = [
+      frame(soft),
+      { startMs: 1000, durationMs: 1000, value: soft, ease: linear },
+    ]
+    expect(sampleShadowLayers(frames, 1000, none)![0].intensity).toBeCloseTo(
+      80,
+      5
+    )
+  })
+
+  it("keeps both layers when a frame starts mid cross-blend release", () => {
+    // Pose `soft` releasing toward a visible `glow` rest is a two-layer stack.
+    // A frame starting mid-release must depart from BOTH, or the incoming glow
+    // pops off at its first tick.
+    const frames = [
+      frame(soft),
+      { startMs: 1500, durationMs: 1000, value: soft, ease: linear },
+    ]
+    const before = sampleShadowLayers([frames[0]], 1500, glow)!
+    const atStart = sampleShadowLayers(frames, 1500, glow)!
+
+    expect(before.map((s) => s.type)).toEqual(["soft", "glow"])
+    expect(atStart.map((s) => s.type)).toEqual(["soft", "glow", "soft"])
+    // The third layer is the new pose at intensity 0, so the rendered stack is
+    // unchanged at the boundary.
+    expect(atStart[0].intensity).toBeCloseTo(before[0].intensity, 5)
+    expect(atStart[1].intensity).toBeCloseTo(before[1].intensity, 5)
+    expect(atStart[2].intensity).toBeCloseTo(0, 5)
+  })
+
+  it("fades the residual layers out as the next frame eases in", () => {
+    const frames = [
+      frame(soft),
+      { startMs: 1500, durationMs: 1000, value: soft, ease: linear },
+    ]
+    // Halfway into the next frame: both residuals halved, new pose at half.
+    const mid = sampleShadowLayers(frames, 2000, glow)!
+    expect(mid[0].intensity).toBeCloseTo(20, 5) // soft residual was 40
+    expect(mid[1].intensity).toBeCloseTo(15, 5) // glow residual was 30
+    expect(mid[2].intensity).toBeCloseTo(40, 5) // new soft easing in to 80
   })
 })

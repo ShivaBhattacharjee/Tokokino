@@ -101,6 +101,37 @@ export function clipProgressEase(clip: {
 }
 
 /**
+ * Whether a clip releases back to its pre-clip state after its window instead of
+ * holding the pose. On unless a clip opts out, so a keyframe's effect never
+ * outlives the band that authored it — including in drafts saved before the
+ * release existed.
+ */
+export function clipReturnsToDefault(clip: {
+  returnToDefault?: boolean
+}): boolean {
+  return clip.returnToDefault !== false
+}
+
+/**
+ * How long the release takes, starting at the clip's end. It mirrors the active
+ * transition so the motion out is the motion in played backwards — a clip that
+ * settles in 400ms of a 5 s window also unwinds in 400ms.
+ */
+export function clipReleaseMs(clip: AnimationClip): number {
+  return clipReturnsToDefault(clip) ? effectiveActiveMs(clip) : 0
+}
+
+/**
+ * The curve the release rides. It is the clip's own curve WITHOUT the speed
+ * remap — speed already decided how long the release lasts, so folding it in
+ * again would compress the curve inside its own shortened window.
+ */
+export function clipReleaseEase(clip: AnimationClip): (rawT: number) => number {
+  const fn = EASING_FNS[clipEasingKind(clip)]
+  return (rawT) => fn(clamp01(rawT))
+}
+
+/**
  * The effective active duration (ms) a clip's transition actually plays over,
  * given its speed — the rest of the window holds the pose. Shown in the UI so
  * "finish in 1 s of a 5 s clip" reads directly.

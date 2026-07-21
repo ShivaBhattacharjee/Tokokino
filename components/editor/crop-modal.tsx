@@ -36,12 +36,36 @@ async function urlToFile(url: string, filename: string): Promise<File> {
 }
 
 /**
+ * Where to seek for the crop dialog's still preview: the playhead the user is
+ * cropping against, clamped inside the clip. Only when there is no usable
+ * playhead does it fall back to a small nudge off zero — decoding at exactly 0
+ * yields a black/empty frame on some codecs, which is why the original code
+ * always seeked there, and why cropping six seconds in framed the wrong shot.
+ */
+export function posterSeekTime(atSec: number, duration: number): number {
+  const fallback = Math.min(0.1, duration / 2)
+  if (!Number.isFinite(atSec) || atSec <= 0) return fallback
+  if (!(duration > 0)) return atSec
+  // Never land ON the final boundary — seeking to exactly `duration` decodes
+  // past the last frame and paints black.
+  return Math.min(atSec, Math.max(0, duration - 0.01))
+}
+
+/**
  * Grab a still poster frame from a video src so react-image-crop (which is
  * image-only) has something to draw the crop handles over. The returned frame
  * is only used for handle placement — the video itself is never re-encoded; the
  * caller applies the resulting CropRegion at render time.
+ *
+ * `atSec` is the playhead the user is cropping against. It matters: framing a
+ * crop on frame 0 while the canvas shows six seconds in means placing the
+ * handles over content that isn't on screen.
  */
-async function videoPosterFile(url: string, filename: string): Promise<File> {
+async function videoPosterFile(
+  url: string,
+  filename: string,
+  atSec = 0
+): Promise<File> {
   const video = document.createElement("video")
   video.src = url
   video.muted = true
@@ -63,9 +87,12 @@ async function videoPosterFile(url: string, filename: string): Promise<File> {
       reject(new Error("video load failed"))
     }
     const onLoaded = () => {
-      // Seek slightly in to avoid a black/empty first frame on some codecs.
-      const target = Math.min(0.1, (video.duration || 0) / 2)
-      if (Number.isFinite(target) && target > 0 && video.currentTime === 0) {
+      const target = posterSeekTime(atSec, video.duration || 0)
+      if (
+        Number.isFinite(target) &&
+        target > 0 &&
+        video.currentTime !== target
+      ) {
         video.onseeked = () => {
           cleanup()
           resolve()
@@ -119,6 +146,7 @@ export function CropModal({
   screenshotUrl,
   initialRegion,
   targetAspect,
+  getPosterTimeSec,
   onCrop,
 }: {
   open: boolean
@@ -126,6 +154,12 @@ export function CropModal({
   screenshotUrl: string | null
   initialRegion?: CropRegion | null
   targetAspect?: number | null
+  /**
+   * Video only: the source-media time the still preview should show, read when
+   * the poster is decoded. A getter rather than a value because it comes from
+   * `video.currentTime`, which React never re-renders on.
+   */
+  getPosterTimeSec?: () => number | null
   onCrop: (croppedBase64: string, region: CropRegion) => void
 }) {
   const safeTargetAspect =
@@ -158,7 +192,13 @@ export function CropModal({
 
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
-      if (!nextOpen) setAspectOverride(null)
+      if (!nextOpen) {
+        setAspectOverride(null)
+        // Drop the decoded still too. It is keyed only by URL, so keeping it
+        // would show the PREVIOUS open's frame the instant the dialog reopens —
+        // for a video that is a different moment in the clip, not a cache hit.
+        setLoadedFile(null)
+      }
       onOpenChange(nextOpen)
     },
     [onOpenChange]
@@ -178,13 +218,25 @@ export function CropModal({
     }
   }, [open, screenshotUrl, isVideo])
 
+  // Held in a ref so the poster effect can call it without listing it as a
+  // dependency: it is read once per open, and re-running the decode as the
+  // playhead moves would swap the still out from under a crop drag.
+  const getPosterTimeRef = React.useRef(getPosterTimeSec)
+  React.useEffect(() => {
+    getPosterTimeRef.current = getPosterTimeSec
+  })
+
   React.useEffect(() => {
     if (!open || !screenshotUrl) return
     if (!isVideo && isDataUrl(screenshotUrl)) return
 
     let cancelled = false
     const loader = isVideo
-      ? videoPosterFile(screenshotUrl, "poster.png")
+      ? videoPosterFile(
+          screenshotUrl,
+          "poster.png",
+          getPosterTimeRef.current?.() ?? 0
+        )
       : urlToFile(screenshotUrl, "screenshot.png")
     void loader
       .then((file) => {
