@@ -219,17 +219,21 @@ export function AssetElementView({
   const endDrag = (e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
+    dragRef.current = null
     if (drag.moved) {
       updateAsset(asset.id, {
         xPct: drag.lastXPct,
         yPct: drag.lastYPct,
       })
       // Clear a frame later so the committed value takes over from the var
-      // without a one-frame jump back to where the drag started.
+      // without a one-frame jump back to where the drag started. Skip if the
+      // asset was grabbed again meanwhile — the new drag owns the vars now.
       const roots = livePreviewRoots(canvasScopeId)
-      requestAnimationFrame(() => clearElementLivePosition(roots, asset.id))
+      requestAnimationFrame(() => {
+        if (dragRef.current) return
+        clearElementLivePosition(roots, asset.id)
+      })
     }
-    dragRef.current = null
     setIsDragging(false)
   }
 

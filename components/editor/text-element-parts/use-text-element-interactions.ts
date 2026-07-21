@@ -443,17 +443,23 @@ export function useTextElementInteractions({
           }
         }
       }
+      dragRef.current = null
       // Clear a frame after the commit paints, so the committed xPct/yPct
       // takes over from the var without a one-frame jump back to the old spot.
+      // Skip if the text was grabbed again in the meantime — the new drag owns
+      // the vars now and clearing them would strand it at the committed spot.
       const textId = textRef.current.id
       const roots = livePreviewRoots(canvasScopeIdRef.current)
-      if (typeof requestAnimationFrame === "undefined") {
+      const clearIfIdle = () => {
+        if (dragRef.current) return
         clearElementLivePosition(roots, textId)
+      }
+      if (typeof requestAnimationFrame === "undefined") {
+        clearIfIdle()
       } else {
-        requestAnimationFrame(() => clearElementLivePosition(roots, textId))
+        requestAnimationFrame(clearIfIdle)
       }
 
-      dragRef.current = null
       setIsDragging(false)
       onCenterGuideChangeRef.current?.({ x: false, y: false })
     },

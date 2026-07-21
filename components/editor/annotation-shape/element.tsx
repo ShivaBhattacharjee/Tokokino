@@ -261,8 +261,13 @@ export function AnnotationShapeElement({
         xPct: drag.nextXPct,
         yPct: drag.nextYPct,
       })
+      // Skip if the shape was grabbed again before the frame ran — the new
+      // drag owns the vars now.
       const roots = livePreviewRoots(canvasScopeId)
-      requestAnimationFrame(() => clearElementLivePosition(roots, shape.id))
+      requestAnimationFrame(() => {
+        if (dragRef.current) return
+        clearElementLivePosition(roots, shape.id)
+      })
     }
     onCenterGuideChange?.({ x: false, y: false })
   }
