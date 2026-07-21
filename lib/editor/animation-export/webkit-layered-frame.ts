@@ -94,6 +94,14 @@ const UNDERLAY_IRRELEVANT_ROOT_VARS = new Set([
   "--crop-h",
   "--crop-left",
   "--crop-top",
+  // Same, for an animated crop: the fit correction is recomputed every frame
+  // from the sampled region, so leaving these in would rebuild the underlay on
+  // every frame of a crop animation. They only size/scale the media shell.
+  "--crop-shell-w",
+  "--crop-shell-h",
+  "--crop-fit-sx",
+  "--crop-fit-sy",
+  "--crop-fit-origin",
 ])
 
 /** Every underlay-affecting inline var on the clone root, as a stable key. */

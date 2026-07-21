@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest"
+import type * as FrameCanvasUtils from "@/lib/editor/animation-export/video-media/frame-canvas-utils"
 
 const mocks = vi.hoisted(() => ({
   supportsObjectViewBox: vi.fn(),
@@ -37,10 +46,7 @@ vi.mock("@/lib/editor/animation-export/video-media/export-stack", () => ({
 vi.mock(
   "@/lib/editor/animation-export/video-media/frame-canvas-utils",
   async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import("@/lib/editor/animation-export/video-media/frame-canvas-utils")
-      >()
+    const actual = await importOriginal<typeof FrameCanvasUtils>()
     return { ...actual, sleep: () => Promise.resolve() }
   }
 )
@@ -97,7 +103,7 @@ function makeNode(): HTMLElement {
 function makeCapture(
   pixels: number[],
   size: { width: number; height: number } = { width: 1080, height: 675 }
-): AnimationCapture & { captureFrame: ReturnType<typeof vi.fn> } {
+): AnimationCapture & { captureFrame: Mock<AnimationCapture["captureFrame"]> } {
   let call = 0
   return {
     node: makeNode(),
@@ -410,6 +416,32 @@ describe("captureLayeredAnimationFrame — caches", () => {
     capture.node.style.setProperty("--canvas-bd-radius", "24px")
     await captureLayeredAnimationFrame(capture, OPTS)
     expect(capture.captureFrame).toHaveBeenCalledTimes(4)
+  })
+
+  it("holds the underlay across an animated crop", async () => {
+    // Every crop var is recomputed per frame, the fit-correction ones included.
+    // If any leaks into the key the underlay rebuilds on every frame of a crop
+    // animation — the exact cost this cache exists to avoid.
+    const capture = makeCapture([10, 10])
+    await captureLayeredAnimationFrame(capture, OPTS)
+    expect(capture.captureFrame).toHaveBeenCalledTimes(2)
+
+    for (const [prop, value] of [
+      ["--crop-view-box", "0 0 0.5 0.5"],
+      ["--crop-w", "50%"],
+      ["--crop-h", "50%"],
+      ["--crop-left", "10%"],
+      ["--crop-top", "10%"],
+      ["--crop-shell-w", "640px"],
+      ["--crop-shell-h", "360px"],
+      ["--crop-fit-sx", "1.25"],
+      ["--crop-fit-sy", "1.25"],
+      ["--crop-fit-origin", "25% 40%"],
+    ]) {
+      capture.node.style.setProperty(prop, value)
+      await captureLayeredAnimationFrame(capture, OPTS)
+      expect(capture.captureFrame).toHaveBeenCalledTimes(2)
+    }
   })
 
   it("recaptures the shell texture when its scope vars change", async () => {
