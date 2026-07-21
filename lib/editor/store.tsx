@@ -1424,7 +1424,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       })
       void fetch(`/api/presets?sort=${nextSort}`, { credentials: "include" })
         .then(async (res) => {
-          if (!res.ok) return [] as CustomPresetSummary[]
+          if (!res.ok) throw new Error(`Preset load failed: ${res.status}`)
           const body: { presets: CustomPresetSummary[] } = await res.json()
           return body.presets
         })
@@ -1443,12 +1443,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           console.warn("Could not load custom presets", err)
           if (token !== customPresetsRequestToken) return
           customPresetsInFlightUserId = null
-          set({
-            customPresets: [],
+          // Keep whatever list is on screen: a failed re-sort must not erase
+          // presets that loaded fine. Roll the sort back so the picker matches
+          // the order actually displayed.
+          set((current) => ({
+            customPresetsSort: current.customPresetsLoaded
+              ? state.customPresetsSort
+              : nextSort,
             customPresetsLoaded: true,
             customPresetsLoading: false,
             customPresetsForUserId: userId,
-          })
+          }))
         })
     },
     addCustomPreset: (preset) =>
