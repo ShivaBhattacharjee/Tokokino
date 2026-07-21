@@ -191,7 +191,6 @@ function CanvasViewInner({
   } = useEditor()
   const scopeId = useCanvasScopeId()
   const isCanvasPreview = useCanvasPreviewMode()
-  const registeredVideos = useVideoRegistry((s) => s.videos)
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const bulkCanvasDragging = useEditorStore((s) => s.bulkCanvasDragging)
@@ -206,9 +205,6 @@ function CanvasViewInner({
   )
   const canvasAnimation = useEditorStore(
     (s) => s.present.canvases.find((c) => c.id === scopeId)?.animation
-  )
-  const canvasVideoClips = useEditorStore(
-    (s) => s.present.canvases.find((c) => c.id === scopeId)?.videoClips
   )
   const {
     bg: animateBgStack,
@@ -331,39 +327,42 @@ function CanvasViewInner({
 
   // Which video frame the crop dialog previews.
   //
+  // A GETTER, deliberately: `video.currentTime` is not React state, so anything
+  // that caches it (a memo, a value prop computed on an unrelated render) serves
+  // whatever the playhead was when that render ran — which is 0, the frame the
+  // element registered at. The dialog calls this when it decodes the poster.
+  //
   // With a keyframe open for editing, the crop being authored belongs to THAT
-  // clip, so preview the frame its pose lands on (the end of its window) even
-  // though selecting a clip doesn't move the playhead — otherwise you frame a
-  // crop for a clip at 00:05 against whatever the playhead happens to sit on.
-  // With no clip open, the playhead is what the user is looking at, so read the
-  // live element. Both go through the same timeline→source mapping the player
-  // uses, or a trimmed clip would preview a different frame than it plays.
-  const cropPosterTimeSec = React.useMemo(() => {
-    const videoEl = scopeId ? (registeredVideos[scopeId] ?? null) : null
+  // clip, so preview the frame its pose lands on (the end of its window) — even
+  // though selecting a clip doesn't move the playhead. With no clip open, the
+  // playhead is what the user is looking at. Both go through the same
+  // timeline→source mapping the player uses, or a trimmed clip would preview a
+  // different frame than it plays.
+  const getCropPosterTimeSec = React.useCallback((): number | null => {
+    const videoEl = scopeId
+      ? (useVideoRegistry.getState().videos[scopeId] ?? null)
+      : null
     if (!videoEl) return null
     const duration = Number.isFinite(videoEl.duration)
       ? videoEl.duration
       : undefined
-    const openClip =
-      isAnimateMode && selectedAnimationClipId
-        ? canvasAnimation?.clips.find((c) => c.id === selectedAnimationClipId)
-        : null
+    const state = useEditorStore.getState()
+    const canvas = state.present.canvases.find((c) => c.id === scopeId)
+    const openClipId = state.isAnimateMode
+      ? state.selectedAnimationClipId
+      : null
+    const openClip = openClipId
+      ? canvas?.animation?.clips.find((c) => c.id === openClipId)
+      : null
     if (openClip) {
       const atMs = openClip.startMs + openClip.durationMs
-      const sec = sourceTimeAt(canvasVideoClips, atMs, duration)
+      const sec = sourceTimeAt(canvas?.videoClips, atMs, duration)
+      // A keyframe over a gap in the video has no frame of its own; fall through
+      // to the playhead rather than previewing one it never shows.
       if (sec != null) return sec
-      // The clip sits in a gap with no video under it — fall through to the
-      // playhead rather than previewing a frame this clip never shows.
     }
     return videoEl.currentTime
-  }, [
-    scopeId,
-    registeredVideos,
-    isAnimateMode,
-    selectedAnimationClipId,
-    canvasAnimation,
-    canvasVideoClips,
-  ])
+  }, [scopeId])
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
   const canUseNaturalCanvasAspect =
     isAuto && naturalDims && !inRowMode && frame.id === "none"
@@ -1371,7 +1370,7 @@ function CanvasViewInner({
           screenshotUrl={originalScreenshot ?? screenshot}
           initialRegion={mainCropRequest?.initialRegion}
           targetAspect={mainCropRequest?.aspect}
-          posterTimeSec={cropPosterTimeSec}
+          getPosterTimeSec={getCropPosterTimeSec}
           onCrop={(cropped, region) => {
             // Video can't be re-encoded client-side — store a non-destructive
             // render-time crop region instead of a baked bitmap.

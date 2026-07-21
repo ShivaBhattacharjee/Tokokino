@@ -146,7 +146,7 @@ export function CropModal({
   screenshotUrl,
   initialRegion,
   targetAspect,
-  posterTimeSec,
+  getPosterTimeSec,
   onCrop,
 }: {
   open: boolean
@@ -154,8 +154,12 @@ export function CropModal({
   screenshotUrl: string | null
   initialRegion?: CropRegion | null
   targetAspect?: number | null
-  /** Video only: the playhead the still preview should show. */
-  posterTimeSec?: number | null
+  /**
+   * Video only: the source-media time the still preview should show, read when
+   * the poster is decoded. A getter rather than a value because it comes from
+   * `video.currentTime`, which React never re-renders on.
+   */
+  getPosterTimeSec?: () => number | null
   onCrop: (croppedBase64: string, region: CropRegion) => void
 }) {
   const safeTargetAspect =
@@ -188,7 +192,13 @@ export function CropModal({
 
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
-      if (!nextOpen) setAspectOverride(null)
+      if (!nextOpen) {
+        setAspectOverride(null)
+        // Drop the decoded still too. It is keyed only by URL, so keeping it
+        // would show the PREVIOUS open's frame the instant the dialog reopens —
+        // for a video that is a different moment in the clip, not a cache hit.
+        setLoadedFile(null)
+      }
       onOpenChange(nextOpen)
     },
     [onOpenChange]
@@ -208,12 +218,12 @@ export function CropModal({
     }
   }, [open, screenshotUrl, isVideo])
 
-  // Latched rather than a dependency of the poster effect below: the poster is
-  // the frame that was on screen when the dialog opened, and re-decoding it
-  // every time the playhead moves would fight the user's crop drag.
-  const posterTimeRef = React.useRef(0)
+  // Held in a ref so the poster effect can call it without listing it as a
+  // dependency: it is read once per open, and re-running the decode as the
+  // playhead moves would swap the still out from under a crop drag.
+  const getPosterTimeRef = React.useRef(getPosterTimeSec)
   React.useEffect(() => {
-    posterTimeRef.current = posterTimeSec ?? 0
+    getPosterTimeRef.current = getPosterTimeSec
   })
 
   React.useEffect(() => {
@@ -222,7 +232,11 @@ export function CropModal({
 
     let cancelled = false
     const loader = isVideo
-      ? videoPosterFile(screenshotUrl, "poster.png", posterTimeRef.current)
+      ? videoPosterFile(
+          screenshotUrl,
+          "poster.png",
+          getPosterTimeRef.current?.() ?? 0
+        )
       : urlToFile(screenshotUrl, "screenshot.png")
     void loader
       .then((file) => {
