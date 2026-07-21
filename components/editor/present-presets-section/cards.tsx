@@ -318,7 +318,6 @@ function CustomPresetList({
             preset={preset}
             canvas={canvas}
             aspect={aspect}
-            horizontal={horizontal}
             active={activeCustomPresetId === preset.id}
             onApply={onApply}
             onDelete={onDelete}
@@ -363,7 +362,6 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   preset,
   canvas,
   aspect,
-  horizontal = false,
   active,
   onApply,
   onDelete,
@@ -372,7 +370,6 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
   preset: CustomPresetSummary
   canvas: CanvasState
   aspect: AspectState
-  horizontal?: boolean
   active: boolean
   onApply: (preset: CustomPresetSummary) => void
   onDelete: (id: string) => void | Promise<void>

@@ -25,7 +25,6 @@ import type {
   WatermarkAssets,
 } from "../types"
 import {
-  AnimationExportAbortedError,
   animationMimeAndExt,
   createProgressReporter,
   even,
