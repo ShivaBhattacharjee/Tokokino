@@ -80,6 +80,7 @@ import {
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
 } from "@/components/editor/position-preview-vars"
+import { livePreviewRoots } from "@/lib/editor/live-preview-roots"
 import { MainScreenshotRowItem } from "./main-screenshot-row-item"
 import { ScreenshotBare } from "./screenshot-bare"
 import {
@@ -639,8 +640,11 @@ function CanvasViewInner({
   // mouse-up. Uses the same preview helpers the position pad / player write.
   const previewLiveMainOffset = React.useCallback(
     (offset: { x: number; y: number }) => {
-      const canvasEl = canvasRef.current
-      if (!canvasEl) return
+      // Every live-preview root, so dragging the screenshot moves it in the
+      // preset thumbnails too. In a preview subtree this resolves to nothing,
+      // but previews are inert so the handler never runs there anyway.
+      const canvasEl = livePreviewRoots(scopeId)
+      if (canvasEl.length === 0) return
 
       // Multi-row / framed / tweet: container is % positioned. Bare single: px.
       if (inRowMode || frame.id !== "none" || tweet) {
@@ -704,7 +708,7 @@ function CanvasViewInner({
     updateCenterGuides,
     setScreenshotPositionDragging,
     onLiveOffsetPreview: previewLiveMainOffset,
-    getPreviewCanvasElement: () => canvasRef.current,
+    getPreviewCanvasElement: () => livePreviewRoots(scopeId),
   })
   const effectiveOffset = liveOffset ?? screenshotOffset
   const screenshotLeft =

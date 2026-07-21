@@ -224,8 +224,10 @@ export function PositionSection() {
         xPct: clampPercent(point.xPct),
         yPct: clampPercent(point.yPct),
       }
-      const canvasElement = getActiveCanvasElement()
-      if (!canvasElement) return
+      // Main-screenshot position vars live on the root, so passing every
+      // live-preview root drives the preset thumbnails along with the canvas.
+      const canvasElement = livePreviewRoots(activeCanvasId)
+      if (canvasElement.length === 0) return
 
       if (selectedSlot) {
         setElementPositionPreview(getSelectedSlotElement(), safePoint)
