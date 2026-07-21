@@ -112,6 +112,9 @@ type CanvasViewProps = {
   onActivate: () => void
   previewMode?: boolean
   canvasOverride?: Partial<CanvasState> | null
+  /** Preview only: canvas to read store state from, when it differs from
+   * `canvasId` (which stays synthetic to keep the preview DOM-isolated). */
+  sourceCanvasId?: string | null
 }
 
 type SlotCropRequest = CropTarget & {
@@ -230,7 +233,10 @@ function CanvasViewInner({
     pattern: backdrop.pattern,
     overlay,
   })
-  useBackgroundDownscale(background, scopeId)
+  // Previews share the live canvas' background, which the real canvas already
+  // downscales — running it again per preview only duplicates the work against
+  // a canvas id that doesn't exist in the store.
+  useBackgroundDownscale(background, isCanvasPreview ? null : scopeId)
 
   const canvasRef = React.useRef<HTMLDivElement>(null)
   const generatedAnnotationMaskId = React.useId()
@@ -1337,6 +1343,11 @@ function CanvasViewInner({
             annotationMaskId={annotationMaskId}
             isAnnotating={isAnnotating}
             cursorClass={annotationCursor}
+            eraserBrushSize={
+              isAnnotating && annotation.mode === "eraser"
+                ? annotation.strokeWidth
+                : null
+            }
             onPointerDown={startAnnotation}
             onPointerMove={moveAnnotation}
             onPointerUp={stopAnnotation}
@@ -1434,7 +1445,10 @@ export function CanvasView(props: CanvasViewProps) {
   return (
     <CanvasScope id={props.canvasId}>
       {props.previewMode ? (
-        <CanvasPreviewScope override={props.canvasOverride ?? null}>
+        <CanvasPreviewScope
+          override={props.canvasOverride ?? null}
+          sourceCanvasId={props.sourceCanvasId ?? null}
+        >
           {inner}
         </CanvasPreviewScope>
       ) : (

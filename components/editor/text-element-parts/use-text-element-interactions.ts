@@ -3,9 +3,15 @@
 import * as React from "react"
 
 import {
+  clearElementLivePosition,
+  livePreviewRoots,
+  setElementLivePosition,
+} from "@/lib/editor/live-preview-roots"
+import {
   type TextElement,
   pickContrastColorAtPosition,
   useEditor,
+  useEditorStore,
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 
@@ -83,12 +89,15 @@ export function useTextElementInteractions({
   const bulkEditModeRef = React.useRef(bulkEditMode)
   const bulkViewportZoomRef = React.useRef(bulkViewportZoom)
   const onCenterGuideChangeRef = React.useRef(onCenterGuideChange)
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const activeCanvasIdRef = React.useRef(activeCanvasId)
   React.useEffect(() => {
     textRef.current = text
     canvasZoomRef.current = canvasZoom
     bulkEditModeRef.current = bulkEditMode
     bulkViewportZoomRef.current = bulkViewportZoom
     onCenterGuideChangeRef.current = onCenterGuideChange
+    activeCanvasIdRef.current = activeCanvasId
   })
 
   const pointerScale = React.useCallback(() => {
@@ -288,6 +297,8 @@ export function useTextElementInteractions({
         moved: false,
         snapXActive: false,
         snapYActive: false,
+        lastXPct: t.xPct,
+        lastYPct: t.yPct,
       }
     },
     [canvasRef, setSelectedAnnotationShapeId, setSelectedTextId]
@@ -363,13 +374,20 @@ export function useTextElementInteractions({
 
       const clampedX = clamp(nextX, -20, 120)
       const clampedY = clamp(nextY, -20, 120)
+      drag.lastXPct = clampedX
+      drag.lastYPct = clampedY
+
+      // Broadcast rather than writing this element's inline style, so the
+      // preset thumbnails' copy of this text follows the drag too.
+      setElementLivePosition(
+        livePreviewRoots(activeCanvasIdRef.current),
+        textRef.current.id,
+        clampedX,
+        clampedY
+      )
 
       const el = elRef.current
-      if (el) {
-        el.style.left = `${clampedX}%`
-        el.style.top = `${clampedY}%`
-        setToolbarRect(el.getBoundingClientRect())
-      }
+      if (el) setToolbarRect(el.getBoundingClientRect())
     },
     [setToolbarRect, updateResizeLens]
   )
@@ -403,8 +421,8 @@ export function useTextElementInteractions({
       if (drag.moved) {
         const el = elRef.current
         if (el) {
-          const x = parseFloat(el.style.left)
-          const y = parseFloat(el.style.top)
+          const x = drag.lastXPct
+          const y = drag.lastYPct
           const t = textRef.current
           updateText(t.id, {
             xPct: clamp(x, -20, 120),
@@ -426,6 +444,16 @@ export function useTextElementInteractions({
           }
         }
       }
+      // Clear a frame after the commit paints, so the committed xPct/yPct
+      // takes over from the var without a one-frame jump back to the old spot.
+      const textId = textRef.current.id
+      const roots = livePreviewRoots(activeCanvasIdRef.current)
+      if (typeof requestAnimationFrame === "undefined") {
+        clearElementLivePosition(roots, textId)
+      } else {
+        requestAnimationFrame(() => clearElementLivePosition(roots, textId))
+      }
+
       dragRef.current = null
       setIsDragging(false)
       onCenterGuideChangeRef.current?.({ x: false, y: false })

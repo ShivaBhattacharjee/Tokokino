@@ -4,6 +4,10 @@ import * as React from "react"
 
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import { EffectSlider } from "@/components/editor/inspector/effect-slider"
+import {
+  livePreviewRoots,
+  setLivePreviewVar,
+} from "@/lib/editor/live-preview-roots"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import {
   useActiveCanvasField,
@@ -327,31 +331,25 @@ export function ShadowSection() {
     ? (selectedSlot.shadow ?? canvasShadow)
     : canvasShadow
 
-  const getPreviewScopeEl = React.useCallback((): HTMLElement | null => {
-    if (typeof document === "undefined" || !activeCanvasId) return null
-    const canvasEl = document.querySelector<HTMLElement>(
-      `[data-canvas-id="${activeCanvasId}"]`
-    )
-    if (!canvasEl) return null
-    if (target === "all") return canvasEl
+  const getPreviewScopeEls = React.useCallback((): HTMLElement[] => {
+    const roots = livePreviewRoots(activeCanvasId)
+    if (target === "all") return roots
 
     const scopeId = target === "slot" ? selectedSlot?.id : "canvas"
-    if (!scopeId) return canvasEl
-    return (
-      canvasEl.querySelector<HTMLElement>(
-        `[data-editor-shadow-preview-scope="${scopeId}"]`
-      ) ?? canvasEl
+    if (!scopeId) return roots
+    return roots.map(
+      (root) =>
+        root.querySelector<HTMLElement>(
+          `[data-editor-shadow-preview-scope="${CSS.escape(scopeId)}"]`
+        ) ?? root
     )
   }, [activeCanvasId, selectedSlot?.id, target])
 
   const setPreviewVar = React.useCallback(
     (name: string, value: string | null) => {
-      const el = getPreviewScopeEl()
-      if (!el) return
-      if (value === null) el.style.removeProperty(name)
-      else el.style.setProperty(name, value)
+      setLivePreviewVar(getPreviewScopeEls(), name, value)
     },
-    [getPreviewScopeEl]
+    [getPreviewScopeEls]
   )
 
   const clearPreviewVarsAfterPaint = React.useCallback(() => {

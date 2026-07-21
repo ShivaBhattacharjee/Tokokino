@@ -4,7 +4,17 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { RiRefreshLine } from "@remixicon/react"
 
-import { type AnnotationShape, useEditor } from "@/lib/editor/store"
+import {
+  type AnnotationShape,
+  useEditor,
+  useEditorStore,
+} from "@/lib/editor/store"
+import {
+  clearElementLivePosition,
+  elementPositionVars,
+  livePreviewRoots,
+  setElementLivePosition,
+} from "@/lib/editor/live-preview-roots"
 import { cn } from "@/lib/utils"
 import {
   bulkToolbarScale,
@@ -96,6 +106,13 @@ export function AnnotationShapeElement({
   } = useEditor()
   const isSelected = selectedAnnotationShapeId === shape.id
   const dashArray = lineDashArray(shape.lineStyle)
+  const positionVars = elementPositionVars(shape.id)
+  const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
+  const activeCanvasIdRef = React.useRef(activeCanvasId)
+  React.useEffect(() => {
+    activeCanvasIdRef.current = activeCanvasId
+  })
+
   const elRef = React.useRef<HTMLDivElement>(null)
   const selectionChromeRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
@@ -224,12 +241,17 @@ export function AnnotationShapeElement({
     drag.nextXPct = nextX
     drag.nextYPct = nextY
     drag.moved = true
+    // Broadcast from the canvas roots so the preset thumbnails' copy of this
+    // shape tracks the drag. The selection chrome is canvas-only UI and never
+    // renders in a preview, so it keeps its direct inline write.
+    setElementLivePosition(
+      livePreviewRoots(activeCanvasIdRef.current),
+      shape.id,
+      nextX,
+      nextY
+    )
     const el = elRef.current
-    if (el) {
-      el.style.left = `${nextX}%`
-      el.style.top = `${nextY}%`
-      setToolbarRect(el.getBoundingClientRect())
-    }
+    if (el) setToolbarRect(el.getBoundingClientRect())
     const chrome = selectionChromeRef.current
     if (chrome) {
       chrome.style.left = `${nextX}%`
@@ -247,6 +269,8 @@ export function AnnotationShapeElement({
         xPct: drag.nextXPct,
         yPct: drag.nextYPct,
       })
+      const roots = livePreviewRoots(activeCanvasIdRef.current)
+      requestAnimationFrame(() => clearElementLivePosition(roots, shape.id))
     }
     onCenterGuideChange?.({ x: false, y: false })
   }
@@ -495,8 +519,8 @@ export function AnnotationShapeElement({
         data-annotation-shape-id={shape.id}
         data-export-stack="foreground"
         style={{
-          left: `var(--editor-position-x, ${shape.xPct}%)`,
-          top: `var(--editor-position-y, ${shape.yPct}%)`,
+          left: `var(${positionVars.x}, var(--editor-position-x, ${shape.xPct}%))`,
+          top: `var(${positionVars.y}, var(--editor-position-y, ${shape.yPct}%))`,
           width: isStep ? STEP_SIZE : `${shape.widthPct}%`,
           height: isStep ? STEP_SIZE : `${shape.heightPct}%`,
           transform: `translate(-50%, -50%) rotate(${rotation}deg)`,

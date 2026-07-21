@@ -110,19 +110,22 @@ export function TiltSection() {
 
   // Resolve the live-preview DOM target on demand so we don't cache a stale
   // node across selection changes or canvas remounts.
+  // Tilt is deliberately not fanned out to the preset thumbnails: each one
+  // pins the tilt its preset represents. Slot lookups stay scoped inside the
+  // canvas so a thumbnail's slot — which carries the same slot id — can't be
+  // matched first by a document-wide query.
   const getTargetEls = React.useCallback((): LivePreviewTarget[] => {
-    if (typeof document === "undefined") return []
+    if (typeof document === "undefined" || !activeCanvasId) return []
+    const canvasEl = document.querySelector<HTMLElement>(
+      `[data-canvas-id="${CSS.escape(activeCanvasId)}"]`
+    )
+    if (!canvasEl) return []
     if (selectedSlot) {
-      const el = document.querySelector<HTMLElement>(
-        `[data-screenshot-slot-id="${selectedSlot.id}"]`
+      const el = canvasEl.querySelector<HTMLElement>(
+        `[data-screenshot-slot-id="${CSS.escape(selectedSlot.id)}"]`
       )
       return el ? [{ el, kind: "slot" }] : []
     }
-    if (!activeCanvasId) return []
-    const canvasEl = document.querySelector<HTMLElement>(
-      `[data-canvas-id="${activeCanvasId}"]`
-    )
-    if (!canvasEl) return []
     if (target !== "all") return [{ el: canvasEl, kind: "canvas" }]
 
     const slotTargets = Array.from(

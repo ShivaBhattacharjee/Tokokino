@@ -18,6 +18,7 @@ import {
   allScreenshotGroupCenter,
   screenshotSlotGroupCenter,
 } from "@/components/editor/floating-toolbar-parts/geometry"
+import { livePreviewRoots } from "@/lib/editor/live-preview-roots"
 import { useEditor, useEditorStore } from "@/lib/editor/store"
 
 import {
@@ -421,33 +422,41 @@ export function PositionSection() {
   // + every slot; otherwise only the main/canvas moves.
   const zoom = selectedSlot ? selectedSlot.scale : editor.scale
 
+  // Preset thumbnails inherit the canvas zoom (`planSinglePreset` takes scale
+  // straight off the canvas), so they are driven alongside it — otherwise they
+  // sit at the old zoom until the slider is released.
   const getZoomTargets = React.useCallback((): Array<{
     el: HTMLElement
     scaleVar: string
   }> => {
+    const roots = livePreviewRoots(activeCanvasId)
+    if (roots.length === 0) return []
+
+    const slotIn = (root: HTMLElement, slotId: string) =>
+      root.querySelector<HTMLElement>(
+        `[data-screenshot-slot-id="${CSS.escape(slotId)}"]`
+      )
+
     if (selectedSlot) {
-      const el = getSelectedSlotElement()
-      return el ? [{ el, scaleVar: SLOT_SCALE_VAR }] : []
+      return roots.flatMap((root) => {
+        const el = slotIn(root, selectedSlot.id)
+        return el ? [{ el, scaleVar: SLOT_SCALE_VAR }] : []
+      })
     }
-    const canvasEl = getActiveCanvasElement()
-    if (!canvasEl) return []
-    if (!isAllTarget) return [{ el: canvasEl, scaleVar: CANVAS_SCALE_VAR }]
-    const targets: Array<{ el: HTMLElement; scaleVar: string }> = [
-      { el: canvasEl, scaleVar: CANVAS_SCALE_VAR },
-    ]
-    for (const slot of editor.screenshotSlots) {
-      const el = querySlotElement(slot.id)
-      if (el) targets.push({ el, scaleVar: SLOT_SCALE_VAR })
-    }
-    return targets
-  }, [
-    editor.screenshotSlots,
-    getActiveCanvasElement,
-    getSelectedSlotElement,
-    isAllTarget,
-    querySlotElement,
-    selectedSlot,
-  ])
+    if (!isAllTarget)
+      return roots.map((el) => ({ el, scaleVar: CANVAS_SCALE_VAR }))
+
+    return roots.flatMap((root) => {
+      const targets: Array<{ el: HTMLElement; scaleVar: string }> = [
+        { el: root, scaleVar: CANVAS_SCALE_VAR },
+      ]
+      for (const slot of editor.screenshotSlots) {
+        const el = slotIn(root, slot.id)
+        if (el) targets.push({ el, scaleVar: SLOT_SCALE_VAR })
+      }
+      return targets
+    })
+  }, [activeCanvasId, editor.screenshotSlots, isAllTarget, selectedSlot])
 
   const previewScale = React.useCallback(
     (next: number) => {

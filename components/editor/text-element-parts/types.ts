@@ -20,6 +20,11 @@ export type DragState = {
   moved: boolean
   snapXActive: boolean
   snapYActive: boolean
+  /** Last previewed position. The drag publishes CSS vars rather than writing
+   * the element's inline style, so the commit reads the value from here
+   * instead of parsing it back off the element. */
+  lastXPct: number
+  lastYPct: number
 }
 
 export type RotateState = {
