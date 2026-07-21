@@ -1,5 +1,6 @@
 "use client"
 
+import { elementPositionVars } from "@/lib/editor/live-preview-roots"
 import { cn } from "@/lib/utils"
 
 import { TextElementFloatingToolbar } from "./text-element-parts/floating-toolbar"
@@ -47,6 +48,7 @@ export function TextElementView({
     toolbarRect,
   } = useTextElementInteractions({ text, canvasRef, onCenterGuideChange })
 
+  const positionVars = elementPositionVars(text.id)
   const showBorder = isSelected || (text.borderColor && text.borderWidth > 0)
   const borderColor = text.borderColor
     ? text.borderColor
@@ -81,8 +83,12 @@ export function TextElementView({
           !isEditing && "touch-none"
         )}
         style={{
-          left: `var(--editor-position-x, ${text.xPct}%)`,
-          top: `var(--editor-position-y, ${text.yPct}%)`,
+          // Per-id var first so a drag can be broadcast from the canvas root
+          // and reach the preset thumbnails' copy of this text; the generic
+          // element-scoped var stays as the fallback for the writers that
+          // still target a single element directly.
+          left: `var(${positionVars.x}, var(--editor-position-x, ${text.xPct}%))`,
+          top: `var(${positionVars.y}, var(--editor-position-y, ${text.yPct}%))`,
           transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
           transition:
             !isDragging && shouldAnimatePositionMove

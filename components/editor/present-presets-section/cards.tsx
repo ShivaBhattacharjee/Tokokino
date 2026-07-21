@@ -45,11 +45,13 @@ import {
 import { ShimmerBox } from "@/components/ui/shimmer-image"
 import { PRESET_NAME_MAX_LENGTH } from "@/lib/schemas/preset"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
+import { LIVE_PREVIEW_ROOT_ATTR } from "@/lib/editor/live-preview-roots"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import {
   planLayoutPreset,
-  planSinglePreset,
+  planSinglePresetSlotRow,
+  type SinglePresetSlotRow,
 } from "@/lib/editor/preset-application"
 import { resolveMainOffsetPx } from "@/lib/editor/preset-geometry"
 import {
@@ -69,6 +71,10 @@ import type {
 import { cn } from "@/lib/utils"
 
 import type { PresetTab } from "./tabs"
+
+type SinglePresetSlotLayout = SinglePresetSlotRow & {
+  slots: ScreenshotSlot[]
+}
 
 const MOBILE_PRESET_CARD_WIDTH = 172
 /** Shell padding + label row below the aspect-ratio preview. */
@@ -122,6 +128,15 @@ export function PresetCardsBody({
   onDeleteCustom: (id: string) => void | Promise<void>
   onRenameCustom: (id: string, name: string) => void | Promise<void>
 }) {
+  // Every single preset shares this row math, so run it once for the rail.
+  // `null` when there are no extra slots — the common case, and the one where
+  // a single-preset preview needs no state override at all.
+  const singleSlotLayout = React.useMemo<SinglePresetSlotLayout | null>(() => {
+    if (canvas.screenshotSlots.length === 0) return null
+    const row = planSinglePresetSlotRow(canvas, aspect)
+    return { ...row, slots: canvas.screenshotSlots }
+  }, [aspect, canvas])
+
   return (
     <>
       {displayTab === "single" && (
@@ -130,7 +145,8 @@ export function PresetCardsBody({
             <PresetCardSlot key={preset.id} horizontal={horizontal}>
               <SinglePresetCard
                 preset={preset}
-                canvas={canvas}
+                slotLayout={singleSlotLayout}
+                sourceCanvasId={canvas.id}
                 aspect={aspect}
                 horizontal={horizontal}
                 active={activeSinglePresetId === preset.id}
@@ -746,14 +762,17 @@ const PresetCardShell = React.memo(function PresetCardShell({
 
 const SinglePresetCard = React.memo(function SinglePresetCard({
   preset,
-  canvas,
+  slotLayout,
+  sourceCanvasId,
   aspect,
   horizontal = false,
   active,
   onApply,
 }: {
   preset: PresentPreset
-  canvas: CanvasState
+  /** Row-layout geometry for the extra slots, or null when there are none. */
+  slotLayout: SinglePresetSlotLayout | null
+  sourceCanvasId: string | null
   aspect: AspectState
   horizontal?: boolean
   active: boolean
@@ -768,30 +787,34 @@ const SinglePresetCard = React.memo(function SinglePresetCard({
     () => onApply(preset),
     [onApply, preset]
   )
-  const virtualCanvas = React.useMemo<CanvasState>(() => {
-    const plan = planSinglePreset(preset, canvas, aspect)
+  // A single preset differs from the live canvas by its tilt and — when extra
+  // slots exist — their row placement. `planSinglePreset` takes scale,
+  // position and offset straight off the canvas, and everything else (styling,
+  // text, assets, annotations) is untouched. So the preview subscribes to the
+  // real canvas and overrides only those two fields, instead of cloning a
+  // whole `CanvasState` per card on every edit. `preset.tilt` is a module
+  // constant, so with no extra slots this override never changes identity and
+  // a padding or background edit re-renders nothing here.
+  const override = React.useMemo<Partial<CanvasState>>(() => {
+    if (!slotLayout) return { tilt: preset.tilt }
     return {
-      ...canvas,
-      background: previewSafeBackground(canvas.background),
-      tilt: plan.canvasTilt,
-      scale: plan.canvasScale,
-      screenshotPosition: plan.screenshotPosition,
-      screenshotOffset: plan.screenshotOffset,
-      screenshotSlots: canvas.screenshotSlots.map((slot, i) => {
-        const patch = plan.slots[i]
-        if (!patch) return slot
+      tilt: preset.tilt,
+      screenshotSlots: slotLayout.slots.map((slot, i) => {
+        const placement = slotLayout.placements[i]
+        if (!placement) return slot
         return {
           ...slot,
-          xPct: patch.xPct,
-          yPct: patch.yPct,
-          widthPct: patch.widthPct ?? slot.widthPct,
-          rotation: patch.rotation,
-          tilt: patch.tilt,
-          scale: patch.scale,
+          xPct: placement.xPct,
+          yPct: 50,
+          widthPct: placement.widthPct ?? slot.widthPct,
+          rotation: 0,
+          tilt: preset.tilt,
+          scale: slotLayout.scale,
         }
       }),
     }
-  }, [aspect, canvas, preset])
+  }, [preset.tilt, slotLayout])
+
   return (
     <PresetCardShell
       active={active}
@@ -804,7 +827,8 @@ const SinglePresetCard = React.memo(function SinglePresetCard({
     >
       <CanvasPresetPreview
         aspect={aspect}
-        virtualCanvas={virtualCanvas}
+        virtualCanvas={override}
+        sourceCanvasId={sourceCanvasId}
         previewId={`_preset_preview_single_${preset.id}`}
       />
     </PresetCardShell>
@@ -921,10 +945,14 @@ const PRESET_PREVIEW_WIDTH = BASE_CANVAS_WIDTH
 const CanvasPresetPreview = React.memo(function CanvasPresetPreview({
   aspect,
   virtualCanvas,
+  sourceCanvasId = null,
   previewId,
 }: {
   aspect: AspectState
-  virtualCanvas: CanvasState
+  virtualCanvas: Partial<CanvasState> | null
+  /** Canvas to read live state from; omitted when `virtualCanvas` is a full
+   * standalone state (custom presets). */
+  sourceCanvasId?: string | null
   previewId: string
 }) {
   const previewRef = React.useRef<HTMLDivElement>(null)
@@ -935,11 +963,17 @@ const CanvasPresetPreview = React.memo(function CanvasPresetPreview({
   const previewScale = useContainScale(previewRef, stageWidth, stageHeight)
   return (
     <div ref={previewRef} className="pointer-events-none absolute inset-0">
+      {/* Tagging the stage as a live-preview root lets slider drags write vars
+          like padding, shadow and zoom onto it, so the thumbnail tracks the
+          drag instead of waiting for the commit. Tilt is deliberately not
+          fanned out this way — each thumbnail pins the tilt of the preset it
+          represents. */}
       <div
         className="absolute top-1/2 left-1/2 origin-center"
-        style={{
-          transform: `translate(-50%, -50%) scale(${previewScale})`,
-        }}
+        style={{ transform: `translate(-50%, -50%) scale(${previewScale})` }}
+        {...(sourceCanvasId
+          ? { [LIVE_PREVIEW_ROOT_ATTR]: sourceCanvasId }
+          : null)}
       >
         <CanvasView
           canvasId={previewId}
@@ -949,6 +983,7 @@ const CanvasPresetPreview = React.memo(function CanvasPresetPreview({
           effectiveScale={previewScale}
           onActivate={() => undefined}
           previewMode
+          sourceCanvasId={sourceCanvasId}
           canvasOverride={virtualCanvas}
         />
       </div>

@@ -529,7 +529,7 @@ export function useAnnotationInteractions({
   const isAnnotating = activeTool === "arrow"
   const annotationCursor =
     annotation.mode === "eraser"
-      ? "cursor-cell"
+      ? "cursor-none"
       : annotation.mode === "pen" ||
           annotation.mode === "highlight" ||
           annotation.mode === "blur" ||

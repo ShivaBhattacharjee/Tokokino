@@ -5,6 +5,12 @@ import { createPortal } from "react-dom"
 import { RiRefreshLine } from "@remixicon/react"
 
 import { type AnnotationShape, useEditor } from "@/lib/editor/store"
+import {
+  clearElementLivePosition,
+  elementPositionVars,
+  livePreviewRoots,
+  setElementLivePosition,
+} from "@/lib/editor/live-preview-roots"
 import { cn } from "@/lib/utils"
 import {
   bulkToolbarScale,
@@ -84,6 +90,7 @@ export function AnnotationShapeElement({
   previewMode?: boolean
 }) {
   const {
+    id: canvasScopeId,
     selectedAnnotationShapeId,
     setSelectedAnnotationShapeId,
     setSelectedTextId,
@@ -96,6 +103,8 @@ export function AnnotationShapeElement({
   } = useEditor()
   const isSelected = selectedAnnotationShapeId === shape.id
   const dashArray = lineDashArray(shape.lineStyle)
+  const positionVars = elementPositionVars(shape.id)
+
   const elRef = React.useRef<HTMLDivElement>(null)
   const selectionChromeRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
@@ -224,12 +233,17 @@ export function AnnotationShapeElement({
     drag.nextXPct = nextX
     drag.nextYPct = nextY
     drag.moved = true
+    // Broadcast from the canvas roots so the preset thumbnails' copy of this
+    // shape tracks the drag. The selection chrome is canvas-only UI and never
+    // renders in a preview, so it keeps its direct inline write.
+    setElementLivePosition(
+      livePreviewRoots(canvasScopeId),
+      shape.id,
+      nextX,
+      nextY
+    )
     const el = elRef.current
-    if (el) {
-      el.style.left = `${nextX}%`
-      el.style.top = `${nextY}%`
-      setToolbarRect(el.getBoundingClientRect())
-    }
+    if (el) setToolbarRect(el.getBoundingClientRect())
     const chrome = selectionChromeRef.current
     if (chrome) {
       chrome.style.left = `${nextX}%`
@@ -246,6 +260,13 @@ export function AnnotationShapeElement({
       updateAnnotationShape(shape.id, {
         xPct: drag.nextXPct,
         yPct: drag.nextYPct,
+      })
+      // Skip if the shape was grabbed again before the frame ran — the new
+      // drag owns the vars now.
+      const roots = livePreviewRoots(canvasScopeId)
+      requestAnimationFrame(() => {
+        if (dragRef.current) return
+        clearElementLivePosition(roots, shape.id)
       })
     }
     onCenterGuideChange?.({ x: false, y: false })
@@ -495,8 +516,8 @@ export function AnnotationShapeElement({
         data-annotation-shape-id={shape.id}
         data-export-stack="foreground"
         style={{
-          left: `var(--editor-position-x, ${shape.xPct}%)`,
-          top: `var(--editor-position-y, ${shape.yPct}%)`,
+          left: `var(${positionVars.x}, var(--editor-position-x, ${shape.xPct}%))`,
+          top: `var(${positionVars.y}, var(--editor-position-y, ${shape.yPct}%))`,
           width: isStep ? STEP_SIZE : `${shape.widthPct}%`,
           height: isStep ? STEP_SIZE : `${shape.heightPct}%`,
           transform: `translate(-50%, -50%) rotate(${rotation}deg)`,

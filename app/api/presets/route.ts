@@ -3,7 +3,11 @@ import { NextResponse } from "next/server"
 import { requireSession } from "@/lib/api-auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
 import { createCustomPreset, listCustomPresets } from "@/lib/preset-db"
-import { MAX_PRESET_BYTES, createPresetBodySchema } from "@/lib/schemas/preset"
+import {
+  MAX_PRESET_BYTES,
+  createPresetBodySchema,
+  presetListQuerySchema,
+} from "@/lib/schemas/preset"
 
 export const runtime = "nodejs"
 
@@ -11,7 +15,12 @@ export async function GET(request: Request) {
   const auth = await requireSession(request)
   if (!auth.ok) return auth.response
 
-  const presets = await listCustomPresets(auth.session.user.id)
+  const url = new URL(request.url)
+  const { sort } = presetListQuerySchema.parse({
+    sort: url.searchParams.get("sort") ?? undefined,
+  })
+
+  const presets = await listCustomPresets(auth.session.user.id, { sort })
   return NextResponse.json({
     presets: presets.map((preset) => ({
       id: preset.id,

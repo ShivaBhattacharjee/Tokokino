@@ -13,6 +13,8 @@ type AnnotationLayerProps = {
   annotationMaskId: string
   isAnnotating: boolean
   cursorClass: string
+  /** When set, shows a circular eraser brush preview matching stroke width. */
+  eraserBrushSize?: number | null
   onPointerDown: (e: React.PointerEvent<SVGSVGElement>) => void
   onPointerMove: (e: React.PointerEvent<SVGSVGElement>) => void
   onPointerUp: (e: React.PointerEvent<SVGSVGElement>) => void
@@ -26,12 +28,20 @@ export function AnnotationLayer({
   annotationMaskId,
   isAnnotating,
   cursorClass,
+  eraserBrushSize = null,
   onPointerDown,
   onPointerMove,
   onPointerUp,
   onClick,
   onDoubleClick,
 }: AnnotationLayerProps) {
+  const [eraserBrushPos, setEraserBrushPos] = React.useState<{
+    x: number
+    y: number
+  } | null>(null)
+  const showEraserBrush =
+    isAnnotating && eraserBrushSize != null && eraserBrushSize > 0
+
   const eraserStrokes = React.useMemo(() => {
     const strokes: AnnotationStroke[] = []
     for (const stroke of annotations) {
@@ -46,6 +56,27 @@ export function AnnotationLayer({
     }
     return strokes
   }, [annotations])
+
+  const updateEraserBrushPos = React.useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      if (!showEraserBrush) {
+        setEraserBrushPos(null)
+        return
+      }
+      const svg = e.currentTarget
+      const rect = svg.getBoundingClientRect()
+      if (!rect.width || !rect.height) return
+      setEraserBrushPos({
+        x: ((e.clientX - rect.left) / rect.width) * svg.clientWidth,
+        y: ((e.clientY - rect.top) / rect.height) * svg.clientHeight,
+      })
+    },
+    [showEraserBrush]
+  )
+
+  React.useEffect(() => {
+    if (!showEraserBrush) setEraserBrushPos(null)
+  }, [showEraserBrush])
 
   return (
     <>
@@ -115,13 +146,36 @@ export function AnnotationLayer({
             ? `pointer-events-auto ${cursorClass}`
             : "pointer-events-none"
         )}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
+        onPointerDown={(e) => {
+          updateEraserBrushPos(e)
+          onPointerDown(e)
+        }}
+        onPointerMove={(e) => {
+          updateEraserBrushPos(e)
+          onPointerMove(e)
+        }}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onPointerLeave={() => setEraserBrushPos(null)}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
       />
+
+      {showEraserBrush && eraserBrushPos ? (
+        <div
+          aria-hidden
+          data-export-hidden="true"
+          data-annotation-eraser-brush="true"
+          className="pointer-events-none absolute z-[1001] rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.75)]"
+          style={{
+            left: eraserBrushPos.x,
+            top: eraserBrushPos.y,
+            width: eraserBrushSize,
+            height: eraserBrushSize,
+            transform: "translate(-50%, -50%)",
+          }}
+        />
+      ) : null}
     </>
   )
 }

@@ -9,6 +9,10 @@ import {
   useActiveCanvasId,
   useEditorStore,
 } from "@/lib/editor/store"
+import {
+  livePreviewRoots,
+  setLivePreviewVar,
+} from "@/lib/editor/live-preview-roots"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import { cn } from "@/lib/utils"
 
@@ -25,36 +29,28 @@ export function PaddingSection() {
   )
   const [draftPadding, setDraftPadding] = React.useState<number | null>(null)
   const displayedPadding = draftPadding ?? padding
-  const getPreviewScopeEl = React.useCallback((): HTMLElement | null => {
-    if (typeof document === "undefined" || !activeCanvasId) return null
-    const canvasEl = document.querySelector<HTMLElement>(
-      `[data-canvas-id="${activeCanvasId}"]`
-    )
-    if (!canvasEl) return null
-    if (target === "all") return canvasEl
+  const getPreviewScopeEls = React.useCallback((): HTMLElement[] => {
+    const roots = livePreviewRoots(activeCanvasId)
+    if (target === "all") return roots
 
     const scopeId = target === "slot" ? selectedSlot?.id : "canvas"
-    if (!scopeId) return canvasEl
-    return (
-      canvasEl.querySelector<HTMLElement>(
-        `[data-editor-shadow-preview-scope="${scopeId}"]`
-      ) ?? canvasEl
+    if (!scopeId) return roots
+    return roots.map(
+      (root) =>
+        root.querySelector<HTMLElement>(
+          `[data-editor-shadow-preview-scope="${CSS.escape(scopeId)}"]`
+        ) ?? root
     )
   }, [activeCanvasId, selectedSlot?.id, target])
   const setPreviewPadding = React.useCallback(
     (value: number | null) => {
-      const el = getPreviewScopeEl()
-      if (!el) return
-      if (value === null) {
-        el.style.removeProperty(PADDING_PREVIEW_VAR)
-        return
-      }
-      el.style.setProperty(
+      setLivePreviewVar(
+        getPreviewScopeEls(),
         PADDING_PREVIEW_VAR,
-        `${Math.max(0, Math.min(240, value)) / 12}%`
+        value === null ? null : `${Math.max(0, Math.min(240, value)) / 12}%`
       )
     },
-    [getPreviewScopeEl]
+    [getPreviewScopeEls]
   )
   const clearPreviewPaddingAfterPaint = React.useCallback(() => {
     if (typeof requestAnimationFrame === "undefined") return

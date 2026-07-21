@@ -17,24 +17,42 @@ const CanvasOverrideContext = React.createContext<Partial<CanvasState> | null>(
 
 const CanvasPreviewModeContext = React.createContext<boolean>(false)
 
+/**
+ * The canvas whose store state a preview subtree reads. Previews mount under a
+ * synthetic `CanvasScope` id so their `data-canvas-id` can't be picked up by
+ * export or the live-preview var writers, which both `querySelector` on it.
+ * That synthetic id also used to decide which canvas they *read*, forcing every
+ * preview to carry a full `CanvasState` override. Splitting the two lets a
+ * preview stay DOM-isolated while subscribing to the real canvas directly.
+ */
+const CanvasSourceIdContext = React.createContext<string | null>(null)
+
 export function CanvasPreviewScope({
   override,
+  sourceCanvasId = null,
   children,
 }: {
   override: Partial<CanvasState> | null
+  sourceCanvasId?: string | null
   children: React.ReactNode
 }) {
   return (
     <CanvasPreviewModeContext.Provider value={true}>
-      <CanvasOverrideContext.Provider value={override}>
-        {children}
-      </CanvasOverrideContext.Provider>
+      <CanvasSourceIdContext.Provider value={sourceCanvasId}>
+        <CanvasOverrideContext.Provider value={override}>
+          {children}
+        </CanvasOverrideContext.Provider>
+      </CanvasSourceIdContext.Provider>
     </CanvasPreviewModeContext.Provider>
   )
 }
 
 export function useCanvasPreviewMode() {
   return React.useContext(CanvasPreviewModeContext)
+}
+
+export function useCanvasSourceId() {
+  return React.useContext(CanvasSourceIdContext)
 }
 
 export function CanvasScope({
@@ -84,6 +102,7 @@ export function useActiveCanvasField<T>(
   selector: (canvas: CanvasState) => T
 ): T {
   const scopeId = React.useContext(CanvasIdContext)
+  const sourceId = React.useContext(CanvasSourceIdContext)
   const override = React.useContext(CanvasOverrideContext)
 
   const overrideRef = React.useRef(override)
@@ -103,7 +122,7 @@ export function useActiveCanvasField<T>(
 
   const stableSelector = React.useCallback(
     (s: EditorStore) => {
-      const id = scopeId ?? s.present.activeCanvasId
+      const id = sourceId ?? scopeId ?? s.present.activeCanvasId
       const base =
         s.present.canvases.find((c) => c.id === id) ??
         s.present.canvases[0] ??
@@ -123,7 +142,7 @@ export function useActiveCanvasField<T>(
       }
       return selectorRef.current(canvas)
     },
-    [scopeId]
+    [scopeId, sourceId]
   )
 
   // Wrap with useShallow so selectors returning a new object literal (e.g.

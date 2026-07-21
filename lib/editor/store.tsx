@@ -17,6 +17,7 @@ import { isVideoSrc } from "./media-type"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import { screenshotPositionAnchor } from "./presets"
 import type { TweetCardSettings } from "./tweet-settings"
+import type { PresetSort } from "@/lib/schemas/preset"
 import {
   resolveActivePresetGeometry,
   resolveMainOffsetPx,
@@ -779,7 +780,7 @@ export type EditorActions = {
    * Fetch the signed-in user's custom presets once. Dedupes in-flight calls so
    * multiple mounted Preset sections (desktop + iPad sidebars) share one request.
    */
-  loadCustomPresets: (userId: string) => void
+  loadCustomPresets: (userId: string, sort?: PresetSort) => void
   addCustomPreset: (preset: CustomPresetSummary) => void
   updateCustomPreset: (id: string, patch: Partial<CustomPresetSummary>) => void
   removeCustomPreset: (id: string) => void
@@ -1089,6 +1090,8 @@ export type EditorStore = {
   customPresetsLoading: boolean
   /** User id the current `customPresets` list was fetched for. */
   customPresetsForUserId: string | null
+  /** Sort the current `customPresets` list was fetched with. */
+  customPresetsSort: PresetSort
   currentDraft: CurrentDraftInfo | null
 } & EditorActions
 
@@ -1362,6 +1365,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     customPresetsLoaded: false,
     customPresetsLoading: false,
     customPresetsForUserId: null,
+    customPresetsSort: "latest",
     currentDraft: null,
 
     setActiveTool: (t) => commit({ activeTool: t }, null),
@@ -1381,21 +1385,34 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         customPresetsForUserId: null,
       })
     },
-    loadCustomPresets: (userId) => {
+    loadCustomPresets: (userId, sort) => {
       const state = get()
-      if (state.customPresetsLoaded && state.customPresetsForUserId === userId)
+      const nextSort = sort ?? state.customPresetsSort
+      const sortChanged = nextSort !== state.customPresetsSort
+      if (
+        state.customPresetsLoaded &&
+        state.customPresetsForUserId === userId &&
+        !sortChanged
+      )
         return
       // Dedupe concurrent mounts only for the SAME account. A load for a
       // different user supersedes the in-flight request instead of being
       // blocked by it — its late response is dropped by the token check.
-      if (state.customPresetsLoading && customPresetsInFlightUserId === userId)
+      // A sort change also supersedes: the in-flight list is ordered wrong.
+      if (
+        state.customPresetsLoading &&
+        customPresetsInFlightUserId === userId &&
+        !sortChanged
+      )
         return
       const token = ++customPresetsRequestToken
       customPresetsInFlightUserId = userId
       set({
         customPresetsLoading: true,
+        customPresetsSort: nextSort,
         // Account switch: never show the previous account's presets while the
-        // new list loads.
+        // new list loads. A sort change keeps the current list on screen and
+        // reorders it in place when the response lands.
         ...(state.customPresetsForUserId !== null &&
         state.customPresetsForUserId !== userId
           ? {
@@ -1405,9 +1422,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             }
           : {}),
       })
-      void fetch("/api/presets", { credentials: "include" })
+      void fetch(`/api/presets?sort=${nextSort}`, { credentials: "include" })
         .then(async (res) => {
-          if (!res.ok) return [] as CustomPresetSummary[]
+          if (!res.ok) throw new Error(`Preset load failed: ${res.status}`)
           const body: { presets: CustomPresetSummary[] } = await res.json()
           return body.presets
         })
@@ -1426,17 +1443,28 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           console.warn("Could not load custom presets", err)
           if (token !== customPresetsRequestToken) return
           customPresetsInFlightUserId = null
-          set({
-            customPresets: [],
+          // Keep whatever list is on screen: a failed re-sort must not erase
+          // presets that loaded fine. Roll the sort back so the picker matches
+          // the order actually displayed.
+          set((current) => ({
+            customPresetsSort: current.customPresetsLoaded
+              ? state.customPresetsSort
+              : nextSort,
             customPresetsLoaded: true,
             customPresetsLoading: false,
             customPresetsForUserId: userId,
-          })
+          }))
         })
     },
     addCustomPreset: (preset) =>
       set((state) => ({
-        customPresets: [preset, ...state.customPresets],
+        // A new preset is the newest, so it belongs at whichever end the
+        // active sort puts newest — otherwise saving under "Oldest" drops it
+        // at the top, where a refetch would not have put it.
+        customPresets:
+          state.customPresetsSort === "oldest"
+            ? [...state.customPresets, preset]
+            : [preset, ...state.customPresets],
         customPresetsLoaded: true,
       })),
     updateCustomPreset: (id, patch) =>

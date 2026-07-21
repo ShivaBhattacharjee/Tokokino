@@ -32,6 +32,12 @@ import {
   assetFilterCss,
   useEditor,
 } from "@/lib/editor/store"
+import {
+  clearElementLivePosition,
+  elementPositionVars,
+  livePreviewRoots,
+  setElementLivePosition,
+} from "@/lib/editor/live-preview-roots"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { cn } from "@/lib/utils"
@@ -81,6 +87,7 @@ export function AssetElementView({
   previewMode?: boolean
 }) {
   const {
+    id: canvasScopeId,
     selectedAssetId,
     setSelectedAssetId,
     setSelectedTextId,
@@ -92,6 +99,8 @@ export function AssetElementView({
     bulkViewportZoom,
   } = useEditor()
   const isSelected = selectedAssetId === asset.id
+
+  const positionVars = elementPositionVars(asset.id)
 
   const elRef = React.useRef<HTMLDivElement>(null)
   const imgRef = React.useRef<HTMLImageElement>(null)
@@ -194,25 +203,37 @@ export function AssetElementView({
     drag.lastXPct = nextX
     drag.lastYPct = nextY
     drag.moved = true
-    // Mutate DOM directly to avoid re-rendering the entire editor on every pointermove
+    // Drive CSS vars instead of re-rendering the editor on every pointermove.
+    // Broadcasting them from the canvas roots (rather than this element's own
+    // inline style) also carries the drag into the preset thumbnails' copy.
+    setElementLivePosition(
+      livePreviewRoots(canvasScopeId),
+      asset.id,
+      nextX,
+      nextY
+    )
     const el = elRef.current
-    if (el) {
-      el.style.left = `${nextX}%`
-      el.style.top = `${nextY}%`
-      setToolbarRect(el.getBoundingClientRect())
-    }
+    if (el) setToolbarRect(el.getBoundingClientRect())
   }
 
   const endDrag = (e: React.PointerEvent<Element>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
+    dragRef.current = null
     if (drag.moved) {
       updateAsset(asset.id, {
         xPct: drag.lastXPct,
         yPct: drag.lastYPct,
       })
+      // Clear a frame later so the committed value takes over from the var
+      // without a one-frame jump back to where the drag started. Skip if the
+      // asset was grabbed again meanwhile — the new drag owns the vars now.
+      const roots = livePreviewRoots(canvasScopeId)
+      requestAnimationFrame(() => {
+        if (dragRef.current) return
+        clearElementLivePosition(roots, asset.id)
+      })
     }
-    dragRef.current = null
     setIsDragging(false)
   }
 
@@ -353,8 +374,8 @@ export function AssetElementView({
           isSelected ? "cursor-grabbing" : "cursor-grab"
         )}
         style={{
-          left: `var(--editor-position-x, ${asset.xPct}%)`,
-          top: `var(--editor-position-y, ${asset.yPct}%)`,
+          left: `var(${positionVars.x}, var(--editor-position-x, ${asset.xPct}%))`,
+          top: `var(${positionVars.y}, var(--editor-position-y, ${asset.yPct}%))`,
           width: `${asset.widthPct}%`,
           height: heightStyle,
           transform: `translate(-50%, -50%) rotate(${asset.rotation}deg) scaleX(${asset.flipX ? -1 : 1}) scaleY(${asset.flipY ? -1 : 1})`,

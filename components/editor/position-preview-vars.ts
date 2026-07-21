@@ -47,22 +47,32 @@ export function setElementPositionPreview(
  * boxes and the main selection outline detached from its image.
  */
 export function setMainScreenshotPositionPreview(
-  canvasElement: HTMLElement | null | undefined,
+  canvasElement:
+    | HTMLElement
+    | null
+    | undefined
+    | Array<HTMLElement | null | undefined>,
   point: PositionSwipePoint
 ) {
-  if (!canvasElement) return
-  canvasElement.style.setProperty(MAIN_POSITION_X_VAR, `${point.xPct}%`)
-  canvasElement.style.setProperty(MAIN_POSITION_Y_VAR, `${point.yPct}%`)
-  canvasElement.style.setProperty(
-    MAIN_ANCHOR_X_VAR,
-    frameAnchorTravel(point.xPct, "x")
-  )
-  canvasElement.style.setProperty(
-    MAIN_ANCHOR_Y_VAR,
-    frameAnchorTravel(point.yPct, "y")
-  )
-  canvasElement.style.setProperty(MAIN_OFFSET_X_VAR, "0px")
-  canvasElement.style.setProperty(MAIN_OFFSET_Y_VAR, "0px")
+  // Accepts a list so callers can pass every live-preview root and drive the
+  // preset thumbnails alongside the canvas — these vars all live on the root,
+  // so no per-element lookup is needed.
+  for (const el of toElements(canvasElement)) {
+    el.style.setProperty(MAIN_POSITION_X_VAR, `${point.xPct}%`)
+    el.style.setProperty(MAIN_POSITION_Y_VAR, `${point.yPct}%`)
+    el.style.setProperty(MAIN_ANCHOR_X_VAR, frameAnchorTravel(point.xPct, "x"))
+    el.style.setProperty(MAIN_ANCHOR_Y_VAR, frameAnchorTravel(point.yPct, "y"))
+    el.style.setProperty(MAIN_OFFSET_X_VAR, "0px")
+    el.style.setProperty(MAIN_OFFSET_Y_VAR, "0px")
+  }
+}
+
+function toElements(
+  input: HTMLElement | null | undefined | Array<HTMLElement | null | undefined>
+): HTMLElement[] {
+  if (!input) return []
+  if (Array.isArray(input)) return input.filter((el): el is HTMLElement => !!el)
+  return [input]
 }
 
 /**
@@ -73,13 +83,18 @@ export function setMainScreenshotPositionPreview(
  * make it jump on release.
  */
 export function setMainScreenshotBarePreviewPx(
-  canvasElement: HTMLElement | null | undefined,
+  canvasElement:
+    | HTMLElement
+    | null
+    | undefined
+    | Array<HTMLElement | null | undefined>,
   leftPx: number,
   topPx: number
 ) {
-  if (!canvasElement) return
-  canvasElement.style.setProperty(MAIN_BARE_LEFT_VAR, `${leftPx}px`)
-  canvasElement.style.setProperty(MAIN_BARE_TOP_VAR, `${topPx}px`)
+  for (const el of toElements(canvasElement)) {
+    el.style.setProperty(MAIN_BARE_LEFT_VAR, `${leftPx}px`)
+    el.style.setProperty(MAIN_BARE_TOP_VAR, `${topPx}px`)
+  }
 }
 
 export function clearPositionPreviewVars(

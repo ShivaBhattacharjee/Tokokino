@@ -63,6 +63,17 @@ export const presetGeometrySchema = z
   })
   .loose()
 
+/**
+ * Query params for `GET /api/presets`. Mirrors `draftListQuerySchema`: an
+ * unrecognised or missing `sort` falls back to the default rather than
+ * erroring, so a stale client can never 400 the list.
+ */
+export const presetListQuerySchema = z.object({
+  sort: z.enum(["latest", "oldest"]).catch("latest"),
+})
+
+export type PresetSort = z.infer<typeof presetListQuerySchema>["sort"]
+
 /** Request body for `POST /api/presets`. */
 export const createPresetBodySchema = z.object({
   name: z.string().trim().min(1).max(PRESET_NAME_MAX_LENGTH),

@@ -83,7 +83,9 @@ export function useScreenshotDrag({
    */
   onLiveOffsetPreview?: (offset: Offset) => void
   /** Canvas root used to clear position preview vars after a drag commits. */
-  getPreviewCanvasElement?: () => HTMLElement | null
+  /** Every live-preview root to clear vars from — the canvas plus any
+   * preset thumbnail mirroring it. */
+  getPreviewCanvasElement?: () => HTMLElement[]
 }) {
   const [isScreenshotDragging, setIsScreenshotDragging] = React.useState(false)
   const [liveOffset, setLiveOffset] = React.useState<Offset | null>(null)
@@ -174,7 +176,7 @@ export function useScreenshotDrag({
   const endDrag = (normalize: boolean) => {
     setIsScreenshotDragging(false)
     updateCenterGuides({ x: false, y: false })
-    const canvasEl = getPreviewCanvas?.() ?? null
+    const canvasEl = getPreviewCanvas?.() ?? []
     try {
       commitLiveOffset(normalize)
     } finally {
@@ -182,7 +184,7 @@ export function useScreenshotDrag({
       // over (outside Animate mode nothing else clears them; inside, hold the
       // dragging flag until after the clear paints so AnimationLayer doesn't
       // re-sample the pre-drag pose for a frame).
-      clearPositionPreviewVarsAfterPaint([canvasEl])
+      clearPositionPreviewVarsAfterPaint(canvasEl)
       afterPositionPreviewCleared(() => setDraggingFlag?.(false))
     }
   }

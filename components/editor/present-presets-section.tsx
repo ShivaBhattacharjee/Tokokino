@@ -21,7 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RiFileCopyLine } from "@remixicon/react"
+import { RiFileCopyLine, RiSortAsc, RiSortDesc } from "@remixicon/react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import type { PresetSort } from "@/lib/schemas/preset"
 import { toast } from "sonner"
 import {
   useActiveCanvasField,
@@ -45,6 +52,46 @@ import {
 } from "./present-presets-section/tabs"
 
 const ENABLE_DEBUG_PRESETS = env.NEXT_PUBLIC_ENABLE_DEBUG_PRESETS
+
+const SORT_LABELS: Record<PresetSort, string> = {
+  latest: "Newest first",
+  oldest: "Oldest first",
+}
+
+/** Bare icon toggle — no border or background, and a fixed box so showing it
+ * on the Custom tab can't change the heading row's height. */
+function CustomPresetSortToggle({
+  sort,
+  disabled,
+  onChange,
+}: {
+  sort: PresetSort
+  disabled: boolean
+  onChange: (next: PresetSort) => void
+}) {
+  const next: PresetSort = sort === "latest" ? "oldest" : "latest"
+  const Icon = sort === "latest" ? RiSortDesc : RiSortAsc
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(next)}
+            aria-label={`Sorted by ${SORT_LABELS[sort].toLowerCase()}. Switch to ${SORT_LABELS[next].toLowerCase()}.`}
+            className="-my-1 inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Icon className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          {SORT_LABELS[sort]}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
 export function PresentPresetsSection({
   flat = false,
@@ -105,6 +152,7 @@ export function PresentPresetsSection({
     (s) => s.setActiveSinglePresetId
   )
   const customPresets = useEditorStore((s) => s.customPresets)
+  const customPresetsSort = useEditorStore((s) => s.customPresetsSort)
   const customPresetsLoaded = useEditorStore((s) => s.customPresetsLoaded)
   const customPresetsLoading = useEditorStore((s) => s.customPresetsLoading)
   const setCustomPresets = useEditorStore((s) => s.setCustomPresets)
@@ -164,6 +212,7 @@ export function PresentPresetsSection({
       ? bulkPresetUiByCanvasId[activeCanvasId]
       : null
   const displayTab = bulkEditMode ? (bulkPresetUi?.tab ?? tab) : tab
+  const isCustomTab = displayTab === "custom"
   const displayActiveLayoutPresetId = bulkEditMode
     ? (bulkPresetUi?.activeLayoutPresetId ?? null)
     : activeLayoutPresetId
@@ -208,6 +257,14 @@ export function PresentPresetsSection({
     // and briefly leave a partial list on screen).
     loadCustomPresets(userId)
   }, [userId, isAuthPending, loadCustomPresets, clearCustomPresets])
+
+  const handleSortChange = React.useCallback(
+    (next: PresetSort) => {
+      if (!userId || next === customPresetsSort) return
+      loadCustomPresets(userId, next)
+    },
+    [customPresetsSort, loadCustomPresets, userId]
+  )
 
   const handleDeleteCustomPreset = React.useCallback(
     async (id: string) => {
@@ -552,12 +609,19 @@ export function PresentPresetsSection({
         </AlertDialogContent>
       </AlertDialog>
       <div className="shrink-0 px-4 pb-3">
-        {(showPresetHeading || ENABLE_DEBUG_PRESETS) && (
+        {(showPresetHeading || ENABLE_DEBUG_PRESETS || isCustomTab) && (
           <div className="mb-2 flex items-center justify-between gap-2">
             {showPresetHeading ? (
               <p className="text-[13px] font-medium text-foreground">Presets</p>
             ) : (
               <span aria-hidden />
+            )}
+            {isCustomTab && (
+              <CustomPresetSortToggle
+                sort={customPresetsSort}
+                disabled={!userId}
+                onChange={handleSortChange}
+              />
             )}
             {ENABLE_DEBUG_PRESETS && (
               <button

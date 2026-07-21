@@ -11,6 +11,10 @@ import {
   useActiveCanvasId,
   useEditorStore,
 } from "@/lib/editor/store"
+import {
+  livePreviewRoots,
+  setLivePreviewVar,
+} from "@/lib/editor/live-preview-roots"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import { cn } from "@/lib/utils"
 
@@ -61,22 +65,15 @@ export function BackdropSection({
   } = backdrop
   const activeLighting = selectedSlot?.lighting ?? lighting
 
-  // Live-preview CSS vars on the active canvas: dragging sliders writes to
-  // these vars directly so the canvas updates without re-rendering the store
-  // until the user releases the slider. See tilt-section.tsx for the same
-  // pattern applied to tilt/scale.
-  const getCanvasEl = React.useCallback((): HTMLElement | null => {
-    if (typeof document === "undefined" || !activeCanvasId) return null
-    return document.querySelector(`[data-canvas-id="${activeCanvasId}"]`)
-  }, [activeCanvasId])
+  // Live-preview CSS vars on the active canvas and every preset thumbnail
+  // mirroring it: dragging sliders writes to these vars directly so both
+  // update without re-rendering the store until the user releases the slider.
+  // See tilt-section.tsx for the same pattern applied to tilt/scale.
   const setPreviewVar = React.useCallback(
     (name: string, value: string | null) => {
-      const el = getCanvasEl()
-      if (!el) return
-      if (value === null) el.style.removeProperty(name)
-      else el.style.setProperty(name, value)
+      setLivePreviewVar(livePreviewRoots(activeCanvasId), name, value)
     },
-    [getCanvasEl]
+    [activeCanvasId]
   )
   const clearPreviewVarAfterPaint = React.useCallback(
     (name: string) => {

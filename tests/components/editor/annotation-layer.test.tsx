@@ -1,6 +1,6 @@
 import { createRef } from "react"
-import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
 
 import { AnnotationLayer } from "@/components/editor/canvas/annotation-layer"
 import type { AnnotationStroke } from "@/lib/editor/store"
@@ -87,5 +87,49 @@ describe("AnnotationLayer", () => {
     expect(screen.getByLabelText("Annotation layer")).toHaveClass(
       "pointer-events-none"
     )
+  })
+
+  it("shows a sized eraser brush preview under the pointer", () => {
+    const { container } = render(
+      <AnnotationLayer
+        layerRef={createRef<SVGSVGElement>()}
+        annotations={[]}
+        annotationMaskId="mask"
+        isAnnotating
+        cursorClass="cursor-none"
+        eraserBrushSize={11}
+        onPointerDown={() => {}}
+        onPointerMove={() => {}}
+        onPointerUp={() => {}}
+        onClick={() => {}}
+        onDoubleClick={() => {}}
+      />
+    )
+    const layer = screen.getByLabelText("Annotation layer")
+    Object.defineProperty(layer, "clientWidth", {
+      configurable: true,
+      value: 200,
+    })
+    Object.defineProperty(layer, "clientHeight", {
+      configurable: true,
+      value: 100,
+    })
+    vi.spyOn(layer, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 200,
+      bottom: 100,
+      width: 200,
+      height: 100,
+      toJSON: () => ({}),
+    })
+    fireEvent.pointerMove(layer, { clientX: 40, clientY: 60 })
+    const brush = container.querySelector(
+      "[data-annotation-eraser-brush='true']"
+    )
+    expect(brush).toBeTruthy()
+    expect(brush).toHaveStyle({ width: "11px", height: "11px" })
   })
 })
