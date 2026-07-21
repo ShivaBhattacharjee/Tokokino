@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { useEditorStore } from "@/lib/editor/store"
 import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
+import { sourceTimeAt, videoClipAtTime } from "@/lib/editor/video-timeline-map"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 
 type PlayerContextValue = {
@@ -67,18 +68,8 @@ export function AnimationPlayerProvider({
   }, [videoClips])
 
   const videoClipAt = React.useCallback(
-    (ms: number, mediaDurationMs?: number) => {
-      const clips = videoClipsRef.current ?? [
-        { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
-      ]
-      return clips.find(
-        (clip) =>
-          ms >= (clip.timelineStartMs ?? clip.startMs) &&
-          ms <
-            (clip.timelineStartMs ?? clip.startMs) +
-              ((clip.endMs ?? mediaDurationMs ?? Infinity) - clip.startMs)
-      )
-    },
+    (ms: number, mediaDurationMs?: number) =>
+      videoClipAtTime(videoClipsRef.current, ms, mediaDurationMs),
     []
   )
 
@@ -92,18 +83,16 @@ export function AnimationPlayerProvider({
     (ms: number) => {
       const el = getVideo()
       if (!el) return
+      const duration = Number.isFinite(el.duration) ? el.duration : undefined
       const clip = videoClipAt(
         ms,
-        Number.isFinite(el.duration) ? el.duration * 1000 : undefined
+        duration != null ? duration * 1000 : undefined
       )
       if (!clip) return
       el.muted = clip.muted ?? getVideoMutedPreferenceSync()
-      const sourceMs =
-        clip.startMs + (ms - (clip.timelineStartMs ?? clip.startMs))
-      const seconds = sourceMs / 1000
-      el.currentTime = Number.isFinite(el.duration)
-        ? Math.min(seconds, el.duration)
-        : seconds
+      const seconds = sourceTimeAt(videoClipsRef.current, ms, duration)
+      if (seconds == null) return
+      el.currentTime = seconds
     },
     [getVideo, videoClipAt]
   )
