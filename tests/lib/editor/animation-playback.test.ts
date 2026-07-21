@@ -701,4 +701,36 @@ describe("sampleShadowLayers", () => {
       5
     )
   })
+
+  it("keeps both layers when a frame starts mid cross-blend release", () => {
+    // Pose `soft` releasing toward a visible `glow` rest is a two-layer stack.
+    // A frame starting mid-release must depart from BOTH, or the incoming glow
+    // pops off at its first tick.
+    const frames = [
+      frame(soft),
+      { startMs: 1500, durationMs: 1000, value: soft, ease: linear },
+    ]
+    const before = sampleShadowLayers([frames[0]], 1500, glow)!
+    const atStart = sampleShadowLayers(frames, 1500, glow)!
+
+    expect(before.map((s) => s.type)).toEqual(["soft", "glow"])
+    expect(atStart.map((s) => s.type)).toEqual(["soft", "glow", "soft"])
+    // The third layer is the new pose at intensity 0, so the rendered stack is
+    // unchanged at the boundary.
+    expect(atStart[0].intensity).toBeCloseTo(before[0].intensity, 5)
+    expect(atStart[1].intensity).toBeCloseTo(before[1].intensity, 5)
+    expect(atStart[2].intensity).toBeCloseTo(0, 5)
+  })
+
+  it("fades the residual layers out as the next frame eases in", () => {
+    const frames = [
+      frame(soft),
+      { startMs: 1500, durationMs: 1000, value: soft, ease: linear },
+    ]
+    // Halfway into the next frame: both residuals halved, new pose at half.
+    const mid = sampleShadowLayers(frames, 2000, glow)!
+    expect(mid[0].intensity).toBeCloseTo(20, 5) // soft residual was 40
+    expect(mid[1].intensity).toBeCloseTo(15, 5) // glow residual was 30
+    expect(mid[2].intensity).toBeCloseTo(40, 5) // new soft easing in to 80
+  })
 })

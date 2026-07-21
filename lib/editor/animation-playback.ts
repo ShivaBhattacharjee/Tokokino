@@ -463,25 +463,29 @@ export function sampleShadowLayers(
     return p <= 0 ? [sorted[i].value] : layersBetween(sorted[i].value, rest, p)
   }
 
-  // The single shadow a later frame departs FROM. Taking the OUTGOING layer
-  // keeps the pose's own type: blending straight to rest would adopt rest's
-  // type, and a rest of `none` would leave a shadow that renders nothing.
-  const settledValue = (i: number, at: number): Shadow =>
-    releasedLayers(i, at)[0]
-
   if (timeMs < sorted[0].startMs) return [rest]
   for (let i = 0; i < sorted.length; i++) {
     const f = sorted[i]
     // Gap: released frames keep blending toward rest instead of holding.
     if (timeMs < f.startMs) return releasedLayers(i - 1, timeMs)
     if (timeMs <= f.startMs + f.durationMs) {
-      const from = i > 0 ? settledValue(i - 1, f.startMs) : rest
-      const ease = f.ease ?? easeOut
-      return layersBetween(
-        from,
-        f.value,
-        ease(clamp01((timeMs - f.startMs) / f.durationMs))
+      // The WHOLE stack the previous frame was rendering at this frame's start,
+      // not just its outgoing layer: a release that is itself cross-blending
+      // toward a different-typed rest has two live layers, and dropping the
+      // incoming one pops it off at this frame's first tick.
+      const from = i > 0 ? releasedLayers(i - 1, f.startMs) : [rest]
+      const p = (f.ease ?? easeOut)(
+        clamp01((timeMs - f.startMs) / f.durationMs)
       )
+      // One layer keeps the same-type morph and reveal-from-nothing rules.
+      // Several can only fade out together while the new pose fades in — at
+      // p = 0 that renders the previous stack exactly, so nothing jumps.
+      return from.length === 1
+        ? layersBetween(from[0], f.value, p)
+        : [
+            ...from.map((s) => ({ ...s, intensity: lerp(s.intensity, 0, p) })),
+            { ...f.value, intensity: lerp(0, f.value.intensity, p) },
+          ]
     }
   }
   return releasedLayers(sorted.length - 1, timeMs)
