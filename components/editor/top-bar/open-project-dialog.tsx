@@ -258,11 +258,6 @@ function ProjectTypeRail({
       <p className="hidden px-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:block">
         Project type
       </p>
-      {searching ? (
-        <p className="-mt-1.5 px-1 text-[10px] leading-snug text-muted-foreground">
-          Searching — narrow with the filter in the search box.
-        </p>
-      ) : null}
       <div
         className={cn(
           "flex flex-row gap-1.5 overflow-x-auto transition-opacity sm:flex-col sm:overflow-visible",
@@ -1003,13 +998,13 @@ export function OpenProjectDialog({
                     setPage(1)
                   }}
                 >
-                  <SelectTrigger className="w-[104px] shrink-0 rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 focus-visible:border-border/70 focus-visible:ring-0">
+                  <SelectTrigger className="w-auto shrink-0 gap-1.5 rounded-md border border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 focus-visible:border-border/70 focus-visible:ring-0">
                     <SelectValue placeholder="Latest" />
                   </SelectTrigger>
                   <SelectContent
                     align="end"
                     position="popper"
-                    className="min-w-[104px] rounded-md border border-border/70 bg-popover p-1 shadow-2xl"
+                    className="min-w-[var(--radix-select-trigger-width)] rounded-md border border-border/70 bg-popover p-1 shadow-2xl"
                   >
                     <SelectItem value="latest">Latest</SelectItem>
                     <SelectItem value="oldest">Oldest</SelectItem>

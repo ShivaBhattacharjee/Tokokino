@@ -36,9 +36,9 @@ export async function GET(request: Request) {
   })
 
   try {
-    // A search ranks by fuzzy match (typo-tolerant) and returns its own total,
-    // so page and count always come from one ranking. Plain listing keeps the
-    // indexed SQL path.
+    // A search matches by fuzzy name (typo-tolerant), applies `sort` to the
+    // matches, and returns its own total, so page and count always come from
+    // one pass. Plain listing keeps the indexed SQL path.
     const [listed, storageUsed] = await Promise.all([
       q
         ? searchDrafts(auth.session.user.id, { q, limit, offset, sort, type })
