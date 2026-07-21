@@ -568,7 +568,7 @@ export function applyAnimationFrameAtTime({
       setVar(
         canvasEl,
         BACKDROP_FX_PREVIEW_VAR,
-        effectsFilterCss(bdVal) ?? "none"
+        effectsFilterCss(bdVal) ?? "brightness(1)"
       )
       setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, String(bdVal.noise / 100))
     } else {

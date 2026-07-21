@@ -780,13 +780,6 @@ function CanvasViewInner({
           forceMount: lightingAnimated && lightingSides.inner,
         })
       : null
-  // When a clip animates backdrop effects, the backdrop must always carry the
-  // `--bd-fx-preview` filter var — even when the committed effects are neutral
-  // (no filter). Otherwise the player has nothing to drive when an effect eases
-  // in from / out to neutral, so it silently wouldn't animate.
-  const backdropAnimated =
-    isAnimateMode &&
-    !!canvasAnimation?.clips.some((c) => clipOwns(c, "backdrop"))
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
   const mockupRotation =
     frame.orientation === "horizontal" && mockupOrientation === "portrait"
@@ -1036,7 +1029,6 @@ function CanvasViewInner({
             animatePatternStack={animatePatternStack}
             animateOverlayStack={animateOverlayStack}
             lightingAnimated={lightingAnimated && lightingSides.outer}
-            backdropAnimated={backdropAnimated}
           />
 
           {mainScreenshotRowStyle ? (
