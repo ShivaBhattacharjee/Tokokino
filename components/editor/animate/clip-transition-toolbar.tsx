@@ -207,7 +207,9 @@ function TransitionPanel({
         <div className="flex flex-col">
           <span className="text-[11px] text-foreground">Return to default</span>
           <span className="text-[10px] text-muted-foreground">
-            Unwinds over {activeMs}ms after the clip
+            {returns
+              ? `Unwinds over ${activeMs}ms after the clip`
+              : "Holds its pose after the clip"}
           </span>
         </div>
         <Switch
