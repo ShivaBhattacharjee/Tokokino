@@ -102,13 +102,14 @@ export function clipProgressEase(clip: {
 
 /**
  * Whether a clip releases back to its pre-clip state after its window instead of
- * holding the pose. Undefined is off: clips authored before the release existed
- * were composed around the hold.
+ * holding the pose. On unless a clip opts out, so a keyframe's effect never
+ * outlives the band that authored it — including in drafts saved before the
+ * release existed.
  */
 export function clipReturnsToDefault(clip: {
   returnToDefault?: boolean
 }): boolean {
-  return clip.returnToDefault === true
+  return clip.returnToDefault !== false
 }
 
 /**

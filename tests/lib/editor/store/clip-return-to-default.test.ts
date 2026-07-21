@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
+import { clipReturnsToDefault } from "@/lib/editor/clip-easing"
 import { useEditorStore } from "@/lib/editor/store"
 
 const store = useEditorStore
@@ -14,11 +15,9 @@ const clipById = (id: string) => clips().find((c) => c.id === id)!
 describe("addAnimationClip returnToDefault", () => {
   beforeEach(() => store.getState().reset())
 
-  it("marks new clips as returning to default explicitly", () => {
+  it("returns new clips to default without needing a stored flag", () => {
     const id = store.getState().addAnimationClip()
-    // Explicit `true`, not undefined: undefined is the legacy hold, so relying
-    // on the default would silently change how old drafts play.
-    expect(clipById(id).returnToDefault).toBe(true)
+    expect(clipReturnsToDefault(clipById(id))).toBe(true)
   })
 
   it("lets a clip be switched back to holding its pose", () => {
@@ -27,14 +26,15 @@ describe("addAnimationClip returnToDefault", () => {
     expect(clipById(id).returnToDefault).toBe(false)
   })
 
-  it("carries the choice onto both halves of a split", () => {
+  it("carries an opt-out onto both halves of a split", () => {
     const id = store.getState().addAnimationClip()
+    store.getState().updateAnimationClip(id, { returnToDefault: false })
     const source = clipById(id)
     const newId = store
       .getState()
       .splitAnimationClip(id, source.startMs + source.durationMs / 2)
     expect(newId).not.toBeNull()
-    expect(clipById(id).returnToDefault).toBe(true)
-    expect(clipById(newId!).returnToDefault).toBe(true)
+    expect(clipReturnsToDefault(clipById(id))).toBe(false)
+    expect(clipReturnsToDefault(clipById(newId!))).toBe(false)
   })
 })

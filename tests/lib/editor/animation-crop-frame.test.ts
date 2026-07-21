@@ -78,8 +78,22 @@ describe("animated crop → CSS vars", () => {
     expect(el.style.getPropertyValue(VIEW_BOX)).toBe("inset(10% 10% 10% 10%)")
   })
 
-  it("holds the last crop past the end of the clip", () => {
+  it("releases the crop back to the baseline rect after the clip", () => {
     const clips = [cropClip()]
+
+    applyAt(el, clips, 1000)
+    expect(el.style.getPropertyValue(VIEW_BOX)).toBe("inset(20% 20% 20% 20%)")
+
+    // The release mirrors the reveal, so halfway back out reads like halfway in.
+    applyAt(el, clips, 1500)
+    expect(el.style.getPropertyValue(VIEW_BOX)).toBe("inset(10% 10% 10% 10%)")
+
+    applyAt(el, clips, 9999)
+    expect(el.style.getPropertyValue(VIEW_BOX)).toBe("inset(0% 0% 0% 0%)")
+  })
+
+  it("holds the last crop past the end when the clip opts out", () => {
+    const clips = [cropClip({ returnToDefault: false })]
     applyAt(el, clips, 1000)
     const atEnd = el.style.getPropertyValue(VIEW_BOX)
 

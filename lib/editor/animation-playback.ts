@@ -243,6 +243,8 @@ export function lightingTargetMixAt(
     durationMs: number
     value: BackdropLighting
     ease?: (rawT: number) => number
+    releaseMs?: number
+    releaseEase?: (rawT: number) => number
   }[],
   timeMs: number,
   rest: BackdropLighting
@@ -266,6 +268,10 @@ export function lightingTargetMixAt(
         durationMs: f.durationMs,
         value: f.value.target === "inner" ? 1 : 0,
         ease: f.ease,
+        // Forwarded, or a released clip would slide its light back to the rest
+        // POSITION while the side it renders on stayed pinned to the pose.
+        releaseMs: f.releaseMs,
+        releaseEase: f.releaseEase,
       })),
       timeMs,
       restMix,
@@ -418,7 +424,8 @@ export function shadowBetween(from: Shadow, to: Shadow, p: number): Shadow {
  *  - a reveal from nothing → one shadow growing in from 0,
  *  - a retract to nothing → the old shadow easing OUT (keeping its own type so
  *    it fades rather than vanishing),
- *  - a gap / past the end → hold that keyframe's shadow.
+ *  - a gap / past the end → hold that keyframe's shadow, or blend it back to
+ *    `rest` over `releaseMs` when the frame releases.
  * Returns null when no keyframe animates the shadow (leave the committed value).
  */
 export function sampleShadowLayers(
@@ -427,40 +434,80 @@ export function sampleShadowLayers(
     durationMs: number
     value: Shadow
     ease?: (rawT: number) => number
+    /** Blend back to `rest` over this many ms after the frame ends. 0 = hold. */
+    releaseMs?: number
+    /** Curve for that release. Falls back to the historic ease-out. */
+    releaseEase?: (rawT: number) => number
   }[],
   timeMs: number,
   rest: Shadow
 ): Shadow[] | null {
   if (frames.length === 0) return null
   const sorted = [...frames].sort((a, b) => a.startMs - b.startMs)
+
+  /** How far frame `i` has released at `at` (0 = still on its pose). */
+  const releaseProgress = (i: number, at: number): number => {
+    const f = sorted[i]
+    const release = f.releaseMs ?? 0
+    if (release <= 0) return 0
+    const raw = clamp01((at - (f.startMs + f.durationMs)) / release)
+    return raw <= 0 ? 0 : (f.releaseEase ?? easeOut)(raw)
+  }
+
+  // What frame `i` renders at a time past its own window: its pose held, or run
+  // back out to rest under the same blend rules the reveal used — so a shadow
+  // recedes exactly the way it arrived, cross-blending when rest is a different
+  // visible type and fading on its own type when rest renders nothing.
+  const releasedLayers = (i: number, at: number): Shadow[] => {
+    const p = releaseProgress(i, at)
+    return p <= 0 ? [sorted[i].value] : layersBetween(sorted[i].value, rest, p)
+  }
+
+  // The single shadow a later frame departs FROM. Taking the OUTGOING layer
+  // keeps the pose's own type: blending straight to rest would adopt rest's
+  // type, and a rest of `none` would leave a shadow that renders nothing.
+  const settledValue = (i: number, at: number): Shadow =>
+    releasedLayers(i, at)[0]
+
   if (timeMs < sorted[0].startMs) return [rest]
   for (let i = 0; i < sorted.length; i++) {
     const f = sorted[i]
-    if (timeMs < f.startMs) return [sorted[i - 1].value] // gap → hold previous
+    // Gap: released frames keep blending toward rest instead of holding.
+    if (timeMs < f.startMs) return releasedLayers(i - 1, timeMs)
     if (timeMs <= f.startMs + f.durationMs) {
-      const from = i > 0 ? sorted[i - 1].value : rest
-      const to = f.value
+      const from = i > 0 ? settledValue(i - 1, f.startMs) : rest
       const ease = f.ease ?? easeOut
-      const p = ease(clamp01((timeMs - f.startMs) / f.durationMs))
-      const fromVisible = !shadowInvisible(from)
-      const toVisible = !shadowInvisible(to)
-      // Retract to nothing: fade the source out on its own type so it recedes
-      // the way it arrived rather than blinking off.
-      if (fromVisible && !toVisible) {
-        return [{ ...from, intensity: lerp(from.intensity, 0, p) }]
-      }
-      // Two different visible shadows → cross-blend (old OUT, new IN).
-      if (fromVisible && toVisible && from.type !== to.type) {
-        return [
-          { ...from, intensity: lerp(from.intensity, 0, p) },
-          { ...to, intensity: lerp(0, to.intensity, p) },
-        ]
-      }
-      // Same-type morph, reveal from nothing, or nothing→nothing: one layer.
-      return [shadowBetween(from, to, p)]
+      return layersBetween(
+        from,
+        f.value,
+        ease(clamp01((timeMs - f.startMs) / f.durationMs))
+      )
     }
   }
-  return [sorted[sorted.length - 1].value] // past the end → hold last
+  return releasedLayers(sorted.length - 1, timeMs)
+}
+
+/**
+ * The shadow layer(s) rendering a `from` → `to` blend at progress p. Shared by
+ * the reveal and the release so both directions cross-blend identically.
+ */
+function layersBetween(from: Shadow, to: Shadow, p: number): Shadow[] {
+  const fromVisible = !shadowInvisible(from)
+  const toVisible = !shadowInvisible(to)
+  // Retract to nothing: fade the source out on its own type so it recedes
+  // the way it arrived rather than blinking off.
+  if (fromVisible && !toVisible) {
+    return [{ ...from, intensity: lerp(from.intensity, 0, p) }]
+  }
+  // Two different visible shadows → cross-blend (old OUT, new IN).
+  if (fromVisible && toVisible && from.type !== to.type) {
+    return [
+      { ...from, intensity: lerp(from.intensity, 0, p) },
+      { ...to, intensity: lerp(0, to.intensity, p) },
+    ]
+  }
+  // Same-type morph, reveal from nothing, or nothing→nothing: one layer.
+  return [shadowBetween(from, to, p)]
 }
 
 export function backdropEffectsDiffer(

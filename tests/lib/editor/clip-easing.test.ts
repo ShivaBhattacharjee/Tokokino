@@ -169,8 +169,9 @@ describe("easingDotAt", () => {
 })
 
 describe("clipReturnsToDefault", () => {
-  it("is off when unset, so clips saved before the release keep holding", () => {
-    expect(clipReturnsToDefault(clip())).toBe(false)
+  it("is ON when unset, so every clip releases unless it opts out", () => {
+    // Drafts saved before the release existed carry no flag; they release too.
+    expect(clipReturnsToDefault(clip())).toBe(true)
   })
 
   it("passes an explicit choice through", () => {
@@ -180,19 +181,16 @@ describe("clipReturnsToDefault", () => {
 })
 
 describe("clipReleaseMs", () => {
-  it("is 0 when the clip holds its pose", () => {
-    expect(clipReleaseMs(clip())).toBe(0)
+  it("is 0 only when the clip opts out of releasing", () => {
     expect(clipReleaseMs(clip({ returnToDefault: false }))).toBe(0)
   })
 
   it("mirrors the clip's window when it releases at full speed", () => {
-    expect(
-      clipReleaseMs(clip({ durationMs: 1200, returnToDefault: true }))
-    ).toBe(1200)
+    expect(clipReleaseMs(clip({ durationMs: 1200 }))).toBe(1200)
   })
 
   it("mirrors the ACTIVE duration, so speed shortens the release too", () => {
-    const fast = clip({ durationMs: 5000, speed: 5, returnToDefault: true })
+    const fast = clip({ durationMs: 5000, speed: 5 })
     expect(clipReleaseMs(fast)).toBe(effectiveActiveMs(fast))
     expect(clipReleaseMs(fast)).toBe(1000)
   })
