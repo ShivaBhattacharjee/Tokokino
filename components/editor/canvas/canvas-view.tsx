@@ -206,6 +206,14 @@ function CanvasViewInner({
   const canvasAnimation = useEditorStore(
     (s) => s.present.canvases.find((c) => c.id === scopeId)?.animation
   )
+  const canvasVideoClips = useEditorStore(
+    (s) => s.present.canvases.find((c) => c.id === scopeId)?.videoClips
+  )
+  // The element only; its `currentTime` is read lazily in the crop-poster
+  // getter below, never captured here.
+  const canvasVideoEl = useVideoRegistry((s) =>
+    scopeId ? (s.videos[scopeId] ?? null) : null
+  )
   const {
     bg: animateBgStack,
     filterStack: animateFilterStack,
@@ -339,30 +347,29 @@ function CanvasViewInner({
   // timeline→source mapping the player uses, or a trimmed clip would preview a
   // different frame than it plays.
   const getCropPosterTimeSec = React.useCallback((): number | null => {
-    const videoEl = scopeId
-      ? (useVideoRegistry.getState().videos[scopeId] ?? null)
-      : null
-    if (!videoEl) return null
-    const duration = Number.isFinite(videoEl.duration)
-      ? videoEl.duration
+    if (!canvasVideoEl) return null
+    const duration = Number.isFinite(canvasVideoEl.duration)
+      ? canvasVideoEl.duration
       : undefined
-    const state = useEditorStore.getState()
-    const canvas = state.present.canvases.find((c) => c.id === scopeId)
-    const openClipId = state.isAnimateMode
-      ? state.selectedAnimationClipId
-      : null
-    const openClip = openClipId
-      ? canvas?.animation?.clips.find((c) => c.id === openClipId)
-      : null
+    const openClip =
+      isAnimateMode && selectedAnimationClipId
+        ? canvasAnimation?.clips.find((c) => c.id === selectedAnimationClipId)
+        : null
     if (openClip) {
       const atMs = openClip.startMs + openClip.durationMs
-      const sec = sourceTimeAt(canvas?.videoClips, atMs, duration)
+      const sec = sourceTimeAt(canvasVideoClips, atMs, duration)
       // A keyframe over a gap in the video has no frame of its own; fall through
       // to the playhead rather than previewing one it never shows.
       if (sec != null) return sec
     }
-    return videoEl.currentTime
-  }, [scopeId])
+    return canvasVideoEl.currentTime
+  }, [
+    canvasVideoEl,
+    canvasVideoClips,
+    isAnimateMode,
+    selectedAnimationClipId,
+    canvasAnimation,
+  ])
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
   const canUseNaturalCanvasAspect =
     isAuto && naturalDims && !inRowMode && frame.id === "none"
