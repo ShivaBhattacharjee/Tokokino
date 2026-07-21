@@ -17,15 +17,18 @@ const NAMES = [
   "Automatic Red Starfish",
 ]
 
+/** Declared here rather than imported: pinning it is the point. */
+const FUSE_CONFIG = {
+  keys: ["name"],
+  threshold: 0.4,
+  ignoreLocation: true,
+  minMatchCharLength: 2,
+}
+
 const makeFuse = () =>
   new Fuse(
     NAMES.map((name) => ({ name })),
-    {
-      keys: ["name"],
-      threshold: 0.4,
-      ignoreLocation: true,
-      minMatchCharLength: 2,
-    }
+    FUSE_CONFIG
   )
 
 const search = (q: string) =>
@@ -103,14 +106,7 @@ const compareByUpdated = (
 }
 
 const searchSorted = (q: string, sort: "latest" | "oldest") => {
-  const matches = new Fuse(DATED, {
-    keys: ["name"],
-    threshold: 0.4,
-    ignoreLocation: true,
-    minMatchCharLength: 2,
-  })
-    .search(q)
-    .map((hit) => hit.item)
+  const matches = new Fuse(DATED, FUSE_CONFIG).search(q).map((hit) => hit.item)
   matches.sort((a, b) => compareByUpdated(a, b, sort))
   return matches.map((m) => m.name)
 }
