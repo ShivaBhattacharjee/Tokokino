@@ -1,6 +1,6 @@
 import "server-only"
 
-import { and, desc, eq } from "drizzle-orm"
+import { and, asc, desc, eq } from "drizzle-orm"
 
 import {
   customPresets,
@@ -8,6 +8,7 @@ import {
   type StoredPresetGeometry,
 } from "@/lib/db/schema"
 import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
+import type { PresetSort } from "@/lib/schemas/preset"
 
 export type { CustomPresetType, StoredPresetGeometry } from "@/lib/db/schema"
 
@@ -46,12 +47,20 @@ function rowToPreset(row: CustomPresetRow): CustomPresetRecord {
   }
 }
 
-export async function listCustomPresets(userId: string) {
+export async function listCustomPresets(
+  userId: string,
+  opts: { sort?: PresetSort } = {}
+) {
+  const order =
+    opts.sort === "oldest"
+      ? asc(customPresets.createdAt)
+      : desc(customPresets.createdAt)
+
   const rows = await getDb()
     .select()
     .from(customPresets)
     .where(eq(customPresets.userId, userId))
-    .orderBy(desc(customPresets.createdAt))
+    .orderBy(order)
 
   return rows.map(rowToPreset)
 }

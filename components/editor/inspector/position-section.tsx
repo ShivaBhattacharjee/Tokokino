@@ -282,12 +282,12 @@ export function PositionSection() {
       setMainScreenshotPositionPreview(canvasElement, safePoint)
     },
     [
+      activeCanvasId,
       editor.aspect,
       editor.frame,
       editor.screenshotOffset,
       editor.screenshotPosition,
       editor.screenshotSlots,
-      getActiveCanvasElement,
       getSelectedSlotElement,
       hasMainScreenshotBox,
       isAllTarget,

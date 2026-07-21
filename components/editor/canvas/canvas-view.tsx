@@ -678,6 +678,7 @@ function CanvasViewInner({
       frame,
       inRowMode,
       positionedStyle,
+      scopeId,
       screenshotPosition,
       screenshotSlots,
       tweet,
