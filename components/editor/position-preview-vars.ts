@@ -47,7 +47,11 @@ export function setElementPositionPreview(
  * boxes and the main selection outline detached from its image.
  */
 export function setMainScreenshotPositionPreview(
-  canvasElement: HTMLElement | null | undefined | Array<HTMLElement | null | undefined>,
+  canvasElement:
+    | HTMLElement
+    | null
+    | undefined
+    | Array<HTMLElement | null | undefined>,
   point: PositionSwipePoint
 ) {
   // Accepts a list so callers can pass every live-preview root and drive the
@@ -79,7 +83,11 @@ function toElements(
  * make it jump on release.
  */
 export function setMainScreenshotBarePreviewPx(
-  canvasElement: HTMLElement | null | undefined | Array<HTMLElement | null | undefined>,
+  canvasElement:
+    | HTMLElement
+    | null
+    | undefined
+    | Array<HTMLElement | null | undefined>,
   leftPx: number,
   topPx: number
 ) {
