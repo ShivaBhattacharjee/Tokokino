@@ -88,6 +88,12 @@ const UNDERLAY_IRRELEVANT_ROOT_VARS = new Set([
   "--editor-main-bare-top",
   "--bd-light-img-in",
   "--bd-light-op-in",
+  // Crop drives the media's source rect — foreground, captured per frame.
+  "--crop-view-box",
+  "--crop-w",
+  "--crop-h",
+  "--crop-left",
+  "--crop-top",
 ])
 
 /** Every underlay-affecting inline var on the clone root, as a stable key. */

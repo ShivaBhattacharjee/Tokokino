@@ -4,7 +4,9 @@ import {
   computeCoverCropRegion,
   computeCoverCropRegionForAspect,
   cropMediaObjectStyle,
+  cropObjectMetrics,
   cropRegionMatchesAspect,
+  cropViewBoxValue,
   croppedNaturalSize,
   insetCropRegion,
   isActiveCropRegion,
@@ -62,14 +64,27 @@ describe("crop utils", () => {
       cropMediaObjectStyle({ x: 25, y: 10, width: 50, height: 80 })
     ).toEqual({
       position: "absolute",
-      width: "200%",
-      height: "125%",
-      left: "-50%",
-      top: "-12.5%",
+      width: "var(--crop-w, 200%)",
+      height: "var(--crop-h, 125%)",
+      left: "var(--crop-left, -50%)",
+      top: "var(--crop-top, -12.5%)",
       maxWidth: "none",
       maxHeight: "none",
       objectFit: "fill",
     })
+  })
+
+  // The animated-crop vars carry bare values; the styles wrap them as fallbacks.
+  it("exposes bare crop metrics for the animation player to write", () => {
+    expect(cropObjectMetrics({ x: 25, y: 10, width: 50, height: 80 })).toEqual({
+      width: "200%",
+      height: "125%",
+      left: "-50%",
+      top: "-12.5%",
+    })
+    expect(cropViewBoxValue({ x: 10, y: 20, width: 40, height: 50 })).toBe(
+      "inset(20% 50% 30% 10%)"
+    )
   })
 
   it("treats near-full regions as inactive crops", () => {
@@ -90,7 +105,7 @@ describe("crop utils", () => {
   it("picks object-view-box styles when native support is available", () => {
     const region = { x: 10, y: 20, width: 40, height: 50 }
     expect(objectViewBoxCropStyle(region)).toEqual({
-      objectViewBox: "inset(20% 50% 30% 10%)",
+      objectViewBox: "var(--crop-view-box, inset(20% 50% 30% 10%))",
     })
     expect(videoCropMediaStyle(region, true)).toEqual(
       objectViewBoxCropStyle(region)

@@ -1,6 +1,7 @@
 import "server-only"
 
 import { and, asc, count, desc, eq, sql } from "drizzle-orm"
+import Fuse from "fuse.js"
 
 import { drafts, type DraftType } from "@/lib/db/schema"
 import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
@@ -77,6 +78,74 @@ function rowToDraftMetadata(row: DraftRow): DraftRecord {
   return rowToDraft(row, null)
 }
 
+/** Shared owner + kind filter for the list and its count. */
+function draftListFilter(userId: string, opts: { type?: DraftType }) {
+  if (opts.type === "animate" || opts.type === "video" || opts.type === "style")
+    return and(eq(drafts.userId, userId), eq(drafts.type, opts.type))
+  return eq(drafts.userId, userId)
+}
+
+/**
+ * Most recent drafts a fuzzy search will rank. D1 has no trigram index or
+ * edit-distance function, so typo tolerance has to happen in JS over a candidate
+ * set — this bounds that scan. Metadata rows are small (no state blob), so a few
+ * hundred is cheap; beyond this the oldest drafts drop out of search rather than
+ * the request getting slow.
+ */
+const SEARCH_CANDIDATE_LIMIT = 500
+
+/**
+ * How far a name may stray from the query. Fuse scores 0 (exact) → 1 (no
+ * relation); 0.4 catches ordinary typos and partial words without matching
+ * everything. `ignoreLocation` matters: without it Fuse heavily favours matches
+ * near the start, so searching a word from the END of a name would miss.
+ */
+const FUZZY_THRESHOLD = 0.4
+
+/**
+ * Fuzzy name search, ranked best-match-first, then paginated.
+ *
+ * Ranking happens over the whole candidate set BEFORE slicing, so page 2 is the
+ * genuine next-best matches rather than a second, separately-ranked query.
+ * Returns the match count alongside the page so the caller's pagination and its
+ * total always come from one ranking.
+ */
+export async function searchDrafts(
+  userId: string,
+  opts: {
+    q: string
+    limit?: number
+    offset?: number
+    sort?: "latest" | "oldest"
+    type?: DraftType
+  }
+) {
+  const { q, limit = 12, offset = 0, sort = "latest", type } = opts
+  const order =
+    sort === "oldest" ? asc(drafts.updatedAt) : desc(drafts.updatedAt)
+
+  const candidates = await getDb()
+    .select()
+    .from(drafts)
+    .where(draftListFilter(userId, { type }))
+    .orderBy(order)
+    .limit(SEARCH_CANDIDATE_LIMIT)
+
+  const fuse = new Fuse(candidates, {
+    keys: ["name"],
+    threshold: FUZZY_THRESHOLD,
+    ignoreLocation: true,
+    // One-character queries match nearly everything; wait for a real prefix.
+    minMatchCharLength: 2,
+  })
+  const ranked = fuse.search(q).map((hit) => hit.item)
+
+  return {
+    rows: ranked.slice(offset, offset + limit).map(rowToDraftMetadata),
+    total: ranked.length,
+  }
+}
+
 export async function listDrafts(
   userId: string,
   opts: {
@@ -86,19 +155,14 @@ export async function listDrafts(
     type?: DraftType
   } = {}
 ) {
-  const { limit = 12, offset = 0, sort = "latest", type } = opts
+  const { limit = 12, offset = 0, sort = "latest" } = opts
   const order =
     sort === "oldest" ? asc(drafts.updatedAt) : desc(drafts.updatedAt)
-
-  const where =
-    type === "animate" || type === "video" || type === "style"
-      ? and(eq(drafts.userId, userId), eq(drafts.type, type))
-      : eq(drafts.userId, userId)
 
   const rows = await getDb()
     .select()
     .from(drafts)
-    .where(where)
+    .where(draftListFilter(userId, opts))
     .orderBy(order)
     .limit(limit)
     .offset(offset)
@@ -123,15 +187,10 @@ export async function countDrafts(
   userId: string,
   opts: { type?: DraftType } = {}
 ) {
-  const where =
-    opts.type === "animate" || opts.type === "video" || opts.type === "style"
-      ? and(eq(drafts.userId, userId), eq(drafts.type, opts.type))
-      : eq(drafts.userId, userId)
-
   const result = await getDb()
     .select({ count: count() })
     .from(drafts)
-    .where(where)
+    .where(draftListFilter(userId, opts))
     .get()
   return result?.count ?? 0
 }

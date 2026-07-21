@@ -35,8 +35,10 @@ import {
   clipOwns,
   clipPose,
   clipsProgressAt,
+  cropRegionBetween,
   DEFAULT_BASELINE,
   filterLayerOpacityVar,
+  FULL_CROP_REGION,
   INVISIBLE_BORDER,
   lerp,
   patternLayerOpacityVar,
@@ -65,6 +67,15 @@ import {
   SHADOW_FILTER_PREVIEW_VAR,
   SHADOW_PREVIEW_VAR,
 } from "@/lib/editor/css-utils"
+import {
+  CROP_HEIGHT_VAR,
+  CROP_LEFT_VAR,
+  CROP_TOP_VAR,
+  CROP_VIEW_BOX_VAR,
+  CROP_WIDTH_VAR,
+  cropObjectMetrics,
+  cropViewBoxValue,
+} from "@/lib/editor/crop-utils"
 import { clipProgressEase } from "@/lib/editor/clip-easing"
 import { captureClipPose } from "@/lib/editor/store"
 import type {
@@ -76,6 +87,7 @@ import type {
   CanvasState,
   ClipBaseline,
   ClipSlotPose,
+  CropRegion,
   ScreenshotPosition,
   Shadow,
   Tilt,
@@ -117,8 +129,16 @@ const SCOPE_VARS = [
   BORDER_OFFSET_PREVIEW_VAR,
   SCREENSHOT_RADIUS_PREVIEW_VAR,
 ]
+const CROP_VARS = [
+  CROP_VIEW_BOX_VAR,
+  CROP_WIDTH_VAR,
+  CROP_HEIGHT_VAR,
+  CROP_LEFT_VAR,
+  CROP_TOP_VAR,
+]
 const CANVAS_FX_VARS = [
   BG_OPACITY_VAR,
+  ...CROP_VARS,
   BACKDROP_FX_PREVIEW_VAR,
   BACKDROP_NOISE_PREVIEW_VAR,
   LIGHTING_IMAGE_VAR,
@@ -574,6 +594,27 @@ export function applyAnimationFrameAtTime({
     } else {
       setVar(canvasEl, BACKDROP_FX_PREVIEW_VAR, null)
       setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, null)
+    }
+
+    // crop (video only) — the source rect, never the laid-out box: the canvas
+    // aspect keeps reading the committed region so the encoder's frame size is
+    // constant. Both render paths get their var because browser support for
+    // `object-view-box` differs and the clone may rasterize on either.
+    const cropVal = sampleKeyframes<CropRegion>(
+      framesFor("crop", (pz) => pz.crop ?? FULL_CROP_REGION),
+      playheadMs,
+      restFor("crop", (pz) => pz.crop ?? FULL_CROP_REGION, FULL_CROP_REGION),
+      cropRegionBetween
+    )
+    if (cropVal) {
+      const metrics = cropObjectMetrics(cropVal)
+      setVar(canvasEl, CROP_VIEW_BOX_VAR, cropViewBoxValue(cropVal))
+      setVar(canvasEl, CROP_WIDTH_VAR, metrics.width)
+      setVar(canvasEl, CROP_HEIGHT_VAR, metrics.height)
+      setVar(canvasEl, CROP_LEFT_VAR, metrics.left)
+      setVar(canvasEl, CROP_TOP_VAR, metrics.top)
+    } else {
+      for (const v of CROP_VARS) setVar(canvasEl, v, null)
     }
 
     // lighting — pure-inner stays ON the screenshot; pure-outer stays on the

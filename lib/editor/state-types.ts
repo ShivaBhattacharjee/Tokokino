@@ -399,6 +399,7 @@ export type AnimationEffect =
   | "overlay"
   | "border"
   | "borderRadius"
+  | "crop"
 
 export type ClipEasingKind =
   | "linear"
@@ -438,6 +439,13 @@ export type ClipBaseline = {
   overlay?: Overlay
   border?: Border
   borderRadius?: number
+  /**
+   * Video-only, and the source rect ONLY — never the laid-out box. The canvas's
+   * auto aspect keeps reading the committed crop so the output frame size stays
+   * fixed for the encoder; animating this pans/zooms the visible window inside
+   * an unchanged box.
+   */
+  crop?: CropRegion
   slots: Record<string, ClipSlotPose>
 }
 

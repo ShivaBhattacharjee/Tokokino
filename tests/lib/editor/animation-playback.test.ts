@@ -9,9 +9,11 @@ import {
   clipAffectsSlot,
   clipTargetOf,
   clipsProgressAt,
+  cropRegionBetween,
   DEFAULT_BASELINE,
   EMPTY_FILTER_STACK,
   filtersDiffer,
+  FULL_CROP_REGION,
   INVISIBLE_BORDER,
   lerp,
   resolveAnimateFilterStack,
@@ -419,5 +421,34 @@ describe("backgroundsDiffer", () => {
     }
     // Same sourceUrl, different preview value → NOT different.
     expect(backgroundsDiffer(a, b)).toBe(false)
+  })
+})
+
+describe("cropRegionBetween", () => {
+  const from = { x: 0, y: 0, width: 100, height: 100 }
+  const to = { x: 20, y: 10, width: 50, height: 60 }
+
+  it("eases every edge of the source rect", () => {
+    expect(cropRegionBetween(from, to, 0)).toEqual(from)
+    expect(cropRegionBetween(from, to, 1)).toEqual(to)
+    expect(cropRegionBetween(from, to, 0.5)).toEqual({
+      x: 10,
+      y: 5,
+      width: 75,
+      height: 80,
+    })
+  })
+
+  it("reveals from the full frame when a pose carries no crop", () => {
+    expect(FULL_CROP_REGION).toEqual({ x: 0, y: 0, width: 100, height: 100 })
+    // A clip with no captured crop must read as "uncropped", not as a zero rect.
+    expect(cropRegionBetween(FULL_CROP_REGION, to, 0)).toEqual(FULL_CROP_REGION)
+  })
+
+  it("holds the last crop past the end of the timeline", () => {
+    const frames = [{ startMs: 0, durationMs: 100, value: to }]
+    expect(
+      sampleKeyframes(frames, 500, FULL_CROP_REGION, cropRegionBetween)
+    ).toEqual(to)
   })
 })

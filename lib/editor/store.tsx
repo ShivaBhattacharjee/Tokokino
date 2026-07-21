@@ -141,6 +141,7 @@ export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
   overlay: canvas.overlay,
   border: canvas.border,
   borderRadius: canvas.borderRadius,
+  crop: canvas.lastCropRegion ?? undefined,
   slots: Object.fromEntries(
     canvas.screenshotSlots.map((s) => [
       s.id,
@@ -187,6 +188,8 @@ const applyPoseToCanvas = (
   border: pose.border ?? canvas.border,
   // Fall back to the live value for poses captured before radius animated.
   borderRadius: pose.borderRadius ?? canvas.borderRadius,
+  // Fall back to the live value for poses captured before crop animated.
+  lastCropRegion: pose.crop ?? canvas.lastCropRegion,
   backdrop: {
     ...canvas.backdrop,
     effects: pose.backdropEffects,
@@ -244,6 +247,7 @@ const EFFECT_MAIN_POSE_FIELDS: Record<
   overlay: ["overlay"],
   border: ["border"],
   borderRadius: ["borderRadius"],
+  crop: ["crop"],
 }
 
 /** Per-slot pose fields an effect owns (only the slot-animatable ones). */
@@ -480,6 +484,10 @@ const resolveKeyframePose = (
     pattern: mainReveal("pattern", (p) => p.pattern ?? canvas.backdrop.pattern),
     overlay: mainReveal("overlay", (p) => p.overlay ?? canvas.overlay),
     border: mainReveal("border", (p) => p.border ?? canvas.border),
+    crop: mainReveal(
+      "crop",
+      (p) => p.crop ?? canvas.lastCropRegion ?? undefined
+    ),
     borderRadius: main(
       "borderRadius",
       (p) => p.borderRadius ?? canvas.borderRadius,
@@ -1713,13 +1721,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "applyCroppedScreenshot"
       ),
     setScreenshotCropRegion: (region, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => ({
           lastCropRegion: region,
           fullPageCapture: region ? null : canvas.fullPageCapture,
         }),
-        "setScreenshotCropRegion"
+        "setScreenshotCropRegion",
+        "crop"
       ),
     updateVideoClip: (id, patch, canvasId) =>
       commitCanvas(

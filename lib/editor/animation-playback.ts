@@ -22,12 +22,21 @@ import type {
   Border,
   ClipBaseline,
   ClipSlotPose,
+  CropRegion,
   Overlay,
   Portrait,
   ScreenshotPosition,
   Shadow,
   Tilt,
 } from "./state-types"
+
+/** The whole frame — what an un-cropped video reveals from / returns to. */
+export const FULL_CROP_REGION: CropRegion = {
+  x: 0,
+  y: 0,
+  width: 100,
+  height: 100,
+}
 
 /**
  * Baseline used for clips saved before per-clip baselines existed: the canvas
@@ -50,6 +59,7 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   overlay: DEFAULT_CANVAS_BASE.overlay,
   border: DEFAULT_CANVAS_BASE.border,
   borderRadius: DEFAULT_CANVAS_BASE.borderRadius,
+  crop: FULL_CROP_REGION,
   slots: {},
 }
 
@@ -488,6 +498,24 @@ export function backdropEffectsBetween(
     sepia: lerp(from.sepia, to.sepia, p),
     invert: lerp(from.invert, to.invert, p),
     opacity: lerp(from.opacity, to.opacity, p),
+  }
+}
+
+/**
+ * Crop source rect at progress p. Eased on x/y/width/height directly, which pans
+ * and zooms the visible window in one motion; the laid-out box is never touched
+ * (see `ClipBaseline.crop`).
+ */
+export function cropRegionBetween(
+  from: CropRegion,
+  to: CropRegion,
+  p: number
+): CropRegion {
+  return {
+    x: lerp(from.x, to.x, p),
+    y: lerp(from.y, to.y, p),
+    width: lerp(from.width, to.width, p),
+    height: lerp(from.height, to.height, p),
   }
 }
 

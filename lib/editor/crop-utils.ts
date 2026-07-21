@@ -34,11 +34,39 @@ export function supportsObjectViewBox(): boolean {
   }
 }
 
+/**
+ * Animated-crop preview vars. Both render paths read their own var so a crop
+ * keyframe can drive the source rect per frame, falling back to the committed
+ * region when nothing is animating. Written by `apply-animation-frame`.
+ */
+export const CROP_VIEW_BOX_VAR = "--crop-view-box"
+export const CROP_WIDTH_VAR = "--crop-w"
+export const CROP_HEIGHT_VAR = "--crop-h"
+export const CROP_LEFT_VAR = "--crop-left"
+export const CROP_TOP_VAR = "--crop-top"
+
+/** The `object-view-box` inset for a region, as a bare value (no var wrapper). */
+export function cropViewBoxValue(region: CropRegion): string {
+  const { x, y, width, height } = region
+  return `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`
+}
+
+/** The four polyfill percentages for a region, as bare values. */
+export function cropObjectMetrics(region: CropRegion) {
+  const width = Math.max(region.width, 0.001)
+  const height = Math.max(region.height, 0.001)
+  return {
+    width: `${(100 / width) * 100}%`,
+    height: `${(100 / height) * 100}%`,
+    left: `${(-region.x / width) * 100}%`,
+    top: `${(-region.y / height) * 100}%`,
+  }
+}
+
 /** Native crop via CSS object-view-box (Chrome/Edge). */
 export function objectViewBoxCropStyle(region: CropRegion): CSSProperties {
-  const { x, y, width, height } = region
   return {
-    objectViewBox: `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`,
+    objectViewBox: `var(${CROP_VIEW_BOX_VAR}, ${cropViewBoxValue(region)})`,
   }
 }
 
@@ -48,14 +76,13 @@ export function objectViewBoxCropStyle(region: CropRegion): CSSProperties {
  * Parent must be `overflow: hidden` and have a definite size.
  */
 export function cropMediaObjectStyle(region: CropRegion): CSSProperties {
-  const width = Math.max(region.width, 0.001)
-  const height = Math.max(region.height, 0.001)
+  const m = cropObjectMetrics(region)
   return {
     position: "absolute",
-    width: `${(100 / width) * 100}%`,
-    height: `${(100 / height) * 100}%`,
-    left: `${(-region.x / width) * 100}%`,
-    top: `${(-region.y / height) * 100}%`,
+    width: `var(${CROP_WIDTH_VAR}, ${m.width})`,
+    height: `var(${CROP_HEIGHT_VAR}, ${m.height})`,
+    left: `var(${CROP_LEFT_VAR}, ${m.left})`,
+    top: `var(${CROP_TOP_VAR}, ${m.top})`,
     maxWidth: "none",
     maxHeight: "none",
     objectFit: "fill",

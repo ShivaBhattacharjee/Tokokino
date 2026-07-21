@@ -18,7 +18,7 @@ import type {
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
 import { VideoIdlePoster } from "./video-idle-poster"
 import { useVideoPreload } from "./use-video-preload"
-import { parseAspectRatio } from "./helpers"
+import { coverContainerBox, fitContainBox, parseAspectRatio } from "./helpers"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -239,8 +239,11 @@ export function ScreenshotBare({
     }
     const aspect = parseAspectRatio(resolvedVideoAspect)
     if (!aspect) return null
-    const width = Math.min(placementDims.imgW, placementDims.imgH * aspect)
-    const height = width / aspect
+    const { width, height } = fitContainBox(
+      placementDims.imgW,
+      placementDims.imgH,
+      aspect
+    )
     return {
       width,
       height,
@@ -348,6 +351,8 @@ export function ScreenshotBare({
               transformStyle: "preserve-3d",
             }
 
+  const wantsContain = isNestedContain || (!isNested && objectFit === "contain")
+
   const mediaClassName = cn(
     "pointer-events-auto absolute select-none",
     // Nested cover/fill fills the parent slot/row box.
@@ -356,8 +361,7 @@ export function ScreenshotBare({
     !isNested && objectFit === "fill" && "h-full w-full object-fill",
     // contain: shrink-wrap to the image's aspect (max bounds = stage/parent).
     // Outline/radius/shadow then hug the image; lighting uses measured size.
-    (isNestedContain || (!isNested && objectFit === "contain")) &&
-      "max-h-full max-w-full object-contain",
+    wantsContain && "max-h-full max-w-full object-contain",
     isNested && objectFit === "cover" && "object-cover",
     isNested && objectFit === "fill" && "object-fill",
     screenshotLayer.hidden && "pointer-events-none",
@@ -371,21 +375,76 @@ export function ScreenshotBare({
     isScreenshotSelected && activeTool === "pointer" && "outline-none"
   )
 
+  /**
+   * Contain box for a CROPPED video, in stage pixels.
+   *
+   * The crop polyfill scales the `<video>` by percentages of this shell, so the
+   * shell's rendered ratio has to equal the crop's ratio exactly or the picture
+   * shears. `width:100% + height:auto + aspect-ratio` does NOT guarantee that:
+   * when the crop is taller than the stage, `max-height:100%` clamps the height
+   * while the explicit width stays at 100%, and the box silently ends up wider
+   * than its own aspect ratio. Solve it the same way the uncropped contain path
+   * does — fit the ratio into the measured stage and hand back definite pixels.
+   */
+  const cropContainBox = (() => {
+    if (!activeCrop || !wantsContain || !placementDims) return null
+    const ratio = cropAspectRatio ? parseAspectRatio(cropAspectRatio) : null
+    if (!ratio) return null
+    const box = fitContainBox(placementDims.stageW, placementDims.stageH, ratio)
+    return box.width > 0 ? box : null
+  })()
+
+  /**
+   * Cover + crop. The shell keeps the stage box (`h-full w-full`), so its inline
+   * `aspect-ratio` is ignored — both dimensions are definite — and the polyfill
+   * maps the crop region straight onto the stage's ratio, shearing it. Contain
+   * fixes this by resizing the shell; cover can't, because the picture has to end
+   * up LARGER than its clip box. Scale the video about the crop's own centre
+   * instead: the mapped region regains its ratio and grows to cover, and the
+   * shell's overflow:hidden clips the excess.
+   *
+   * Not applied while a clip animates the crop — the `--crop-*` vars move the
+   * region every frame, but this scale is computed once from the committed one.
+   */
+  const cropCoverTransform = (() => {
+    if (!activeCrop || objectFit !== "cover" || !placementDims) return null
+    const ratio = cropAspectRatio ? parseAspectRatio(cropAspectRatio) : null
+    if (!ratio) return null
+    const { imgW, imgH } = placementDims
+    if (!(imgW > 0) || !(imgH > 0)) return null
+    const cover = coverContainerBox(imgW, imgH, ratio)
+    return {
+      // The crop's centre in source coordinates — the point that must stay put.
+      transformOrigin: `${activeCrop.x + activeCrop.width / 2}% ${
+        activeCrop.y + activeCrop.height / 2
+      }%`,
+      transform: `scale(${cover.width / imgW}, ${cover.height / imgH})`,
+    } satisfies React.CSSProperties
+  })()
+
   const cropFrameStyle: React.CSSProperties | undefined = activeCrop
     ? {
         ...imagePositionStyle,
         overflow: "hidden",
         objectFit: undefined,
         ...(cropAspectRatio ? { aspectRatio: cropAspectRatio } : null),
-        ...((isNestedContain || (!isNested && objectFit === "contain")) &&
-        cropAspectRatio
+        ...(cropContainBox
           ? {
-              width: "100%",
-              height: "auto",
+              width: cropContainBox.width,
+              height: cropContainBox.height,
               maxWidth: "100%",
               maxHeight: "100%",
             }
-          : null),
+          : wantsContain && cropAspectRatio
+            ? {
+                // Pre-measurement only: definite width so aspect-ratio can
+                // resolve a height at all (auto/auto stays 0 in Safari).
+                width: "100%",
+                height: "auto",
+                maxWidth: "100%",
+                maxHeight: "100%",
+              }
+            : null),
       }
     : undefined
 
@@ -465,7 +524,10 @@ export function ScreenshotBare({
       }
       {...(activeCrop
         ? {
-            style: cropMediaObjectStyle(activeCrop),
+            style: {
+              ...cropMediaObjectStyle(activeCrop),
+              ...cropCoverTransform,
+            },
             className: "pointer-events-none absolute max-h-none max-w-none",
           }
         : {
