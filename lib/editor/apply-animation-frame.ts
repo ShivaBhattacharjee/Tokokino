@@ -24,7 +24,11 @@ import {
   LIGHTING_IMAGE_VAR,
   LIGHTING_OPACITY_VAR,
 } from "@/components/editor/inspector/backdrop-section-parts/constants"
-import { lightingOverlayValues } from "@/components/editor/canvas/helpers"
+import {
+  coverContainerBox,
+  fitContainBox,
+  lightingOverlayValues,
+} from "@/components/editor/canvas/helpers"
 import {
   backdropEffectsBetween,
   backgroundLayerOpacityVar,
@@ -35,8 +39,10 @@ import {
   clipOwns,
   clipPose,
   clipsProgressAt,
+  cropRegionBetween,
   DEFAULT_BASELINE,
   filterLayerOpacityVar,
+  FULL_CROP_REGION,
   INVISIBLE_BORDER,
   lerp,
   patternLayerOpacityVar,
@@ -65,6 +71,23 @@ import {
   SHADOW_FILTER_PREVIEW_VAR,
   SHADOW_PREVIEW_VAR,
 } from "@/lib/editor/css-utils"
+import {
+  CROP_ANIMATION_VARS,
+  CROP_FIT_ORIGIN_VAR,
+  CROP_FIT_SX_VAR,
+  CROP_FIT_SY_VAR,
+  CROP_HEIGHT_VAR,
+  CROP_LEFT_VAR,
+  CROP_SHELL_H_VAR,
+  CROP_SHELL_W_VAR,
+  CROP_TOP_VAR,
+  CROP_VIEW_BOX_VAR,
+  CROP_WIDTH_VAR,
+  cropObjectMetrics,
+  cropOriginCss,
+  cropRegionRatio,
+  cropViewBoxValue,
+} from "@/lib/editor/crop-utils"
 import { clipProgressEase } from "@/lib/editor/clip-easing"
 import { captureClipPose } from "@/lib/editor/store"
 import type {
@@ -76,6 +99,7 @@ import type {
   CanvasState,
   ClipBaseline,
   ClipSlotPose,
+  CropRegion,
   ScreenshotPosition,
   Shadow,
   Tilt,
@@ -117,8 +141,10 @@ const SCOPE_VARS = [
   BORDER_OFFSET_PREVIEW_VAR,
   SCREENSHOT_RADIUS_PREVIEW_VAR,
 ]
+const CROP_VARS = CROP_ANIMATION_VARS
 const CANVAS_FX_VARS = [
   BG_OPACITY_VAR,
+  ...CROP_VARS,
   BACKDROP_FX_PREVIEW_VAR,
   BACKDROP_NOISE_PREVIEW_VAR,
   LIGHTING_IMAGE_VAR,
@@ -201,6 +227,115 @@ export function clearAnimationFrameVars(
       setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
       clearPositionPreviewVars(slotEl)
     })
+}
+
+/**
+ * The geometry an animated crop implies this frame, or null when it implies
+ * none (no media, unmeasurable stage, or `fill` — which maps 1:1 by
+ * definition).
+ *
+ * The polyfill maps the crop region onto the media shell exactly — `fill`
+ * semantics — so honouring the canvas's fill mode means giving the shell the
+ * window's own ratio (contain) or scaling the video up to cover it (cover). The
+ * ratio can change every frame, so neither can be static CSS.
+ *
+ * `shellBox` is set only for `contain`, the one mode that resizes the shell;
+ * `cover` leaves the shell at the stage box and scales the video inside it.
+ * It is derived, never measured: the shell's size and the placement that
+ * centres on it are decided in the same pass, so reading it back from the DOM
+ * could only ever report the previous frame's box.
+ *
+ * Measures the stage and the media's natural size because neither lives in the
+ * state tree. A missing measurement returns null and the caller clears the
+ * vars rather than guessing, leaving the committed styles in play.
+ */
+function cropFitGeometry(
+  canvasEl: HTMLElement,
+  canvas: CanvasState,
+  region: CropRegion
+): {
+  fit: "contain" | "cover"
+  stageW: number
+  stageH: number
+  ratio: number
+  shellBox: { width: number; height: number } | null
+} | null {
+  const fit = canvas.objectFit ?? "contain"
+  if (fit === "fill") return null
+
+  const shell = canvasEl.querySelector<HTMLElement>(
+    '[data-export-stack="media"]'
+  )
+  // `video, img`: the export clone swaps the serialized `<video>` for an `<img>`
+  // stand-in (see video-layer), so matching only `video` found nothing there and
+  // silently cleared the correction for every exported frame — the crop window
+  // landed with the polyfill's raw fill mapping while the preview, which still
+  // has a real `<video>`, was correct.
+  const media = shell?.querySelector<HTMLVideoElement | HTMLImageElement>(
+    "video, img"
+  )
+  const stage = shell?.parentElement
+  if (!shell || !media || !stage) return null
+
+  // The stand-in reports no natural size until its first paint, so fall back to
+  // the dimensions the swap seeded from the source video.
+  const naturalW =
+    media instanceof HTMLVideoElement
+      ? media.videoWidth
+      : media.naturalWidth || Number(media.dataset.naturalW) || 0
+  const naturalH =
+    media instanceof HTMLVideoElement
+      ? media.videoHeight
+      : media.naturalHeight || Number(media.dataset.naturalH) || 0
+  const ratio = cropRegionRatio(region, naturalW, naturalH)
+  const stageW = parseFloat(getComputedStyle(stage).width) || stage.clientWidth
+  const stageH =
+    parseFloat(getComputedStyle(stage).height) || stage.clientHeight
+  if (!ratio || !(stageW > 0) || !(stageH > 0)) return null
+
+  return {
+    fit,
+    stageW,
+    stageH,
+    ratio,
+    shellBox: fit === "contain" ? fitContainBox(stageW, stageH, ratio) : null,
+  }
+}
+
+function applyCropFitVars(
+  canvasEl: HTMLElement,
+  region: CropRegion,
+  geometry: ReturnType<typeof cropFitGeometry>
+) {
+  const clearFit = () => {
+    setVar(canvasEl, CROP_SHELL_W_VAR, null)
+    setVar(canvasEl, CROP_SHELL_H_VAR, null)
+    setVar(canvasEl, CROP_FIT_SX_VAR, null)
+    setVar(canvasEl, CROP_FIT_SY_VAR, null)
+    setVar(canvasEl, CROP_FIT_ORIGIN_VAR, null)
+  }
+
+  if (!geometry) return clearFit()
+  const { stageW, stageH, ratio, shellBox } = geometry
+
+  setVar(canvasEl, CROP_FIT_ORIGIN_VAR, cropOriginCss(region))
+
+  if (shellBox) {
+    // Shell shrinks to the window's ratio; the mapping is then 1:1, no scale.
+    setVar(canvasEl, CROP_SHELL_W_VAR, `${shellBox.width}px`)
+    setVar(canvasEl, CROP_SHELL_H_VAR, `${shellBox.height}px`)
+    setVar(canvasEl, CROP_FIT_SX_VAR, "1")
+    setVar(canvasEl, CROP_FIT_SY_VAR, "1")
+    return
+  }
+
+  // cover: the shell stays the stage box (it is the clip), so the window has to
+  // grow past it — scale about the window's own centre and let overflow clip.
+  const box = coverContainerBox(stageW, stageH, ratio)
+  setVar(canvasEl, CROP_SHELL_W_VAR, null)
+  setVar(canvasEl, CROP_SHELL_H_VAR, null)
+  setVar(canvasEl, CROP_FIT_SX_VAR, String(box.width / stageW))
+  setVar(canvasEl, CROP_FIT_SY_VAR, String(box.height / stageH))
 }
 
 export type ApplyAnimationFrameOptions = {
@@ -310,20 +445,54 @@ export function applyAnimationFrameAtTime({
       zoomVal != null ? String(zoomVal / 100) : null
     )
 
+    // The crop this frame lands on, and the shell geometry it implies. Sampled
+    // here rather than in the crop block below because the placement needs it:
+    // in contain mode the crop resizes the shell, and the bare placement
+    // centres on that size.
+    const cropVal = sampleKeyframes<CropRegion>(
+      framesFor("crop", (pz) => pz.crop ?? FULL_CROP_REGION),
+      playheadMs,
+      restFor("crop", (pz) => pz.crop ?? FULL_CROP_REGION, FULL_CROP_REGION),
+      cropRegionBetween
+    )
+    const cropGeometry = cropVal
+      ? cropFitGeometry(canvasEl, canvas, cropVal)
+      : null
+
     // position
     const posFrames = mainClips.filter((c) => clipOwns(c, "position"))
+    // A crop that resizes the shell has to drive the placement too, even when
+    // nothing animates position. The committed `left` is a px value React baked
+    // from the uncropped box; the export clone is a static snapshot that cannot
+    // recompute it, so the shell would shrink about a frozen left edge instead
+    // of about its centre. (The live preview re-renders and re-centres, which
+    // is exactly why this only ever showed up in exports.)
+    const cropResizesShell = cropGeometry?.shellBox != null
     if (screenshotPositionDragging) {
       // gesture owns vars
-    } else if (posFrames.length > 0 && frame) {
+    } else if ((posFrames.length > 0 || cropResizesShell) && frame) {
       // The bare-pixel positioning path is ONLY valid for the free-floating
       // single screenshot. For a framed or multi-slot (row) main, `dims` must be
       // null so the percentage/anchor path runs — otherwise a caller that always
       // passes `bareDims` (the exporter measures it unconditionally) would push
       // the row main onto the wrong path and misplace it. Never trust a passed
       // `bareDims` unless this really is the bare target.
-      const dims = isBareMainTarget
+      const measured = isBareMainTarget
         ? (bareDims ?? measureBareStageDims(canvasEl))
         : null
+      // Take the shell size from the crop that is being applied THIS frame, not
+      // from the DOM. A measurement can only ever report the previous frame's
+      // box — the crop resizing the shell and the placement centring on it
+      // happen in the same pass — so the centre would trail the width by a
+      // frame and the box would appear to crop in from one edge only.
+      const dims =
+        measured && cropGeometry?.shellBox
+          ? {
+              ...measured,
+              imgW: cropGeometry.shellBox.width,
+              imgH: cropGeometry.shellBox.height,
+            }
+          : measured
       const aspect = canvas.aspect ?? globalAspect
       const pointFor = (
         pos: ScreenshotPosition,
@@ -352,15 +521,25 @@ export function applyAnimationFrameAtTime({
           ease: clipProgressEase(c),
         }
       })
-      const posRest = clipBaseline(
-        [...posFrames].sort((a, b) => a.startMs - b.startMs)[0]
-      )
-      const point = sampleKeyframes(
-        frames,
-        playheadMs,
-        pointFor(posRest.screenshotPosition, posRest.screenshotOffset),
-        pointLerp
-      )
+      const posRest =
+        posFrames.length > 0
+          ? clipBaseline(
+              [...posFrames].sort((a, b) => a.startMs - b.startMs)[0]
+            )
+          : null
+      // No position clip: hold the committed placement, re-resolved against
+      // this frame's shell box so a crop-only clip still stays centred.
+      const point = posRest
+        ? sampleKeyframes(
+            frames,
+            playheadMs,
+            pointFor(posRest.screenshotPosition, posRest.screenshotOffset),
+            pointLerp
+          )
+        : pointFor(
+            committedPose.screenshotPosition,
+            committedPose.screenshotOffset
+          )
       if (point && dims != null) {
         const { left, top } = bareScreenshotTargetLeftTop(dims, point)
         setMainScreenshotBarePreviewPx(canvasEl, left, top)
@@ -568,12 +747,29 @@ export function applyAnimationFrameAtTime({
       setVar(
         canvasEl,
         BACKDROP_FX_PREVIEW_VAR,
-        effectsFilterCss(bdVal) ?? "none"
+        effectsFilterCss(bdVal) ?? "brightness(1)"
       )
       setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, String(bdVal.noise / 100))
     } else {
       setVar(canvasEl, BACKDROP_FX_PREVIEW_VAR, null)
       setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, null)
+    }
+
+    // crop (video only) — the source rect, never the laid-out box: the canvas
+    // aspect keeps reading the committed region so the encoder's frame size is
+    // constant. Both render paths get their var because browser support for
+    // `object-view-box` differs and the clone may rasterize on either.
+    // `cropVal`/`cropGeometry` are sampled above, where the placement needs them.
+    if (cropVal) {
+      const metrics = cropObjectMetrics(cropVal)
+      setVar(canvasEl, CROP_VIEW_BOX_VAR, cropViewBoxValue(cropVal))
+      setVar(canvasEl, CROP_WIDTH_VAR, metrics.width)
+      setVar(canvasEl, CROP_HEIGHT_VAR, metrics.height)
+      setVar(canvasEl, CROP_LEFT_VAR, metrics.left)
+      setVar(canvasEl, CROP_TOP_VAR, metrics.top)
+      applyCropFitVars(canvasEl, cropVal, cropGeometry)
+    } else {
+      for (const v of CROP_VARS) setVar(canvasEl, v, null)
     }
 
     // lighting — pure-inner stays ON the screenshot; pure-outer stays on the

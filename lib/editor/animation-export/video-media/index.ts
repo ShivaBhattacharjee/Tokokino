@@ -13,6 +13,7 @@
  * (`encode-video.ts`) encoder.
  */
 
+import { clipOwns } from "../../animation-playback"
 import { supportsObjectViewBox } from "../../crop-utils"
 import { prepareAnimationCapture } from "../../export"
 import { isVideoSrc } from "../../media-type"
@@ -24,7 +25,6 @@ import type {
   WatermarkAssets,
 } from "../types"
 import {
-  AnimationExportAbortedError,
   animationMimeAndExt,
   createProgressReporter,
   even,
@@ -147,6 +147,7 @@ async function encodeVideoMedia(
       plan,
       signal,
       mediaFx,
+      cropAnimated: !!canvas.animation?.clips.some((c) => clipOwns(c, "crop")),
     })
 
     try {

@@ -123,6 +123,18 @@ export const draftListQuerySchema = z.object({
   sort: z.enum(["latest", "oldest"]).catch("latest"),
   /** Filter list by project kind; omit for all. */
   type: draftTypeSchema.optional(),
+  /**
+   * Name search. Trimmed, and capped so a pathological query can't build a
+   * huge LIKE pattern; an empty string means "no search" (never an empty
+   * match-everything filter).
+   */
+  q: z
+    .string()
+    .trim()
+    .max(DRAFT_NAME_MAX_LENGTH)
+    .catch("")
+    .transform((s) => s || undefined)
+    .optional(),
 })
 
 /** Request body for `POST /api/drafts`. */

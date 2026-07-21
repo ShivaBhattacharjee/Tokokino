@@ -43,7 +43,6 @@ import {
   supportsObjectViewBox,
   type CropTarget,
 } from "@/lib/editor/crop-utils"
-import type { CaptureSettings } from "./upload-card"
 import {
   defaultCaptureDeviceForFrame,
   getDeviceMockup,
@@ -52,19 +51,10 @@ import {
 
 import {
   clipOwns,
-  EMPTY_BG_STACK,
-  EMPTY_FILTER_STACK,
-  EMPTY_OVERLAY_STACK,
-  EMPTY_PATTERN_STACK,
-  EMPTY_PORTRAIT_STACK,
+  FULL_CROP_REGION,
   lightingSidesUsed,
   overlayLayerOpacityVar,
   OVERLAY_BASE_OPACITY_VAR,
-  resolveAnimateBgStack,
-  resolveAnimateFilterStack,
-  resolveAnimateOverlayStack,
-  resolveAnimatePatternStack,
-  resolveAnimatePortraitStack,
 } from "@/lib/editor/animation-playback"
 import { AnnotationLayer } from "./annotation-layer"
 import { CanvasBackdrop } from "./canvas-backdrop"
@@ -96,27 +86,17 @@ import {
 } from "./screenshot-browser-frame"
 import { ScreenshotMockup } from "./screenshot-mockup"
 import { TweetCardView } from "./tweet-card"
-import { fetchTweetData } from "@/lib/editor/load-tweet"
-import {
-  DEFAULT_TWEET_SETTINGS,
-  tweetSettingsFromCard,
-  type TweetCardSettings,
-} from "@/lib/editor/tweet-settings"
-import {
-  downscaleImageFromUrl,
-  getOptimizedUrlSync,
-} from "@/lib/editor/image-resize"
-import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
-import { isVideoSrc, revokeObjectUrl } from "@/lib/editor/media-type"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import {
   fullPageCaptureMediaStyle,
   fullPageCaptureObjectFit,
   nextFullPageCaptureScrollPosition,
 } from "@/lib/editor/full-page-capture"
-import { useVideoRegistry } from "@/lib/editor/video-registry"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
+import { useAnimateStacks } from "./use-animate-stacks"
+import { useCanvasMediaIntake } from "./use-canvas-media-intake"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
-import { useImageFileIntake } from "./use-image-file-intake"
+import { useBackgroundDownscale } from "./use-background-downscale"
 import { usePlacementMeasurement } from "./use-placement-measurement"
 import { useScreenshotDrag } from "./use-screenshot-drag"
 import { useSuppressTransitionOnChange } from "./use-suppress-transition-on-change"
@@ -224,133 +204,23 @@ function CanvasViewInner({
   const canvasAnimation = useEditorStore(
     (s) => s.present.canvases.find((c) => c.id === scopeId)?.animation
   )
-  const animateBgStack = React.useMemo(
-    () =>
-      isAnimateMode && canvasAnimation
-        ? resolveAnimateBgStack(
-            canvasAnimation.clips,
-            background,
-            selectedAnimationClipId
-          )
-        : EMPTY_BG_STACK,
-    [isAnimateMode, canvasAnimation, background, selectedAnimationClipId]
-  )
-  const animateFilterStack = React.useMemo(
-    () =>
-      isAnimateMode && canvasAnimation
-        ? resolveAnimateFilterStack(
-            canvasAnimation.clips,
-            backdrop.filter ?? "none",
-            selectedAnimationClipId
-          )
-        : EMPTY_FILTER_STACK,
-    [isAnimateMode, canvasAnimation, backdrop.filter, selectedAnimationClipId]
-  )
-  const animatePortraitStack = React.useMemo(
-    () =>
-      isAnimateMode && canvasAnimation
-        ? resolveAnimatePortraitStack(
-            canvasAnimation.clips,
-            portrait,
-            selectedAnimationClipId
-          )
-        : EMPTY_PORTRAIT_STACK,
-    [isAnimateMode, canvasAnimation, portrait, selectedAnimationClipId]
-  )
-  const animatePatternStack = React.useMemo(
-    () =>
-      isAnimateMode && canvasAnimation
-        ? resolveAnimatePatternStack(
-            canvasAnimation.clips,
-            backdrop.pattern,
-            selectedAnimationClipId
-          )
-        : EMPTY_PATTERN_STACK,
-    [isAnimateMode, canvasAnimation, backdrop.pattern, selectedAnimationClipId]
-  )
-  const animateOverlayStack = React.useMemo(
-    () =>
-      isAnimateMode && canvasAnimation
-        ? resolveAnimateOverlayStack(
-            canvasAnimation.clips,
-            overlay,
-            selectedAnimationClipId
-          )
-        : EMPTY_OVERLAY_STACK,
-    [isAnimateMode, canvasAnimation, overlay, selectedAnimationClipId]
-  )
-  // Downscale whenever the background sourceUrl changes (on mount/hydration,
-  // and also when a custom preset applies a new image background mid-session).
-  // Unsplash CDN URLs must stay hotlinked — never convert them to data URLs.
-  React.useEffect(() => {
-    if (background.type !== "image" || !background.sourceUrl || !scopeId) return
-
-    const sourceUrl = background.sourceUrl
-    if (isUnsplashImageUrl(sourceUrl)) {
-      // Restore hotlink if a previous session stored a data-URL value.
-      if (background.value !== sourceUrl) {
-        useEditorStore.getState().setBackground(
-          {
-            type: "image",
-            value: sourceUrl,
-            sourceUrl,
-            thumbUrl: background.thumbUrl ?? undefined,
-          },
-          scopeId,
-          { silent: true }
-        )
-      }
-      return
-    }
-
-    if (background.value.startsWith("data:")) return
-
-    const thumbUrl = background.thumbUrl
-    const canvasId = scopeId
-    const opts = { maxDimension: 1600, jpegQuality: 0.9 }
-
-    // If we already have a cached downscale for this URL, apply it synchronously
-    // so we never show a stale or wrong image (e.g. after a preset re-apply).
-    const cached = getOptimizedUrlSync(sourceUrl, opts)
-    if (cached) {
-      useEditorStore.getState().setBackground(
-        {
-          type: "image",
-          value: cached,
-          sourceUrl,
-          thumbUrl: thumbUrl ?? undefined,
-        },
-        canvasId,
-        { silent: true }
-      )
-      return
-    }
-
-    void downscaleImageFromUrl(sourceUrl, opts)
-      .then((downscaled) => {
-        const state = useEditorStore.getState()
-        const c = state.present.canvases.find((cv) => cv.id === canvasId)
-        if (
-          c?.background.type !== "image" ||
-          c.background.sourceUrl !== sourceUrl
-        )
-          return
-        state.setBackground(
-          {
-            type: "image",
-            value: downscaled,
-            sourceUrl,
-            thumbUrl: thumbUrl ?? undefined,
-          },
-          canvasId,
-          { silent: true }
-        )
-      })
-      .catch((err) => {
-        console.log("[bg] downscale failed", err)
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [background.sourceUrl])
+  const {
+    bg: animateBgStack,
+    filterStack: animateFilterStack,
+    portraitStack: animatePortraitStack,
+    patternStack: animatePatternStack,
+    overlayStack: animateOverlayStack,
+  } = useAnimateStacks({
+    isAnimateMode,
+    canvasAnimation,
+    selectedClipId: selectedAnimationClipId,
+    background,
+    filter: backdrop.filter ?? "none",
+    portrait,
+    pattern: backdrop.pattern,
+    overlay,
+  })
+  useBackgroundDownscale(background, scopeId)
 
   const canvasRef = React.useRef<HTMLDivElement>(null)
   const generatedAnnotationMaskId = React.useId()
@@ -403,7 +273,10 @@ function CanvasViewInner({
     imageRef,
     // Include objectFit so contain↔cover remeasures imgW/imgH — inner lighting
     // sizes itself from those dims and would stay at the wrong box otherwise.
-    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}`,
+    // Natural dims cover a media swap: they reset to null and land again on
+    // load, and without them a new image/video keeps the previous media's
+    // measured box (the contain shell is sized from it, so it never resizes).
+    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}:${naturalDims ? `${naturalDims.w}x${naturalDims.h}` : "none"}`,
   })
   const suppressTransitionPlacement = useSuppressTransitionOnChange(
     placementDims
@@ -415,61 +288,7 @@ function CanvasViewInner({
     suppressTransitionSlots ||
     suppressTransitionMedia ||
     suppressTransitionPlacement
-  const selectedScreenshotSlotId = useEditorStore(
-    (s) => s.selectedScreenshotSlotId
-  )
-  const setMainScreenshotImage = React.useCallback(
-    (src: string, isFullPageCapture = false) => {
-      // Free the outgoing image/video object URL so replacements don't leak —
-      // unless another canvas still references it (e.g. after duplicate).
-      const canvases = useEditorStore.getState().present.canvases
-      const prev = canvases.find((c) => c.id === scopeId)?.screenshot
-      if (prev && prev !== src) {
-        const stillUsed = canvases.some(
-          (c) =>
-            c.id !== scopeId &&
-            (c.screenshot === prev || c.originalScreenshot === prev)
-        )
-        if (!stillUsed) revokeObjectUrl(prev)
-      }
-      if (isFullPageCapture) {
-        setFullPageScreenshot(src)
-      } else {
-        setScreenshot(src)
-      }
-      setNaturalDims(null)
-    },
-    [scopeId, setFullPageScreenshot, setScreenshot]
-  )
-  const handleImageFile = React.useCallback(
-    (src: string) => {
-      if (selectedScreenshotSlotId) {
-        setScreenshotSlotImage(selectedScreenshotSlotId, src)
-        return
-      }
-      setMainScreenshotImage(src)
-    },
-    [selectedScreenshotSlotId, setMainScreenshotImage, setScreenshotSlotImage]
-  )
-
-  // Register the main <video> element so the docked control bar can drive it.
-  // Preview/thumbnail scopes never register — only the real editable canvas.
-  const registerVideo = useVideoRegistry((s) => s.registerVideo)
-  const handleMediaElement = React.useCallback(
-    (el: HTMLVideoElement | null) => {
-      if (!scopeId || isCanvasPreview) return
-      registerVideo(scopeId, el)
-    },
-    [isCanvasPreview, registerVideo, scopeId]
-  )
-  React.useEffect(() => {
-    return () => {
-      if (scopeId && !isCanvasPreview) registerVideo(scopeId, null)
-    }
-  }, [isCanvasPreview, registerVideo, scopeId])
-  // True while an incoming GIF is transcoding to video — drives the canvas
-  // skeleton so the user sees progress instead of a frozen empty box.
-  const [preparingMedia, setPreparingMedia] = React.useState(false)
+  const resetNaturalDims = React.useCallback(() => setNaturalDims(null), [])
   const {
     fileInputRef,
     fileInputProps,
@@ -479,101 +298,46 @@ function CanvasViewInner({
     pendingGif,
     confirmGifTranscode,
     cancelGifTranscode,
-  } = useImageFileIntake(handleImageFile, {
-    // A video may only be the sole screenshot — once extra slots exist, block
-    // dropping/pasting one into the main box (and route slots reject it too).
-    allowVideo: screenshotSlots.length === 0,
-    onPreparingChange: setPreparingMedia,
+    preparingMedia,
+    handleMediaElement,
+    handleCaptureWebsite,
+    handleDemoScreenshot,
+    handleLoadTweet,
+    handleReplaceTweet,
+  } = useCanvasMediaIntake({
+    scopeId,
+    isCanvasPreview,
+    slotCount: screenshotSlots.length,
+    tweet,
+    setScreenshot,
+    setFullPageScreenshot,
+    setScreenshotSlotImage,
+    setTweet,
+    onNaturalDimsReset: resetNaturalDims,
   })
 
-  const handleCaptureWebsite = React.useCallback(
-    async (rawUrl: string, settings: CaptureSettings) => {
-      let target: URL
-      try {
-        target = new URL(rawUrl)
-      } catch {
-        toast.error("Enter a valid URL")
-        return
-      }
-      try {
-        const res = await fetch("/api/screenshot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: target.toString(),
-            device: settings.device,
-            width: settings.width,
-            aspectRatio: settings.aspectRatio,
-            delay: settings.delay,
-          }),
-        })
-        if (!res.ok) {
-          const { error } = (await res
-            .json()
-            .catch(() => ({ error: "Capture failed" }))) as { error?: string }
-          throw new Error(error ?? "Capture failed")
-        }
-        const blob = await res.blob()
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const fr = new FileReader()
-          fr.onload = () =>
-            resolve(typeof fr.result === "string" ? fr.result : "")
-          fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
-          fr.readAsDataURL(blob)
-        })
-        // API captures are always full-page (screenshotOptions.fullPage).
-        setMainScreenshotImage(dataUrl, true)
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Could not capture screenshot"
-        )
-      }
-    },
-    [setMainScreenshotImage]
-  )
-
-  /** Pre-captured R2 demos are full-page PNGs — same path as /api/screenshot. */
-  const handleDemoScreenshot = React.useCallback(
-    (src: string) => {
-      setMainScreenshotImage(src, true)
-    },
-    [setMainScreenshotImage]
-  )
-
-  const handleLoadTweet = React.useCallback(
-    async (
-      url: string,
-      settings: TweetCardSettings = DEFAULT_TWEET_SETTINGS
-    ) => {
-      // fetchTweetData throws a user-facing Error; let the caller surface it.
-      const data = await fetchTweetData(url)
-      setTweet({ data, ...settings })
-    },
-    [setTweet]
-  )
-
-  const handleReplaceTweet = React.useCallback(
-    async (url: string, settings?: TweetCardSettings) => {
-      await handleLoadTweet(
-        url,
-        settings ??
-          (tweet ? tweetSettingsFromCard(tweet) : DEFAULT_TWEET_SETTINGS)
-      )
-    },
-    [handleLoadTweet, tweet]
-  )
-
+  // A clip animating the crop keeps the media box at FULL natural size and moves
+  // the source rect inside it. Sizing the box from the crop would make the auto
+  // aspect — and therefore the encoder's frame size — depend on which keyframe
+  // happened to be selected at export time, and change mid-render.
+  const cropAnimated =
+    isAnimateMode && !!canvasAnimation?.clips.some((c) => clipOwns(c, "crop"))
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
   const canUseNaturalCanvasAspect =
     isAuto && naturalDims && !inRowMode && frame.id === "none"
   // Visible media size after a non-destructive video crop (full size otherwise).
-  const visibleNaturalDims =
+  const croppedDims =
     naturalDims &&
     lastCropRegion &&
     isVideoSrc(screenshot) &&
     isActiveCropRegion(lastCropRegion)
       ? croppedNaturalSize(naturalDims.w, naturalDims.h, lastCropRegion)
-      : naturalDims
+      : null
+  // Drives the CANVAS box (and so the encoder's frame size), which must not move
+  // while a crop animates — see `cropAnimated`.
+  const visibleNaturalDims = cropAnimated
+    ? naturalDims
+    : (croppedDims ?? naturalDims)
   // Auto canvas aspect follows the visible video crop when one is set.
   const autoDims = canUseNaturalCanvasAspect ? visibleNaturalDims : null
   const aw = autoDims ? autoDims.w : aspect.w || 16
@@ -710,12 +474,16 @@ function CanvasViewInner({
   // render time. Chrome/Edge use object-view-box; Firefox/Safari use an
   // overflow + positioned-media polyfill. Images are cropped destructively
   // (the src is already the cropped bitmap), so they never get it.
-  const videoCropRegion =
-    lastCropRegion &&
-    isVideoSrc(screenshot) &&
-    isActiveCropRegion(lastCropRegion)
+  // When a clip animates the crop the shell is ALWAYS mounted (even with a
+  // neutral committed region) so the player has a source rect to drive via the
+  // preview vars — the same rule the border outline below follows.
+  const videoCropRegion = !isVideoSrc(screenshot)
+    ? null
+    : lastCropRegion && isActiveCropRegion(lastCropRegion)
       ? lastCropRegion
-      : null
+      : cropAnimated
+        ? FULL_CROP_REGION
+        : null
   const videoMediaStyle = videoCropRegion
     ? nativeVideoCrop
       ? objectViewBoxCropStyle(videoCropRegion)
@@ -724,10 +492,15 @@ function CanvasViewInner({
   // The bare frame always crops via the overflow polyfill (its <video> carries
   // the crop, not the shell that holds imgStyle — object-view-box can't reach a
   // div), so it needs the shrink-wrap aspect on every browser, not just Safari.
+  // The MEDIA shell's ratio, which decides whether the picture is letterboxed or
+  // stretched — so it must always be the crop's own ratio, even while animating.
+  // Using the canvas dims here made an animated crop render its window blown up
+  // to the full video's ratio, i.e. contain looked like cover.
+  const cropShellDims = croppedDims ?? visibleNaturalDims
   const videoCropAspectRatio =
-    videoCropRegion && visibleNaturalDims
-      ? visibleNaturalDims.w > 0 && visibleNaturalDims.h > 0
-        ? `${visibleNaturalDims.w} / ${visibleNaturalDims.h}`
+    videoCropRegion && cropShellDims
+      ? cropShellDims.w > 0 && cropShellDims.h > 0
+        ? `${cropShellDims.w} / ${cropShellDims.h}`
         : undefined
       : undefined
   // When a clip animates the border, the outline is ALWAYS mounted (even when
@@ -780,13 +553,6 @@ function CanvasViewInner({
           forceMount: lightingAnimated && lightingSides.inner,
         })
       : null
-  // When a clip animates backdrop effects, the backdrop must always carry the
-  // `--bd-fx-preview` filter var — even when the committed effects are neutral
-  // (no filter). Otherwise the player has nothing to drive when an effect eases
-  // in from / out to neutral, so it silently wouldn't animate.
-  const backdropAnimated =
-    isAnimateMode &&
-    !!canvasAnimation?.clips.some((c) => clipOwns(c, "backdrop"))
   const canDragScreenshot = activeTool === "pointer" && positionedStyle
   const mockupRotation =
     frame.orientation === "horizontal" && mockupOrientation === "portrait"
@@ -1036,7 +802,6 @@ function CanvasViewInner({
             animatePatternStack={animatePatternStack}
             animateOverlayStack={animateOverlayStack}
             lightingAnimated={lightingAnimated && lightingSides.outer}
-            backdropAnimated={backdropAnimated}
           />
 
           {mainScreenshotRowStyle ? (

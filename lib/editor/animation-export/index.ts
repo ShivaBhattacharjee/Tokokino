@@ -30,7 +30,6 @@ import {
   type CaptureCtx,
 } from "./types"
 import {
-  AnimationExportAbortedError,
   animationMimeAndExt,
   createProgressReporter,
   resolveAnimationDownloadFilename,

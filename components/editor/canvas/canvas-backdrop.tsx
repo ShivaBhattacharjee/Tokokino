@@ -115,13 +115,6 @@ type CanvasBackdropProps = {
    * lighting timelines leave this false — see `lightingSidesUsed`.
    */
   lightingAnimated?: boolean
-  /**
-   * Animate mode only: a clip animates backdrop effects, so the backdrop layers
-   * always carry the `--bd-fx-preview` filter var (falling back to `none`) even
-   * when the committed effects are neutral — so an effect can ease in from / out
-   * to nothing.
-   */
-  backdropAnimated?: boolean
 }
 
 function CanvasBackdropImpl({
@@ -138,7 +131,6 @@ function CanvasBackdropImpl({
   animatePatternStack,
   animateOverlayStack,
   lightingAnimated = false,
-  backdropAnimated = false,
 }: CanvasBackdropProps) {
   const resolveEffectiveBackground = React.useCallback(
     (bg: Background): Background => {
@@ -221,19 +213,19 @@ function CanvasBackdropImpl({
         })
       : null
 
-  // Combine the (possibly animated) backdrop-effects filter with a given asset
-  // filter preset into one CSS `filter`. While a clip animates backdrop effects
-  // the var must always be read, even when the committed effects are neutral —
-  // fall back to `none` so the layer still carries the filter for the player.
+  // Combine the backdrop-effects filter with a given asset filter preset into one
+  // CSS `filter`. The layer always reads `--bd-fx-preview`, even when the
+  // committed effects are neutral: slider drags and the animation player both
+  // drive that var, and a layer with no `filter` at all has nothing to drive.
+  // The neutral fallback is `brightness(1)` rather than `none` because `none`
+  // cannot sit next to a filter function when an asset filter is also applied.
   const filterCssFor = React.useCallback(
-    (assetFilterId: AssetFilter): string | undefined => {
-      const fx = effectsFilter ?? (backdropAnimated ? "none" : undefined)
-      const fxPart = fx ? `var(--bd-fx-preview, ${fx})` : undefined
+    (assetFilterId: AssetFilter): string => {
+      const fxPart = `var(--bd-fx-preview, ${effectsFilter ?? "brightness(1)"})`
       const af = assetFilterCss(assetFilterId)
-      if (fxPart && af) return `${fxPart} ${af}`
-      return fxPart ?? af ?? undefined
+      return af ? `${fxPart} ${af}` : fxPart
     },
-    [effectsFilter, backdropAnimated]
+    [effectsFilter]
   )
   const filterValue = filterCssFor(backdrop.filter ?? "none")
 
@@ -352,9 +344,7 @@ function CanvasBackdropImpl({
               }
               style={{
                 ...backgroundCss(effectiveBackground),
-                ...(filterCssFor(filterStackBase)
-                  ? { filter: filterCssFor(filterStackBase) }
-                  : {}),
+                filter: filterCssFor(filterStackBase),
               }}
             />
             {filterLayers.map((layer) => {
@@ -377,7 +367,7 @@ function CanvasBackdropImpl({
                   }
                   style={{
                     ...backgroundCss(effectiveBackground),
-                    ...(layerFilter ? { filter: layerFilter } : {}),
+                    filter: layerFilter,
                     opacity: `var(${filterLayerOpacityVar(layer.id)}, ${
                       layer.restOpaque ? 1 : 0
                     })` as unknown as number,
@@ -410,7 +400,7 @@ function CanvasBackdropImpl({
                 }
                 style={{
                   ...backgroundCss(effectiveBgBase),
-                  ...(filterValue ? { filter: filterValue } : {}),
+                  filter: filterValue,
                 }}
               />
             ) : null}
@@ -431,7 +421,7 @@ function CanvasBackdropImpl({
                 }
                 style={{
                   ...backgroundCss(layer.background),
-                  ...(filterValue ? { filter: filterValue } : {}),
+                  filter: filterValue,
                   opacity: `var(${backgroundLayerOpacityVar(layer.id)}, ${
                     layer.restOpaque ? 1 : 0
                   })` as unknown as number,
@@ -454,7 +444,7 @@ function CanvasBackdropImpl({
             }
             style={{
               ...backgroundCss(effectiveBackground),
-              ...(filterValue ? { filter: filterValue } : {}),
+              filter: filterValue,
             }}
           />
         )}

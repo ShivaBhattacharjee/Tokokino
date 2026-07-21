@@ -1,23 +1,23 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import jsxA11y from "eslint-plugin-jsx-a11y";
-import reactHooks from "eslint-plugin-react-hooks";
-import tailwind from "eslint-plugin-tailwindcss";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-import tseslint from "typescript-eslint";
+import { defineConfig, globalIgnores } from "eslint/config"
+import jsxA11y from "eslint-plugin-jsx-a11y"
+import reactHooks from "eslint-plugin-react-hooks"
+import tailwind from "eslint-plugin-tailwindcss"
+import nextVitals from "eslint-config-next/core-web-vitals"
+import nextTs from "eslint-config-next/typescript"
+import tseslint from "typescript-eslint"
 
-const typedFiles = ["**/*.{ts,tsx}"];
+const typedFiles = ["**/*.{ts,tsx}"]
 
 const typedConfigs = tseslint.configs.recommendedTypeChecked.map((config) => ({
   ...config,
   files: config.files ?? typedFiles,
-}));
+}))
 
-const reactHooksRecommended = { ...reactHooks.configs.flat.recommended };
-delete reactHooksRecommended.plugins;
+const reactHooksRecommended = { ...reactHooks.configs.flat.recommended }
+delete reactHooksRecommended.plugins
 
-const jsxA11yRecommended = { ...jsxA11y.flatConfigs.recommended };
-delete jsxA11yRecommended.plugins;
+const jsxA11yRecommended = { ...jsxA11y.flatConfigs.recommended }
+delete jsxA11yRecommended.plugins
 
 const tailwindRecommended = {
   ...tailwind.configs.recommended,
@@ -27,7 +27,7 @@ const tailwindRecommended = {
       cssConfigPath: `${import.meta.dirname}/app/globals.css`,
     },
   },
-};
+}
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -65,7 +65,16 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-call": "warn",
       "@typescript-eslint/no-unsafe-member-access": "warn",
       "@typescript-eslint/no-unsafe-return": "warn",
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          args: "all",
+          argsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+        },
+      ],
       "@typescript-eslint/prefer-promise-reject-errors": "warn",
       "@typescript-eslint/require-await": "warn",
     },
@@ -79,6 +88,14 @@ const eslintConfig = defineConfig([
     files: ["**/*.tsx"],
   },
   tailwindRecommended,
+  {
+    // Mocks stand in for async signatures, so `vi.fn(async () => x)` is the
+    // point rather than a missing await.
+    files: ["tests/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/require-await": "off",
+    },
+  },
   {
     files: typedFiles,
     rules: {
@@ -119,7 +136,9 @@ const eslintConfig = defineConfig([
     ".open-next/**",
     // Custom Cloudflare Worker entry (compiled by Wrangler, excluded from tsconfig):
     "worker.ts",
+    // Vendored dav1d AV1 decoder: minified Emscripten output, not ours to lint.
+    "lib/editor/animation-export/video-media/dav1d-wasm/decoder.mjs",
   ]),
-]);
+])
 
-export default eslintConfig;
+export default eslintConfig

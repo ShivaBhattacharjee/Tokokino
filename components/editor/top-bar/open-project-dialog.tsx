@@ -11,8 +11,11 @@ import {
   RiLayoutGridLine,
   RiLoader4Line,
   RiMore2Fill,
+  RiCloseLine,
   RiPencilLine,
+  RiSearchLine,
 } from "@remixicon/react"
+import debounce from "lodash/debounce"
 import { toast } from "sonner"
 
 import {
@@ -27,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -72,8 +76,30 @@ export type DraftListItem = {
 
 type SortOrder = "latest" | "oldest"
 type ProjectKind = "style" | "video" | "animate"
+/** Which kinds a name search narrows to. "all" spans every project type. */
+type SearchScope = ProjectKind | "all"
 
 const PAGE_SIZE = 9
+/** Long enough to skip most intermediate keystrokes, short enough to feel live. */
+const SEARCH_DEBOUNCE_MS = 300
+/**
+ * Fuzzy matching needs a real prefix — the server ignores 1-character matches,
+ * so searching on one would render an empty state instead of the full list.
+ */
+const MIN_SEARCH_LENGTH = 2
+
+/**
+ * Search scopes, in rail order. The `style` kind is surfaced as "Screenshots"
+ * everywhere in this dialog — its old "Present" label collided with the app's
+ * preset system (`present-presets.ts`) and read as "presets" rather than "static
+ * screenshot project". The stored type is still `style`.
+ */
+const SEARCH_SCOPES: { value: SearchScope; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "style", label: "Screenshots" },
+  { value: "video", label: "Videos" },
+  { value: "animate", label: "Animate" },
+]
 
 /** Fixed shell size so Present/Animate switch never shifts layout. */
 const DIALOG_SHELL =
@@ -219,22 +245,31 @@ function ProjectTypeRail({
   kind,
   onKindChange,
   onCreateNew,
+  searching = false,
 }: {
   kind: ProjectKind
   onKindChange: (next: ProjectKind) => void
   onCreateNew: () => void
+  /** A search is active, so the in-field scope owns the filter, not this rail. */
+  searching?: boolean
 }) {
   return (
-    <aside className="flex w-[188px] shrink-0 flex-col gap-3 border-r border-border/60 bg-secondary/10 p-3 sm:w-[210px]">
-      <p className="px-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+    <aside className="flex shrink-0 flex-col gap-2 border-b border-border/60 bg-secondary/10 p-3 sm:w-[188px] sm:gap-3 sm:border-r sm:border-b-0 md:w-[210px]">
+      <p className="hidden px-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:block">
         Project type
       </p>
-      <div className="flex flex-col gap-1.5">
+      <div
+        className={cn(
+          "flex flex-row gap-1.5 overflow-x-auto transition-opacity sm:flex-col sm:overflow-visible",
+          searching && "pointer-events-none opacity-40"
+        )}
+        aria-hidden={searching}
+      >
         <button
           type="button"
           onClick={() => onKindChange("style")}
           className={cn(
-            "flex items-center gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
+            "flex shrink-0 items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors sm:w-full sm:gap-2.5 sm:py-2.5",
             kind === "style"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
@@ -242,9 +277,9 @@ function ProjectTypeRail({
         >
           <RiLayoutGridLine className="size-4 shrink-0" />
           <span className="min-w-0">
-            <span className="block text-[12px] font-medium">Present</span>
-            <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
-              Static screenshot projects
+            <span className="block text-[12px] font-medium">Screenshots</span>
+            <span className="mt-0.5 hidden text-[10px] leading-snug opacity-80 sm:block">
+              Static image projects
             </span>
           </span>
         </button>
@@ -252,7 +287,7 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("video")}
           className={cn(
-            "flex items-center gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
+            "flex shrink-0 items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors sm:w-full sm:gap-2.5 sm:py-2.5",
             kind === "video"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
@@ -261,7 +296,7 @@ function ProjectTypeRail({
           <RiFilmLine className="size-4 shrink-0" />
           <span className="min-w-0">
             <span className="block text-[12px] font-medium">Videos</span>
-            <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
+            <span className="mt-0.5 hidden text-[10px] leading-snug opacity-80 sm:block">
               Projects without a timeline
             </span>
           </span>
@@ -270,7 +305,7 @@ function ProjectTypeRail({
           type="button"
           onClick={() => onKindChange("animate")}
           className={cn(
-            "flex items-center gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition-colors",
+            "flex shrink-0 items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors sm:w-full sm:gap-2.5 sm:py-2.5",
             kind === "animate"
               ? "border-primary/50 bg-primary/10 text-foreground"
               : "border-border/50 bg-background/40 text-muted-foreground hover:border-border hover:bg-secondary/30 hover:text-foreground"
@@ -279,14 +314,14 @@ function ProjectTypeRail({
           <RiFilmLine className="size-4 shrink-0" />
           <span className="min-w-0">
             <span className="block text-[12px] font-medium">Animate</span>
-            <span className="mt-0.5 block text-[10px] leading-snug opacity-80">
+            <span className="mt-0.5 hidden text-[10px] leading-snug opacity-80 sm:block">
               Projects with a timeline
             </span>
           </span>
         </button>
       </div>
 
-      <div className="mt-auto border-t border-border/50 pt-3">
+      <div className="border-t border-border/50 pt-3 sm:mt-auto">
         <Button
           type="button"
           className="h-9 w-full gap-1.5 border border-green-600/25 bg-green-600/15 text-[12px] text-green-700 hover:bg-green-600/25 hover:text-green-800 dark:border-green-500/30 dark:bg-green-600/20 dark:text-green-400 dark:hover:bg-green-600/30 dark:hover:text-green-300"
@@ -306,7 +341,7 @@ const SKELETON_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const
 function DraftGridSkeleton() {
   return (
     <div
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+      className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3"
       aria-busy="true"
       aria-label="Loading projects"
     >
@@ -322,12 +357,14 @@ function DraftGridSkeleton() {
 }
 
 function ProjectPagination({
+  searching = false,
   page,
   totalPages,
   total,
   loading,
   onPageChange,
 }: {
+  searching?: boolean
   page: number
   totalPages: number
   total: number
@@ -346,9 +383,10 @@ function ProjectPagination({
   const canNext = page < totalPages
 
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-t border-border/60 px-3 sm:px-4">
+    <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/60 px-3 py-1.5 sm:flex-nowrap sm:px-4 sm:py-0">
       <p className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-        {total} project{total === 1 ? "" : "s"}
+        {total} {searching ? "result" : "project"}
+        {total === 1 ? "" : "s"}
       </p>
 
       <Pagination className="mx-0 w-auto justify-end">
@@ -498,7 +536,7 @@ export function OpenProjectDialog({
   currentDraftId: string | null
   /** When true, Create new project asks before discarding the editor. */
   hasUnsavedWork?: boolean
-  /** Prefer Present or Animate tab when the dialog opens. Defaults to Present. */
+  /** Preferred tab when the dialog opens. Defaults to Screenshots. */
   defaultKind?: ProjectKind
   onOpenDraft: (id: string) => void | Promise<void>
   onCreateNew: () => void
@@ -517,11 +555,54 @@ export function OpenProjectDialog({
   const [kind, setKind] = React.useState<ProjectKind>("style")
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
+  /** What the user is typing (drives the input). */
+  const [query, setQuery] = React.useState("")
+  /** The debounced value the request actually uses. */
+  const [debouncedQuery, setDebouncedQuery] = React.useState("")
+  const [searchScope, setSearchScope] = React.useState<SearchScope>("all")
   /** True while a network request is in flight. */
   const [loading, setLoading] = React.useState(false)
   const wasOpenRef = React.useRef(false)
   const fetchGenRef = React.useRef(0)
   const renameOpsRef = React.useRef<Map<string, number>>(new Map())
+
+  const searching = debouncedQuery.length > 0
+  // A search spans project kinds — the scope dropdown decides which, NOT the
+  // left rail. Without a query the rail's kind drives the list as before.
+  const effectiveKind: ProjectKind | null = searching
+    ? searchScope === "all"
+      ? null
+      : searchScope
+    : kind
+
+  // One debounced setter for the whole dialog lifetime, cancelled on unmount so
+  // a pending keystroke can't set state after the dialog closes.
+  const pushQuery = React.useMemo(
+    () =>
+      debounce((value: string) => setDebouncedQuery(value), SEARCH_DEBOUNCE_MS),
+    []
+  )
+  React.useEffect(() => () => pushQuery.cancel(), [pushQuery])
+
+  const handleQueryChange = (value: string) => {
+    setQuery(value)
+    setPage(1)
+    // Clearing (or dropping under the minimum) is instant — waiting to see the
+    // whole list again feels broken.
+    if (value.trim().length < MIN_SEARCH_LENGTH) {
+      pushQuery.cancel()
+      setDebouncedQuery("")
+      return
+    }
+    pushQuery(value)
+  }
+
+  const clearQuery = () => {
+    pushQuery.cancel()
+    setQuery("")
+    setDebouncedQuery("")
+    setPage(1)
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   // Full skeleton only when we have nothing to show yet (open / type switch).
@@ -535,6 +616,9 @@ export function OpenProjectDialog({
       setKind(defaultKind)
       setPage(1)
       setSort("latest")
+      setQuery("")
+      setDebouncedQuery("")
+      setSearchScope("all")
       setDrafts(null)
       setTotal(0)
       setError(null)
@@ -542,12 +626,15 @@ export function OpenProjectDialog({
     }
     if (!open) {
       // Drop list on close so the next open always starts with a clean skeleton.
+      pushQuery.cancel()
+      setQuery("")
+      setDebouncedQuery("")
       setDrafts(null)
       setError(null)
       setLoading(false)
     }
     wasOpenRef.current = open
-  }, [open, defaultKind])
+  }, [open, defaultKind, pushQuery])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   /* eslint-disable react-hooks/set-state-in-effect -- fetch drafts when dialog query changes */
@@ -560,10 +647,19 @@ export function OpenProjectDialog({
     setError(null)
 
     const offset = (page - 1) * PAGE_SIZE
-    void fetch(
-      `/api/drafts?limit=${PAGE_SIZE}&offset=${offset}&sort=${sort}&type=${kind}`,
-      { credentials: "include", signal: ac.signal }
-    )
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+      sort,
+    })
+    // Omit `type` entirely when searching every kind — the API treats a missing
+    // type as "all", and sending an empty one would 400.
+    if (effectiveKind) params.set("type", effectiveKind)
+    if (debouncedQuery) params.set("q", debouncedQuery)
+    void fetch(`/api/drafts?${params.toString()}`, {
+      credentials: "include",
+      signal: ac.signal,
+    })
       .then(async (res) => {
         if (!res.ok) {
           const data = (await res.json().catch(() => null)) as {
@@ -596,7 +692,7 @@ export function OpenProjectDialog({
     return () => {
       ac.abort()
     }
-  }, [open, sort, kind, page])
+  }, [open, sort, effectiveKind, debouncedQuery, page])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Keep page in range when totals shrink (delete / filter change).
@@ -812,50 +908,126 @@ export function OpenProjectDialog({
       </AlertDialog>
 
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={DIALOG_SHELL}>
-          <div className="shrink-0 border-b border-border/60 bg-popover px-5 py-4">
-            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div>
+        <DialogContent className={DIALOG_SHELL} showCloseButton={false}>
+          <DialogClose asChild>
+            <button
+              type="button"
+              aria-label="Close"
+              className="absolute top-3.5 right-4 z-10 inline-flex size-7 items-center justify-center rounded-md border border-border/60 bg-secondary/60 text-muted-foreground transition-colors hover:border-border hover:bg-secondary hover:text-foreground focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:outline-none"
+            >
+              <RiCloseLine className="size-4" />
+            </button>
+          </DialogClose>
+          <div className="shrink-0 border-b border-border/60 bg-popover px-4 py-3.5 sm:px-5 sm:py-4">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="pr-9 sm:pr-0">
                 <DialogTitle className="text-[15px]">Open project</DialogTitle>
                 <DialogDescription className="mt-0.5 text-[12px]">
                   Pick a saved draft to resume editing, or start fresh.
                 </DialogDescription>
               </div>
-              <Select
-                value={sort}
-                onValueChange={(val) => {
-                  setSort(val as SortOrder)
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger className="h-8 w-full self-stretch rounded-md border border-border/70 bg-background px-2.5 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 focus-visible:border-border/70 focus-visible:ring-0 sm:mr-6 sm:w-[110px] sm:self-auto">
-                  <SelectValue placeholder="Latest" />
-                </SelectTrigger>
-                <SelectContent
-                  align="end"
-                  position="popper"
-                  className="min-w-[110px] rounded-md border border-border/70 bg-popover p-1 shadow-2xl"
+              <div className="flex w-full items-center gap-2 sm:mr-14 sm:w-auto">
+                <div className="flex h-7 min-w-0 flex-1 items-center rounded-md border border-border/70 bg-background transition-colors focus-within:border-primary/50 hover:border-primary/50 sm:w-[290px] sm:flex-none">
+                  <RiSearchLine className="pointer-events-none ml-2.5 size-3.5 shrink-0 text-muted-foreground" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => handleQueryChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && query) {
+                        // Clear the field before the dialog's own Esc closes it.
+                        e.stopPropagation()
+                        clearQuery()
+                      }
+                    }}
+                    placeholder="Search projects"
+                    aria-label="Search projects by name"
+                    maxLength={DRAFT_NAME_MAX_LENGTH}
+                    className="h-full min-w-0 flex-1 bg-transparent px-2 text-[11px] font-medium text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
+                  />
+                  {query ? (
+                    <button
+                      type="button"
+                      onClick={clearQuery}
+                      aria-label="Clear search"
+                      className="mr-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:outline-none"
+                    >
+                      <RiCloseLine className="size-3.5" />
+                    </button>
+                  ) : null}
+
+                  {/* Scope lives inside the field and is always mounted: it
+                      describes what a search WILL cover, so hiding it until
+                      results exist would surface it only once it's too late to
+                      be useful. */}
+                  <Select
+                    value={searchScope}
+                    onValueChange={(val) => {
+                      setSearchScope(val as SearchScope)
+                      setPage(1)
+                    }}
+                  >
+                    {/* The base trigger paints its own surface (`bg-input/20`
+                        plus a `dark:bg-input/30` that survives tailwind-merge),
+                        which reads as a nested box inside the search field.
+                        Both themes are zeroed so this is plain inline text. */}
+                    <SelectTrigger
+                      aria-label="Limit search to a project type"
+                      className="h-6 w-auto shrink-0 gap-1 rounded-none border-0 bg-transparent px-2 text-[11px] font-medium text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent [&>svg]:size-3"
+                    >
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent
+                      align="end"
+                      position="popper"
+                      className="min-w-[104px] rounded-md border border-border/70 bg-popover p-1 shadow-2xl"
+                    >
+                      {SEARCH_SCOPES.map((scope) => (
+                        <SelectItem key={scope.value} value={scope.value}>
+                          {scope.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select
+                  value={sort}
+                  onValueChange={(val) => {
+                    setSort(val as SortOrder)
+                    setPage(1)
+                  }}
                 >
-                  <SelectItem value="latest">Latest</SelectItem>
-                  <SelectItem value="oldest">Oldest</SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectTrigger className="w-auto shrink-0 gap-1.5 rounded-md border border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-secondary/20 focus-visible:border-border/70 focus-visible:ring-0">
+                    <SelectValue placeholder="Latest" />
+                  </SelectTrigger>
+                  <SelectContent
+                    align="end"
+                    position="popper"
+                    className="min-w-[var(--radix-select-trigger-width)] rounded-md border border-border/70 bg-popover p-1 shadow-2xl"
+                  >
+                    <SelectItem value="latest">Latest</SelectItem>
+                    <SelectItem value="oldest">Oldest</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
             {/* Left rail — project type */}
             <ProjectTypeRail
               kind={kind}
               onKindChange={handleKindChange}
               onCreateNew={requestCreateNew}
+              searching={searching}
             />
 
             {/* Main list + pagination */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
                 {/* Fixed min height so Present/Animate never shifts the shell. */}
-                <div className="min-h-[480px]">
+                <div className="sm:min-h-[480px]">
                   {showSkeleton ? <DraftGridSkeleton /> : null}
 
                   {!showSkeleton && error ? (
@@ -865,37 +1037,61 @@ export function OpenProjectDialog({
                   ) : null}
 
                   {!showSkeleton && !error && drafts && drafts.length === 0 ? (
-                    <div className="flex min-h-[440px] flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+                    <div className="flex min-h-[280px] flex-col items-center justify-center gap-2 px-4 py-8 text-center sm:min-h-[440px]">
                       <span className="inline-flex size-10 items-center justify-center rounded-full bg-secondary/80 text-muted-foreground">
-                        {kind === "animate" ? (
-                          <RiFilmLine className="size-5" />
-                        ) : kind === "video" ? (
+                        {searching ? (
+                          <RiSearchLine className="size-5" />
+                        ) : kind === "animate" || kind === "video" ? (
                           <RiFilmLine className="size-5" />
                         ) : (
                           <RiDraftLine className="size-5" />
                         )}
                       </span>
+                      {/* An empty search is a different problem from an empty
+                          project type — don't tell the user to go save a draft. */}
                       <p className="text-[13px] font-medium text-foreground">
-                        {kind === "animate"
-                          ? "No animate projects yet"
-                          : kind === "video"
-                            ? "No video projects yet"
-                            : "No present projects yet"}
+                        {searching
+                          ? "No projects found"
+                          : kind === "animate"
+                            ? "No animate projects yet"
+                            : kind === "video"
+                              ? "No video projects yet"
+                              : "No screenshot projects yet"}
                       </p>
                       <p className="max-w-[280px] text-[12px] text-muted-foreground">
-                        {kind === "animate"
-                          ? "Save while Animate is on (Save → Save as animate draft) to see projects here."
-                          : kind === "video"
-                            ? "Save a video canvas with Save → Save as draft to see projects here."
-                            : "Use Save → Save as draft from the present editor to keep projects here."}
+                        {searching ? (
+                          <>
+                            Nothing matches &ldquo;{debouncedQuery}&rdquo;
+                            {searchScope === "all"
+                              ? ""
+                              : ` in ${SEARCH_SCOPES.find((s) => s.value === searchScope)?.label.toLowerCase()} projects`}
+                            .
+                          </>
+                        ) : kind === "animate" ? (
+                          "Save while Animate is on (Save → Save as animate draft) to see projects here."
+                        ) : kind === "video" ? (
+                          "Save a video canvas with Save → Save as draft to see projects here."
+                        ) : (
+                          "Use Save → Save as draft from the editor to keep projects here."
+                        )}
                       </p>
+                      {searching ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mt-1 h-7 text-[11px]"
+                          onClick={clearQuery}
+                        >
+                          Clear search
+                        </Button>
+                      ) : null}
                     </div>
                   ) : null}
 
                   {!showSkeleton && !error && drafts && drafts.length > 0 ? (
                     <div
                       className={cn(
-                        "grid grid-cols-2 gap-3 sm:grid-cols-3",
+                        "grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3",
                         loading && "pointer-events-none opacity-70"
                       )}
                     >
@@ -920,6 +1116,7 @@ export function OpenProjectDialog({
                 page={page}
                 totalPages={totalPages}
                 total={total}
+                searching={searching}
                 loading={loading}
                 onPageChange={handlePageChange}
               />

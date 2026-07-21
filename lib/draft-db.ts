@@ -1,6 +1,7 @@
 import "server-only"
 
-import { and, asc, count, desc, eq, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm"
+import Fuse from "fuse.js"
 
 import { drafts, type DraftType } from "@/lib/db/schema"
 import { fromD1Date, getDb, toD1Date } from "@/lib/d1"
@@ -77,6 +78,114 @@ function rowToDraftMetadata(row: DraftRow): DraftRecord {
   return rowToDraft(row, null)
 }
 
+/** Shared owner + kind filter for the list and its count. */
+function draftListFilter(userId: string, opts: { type?: DraftType }) {
+  if (opts.type === "animate" || opts.type === "video" || opts.type === "style")
+    return and(eq(drafts.userId, userId), eq(drafts.type, opts.type))
+  return eq(drafts.userId, userId)
+}
+
+/**
+ * Order two matched drafts for display. Tie-broken by id to keep paging stable
+ * ACROSS requests: drafts saved in the same second share an `updatedAt`, and
+ * each page is its own request re-running this sort over rows D1 returns in no
+ * guaranteed order. Without the tiebreak, tied drafts could land either side of
+ * a page boundary on different requests and be shown twice or skipped.
+ */
+function compareByUpdated(
+  a: { id: string; updatedAt: string },
+  b: { id: string; updatedAt: string },
+  sort: "latest" | "oldest"
+) {
+  const byDate =
+    sort === "oldest"
+      ? a.updatedAt.localeCompare(b.updatedAt)
+      : b.updatedAt.localeCompare(a.updatedAt)
+  return byDate !== 0 ? byDate : a.id.localeCompare(b.id)
+}
+
+/**
+ * How far a name may stray from the query. Fuse scores 0 (exact) → 1 (no
+ * relation); 0.4 catches ordinary typos and partial words without matching
+ * everything. `ignoreLocation` matters: without it Fuse heavily favours matches
+ * near the start, so searching a word from the END of a name would miss.
+ */
+const FUZZY_THRESHOLD = 0.4
+
+/**
+ * Fuzzy name search across EVERY draft the filter allows: relevance decides
+ * which drafts match, `sort` decides the order, then the page is sliced.
+ *
+ * Two passes, because D1 has no trigram index or edit-distance function — typo
+ * tolerance has to happen in JS, over rows this has already read. Reading whole
+ * rows to do that would put the library size in the response budget, so the
+ * match pass projects just the three columns matching and ordering need
+ * (`name`, `updatedAt`, `id` — no state blob, no thumbnail key) and the second
+ * pass hydrates only the page, by id. That keeps the scan cheap enough that no
+ * candidate cap is needed, so an old draft is as findable as a recent one.
+ *
+ * Matching and ordering both happen over the whole match set BEFORE slicing, so
+ * page 2 is the genuine continuation rather than a separately-ranked query.
+ * Returns the match count alongside the page so the caller's pagination and its
+ * total always come from one pass.
+ */
+export async function searchDrafts(
+  userId: string,
+  opts: {
+    q: string
+    limit?: number
+    offset?: number
+    sort?: "latest" | "oldest"
+    type?: DraftType
+  }
+) {
+  const { q, limit = 12, offset = 0, sort = "latest", type } = opts
+  const scope = draftListFilter(userId, { type })
+
+  const candidates = await getDb()
+    .select({
+      id: drafts.id,
+      name: drafts.name,
+      updatedAt: drafts.updatedAt,
+    })
+    .from(drafts)
+    .where(scope)
+
+  const fuse = new Fuse(candidates, {
+    keys: ["name"],
+    threshold: FUZZY_THRESHOLD,
+    ignoreLocation: true,
+    // One-character queries match nearly everything; wait for a real prefix.
+    minMatchCharLength: 2,
+  })
+  // updatedAt is an ISO-8601 UTC string, so lexicographic order is
+  // chronological — the same ordering the SQL list path applies.
+  const matches = fuse.search(q).map((hit) => hit.item)
+  matches.sort((a, b) => compareByUpdated(a, b, sort))
+
+  const pageIds = matches.slice(offset, offset + limit).map((m) => m.id)
+  if (pageIds.length === 0) return { rows: [], total: matches.length }
+
+  // Re-filtered by owner, not just id: the ids came from an owned query, but a
+  // bare id lookup would be one refactor away from reading another user's row.
+  const rows = await getDb()
+    .select()
+    .from(drafts)
+    .where(and(scope, inArray(drafts.id, pageIds)))
+
+  // Order was decided once, above. `IN (...)` returns rows in no particular
+  // order, so replay that sequence rather than sorting a second time — a second
+  // sort would have to stay byte-identical to the first forever, and drifting
+  // apart would silently page wrongly instead of failing. Drops any id deleted
+  // between the two queries.
+  const byId = new Map(rows.map((row) => [row.id, row]))
+  const ordered = pageIds
+    .map((id) => byId.get(id))
+    .filter((row) => row !== undefined)
+
+  return { rows: ordered.map(rowToDraftMetadata), total: matches.length }
+}
+
 export async function listDrafts(
   userId: string,
   opts: {
@@ -86,19 +195,14 @@ export async function listDrafts(
     type?: DraftType
   } = {}
 ) {
-  const { limit = 12, offset = 0, sort = "latest", type } = opts
+  const { limit = 12, offset = 0, sort = "latest" } = opts
   const order =
     sort === "oldest" ? asc(drafts.updatedAt) : desc(drafts.updatedAt)
-
-  const where =
-    type === "animate" || type === "video" || type === "style"
-      ? and(eq(drafts.userId, userId), eq(drafts.type, type))
-      : eq(drafts.userId, userId)
 
   const rows = await getDb()
     .select()
     .from(drafts)
-    .where(where)
+    .where(draftListFilter(userId, opts))
     .orderBy(order)
     .limit(limit)
     .offset(offset)
@@ -123,15 +227,10 @@ export async function countDrafts(
   userId: string,
   opts: { type?: DraftType } = {}
 ) {
-  const where =
-    opts.type === "animate" || opts.type === "video" || opts.type === "style"
-      ? and(eq(drafts.userId, userId), eq(drafts.type, opts.type))
-      : eq(drafts.userId, userId)
-
   const result = await getDb()
     .select({ count: count() })
     .from(drafts)
-    .where(where)
+    .where(draftListFilter(userId, opts))
     .get()
   return result?.count ?? 0
 }

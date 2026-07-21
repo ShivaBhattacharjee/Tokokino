@@ -121,9 +121,12 @@ export function BackdropSection({
   const previewEffects = React.useCallback(
     (patch: Partial<typeof effects>) => {
       const candidate = { ...effects, ...patch }
+      // A neutral candidate must still write the var — clearing it would fall
+      // back to the committed (non-neutral) filter while the slider sits at its
+      // neutral value.
       setPreviewVar(
         BACKDROP_FX_PREVIEW_VAR,
-        effectsFilterCss(candidate) ?? null
+        effectsFilterCss(candidate) ?? "brightness(1)"
       )
       if (patch.noise !== undefined) {
         setPreviewVar(

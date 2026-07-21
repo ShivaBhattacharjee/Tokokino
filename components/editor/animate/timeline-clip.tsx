@@ -5,6 +5,7 @@ import { motion } from "motion/react"
 import {
   RiBrushLine,
   RiCheckboxBlankLine,
+  RiCropLine,
   RiDeleteBinLine,
   RiDragMove2Line,
   RiEraserLine,
@@ -112,6 +113,7 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   // Border lives in its own inspector section — share its brush icon.
   border: RiBrushLine,
   borderRadius: RiBrushLine,
+  crop: RiCropLine,
 }
 
 export function TimelineClip({

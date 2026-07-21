@@ -194,7 +194,7 @@ class Dav1dAv1Decoder extends CustomVideoDecoder {
     }
   }
 
-  async close() {
+  close() {
     const decoder = this.decoder
     this.decoder = null
     this.packetTiming.clear()

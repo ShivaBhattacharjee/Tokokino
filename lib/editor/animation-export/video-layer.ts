@@ -122,6 +122,15 @@ function replaceVideoWithFrameImage(video: HTMLVideoElement): {
     image.setAttribute(attribute.name, attribute.value)
   }
 
+  // Seed the source's natural size. An `<img>` only reports `naturalWidth` once
+  // a source has decoded, so anything measuring natural media size (the crop's
+  // fit correction) would read 0 on the first frame — before the first paint —
+  // and silently skip. The video is already ready when we swap it out.
+  if (video.videoWidth > 0 && video.videoHeight > 0) {
+    image.dataset.naturalW = String(video.videoWidth)
+    image.dataset.naturalH = String(video.videoHeight)
+  }
+
   const raster = document.createElement("canvas")
   const context = raster.getContext("2d", { willReadFrequently: true })
   if (!context) return null

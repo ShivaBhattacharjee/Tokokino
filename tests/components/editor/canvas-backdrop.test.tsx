@@ -72,4 +72,43 @@ describe("CanvasBackdrop", () => {
     const { container } = render(<CanvasBackdrop {...baseProps()} />)
     expect(container.querySelector(".bg-cover.bg-center")).toBeNull()
   })
+
+  /**
+   * The background layer must read `--bd-fx-preview` even with neutral committed
+   * effects — slider drags and the animation player drive that var, and a layer
+   * with no `filter` at all has nothing to drive. The neutral fallback has to be
+   * an identity function, not `none`, so it stays valid next to an asset filter.
+   */
+  it("always reads the effects preview var, with an identity fallback", () => {
+    const { container } = render(<CanvasBackdrop {...baseProps()} />)
+    const layer = container.querySelector<HTMLElement>(
+      ".bg-transparency-checker"
+    )
+    expect(layer?.style.filter).toBe("var(--bd-fx-preview, brightness(1))")
+  })
+
+  it("keeps the preview var valid alongside a backdrop asset filter", () => {
+    const { container } = render(
+      <CanvasBackdrop
+        {...baseProps({
+          backdrop: { ...baseProps().backdrop, filter: "bw" },
+        })}
+      />
+    )
+    const filter = container.querySelector<HTMLElement>(
+      ".bg-transparency-checker"
+    )?.style.filter
+    expect(filter).toContain("var(--bd-fx-preview, brightness(1))")
+    expect(filter).not.toContain("none")
+  })
+
+  it("uses the committed effects filter as the preview fallback", () => {
+    const { container } = render(
+      <CanvasBackdrop {...baseProps({ effectsFilter: "brightness(120%)" })} />
+    )
+    const layer = container.querySelector<HTMLElement>(
+      ".bg-transparency-checker"
+    )
+    expect(layer?.style.filter).toBe("var(--bd-fx-preview, brightness(120%))")
+  })
 })

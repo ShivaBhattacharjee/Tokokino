@@ -1012,6 +1012,7 @@ export async function createFrameRenderer({
   plan,
   signal,
   mediaFx,
+  cropAnimated = false,
 }: {
   capture: AnimationCapture
   video: HTMLVideoElement
@@ -1021,8 +1022,14 @@ export async function createFrameRenderer({
   signal?: AbortSignal
   /** Media-pixel effects (enhance) re-applied to the decoded frame. */
   mediaFx?: VideoMediaFx | null
+  /**
+   * A clip animates the crop. The composite renderer measures the video's
+   * visible sub-rect ONCE at setup, so it would freeze the crop on its first
+   * frame; the raster path re-captures the DOM every frame and follows it.
+   */
+  cropAnimated?: boolean
 }): Promise<RenderFrame> {
-  if (decoded) {
+  if (decoded && !cropAnimated) {
     const composite = await createCompositeRenderer(
       capture,
       video,

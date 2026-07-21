@@ -8,6 +8,7 @@ import {
   createDraft,
   getUserDraftStorageUsage,
   listDrafts,
+  searchDrafts,
 } from "@/lib/draft-db"
 import {
   MAX_DRAFT_BYTES,
@@ -26,19 +27,28 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response
 
   const url = new URL(request.url)
-  const { limit, offset, sort, type } = draftListQuerySchema.parse({
+  const { limit, offset, sort, type, q } = draftListQuerySchema.parse({
     limit: url.searchParams.get("limit") ?? undefined,
     offset: url.searchParams.get("offset") ?? undefined,
     sort: url.searchParams.get("sort") ?? undefined,
     type: url.searchParams.get("type") ?? undefined,
+    q: url.searchParams.get("q") ?? undefined,
   })
 
   try {
-    const [draftRows, total, storageUsed] = await Promise.all([
-      listDrafts(auth.session.user.id, { limit, offset, sort, type }),
-      countDrafts(auth.session.user.id, { type }),
+    // A search matches by fuzzy name (typo-tolerant), applies `sort` to the
+    // matches, and returns its own total, so page and count always come from
+    // one pass. Plain listing keeps the indexed SQL path.
+    const [listed, storageUsed] = await Promise.all([
+      q
+        ? searchDrafts(auth.session.user.id, { q, limit, offset, sort, type })
+        : Promise.all([
+            listDrafts(auth.session.user.id, { limit, offset, sort, type }),
+            countDrafts(auth.session.user.id, { type }),
+          ]).then(([rows, total]) => ({ rows, total })),
       getUserDraftStorageUsage(auth.session.user.id),
     ])
+    const { rows: draftRows, total } = listed
 
     return NextResponse.json({
       drafts: draftRows.map((draft) => ({

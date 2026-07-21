@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   DRAFT_NAME_MAX_LENGTH,
   countCanvasesInDraftState,
+  draftListQuerySchema,
   parseDraftSaveBody,
   resolveDraftType,
   unwrapDraftState,
@@ -137,5 +138,33 @@ describe("draft schema helpers", () => {
         ui: {},
       })
     ).toBe("animate")
+  })
+})
+
+describe("draftListQuerySchema search", () => {
+  const parse = (over: Record<string, unknown> = {}) =>
+    draftListQuerySchema.parse({ ...over })
+
+  it("passes a trimmed query through", () => {
+    expect(parse({ q: "  beach clip " }).q).toBe("beach clip")
+  })
+
+  it("treats blank and whitespace-only queries as no search", () => {
+    // An empty `q` must become undefined, not "", or the DB layer would build a
+    // LIKE '%%' filter and silently paginate a different result set.
+    expect(parse({ q: "" }).q).toBeUndefined()
+    expect(parse({ q: "   " }).q).toBeUndefined()
+    expect(parse().q).toBeUndefined()
+  })
+
+  it("rejects an over-long query instead of building a huge LIKE", () => {
+    expect(
+      parse({ q: "a".repeat(DRAFT_NAME_MAX_LENGTH + 50) }).q
+    ).toBeUndefined()
+  })
+
+  it("keeps the type filter optional so a search can span every kind", () => {
+    expect(parse({ q: "x" }).type).toBeUndefined()
+    expect(parse({ q: "x", type: "animate" }).type).toBe("animate")
   })
 })

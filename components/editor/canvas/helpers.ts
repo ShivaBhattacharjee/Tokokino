@@ -472,6 +472,29 @@ export function parseAspectRatio(aspectRatio: string) {
   return width / height
 }
 
+/**
+ * Largest box of `ratio` (w/h) that fits inside `boxW`×`boxH` — i.e. what
+ * `object-fit: contain` would produce, in pixels.
+ *
+ * Video contain shells need this computed rather than expressed in CSS: a
+ * `width:100% + height:auto + aspect-ratio` box silently violates its own ratio
+ * once `max-height` clamps it, which shears anything positioned by percentages
+ * inside (see the crop polyfill in `screenshot-bare`).
+ */
+export function fitContainBox(boxW: number, boxH: number, ratio: number) {
+  const width = Math.min(boxW, boxH * ratio)
+  return { width, height: width / ratio }
+}
+
+/**
+ * Smallest box of `ratio` (w/h) that fully covers `boxW`×`boxH` — the `object-fit:
+ * cover` counterpart of {@link fitContainBox}. Overflows the box on one axis.
+ */
+export function coverContainerBox(boxW: number, boxH: number, ratio: number) {
+  const width = Math.max(boxW, boxH * ratio)
+  return { width, height: width / ratio }
+}
+
 export function isDesktopMockup(deviceId: string) {
   return (
     deviceId.startsWith("macbook") ||
