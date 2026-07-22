@@ -5,6 +5,9 @@ import { NextResponse } from "next/server"
 import { getAuth } from "@/lib/auth"
 
 export type AuthorizedSession = {
+  session: {
+    id: string
+  }
   user: {
     id: string
     name?: string | null

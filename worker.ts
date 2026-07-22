@@ -55,6 +55,8 @@ function wantsMarkdown(request: Request): boolean {
   return (request.headers.get("accept") ?? "").includes("text/markdown")
 }
 
+type AccountDeletionMessage = { userId: string; requestedAt: string }
+
 export default {
   ...handler,
   // Params are left unannotated so they pick up their types contextually from
@@ -77,5 +79,37 @@ export default {
     }
 
     return handler.fetch(request, env, ctx)
+  },
+
+  // Consumes the account-deletion queue. The heavy work lives behind an
+  // internal Next route so it runs inside the OpenNext request context (where
+  // the D1/R2 bindings resolve); this handler is just a durable, retrying
+  // trigger.
+  async queue(batch, env, ctx): Promise<void> {
+    const cfEnv = env as CloudflareEnv
+    for (const message of batch.messages) {
+      const body = message.body as AccountDeletionMessage
+      try {
+        const internalRequest = new Request(
+          new URL("/api/internal/account-deletion", cfEnv.BETTER_AUTH_URL),
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${cfEnv.BETTER_AUTH_SECRET}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({ userId: body.userId }),
+          }
+        ) as unknown as Parameters<typeof handler.fetch>[0]
+        const response = await handler.fetch(internalRequest, env, ctx)
+        if (!response.ok) {
+          throw new Error(`account deletion route responded ${response.status}`)
+        }
+        message.ack()
+      } catch (error) {
+        console.error("Account deletion job failed", error)
+        message.retry()
+      }
+    }
   },
 } satisfies ExportedHandler

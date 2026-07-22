@@ -11,12 +11,18 @@ export function LoginForm({
   callbackURL = "/app",
   variant = "page",
   onBeforeSignIn,
+  errorMessage = null,
 }: {
   callbackURL?: string
   variant?: "page" | "dialog"
   onBeforeSignIn?: () => void | Promise<void>
+  errorMessage?: string | null
 }) {
   const [loading, setLoading] = React.useState(false)
+
+  React.useEffect(() => {
+    if (errorMessage) toast.error(errorMessage)
+  }, [errorMessage])
 
   const handleGoogle = async () => {
     if (loading) return

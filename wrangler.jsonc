@@ -28,6 +28,22 @@
       "simple": { "limit": 60, "period": 60 }
     }
   ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "ACCOUNT_DELETION_QUEUE",
+        "queue": "tokokino-account-deletion"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "tokokino-account-deletion",
+        "max_batch_size": 10,
+        "max_batch_timeout": 30,
+        "max_retries": 5
+      }
+    ]
+  },
   "observability": {
     "enabled": true
   }

@@ -15,6 +15,11 @@ export const metadata: Metadata = {
 
 const DEFAULT_AUTH_REDIRECT = "/app"
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  account_deleted:
+    "This account is being deleted and can no longer be accessed.",
+}
+
 function resolveCallbackRedirect(
   callbackURL: string | undefined,
   origin: string
@@ -37,17 +42,19 @@ const GRAIN_SVG =
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackURL?: string }>
+  searchParams: Promise<{ callbackURL?: string; error?: string }>
 }) {
   const requestHeaders = await headers()
   const session = await getAuth().api.getSession({ headers: requestHeaders })
+  const { callbackURL, error } = await searchParams
 
   if (session) {
     const host = requestHeaders.get("host") ?? "localhost"
     const proto = requestHeaders.get("x-forwarded-proto") ?? "https"
-    const { callbackURL } = await searchParams
     redirect(resolveCallbackRedirect(callbackURL, `${proto}://${host}`))
   }
+
+  const errorMessage = error ? (AUTH_ERROR_MESSAGES[error] ?? null) : null
 
   return (
     <main className="relative min-h-svh w-full overflow-hidden bg-background text-foreground">
@@ -111,7 +118,7 @@ export default async function LoginPage({
           </div>
 
           <div className="relative z-10 flex flex-1 items-center justify-center py-12">
-            <LoginForm />
+            <LoginForm errorMessage={errorMessage} />
           </div>
         </section>
       </div>
