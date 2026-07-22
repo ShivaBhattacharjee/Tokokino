@@ -743,7 +743,10 @@ export function useTextElementInteractions({
   const commitContent = React.useCallback(() => {
     const node = editorRef.current
     if (!node) return
-    const next = node.innerText.replace(/\u00A0/g, " ")
+    // contenteditable pads whitespace runs with U+00A0 to keep them from
+    // collapsing; normalise only those (an nbsp touching a regular space) so a
+    // standalone nbsp the user pasted to bind two words survives.
+    const next = node.innerText.replace(/(?<= )\u00A0|\u00A0(?= )/g, " ")
     updateText(text.id, { content: next || " " })
     setEditingRequested(false)
   }, [text.id, updateText])
