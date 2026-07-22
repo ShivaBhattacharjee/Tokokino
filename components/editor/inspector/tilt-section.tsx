@@ -2,8 +2,7 @@
 
 import * as React from "react"
 
-import { EditableValue } from "@/components/editor/editable-value"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import type { Tilt } from "@/lib/editor/state-types"
 import {
@@ -63,32 +62,21 @@ function DegreeRow({
   const displayed = draft ?? value
   return (
     <div className="mb-3">
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-[11px] text-muted-foreground">{label}</span>
-        <EditableValue
-          value={displayed}
-          onChange={(v) => {
-            setDraft(null)
-            onCommit(v)
-          }}
-          min={-180}
-          max={180}
-          suffix="°"
-        />
-      </div>
-      <Slider
-        value={[displayed]}
-        onValueChange={([v]) => {
+      <ElasticSlider
+        label={label}
+        value={displayed}
+        onValueChange={(v) => {
           setDraft(v)
           onPreview(v)
         }}
-        onValueCommit={([v]) => {
+        onValueCommit={(v) => {
           setDraft(null)
           onCommit(v)
         }}
         min={-45}
         max={45}
-        className="cursor-pointer"
+        step={1}
+        formatValue={(v) => `${Math.round(v)}°`}
       />
     </div>
   )
@@ -252,32 +240,21 @@ export function TiltSection() {
         onPreview={previewRotZ}
         onCommit={commitRotZ}
       />
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-[11px] text-muted-foreground">Scale</span>
-        <EditableValue
-          value={displayedScale}
-          onChange={(v) => {
-            setScaleDraft(null)
-            commitScale(v)
-          }}
-          min={10}
-          max={300}
-          suffix="%"
-        />
-      </div>
-      <Slider
-        value={[displayedScale]}
-        onValueChange={([v]) => {
+      <ElasticSlider
+        label="Scale"
+        value={displayedScale}
+        onValueChange={(v) => {
           setScaleDraft(v)
           previewScale(v)
         }}
-        onValueCommit={([v]) => {
+        onValueCommit={(v) => {
           setScaleDraft(null)
           commitScale(v)
         }}
         min={50}
         max={150}
-        className="cursor-pointer"
+        step={1}
+        formatValue={(v) => `${Math.round(v)}%`}
       />
     </>
   )

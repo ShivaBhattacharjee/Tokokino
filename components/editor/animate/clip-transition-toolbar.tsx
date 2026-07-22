@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import { Switch } from "@/components/ui/switch"
 import {
   CLIP_EASING_KINDS,
@@ -188,20 +188,17 @@ function TransitionPanel({
         })}
       </div>
 
-      <div className="flex flex-col gap-1.5 pt-0.5">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-muted-foreground">Speed</span>
-          <span className="text-foreground tabular-nums">{activeMs}ms</span>
-        </div>
-        <Slider
-          value={[activeMs]}
-          min={minMs}
-          max={maxMs}
-          step={1}
-          aria-label="Transition speed"
-          onValueChange={([v]) => onSpeedMs(v)}
-        />
-      </div>
+      <ElasticSlider
+        label="Speed"
+        value={activeMs}
+        min={minMs}
+        max={maxMs}
+        step={1}
+        aria-label="Transition speed"
+        formatValue={(v) => `${Math.round(v)}ms`}
+        onValueChange={onSpeedMs}
+        className="pt-0.5"
+      />
 
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex flex-col">

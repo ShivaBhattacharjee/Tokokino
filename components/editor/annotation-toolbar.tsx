@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
 import {
   ToolbarDivider,
@@ -438,14 +438,16 @@ function ShapeThicknessPanel({
           )
         })}
       </div>
-      <Slider
-        value={[value]}
+      <ElasticSlider
+        label="Intensity"
+        value={value}
         min={1}
         max={32}
         step={1}
-        className="[&_[data-slot=slider-range]]:bg-[var(--annotation-color)]"
+        formatValue={(v) => `${Math.round(v)}px`}
+        className="[--elastic-slider-fill-active:var(--annotation-color)] [--elastic-slider-fill:var(--annotation-color)] [--elastic-slider-handle:var(--annotation-color)]"
         style={{ "--annotation-color": color } as React.CSSProperties}
-        onValueChange={([next]) => {
+        onValueChange={(next) => {
           if (typeof next === "number") onChange(next)
         }}
       />
@@ -488,25 +490,17 @@ function IntensitySliderButton({
         </button>
       )}
     >
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-            {label}
-          </span>
-          <span className="font-mono text-xs text-foreground/80">
-            {value}px
-          </span>
-        </div>
-        <Slider
-          value={[value]}
-          min={1}
-          max={32}
-          step={1}
-          onValueChange={([next]) => {
-            if (typeof next === "number") onChange(next)
-          }}
-        />
-      </div>
+      <ElasticSlider
+        label={label}
+        value={value}
+        min={1}
+        max={32}
+        step={1}
+        formatValue={(v) => `${Math.round(v)}px`}
+        onValueChange={(next) => {
+          if (typeof next === "number") onChange(next)
+        }}
+      />
     </ToolbarPopover>
   )
 }

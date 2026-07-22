@@ -46,7 +46,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import { fullPageCaptureMediaStyle } from "@/lib/editor/full-page-capture"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import {
@@ -788,20 +788,15 @@ function LayerEffects({
           </PopoverContent>
         </Popover>
       </div>
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>Opacity</span>
-          <span className="font-mono">{layer.opacity}%</span>
-        </div>
-        <Slider
-          min={0}
-          max={100}
-          step={1}
-          value={[layer.opacity]}
-          onValueChange={([value]) => onOpacityChange(value)}
-          className="cursor-pointer"
-        />
-      </div>
+      <ElasticSlider
+        label="Opacity"
+        min={0}
+        max={100}
+        step={1}
+        value={layer.opacity}
+        formatValue={(v) => `${Math.round(v)}%`}
+        onValueChange={onOpacityChange}
+      />
     </div>
   )
 }

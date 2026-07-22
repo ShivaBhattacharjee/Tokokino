@@ -24,7 +24,7 @@ import {
   ToolbarPopover,
   ToolbarSurface,
 } from "@/components/editor/toolbar/primitives"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import {
   type AssetBlendMode,
   type AssetElement,
@@ -834,23 +834,14 @@ function AssetBlendGrid({ asset }: { asset: AssetElement }) {
 function AssetOpacitySlider({ asset }: { asset: AssetElement }) {
   const { updateAsset } = useEditor()
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-          Opacity
-        </span>
-        <span className="font-mono text-[11px] text-foreground">
-          {asset.opacity}%
-        </span>
-      </div>
-      <Slider
-        min={0}
-        max={100}
-        step={1}
-        value={[asset.opacity]}
-        onValueChange={([v]) => updateAsset(asset.id, { opacity: v })}
-        className="cursor-pointer"
-      />
-    </div>
+    <ElasticSlider
+      label="Opacity"
+      min={0}
+      max={100}
+      step={1}
+      value={asset.opacity}
+      formatValue={(v) => `${Math.round(v)}%`}
+      onValueChange={(v) => updateAsset(asset.id, { opacity: v })}
+    />
   )
 }

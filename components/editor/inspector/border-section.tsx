@@ -2,8 +2,7 @@
 
 import * as React from "react"
 
-import { EditableValue } from "@/components/editor/editable-value"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import {
   sampleImageColorsRaw,
   useActiveCanvasField,
@@ -182,68 +181,37 @@ export function BorderSection() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-[11px] text-muted-foreground">Radius</span>
-          <EditableValue
-            value={borderRadius}
-            onChange={applyBorderRadius}
-            min={0}
-            max={48}
-            suffix="px"
-          />
-        </div>
-        <Slider
-          value={[borderRadius]}
-          onValueChange={([v]) => applyBorderRadius(v)}
-          max={48}
-          className="cursor-pointer"
-        />
-      </div>
+      <ElasticSlider
+        label="Radius"
+        value={borderRadius}
+        onValueChange={applyBorderRadius}
+        min={0}
+        max={48}
+        step={1}
+        formatValue={(v) => `${Math.round(v)}px`}
+      />
 
       <div className="h-px bg-border/40" />
 
-      <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-[11px] text-muted-foreground">Width</span>
-          <EditableValue
-            value={border.width}
-            onChange={(v) => applyBorder({ ...border, width: v })}
-            min={0}
-            max={12}
-            suffix="px"
-          />
-        </div>
-        <Slider
-          value={[border.width]}
-          onValueChange={([v]) => applyBorder({ ...border, width: v })}
-          min={0}
-          max={12}
-          className="cursor-pointer"
-        />
-      </div>
+      <ElasticSlider
+        label="Width"
+        value={border.width}
+        onValueChange={(v) => applyBorder({ ...border, width: v })}
+        min={0}
+        max={12}
+        step={1}
+        formatValue={(v) => `${Math.round(v)}px`}
+      />
 
-      <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-[11px] text-muted-foreground">
-            Inner Padding
-          </span>
-          <EditableValue
-            value={border.padding}
-            onChange={(v) => applyBorder({ ...border, padding: v })}
-            min={0}
-            max={80}
-            suffix="px"
-          />
-        </div>
-        <Slider
-          value={[border.padding]}
-          onValueChange={([v]) => applyBorder({ ...border, padding: v })}
-          min={0}
-          max={80}
-          className="cursor-pointer"
-        />
-      </div>
+      <ElasticSlider
+        label="Inner Padding"
+        value={border.padding}
+        onValueChange={(v) => applyBorder({ ...border, padding: v })}
+        min={0}
+        max={80}
+        step={1}
+        formatValue={(v) => `${Math.round(v)}px`}
+      />
 
       <div>
         <SubHeader>Style</SubHeader>

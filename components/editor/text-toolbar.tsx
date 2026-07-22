@@ -27,7 +27,7 @@ import {
   ToolbarSurface,
 } from "@/components/editor/toolbar/primitives"
 import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import {
   FONT_FAMILIES,
   type FontCategory,
@@ -351,79 +351,56 @@ function TextToolbarBody({
                   </button>
                 </div>
 
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    Weight
-                  </span>
-                  <span className="font-mono text-[10px] text-foreground">
-                    {text.fontWeight}
-                  </span>
-                </div>
-                <Slider
-                  value={[text.fontWeight]}
+                <ElasticSlider
+                  label="Weight"
+                  value={text.fontWeight}
                   min={100}
                   max={900}
                   step={100}
-                  onValueChange={([v]) =>
-                    updateText(text.id, { fontWeight: v })
-                  }
+                  formatValue={(v) => String(Math.round(v))}
+                  onValueChange={(v) => updateText(text.id, { fontWeight: v })}
                 />
 
-                <div className="mt-3 mb-1.5 flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    Line Height
-                  </span>
-                  <span className="font-mono text-[10px] text-foreground">
-                    {(text.lineHeight ?? 1.3).toFixed(2)}
-                  </span>
-                </div>
-                <Slider
-                  value={[text.lineHeight ?? 1.3]}
+                <ElasticSlider
+                  label="Line Height"
+                  value={text.lineHeight ?? 1.3}
                   min={0.8}
                   max={2.4}
                   step={0.05}
-                  onValueChange={([v]) =>
+                  formatValue={(v) => v.toFixed(2)}
+                  onValueChange={(v) =>
                     updateText(text.id, { lineHeight: Number(v.toFixed(2)) })
                   }
+                  className="mt-3"
                 />
 
-                <div className="mt-3 mb-1.5 flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    Letter Spacing
-                  </span>
-                  <span className="font-mono text-[10px] text-foreground">
-                    {(text.letterSpacing ?? 0).toFixed(1)}px
-                  </span>
-                </div>
-                <Slider
-                  value={[text.letterSpacing ?? 0]}
+                <ElasticSlider
+                  label="Letter Spacing"
+                  value={text.letterSpacing ?? 0}
                   min={-2}
                   max={20}
                   step={0.1}
-                  onValueChange={([v]) =>
+                  formatValue={(v) => `${v.toFixed(1)}px`}
+                  onValueChange={(v) =>
                     updateText(text.id, { letterSpacing: Number(v.toFixed(1)) })
                   }
+                  className="mt-3"
                 />
 
-                <div className="mt-3 mb-1.5 flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    Stroke Width
-                  </span>
-                  <span className="font-mono text-[10px] text-foreground">
-                    {(text.strokeWidth ?? 0).toFixed(1)}px
-                  </span>
-                </div>
-                <Slider
-                  value={[text.strokeWidth ?? 0]}
+                <ElasticSlider
+                  label="Stroke Width"
+                  value={text.strokeWidth ?? 0}
                   min={0}
                   max={10}
                   step={0.5}
-                  onValueChange={([v]) =>
+                  formatValue={(v) => `${v.toFixed(1)}px`}
+                  onValueChange={(v) =>
                     updateText(text.id, {
                       strokeWidth: v,
                       strokeColor: v > 0 ? text.strokeColor || "#000000" : null,
                     })
                   }
+                  className="mt-3"
                 />
 
                 <div className="mt-3 mb-1.5 flex items-center justify-between">
@@ -733,30 +710,20 @@ function TextBorderSettings({
         </div>
       </div>
 
-      {/* Width */}
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Width
-          </span>
-          <span className="font-mono text-[10px] text-foreground">
-            {text.borderWidth}px
-          </span>
-        </div>
-        <Slider
-          min={0}
-          max={12}
-          step={1}
-          value={[text.borderWidth]}
-          onValueChange={([v]) =>
-            updateText(text.id, {
-              borderWidth: v,
-              borderColor: text.borderColor || "#ffffff",
-            })
-          }
-          className="cursor-pointer"
-        />
-      </div>
+      <ElasticSlider
+        label="Width"
+        min={0}
+        max={12}
+        step={1}
+        value={text.borderWidth}
+        formatValue={(v) => `${Math.round(v)}px`}
+        onValueChange={(v) =>
+          updateText(text.id, {
+            borderWidth: v,
+            borderColor: text.borderColor || "#ffffff",
+          })
+        }
+      />
 
       {/* Style */}
       <div>

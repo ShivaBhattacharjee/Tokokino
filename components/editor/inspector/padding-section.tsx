@@ -2,8 +2,7 @@
 
 import * as React from "react"
 
-import { EditableValue } from "@/components/editor/editable-value"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
 import {
   useActiveCanvasField,
   useActiveCanvasId,
@@ -83,22 +82,16 @@ export function PaddingSection() {
   const quick = [16, 40, 80, 120]
   return (
     <>
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-[11px] text-muted-foreground">Inset</span>
-        <EditableValue
-          value={displayedPadding}
-          onChange={applyPadding}
-          min={0}
-          max={240}
-          suffix="px"
-        />
-      </div>
-      <Slider
-        value={[displayedPadding]}
-        onValueChange={([v]) => previewPadding(v)}
-        onValueCommit={([v]) => applyPadding(v)}
+      <ElasticSlider
+        label="Inset"
+        value={displayedPadding}
+        onValueChange={previewPadding}
+        onValueCommit={applyPadding}
+        min={0}
         max={240}
-        className="mb-3 cursor-pointer"
+        step={1}
+        formatValue={(v) => `${Math.round(v)}px`}
+        className="mb-3"
       />
       <div className="grid grid-cols-4 gap-1.5">
         {quick.map((q) => (

@@ -2,8 +2,28 @@
 
 import * as React from "react"
 
-import { EditableValue } from "@/components/editor/editable-value"
-import { Slider } from "@/components/ui/slider"
+import { ElasticSlider } from "@/components/elastic-slider"
+import { cn } from "@/lib/utils"
+
+function formatWithSuffix(
+  value: number,
+  step: number | undefined,
+  suffix: string
+) {
+  const decimals =
+    step === undefined
+      ? Number.isInteger(value)
+        ? 0
+        : 2
+      : (() => {
+          const s = step.toString()
+          const dot = s.indexOf(".")
+          return dot === -1 ? 0 : s.length - dot - 1
+        })()
+  const text =
+    decimals === 0 ? String(Math.round(value)) : value.toFixed(decimals)
+  return suffix ? `${text}${suffix}` : text
+}
 
 export function EffectSlider({
   label,
@@ -12,7 +32,7 @@ export function EffectSlider({
   onPreview,
   min = 0,
   max = 100,
-  step,
+  step = 1,
   suffix,
   disabled = false,
   className,
@@ -33,47 +53,29 @@ export function EffectSlider({
   const [draft, setDraft] = React.useState<number | null>(null)
   const displayed = draft ?? value
   const resolvedSuffix = suffix ?? (max === 100 ? "%" : "")
+
   return (
-    <div className={className}>
-      <div className="mb-1 flex items-baseline justify-between">
-        <span className="text-[11px] text-muted-foreground">{label}</span>
-        {disabled ? (
-          <span className="tabular rounded px-1 font-mono text-[11px] text-foreground/45">
-            {displayed}
-            {resolvedSuffix}
-          </span>
-        ) : (
-          <EditableValue
-            value={displayed}
-            onChange={(v) => {
-              setDraft(null)
-              onChange(v)
-            }}
-            min={min}
-            max={max}
-            step={step}
-            suffix={resolvedSuffix}
-          />
-        )}
-      </div>
-      <Slider
-        value={[displayed]}
-        onValueChange={([v]) => {
-          if (disabled) return
-          setDraft(v)
-          onPreview?.(v)
-        }}
-        onValueCommit={([v]) => {
-          if (disabled) return
-          setDraft(null)
-          onChange(v)
-        }}
-        min={min}
-        max={max}
-        step={step}
-        disabled={disabled}
-        className={sliderClassName ?? "cursor-pointer"}
-      />
-    </div>
+    <ElasticSlider
+      label={label}
+      value={displayed}
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      formatValue={(v) => formatWithSuffix(v, step, resolvedSuffix)}
+      onValueChange={(v) => {
+        if (disabled) return
+        setDraft(v)
+        onPreview?.(v)
+        // Without a live-preview path, commit continuously (history groups).
+        if (!onPreview) onChange(v)
+      }}
+      onValueCommit={(v) => {
+        if (disabled) return
+        setDraft(null)
+        onChange(v)
+      }}
+      className={cn(className, sliderClassName)}
+    />
   )
 }
