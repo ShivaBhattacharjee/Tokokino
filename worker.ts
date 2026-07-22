@@ -142,9 +142,13 @@ export default {
         headers: { authorization: `Bearer ${cfEnv.BETTER_AUTH_SECRET}` },
       }
     ) as unknown as Parameters<typeof handler.fetch>[0]
-    const response = await handler.fetch(request, env, ctx)
-    if (!response.ok) {
-      console.error(`account deletion reconcile responded ${response.status}`)
+    try {
+      const response = await handler.fetch(request, env, ctx)
+      if (!response.ok) {
+        console.error(`account deletion reconcile responded ${response.status}`)
+      }
+    } catch (error) {
+      console.error("Account deletion reconcile errored", error)
     }
   },
 } satisfies ExportedHandler
