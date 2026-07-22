@@ -47,7 +47,7 @@
     "@xyflow/react": "^12.10.2",
     "better-auth": "^1.6.11",
     "class-variance-authority": "^0.7.1",
-    "cloudflare": "^6.2.0",
+    "cloudflare": "^6.5.0",
     "clsx": "^2.1.1",
     "color": "^5.0.3",
     "date-fns": "^4.2.1",
