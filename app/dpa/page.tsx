@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     "Review Tokokino's data processing terms for hosted account, sharing, and support features.",
 }
 
-const LAST_UPDATED = "March 2026"
+const LAST_UPDATED = "July 2026"
 
 type DpaSection = {
   title: string
@@ -64,6 +64,13 @@ const subProcessorGroups: SubProcessorGroup[] = [
         name: "Cloudflare R2",
         purpose:
           "Object storage used for hosted share images, draft state files, thumbnails, and related uploaded assets.",
+        entity: "Cloudflare, Inc.",
+        location: "United States / Global",
+      },
+      {
+        name: "Cloudflare Queues",
+        purpose:
+          "Managed message queue used for asynchronous background jobs such as account deletion and related cleanup workflows.",
         entity: "Cloudflare, Inc.",
         location: "United States / Global",
       },
@@ -283,8 +290,8 @@ const sections: DpaSection[] = [
         key="security-management-list"
         items={[
           "Security-conscious project maintenance, dependency review, and issue response processes.",
-          "Use of managed infrastructure providers for hosting, database, object storage, CDN delivery, and platform security controls.",
-          "Periodic review of security-sensitive code paths, including authentication, sharing, storage, and export proxy behavior.",
+          "Use of managed infrastructure providers for hosting, database, object storage, message queues, CDN delivery, and platform security controls.",
+          "Periodic review of security-sensitive code paths, including authentication, sharing, storage, account deletion, and export proxy behavior.",
         ]}
       />,
       <h3
@@ -325,6 +332,7 @@ const sections: DpaSection[] = [
         items={[
           "Hosted traffic is served over HTTPS/TLS through managed edge infrastructure.",
           "Share images and draft data are stored in Cloudflare R2, while share, draft, preset, and account metadata are stored in Cloudflare D1.",
+          "Background jobs such as account deletion are processed asynchronously through Cloudflare Queues.",
           "Public share links are accessible to anyone with the URL; users should avoid sharing content that they do not want made public.",
           "Server routes validate request types and size limits for upload and sharing workflows.",
           "External image export requests are proxied through a controlled API route to support browser rendering while reducing direct client-side CORS exposure.",
@@ -455,7 +463,7 @@ const sections: DpaSection[] = [
           {
             term: "Purpose of Processing",
             description:
-              "Providing authentication, editor-related hosted features, public sharing, draft storage, export support, abuse prevention, security, debugging, support, and service improvement.",
+              "Providing authentication, editor-related hosted features, public sharing, draft storage, export support, account deletion and related cleanup, abuse prevention, security, debugging, support, and service improvement.",
           },
           {
             term: "Duration of Processing",

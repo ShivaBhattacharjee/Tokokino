@@ -1,3 +1,5 @@
+import type { AccountDeletionMessage } from "@/lib/account-deletion"
+
 import handler from "./.open-next/worker.js"
 
 const SITE_URL = "https://tokokino.com"
@@ -77,5 +79,76 @@ export default {
     }
 
     return handler.fetch(request, env, ctx)
+  },
+
+  // Consumes the account-deletion queue. The heavy work lives behind an
+  // internal Next route so it runs inside the OpenNext request context (where
+  // the D1/R2 bindings resolve); this handler is just a durable, retrying
+  // trigger.
+  async queue(batch, env, ctx): Promise<void> {
+    const cfEnv = env as CloudflareEnv
+    for (const message of batch.messages) {
+      const body = message.body as AccountDeletionMessage
+      try {
+        const internalRequest = new Request(
+          new URL("/api/internal/account-deletion", cfEnv.BETTER_AUTH_URL),
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${cfEnv.BETTER_AUTH_SECRET}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({ userId: body.userId }),
+          }
+        ) as unknown as Parameters<typeof handler.fetch>[0]
+        const response = await handler.fetch(internalRequest, env, ctx)
+        if (response.ok) {
+          message.ack()
+          continue
+        }
+        // 4xx is terminal (bad message, wrong secret) — retrying can't fix it,
+        // so ack and surface it rather than looping into the dead-letter queue.
+        // 5xx is transient (D1/R2 hiccup) — let it retry.
+        if (response.status >= 400 && response.status < 500) {
+          console.error(
+            `Account deletion job for ${body.userId} failed terminally: ${response.status}`
+          )
+          message.ack()
+        } else {
+          console.error(
+            `Account deletion job for ${body.userId} failed: ${response.status}; retrying`
+          )
+          message.retry()
+        }
+      } catch (error) {
+        // Network/exception — transient, so retry.
+        console.error("Account deletion job errored; retrying", error)
+        message.retry()
+      }
+    }
+  },
+
+  // Cron reconciler: retries deletion flags that went stale (a dropped or
+  // dead-lettered job) so a stuck row can never lock an account out for good.
+  async scheduled(_controller, env, ctx): Promise<void> {
+    const cfEnv = env as CloudflareEnv
+    const request = new Request(
+      new URL(
+        "/api/internal/account-deletion/reconcile",
+        cfEnv.BETTER_AUTH_URL
+      ),
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${cfEnv.BETTER_AUTH_SECRET}` },
+      }
+    ) as unknown as Parameters<typeof handler.fetch>[0]
+    try {
+      const response = await handler.fetch(request, env, ctx)
+      if (!response.ok) {
+        console.error(`account deletion reconcile responded ${response.status}`)
+      }
+    } catch (error) {
+      console.error("Account deletion reconcile errored", error)
+    }
   },
 } satisfies ExportedHandler

@@ -11,7 +11,10 @@ vi.mock("next-themes", () => ({
 }))
 
 vi.mock("@/lib/auth-client", () => ({
-  useSession: () => ({ data: null }),
+  useSession: () => ({ data: null, isPending: false, refetch: vi.fn() }),
+  authClient: {
+    listAccounts: vi.fn(() => Promise.resolve({ data: [] })),
+  },
 }))
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -23,32 +26,49 @@ afterEach(() => vi.clearAllMocks())
 describe("SettingsDialog", () => {
   it("renders the section nav when open", () => {
     render(<SettingsDialog open onOpenChange={() => {}} />)
-    expect(
-      screen.getByRole("button", { name: /Appearance/ })
-    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Profile/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Export/ })).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: /Shortcuts/ })
     ).toBeInTheDocument()
   })
 
-  it("shows the appearance (theme) section by default", () => {
+  it("keeps the desktop settings dialog at the wide layout", () => {
     render(<SettingsDialog open onOpenChange={() => {}} />)
-    expect(screen.getByText("Theme")).toBeInTheDocument()
+
+    expect(document.querySelector('[data-slot="dialog-content"]')).toHaveClass(
+      "sm:max-w-5xl"
+    )
+  })
+
+  it("keeps settings navigation above content until the desktop breakpoint", () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />)
+
+    expect(
+      document.querySelector('[data-slot="dialog-content"] > div')
+    ).toHaveClass("lg:flex-row")
+  })
+
+  it("shows the profile section (with appearance) by default", () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />)
+    expect(
+      screen.getByText("Manage how you appear in Tokokino.")
+    ).toBeInTheDocument()
+    // Appearance / theme toggle lives inside Profile now.
+    expect(screen.getByRole("button", { name: /Dark/ })).toBeInTheDocument()
   })
 
   it("switches to the export section", async () => {
     const user = userEvent.setup()
     render(<SettingsDialog open onOpenChange={() => {}} />)
     await user.click(screen.getByRole("button", { name: /Export/ }))
-    // Theme control is appearance-only, so it disappears after switching.
-    expect(screen.queryByText("Theme")).not.toBeInTheDocument()
+    expect(screen.getByText("Export filename format")).toBeInTheDocument()
   })
 
   it("renders nothing when closed", () => {
     render(<SettingsDialog open={false} onOpenChange={() => {}} />)
     expect(
-      screen.queryByRole("button", { name: /Appearance/ })
+      screen.queryByRole("button", { name: /Profile/ })
     ).not.toBeInTheDocument()
   })
 })
