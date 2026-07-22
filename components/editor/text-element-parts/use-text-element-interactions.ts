@@ -743,7 +743,7 @@ export function useTextElementInteractions({
   const commitContent = React.useCallback(() => {
     const node = editorRef.current
     if (!node) return
-    const next = node.innerText.replace(/ /g, " ")
+    const next = node.innerText.replace(/\u00A0/g, " ")
     updateText(text.id, { content: next || " " })
     setEditingRequested(false)
   }, [text.id, updateText])
