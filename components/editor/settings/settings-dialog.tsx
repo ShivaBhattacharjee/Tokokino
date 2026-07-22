@@ -156,8 +156,8 @@ export function SettingsDialog({
             </div>
           </nav>
 
-          {/* Content — darker surface */}
-          <div className="min-w-0 flex-1 overflow-y-auto bg-background px-4 py-5 sm:px-8 sm:py-7">
+          {/* Content — darker surface; keep scroll, hide scrollbar chrome */}
+          <div className="min-w-0 flex-1 [scrollbar-width:none] overflow-y-auto bg-background px-4 py-5 sm:px-8 sm:py-7 [&::-webkit-scrollbar]:hidden">
             {section === "profile" && <ProfileSection />}
             {section === "account" && <AccountSection />}
             {section === "export" && <ExportSection />}
