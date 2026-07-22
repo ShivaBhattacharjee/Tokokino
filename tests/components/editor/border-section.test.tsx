@@ -103,31 +103,44 @@ describe("BorderSection", () => {
     expect(screen.getByText("Width")).toBeInTheDocument()
     expect(screen.getByText("Inner Padding")).toBeInTheDocument()
 
-    expect(screen.getByRole("button", { name: /12px/ })).toBeInTheDocument() // radius
-    expect(screen.getByRole("button", { name: /4px/ })).toBeInTheDocument() // width
-    expect(screen.getByRole("button", { name: /8px/ })).toBeInTheDocument() // padding
+    const radius = screen.getByRole("slider", { name: "Radius" })
+    const width = screen.getByRole("slider", { name: "Width" })
+    const padding = screen.getByRole("slider", { name: "Inner Padding" })
+    expect(radius).toHaveAttribute("aria-valuenow", "12")
+    expect(radius).toHaveAttribute("aria-valuetext", "12px")
+    expect(width).toHaveAttribute("aria-valuenow", "4")
+    expect(width).toHaveAttribute("aria-valuetext", "4px")
+    expect(padding).toHaveAttribute("aria-valuenow", "8")
+    expect(padding).toHaveAttribute("aria-valuetext", "8px")
   })
 
   it("routes a radius edit through applyStyle", async () => {
     const user = userEvent.setup()
     render(<BorderSection />)
 
-    await user.click(screen.getByRole("button", { name: /12px/ }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "30{Enter}")
+    const radius = screen.getByRole("slider", { name: "Radius" })
+    radius.focus()
+    // Controlled mock value stays at 12; Shift+Arrow nudges by step×10.
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}")
 
-    expect(store.applyStyle.mock.calls[0][0]).toEqual({ borderRadius: 30 })
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ borderRadius: 22 })
   })
 
   it("clamps the radius edit to the 0–48 range", async () => {
     const user = userEvent.setup()
     render(<BorderSection />)
 
-    await user.click(screen.getByRole("button", { name: /12px/ }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "999{Enter}")
+    const radius = screen.getByRole("slider", { name: "Radius" })
+    radius.focus()
+    await user.keyboard("{End}")
 
-    expect(store.applyStyle.mock.calls[0][0]).toEqual({ borderRadius: 48 })
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ borderRadius: 48 })
   })
 
   it("renders all seven border-style options", () => {

@@ -112,12 +112,16 @@ describe("ShadowSection", () => {
     const user = userEvent.setup()
     render(<ShadowSection />)
 
-    await user.click(screen.getByRole("button", { name: /60%/ }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "85{Enter}")
+    const slider = screen.getByRole("slider", { name: "Intensity" })
+    slider.focus()
+    // Controlled mock value stays at 60; Shift+Arrow nudges by step×10.
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}")
 
-    const patch = store.applyStyle.mock.calls[0][0] as { shadow: Shadow }
-    expect(patch.shadow.intensity).toBe(85)
+    expect(store.applyStyle).toHaveBeenCalled()
+    const patch = store.applyStyle.mock.calls[
+      store.applyStyle.mock.calls.length - 1
+    ][0] as { shadow: Shadow }
+    expect(patch.shadow.intensity).toBe(70)
   })
 
   it("renders the five color presets and applies one on click", async () => {

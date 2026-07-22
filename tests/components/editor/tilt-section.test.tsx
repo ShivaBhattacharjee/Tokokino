@@ -70,21 +70,37 @@ describe("TiltSection", () => {
   it("maps Rotate X→tilt.ry, Rotate Y→tilt.rx, Rotate Z→tilt.rz, plus scale", () => {
     render(<TiltSection />)
     // ry = 10, rx = 5, rz = 15, scale = 120
-    expect(screen.getByRole("button", { name: "10°" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "5°" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "15°" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "120%" })).toBeInTheDocument()
+    expect(screen.getByRole("slider", { name: "Rotate X" })).toHaveAttribute(
+      "aria-valuenow",
+      "10"
+    )
+    expect(screen.getByRole("slider", { name: "Rotate Y" })).toHaveAttribute(
+      "aria-valuenow",
+      "5"
+    )
+    expect(screen.getByRole("slider", { name: "Rotate Z" })).toHaveAttribute(
+      "aria-valuenow",
+      "15"
+    )
+    expect(screen.getByRole("slider", { name: "Scale" })).toHaveAttribute(
+      "aria-valuenow",
+      "120"
+    )
   })
 
   it("commits a Rotate X edit into tilt.ry via applyStyle", async () => {
     const user = userEvent.setup()
     render(<TiltSection />)
 
-    await user.click(screen.getByRole("button", { name: "10°" }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "20{Enter}")
+    const slider = screen.getByRole("slider", { name: "Rotate X" })
+    slider.focus()
+    // 10 → 20 via Shift+ArrowRight (+10)
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}")
 
-    const patch = store.applyStyle.mock.calls[0][0] as { tilt: Tilt }
+    expect(store.applyStyle).toHaveBeenCalled()
+    const patch = store.applyStyle.mock.calls[
+      store.applyStyle.mock.calls.length - 1
+    ][0] as { tilt: Tilt }
     expect(patch.tilt).toEqual({ rx: 5, ry: 20, rz: 15 })
   })
 
@@ -92,33 +108,41 @@ describe("TiltSection", () => {
     const user = userEvent.setup()
     render(<TiltSection />)
 
-    await user.click(screen.getByRole("button", { name: "120%" }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "150{Enter}")
+    const slider = screen.getByRole("slider", { name: "Scale" })
+    slider.focus()
+    // Slider max is 150; End jumps to max.
+    await user.keyboard("{End}")
 
-    expect(store.applyStyle.mock.calls[0][0]).toEqual({ scale: 150 })
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ scale: 150 })
   })
 
-  it("clamps a scale edit to the 10–300 range", async () => {
+  it("clamps a scale edit to the slider max", async () => {
     const user = userEvent.setup()
     render(<TiltSection />)
 
-    await user.click(screen.getByRole("button", { name: "120%" }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "999{Enter}")
+    const slider = screen.getByRole("slider", { name: "Scale" })
+    slider.focus()
+    await user.keyboard("{End}")
 
-    expect(store.applyStyle.mock.calls[0][0]).toEqual({ scale: 300 })
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ scale: 150 })
   })
 
   it("routes whole-canvas Z-rotation through setScreenshotRotation", async () => {
     const user = userEvent.setup()
     render(<TiltSection />)
 
-    await user.click(screen.getByRole("button", { name: "15°" }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "30{Enter}")
+    const slider = screen.getByRole("slider", { name: "Rotate Z" })
+    slider.focus()
+    // Controlled mock value stays at 15; Shift+Arrow nudges by 10.
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}")
 
-    expect(store.setters.setScreenshotRotation).toHaveBeenCalledWith(30)
+    expect(store.setters.setScreenshotRotation).toHaveBeenCalledWith(25)
   })
 
   it("uses the selected slot's tilt, scale and rotation when a slot is active", () => {
@@ -131,10 +155,23 @@ describe("TiltSection", () => {
     store.target = "slot"
     render(<TiltSection />)
 
-    expect(screen.getByRole("button", { name: "2°" })).toBeInTheDocument() // Rotate X = ry
-    expect(screen.getByRole("button", { name: "1°" })).toBeInTheDocument() // Rotate Y = rx
-    expect(screen.getByRole("button", { name: "42°" })).toBeInTheDocument() // Rotate Z = slot rotation
-    expect(screen.getByRole("button", { name: "80%" })).toBeInTheDocument() // scale
+    // Rotate X = ry, Rotate Y = rx, Rotate Z = slot rotation
+    expect(screen.getByRole("slider", { name: "Rotate X" })).toHaveAttribute(
+      "aria-valuenow",
+      "2"
+    )
+    expect(screen.getByRole("slider", { name: "Rotate Y" })).toHaveAttribute(
+      "aria-valuenow",
+      "1"
+    )
+    expect(screen.getByRole("slider", { name: "Rotate Z" })).toHaveAttribute(
+      "aria-valuenow",
+      "42"
+    )
+    expect(screen.getByRole("slider", { name: "Scale" })).toHaveAttribute(
+      "aria-valuenow",
+      "80"
+    )
   })
 
   it("commits slot Z-rotation through updateScreenshotSlot", async () => {
@@ -148,12 +185,13 @@ describe("TiltSection", () => {
     const user = userEvent.setup()
     render(<TiltSection />)
 
-    await user.click(screen.getByRole("button", { name: "42°" }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "25{Enter}")
+    const slider = screen.getByRole("slider", { name: "Rotate Z" })
+    slider.focus()
+    // Controlled mock value stays at 42; Shift+ArrowLeft nudges by −10.
+    await user.keyboard("{Shift>}{ArrowLeft}{/Shift}")
 
     expect(store.setters.updateScreenshotSlot).toHaveBeenCalledWith("slot-1", {
-      rotation: 25,
+      rotation: 32,
     })
   })
 })

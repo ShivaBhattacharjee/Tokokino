@@ -37,7 +37,12 @@ describe("GradientCustomizerPopover", () => {
     renderPopover()
     await open()
     expect(screen.getByText("Angle")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /90deg/ })).toBeInTheDocument()
+    const angle = screen.getByRole("slider", { name: "Angle" })
+    expect(angle).toHaveAttribute("aria-valuenow", "90")
+    expect(angle).toHaveAttribute("aria-valuetext", "90°")
+    expect(
+      screen.getByRole("button", { name: "Reset gradient" })
+    ).toBeInTheDocument()
   })
 
   it("commits an angle edit via onAngleChange", async () => {
@@ -45,10 +50,12 @@ describe("GradientCustomizerPopover", () => {
     renderPopover({ onAngleChange })
     const user = await open()
 
-    await user.click(screen.getByRole("button", { name: /90deg/ }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "180{Enter}")
-    expect(onAngleChange).toHaveBeenCalledWith(180)
+    const angle = screen.getByRole("slider", { name: "Angle" })
+    angle.focus()
+    // Controlled mock value stays at 90; Shift+Arrow nudges by step×10.
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}")
+    expect(onAngleChange).toHaveBeenCalled()
+    expect(onAngleChange).toHaveBeenLastCalledWith(100)
   })
 
   it("disables reset when canReset is false", async () => {

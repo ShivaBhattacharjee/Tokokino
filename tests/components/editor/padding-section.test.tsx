@@ -54,7 +54,9 @@ describe("PaddingSection", () => {
   it("renders the Inset label and the current padding value", () => {
     render(<PaddingSection />)
     expect(screen.getByText("Inset")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /24px/ })).toBeInTheDocument()
+    const slider = screen.getByRole("slider", { name: "Inset" })
+    expect(slider).toHaveAttribute("aria-valuenow", "24")
+    expect(slider).toHaveAttribute("aria-valuetext", "24px")
   })
 
   it("renders the four quick-preset buttons", () => {
@@ -90,22 +92,29 @@ describe("PaddingSection", () => {
     const user = userEvent.setup()
     render(<PaddingSection />)
 
-    await user.click(screen.getByRole("button", { name: /24px/ }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "100{Enter}")
+    const slider = screen.getByRole("slider", { name: "Inset" })
+    slider.focus()
+    // Controlled mock value stays at 24; Shift+Arrow nudges by step×10.
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}")
 
-    expect(store.applyStyle.mock.calls[0][0]).toEqual({ padding: 100 })
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ padding: 34 })
   })
 
   it("clamps an edited value to the 0–240 range", async () => {
     const user = userEvent.setup()
     render(<PaddingSection />)
 
-    await user.click(screen.getByRole("button", { name: /24px/ }))
-    await user.clear(screen.getByRole("textbox"))
-    await user.type(screen.getByRole("textbox"), "999{Enter}")
+    const slider = screen.getByRole("slider", { name: "Inset" })
+    slider.focus()
+    await user.keyboard("{End}")
 
-    expect(store.applyStyle.mock.calls[0][0]).toEqual({ padding: 240 })
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ padding: 240 })
   })
 
   it("prefers the selected slot's padding over the canvas padding", () => {
@@ -113,7 +122,9 @@ describe("PaddingSection", () => {
     store.target = "slot"
     render(<PaddingSection />)
 
-    expect(screen.getByRole("button", { name: /64px/ })).toBeInTheDocument()
+    const slider = screen.getByRole("slider", { name: "Inset" })
+    expect(slider).toHaveAttribute("aria-valuenow", "64")
+    expect(slider).toHaveAttribute("aria-valuetext", "64px")
   })
 
   it("routes the main and canvas setters through applyStyle's callbacks", async () => {
