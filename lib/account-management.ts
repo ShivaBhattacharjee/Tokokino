@@ -40,10 +40,11 @@ async function removeR2Objects(cleanup: AccountCleanup) {
   // a permanently stale retry record in that normal race.
   return (
     deletions.every((result) => result.status === "fulfilled") &&
-    aborts.every(
-      (result) =>
-        result.status === "fulfilled" || result.reason?.name === "NoSuchUpload"
-    )
+    aborts.every((result) => {
+      if (result.status === "fulfilled") return true
+      const reason = result.reason as { name?: string } | undefined
+      return reason?.name === "NoSuchUpload"
+    })
   )
 }
 

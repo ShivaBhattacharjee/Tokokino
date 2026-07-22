@@ -45,7 +45,7 @@ describe("account-deletion flag store", () => {
       expect(mocks.prepare).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO account_deletions")
       )
-      const [userId, status] = mocks.bind.mock.calls[0]
+      const [userId, status] = mocks.bind.mock.calls[0] as [string, string]
       expect(userId).toBe("user_1")
       expect(status).toBe("pending")
     })

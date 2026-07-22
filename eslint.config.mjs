@@ -134,6 +134,8 @@ const eslintConfig = defineConfig([
     "worker-configuration.d.ts",
     // OpenNext Cloudflare build artifacts:
     ".open-next/**",
+    // Wrangler build/dev bundle artifacts:
+    ".wrangler/**",
     // Custom Cloudflare Worker entry (compiled by Wrangler, excluded from tsconfig):
     "worker.ts",
     // Vendored dav1d AV1 decoder: minified Emscripten output, not ours to lint.

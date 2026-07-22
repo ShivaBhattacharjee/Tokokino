@@ -74,10 +74,6 @@ export function AnnotationLayer({
     [showEraserBrush]
   )
 
-  React.useEffect(() => {
-    if (!showEraserBrush) setEraserBrushPos(null)
-  }, [showEraserBrush])
-
   return (
     <>
       {visibleStrokes.map((stroke) => (

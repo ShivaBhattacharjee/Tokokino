@@ -119,7 +119,7 @@ describe("/api/account", () => {
 
     expect(response.status).toBe(200)
     expect(mocks.revokeSession).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
+      headers: expect.any(Headers) as unknown,
       body: { token: "secret-other-token" },
     })
   })
@@ -131,7 +131,7 @@ describe("/api/account", () => {
 
     expect(response.status).toBe(200)
     expect(mocks.revokeSessions).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
+      headers: expect.any(Headers) as unknown,
     })
   })
 
@@ -166,7 +166,7 @@ describe("/api/account", () => {
     const requestOrder =
       mocks.requestAccountDeletion.mock.invocationCallOrder[0]
     expect(mocks.revokeSessions).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
+      headers: expect.any(Headers) as unknown,
     })
     expect(revokeOrder).toBeLessThan(requestOrder)
   })

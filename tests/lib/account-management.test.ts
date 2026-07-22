@@ -77,7 +77,7 @@ describe("requestAccountDeletion", () => {
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        requestedAt: expect.any(String),
+        requestedAt: expect.any(String) as unknown,
       })
     )
     // The heavy delete must not run in the request when it is queued.

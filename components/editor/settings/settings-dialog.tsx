@@ -449,21 +449,25 @@ function AccountSection() {
     []
   )
 
-  const loadSessions = React.useCallback(async () => {
-    try {
-      const response = await fetch("/api/account", { credentials: "include" })
-      if (!response.ok) throw new Error("Could not load sessions")
-      const body: { sessions: ManagedSession[] } = await response.json()
-      setSessions(body.sessions)
-    } catch {
-      toast.error("Couldn't load active sessions")
-      setSessions([])
-    }
-  }, [])
-
   React.useEffect(() => {
-    if (user) void loadSessions()
-  }, [loadSessions, user])
+    if (!user) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch("/api/account", { credentials: "include" })
+        if (!response.ok) throw new Error("Could not load sessions")
+        const body: { sessions: ManagedSession[] } = await response.json()
+        if (!cancelled) setSessions(body.sessions)
+      } catch {
+        if (cancelled) return
+        toast.error("Couldn't load active sessions")
+        setSessions([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   const postSessionAction = React.useCallback(
     async (body: { action: "revoke" | "revoke-all"; sessionId?: string }) => {
@@ -520,17 +524,18 @@ function AccountSection() {
     [postSessionAction]
   )
 
+  const userId = user?.id
   const copyUserId = React.useCallback(async () => {
-    if (!user?.id) return
+    if (!userId) return
     try {
-      await navigator.clipboard.writeText(user.id)
+      await navigator.clipboard.writeText(userId)
       setCopiedUserId(true)
       if (copyResetRef.current) clearTimeout(copyResetRef.current)
       copyResetRef.current = setTimeout(() => setCopiedUserId(false), 1500)
     } catch {
       toast.error("Couldn't copy user ID")
     }
-  }, [user?.id])
+  }, [userId])
 
   const handleDeleteAccount = React.useCallback(async () => {
     if (deleteConfirmation !== "DELETE") return
