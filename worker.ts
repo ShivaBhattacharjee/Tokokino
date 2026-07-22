@@ -1,3 +1,5 @@
+import type { AccountDeletionMessage } from "@/lib/account-deletion"
+
 import handler from "./.open-next/worker.js"
 
 const SITE_URL = "https://tokokino.com"
@@ -55,8 +57,6 @@ function wantsMarkdown(request: Request): boolean {
   return (request.headers.get("accept") ?? "").includes("text/markdown")
 }
 
-type AccountDeletionMessage = { userId: string; requestedAt: string }
-
 export default {
   ...handler,
   // Params are left unannotated so they pick up their types contextually from
@@ -102,12 +102,27 @@ export default {
           }
         ) as unknown as Parameters<typeof handler.fetch>[0]
         const response = await handler.fetch(internalRequest, env, ctx)
-        if (!response.ok) {
-          throw new Error(`account deletion route responded ${response.status}`)
+        if (response.ok) {
+          message.ack()
+          continue
         }
-        message.ack()
+        // 4xx is terminal (bad message, wrong secret) — retrying can't fix it,
+        // so ack and surface it rather than looping into the dead-letter queue.
+        // 5xx is transient (D1/R2 hiccup) — let it retry.
+        if (response.status >= 400 && response.status < 500) {
+          console.error(
+            `Account deletion job for ${body.userId} failed terminally: ${response.status}`
+          )
+          message.ack()
+        } else {
+          console.error(
+            `Account deletion job for ${body.userId} failed: ${response.status}; retrying`
+          )
+          message.retry()
+        }
       } catch (error) {
-        console.error("Account deletion job failed", error)
+        // Network/exception — transient, so retry.
+        console.error("Account deletion job errored; retrying", error)
         message.retry()
       }
     }

@@ -38,7 +38,9 @@
     "consumers": [
       {
         "queue": "tokokino-account-deletion",
-        "max_batch_size": 10,
+        // Deletions run sequentially per batch and each does a D1 batch + R2
+        // cleanup, so keep batches small to bound per-invocation work.
+        "max_batch_size": 5,
         "max_batch_timeout": 30,
         "max_retries": 5,
         "dead_letter_queue": "tokokino-account-deletion-dlq"

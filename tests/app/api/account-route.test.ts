@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   requestAccountDeletion: vi.fn(),
   first: vi.fn(),
+  all: vi.fn(),
   getSession: vi.fn(),
   listSessions: vi.fn(),
   prepare: vi.fn(),
@@ -14,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const statement = {
-  bind: vi.fn(() => ({ first: mocks.first, run: mocks.run })),
+  bind: vi.fn(() => ({ first: mocks.first, run: mocks.run, all: mocks.all })),
 }
 
 vi.mock("@/lib/auth", () => ({
@@ -66,7 +67,9 @@ describe("/api/account", () => {
     vi.clearAllMocks()
     mocks.getSession.mockResolvedValue(SESSION)
     mocks.listSessions.mockResolvedValue([OTHER_SESSION])
-    mocks.first.mockResolvedValue({ location: "Dispur, Assam" })
+    mocks.all.mockResolvedValue({
+      results: [{ session_id: "session_other", location: "Dispur, Assam" }],
+    })
     mocks.run.mockResolvedValue(undefined)
     mocks.prepare.mockReturnValue(statement)
     mocks.revokeSession.mockResolvedValue({ status: true })

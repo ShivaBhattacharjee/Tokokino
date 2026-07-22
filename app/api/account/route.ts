@@ -75,7 +75,11 @@ export async function GET(request: Request) {
   })
   if (limited) return limited
 
-  void retryPendingAccountCleanups()
+  // Fire-and-forget so the route stays non-blocking, but attach a handler so a
+  // failure in the initial query can't surface as an unhandled rejection.
+  void retryPendingAccountCleanups().catch((error) => {
+    console.error("Could not retry pending account cleanups", error)
+  })
 
   const location = sessionLocation(request)
   if (location) {
@@ -90,16 +94,19 @@ export async function GET(request: Request) {
   const sessions = await getAuth().api.listSessions({
     headers: request.headers,
   })
-  const locations = await Promise.all(
-    sessions.map(async (session) => {
-      const row = await getD1Database()
-        .prepare("SELECT location FROM session_locations WHERE session_id = ?")
-        .bind(session.id)
-        .first<{ location: string }>()
-      return [session.id, row?.location ?? "Location unavailable"] as const
-    })
-  )
-  const locationBySession = new Map(locations)
+  const locationBySession = new Map<string, string>()
+  if (sessions.length > 0) {
+    const placeholders = sessions.map(() => "?").join(", ")
+    const rows = await getD1Database()
+      .prepare(
+        `SELECT session_id, location FROM session_locations WHERE session_id IN (${placeholders})`
+      )
+      .bind(...sessions.map((session) => session.id))
+      .all<{ session_id: string; location: string }>()
+    for (const row of rows.results ?? []) {
+      locationBySession.set(row.session_id, row.location)
+    }
+  }
 
   return NextResponse.json({
     sessions: sessions
