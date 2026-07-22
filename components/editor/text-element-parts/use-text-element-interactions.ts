@@ -13,6 +13,7 @@ import {
   useEditor,
 } from "@/lib/editor/store"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
+import { useDragSession } from "@/components/editor/canvas/use-drag-session"
 
 import {
   CENTER_SNAP_ENTER_PX,
@@ -77,6 +78,7 @@ export function useTextElementInteractions({
     trackPositionAnimate: true,
   })
   const dragRef = React.useRef<DragState | null>(null)
+  const dragSession = useDragSession()
   const rotateRef = React.useRef<RotateState | null>(null)
   const resizeRef = React.useRef<ResizeState | null>(null)
   const pinchRef = React.useRef<PinchState | null>(null)
@@ -299,8 +301,9 @@ export function useTextElementInteractions({
         lastXPct: t.xPct,
         lastYPct: t.yPct,
       }
+      dragSession.begin()
     },
-    [canvasRef, setSelectedAnnotationShapeId, setSelectedTextId]
+    [canvasRef, dragSession, setSelectedAnnotationShapeId, setSelectedTextId]
   )
 
   const moveDrag = React.useCallback(
@@ -450,20 +453,21 @@ export function useTextElementInteractions({
       // the vars now and clearing them would strand it at the committed spot.
       const textId = textRef.current.id
       const roots = livePreviewRoots(canvasScopeIdRef.current)
-      const clearIfIdle = () => {
-        if (dragRef.current) return
+      const token = dragSession.current()
+      const clearIfCurrent = () => {
+        if (!dragSession.isCurrent(token)) return
         clearElementLivePosition(roots, textId)
       }
       if (typeof requestAnimationFrame === "undefined") {
-        clearIfIdle()
+        clearIfCurrent()
       } else {
-        requestAnimationFrame(clearIfIdle)
+        requestAnimationFrame(clearIfCurrent)
       }
 
       setIsDragging(false)
       onCenterGuideChangeRef.current?.({ x: false, y: false })
     },
-    [updateText, screenshot, background, canvasRef]
+    [updateText, screenshot, background, canvasRef, dragSession]
   )
 
   const startRotate = React.useCallback(

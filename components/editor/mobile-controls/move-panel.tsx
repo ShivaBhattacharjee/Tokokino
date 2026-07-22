@@ -13,6 +13,7 @@ import {
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
 } from "@/components/editor/position-preview-vars"
+import { livePreviewRoots } from "@/lib/editor/live-preview-roots"
 import { useEditor, useEditorStore } from "@/lib/editor/store"
 
 import {
@@ -139,7 +140,12 @@ export function MobileMovePanel() {
     const canvasElement = getActiveCanvasElement()
     if (!canvasElement) return []
 
-    const elements: Array<HTMLElement | null> = [canvasElement]
+    // Main-screenshot vars fan out to every live-preview root (canvas + preset
+    // thumbnails), so clear from that same set; element/slot vars only land on
+    // the real canvas's own elements (preview subtrees strip the ids).
+    const elements: Array<HTMLElement | null> = [
+      ...livePreviewRoots(activeCanvasId),
+    ]
     if (selectedText) {
       elements.push(
         canvasElement.querySelector<HTMLElement>(
@@ -170,6 +176,7 @@ export function MobileMovePanel() {
     }
     return elements
   }, [
+    activeCanvasId,
     editor.screenshotSlots,
     getActiveCanvasElement,
     selectedAnnotation,
@@ -235,6 +242,9 @@ export function MobileMovePanel() {
       }
       const canvasElement = getActiveCanvasElement()
       if (!canvasElement) return
+      // Main-screenshot vars live on the root, so fan them out to every preview
+      // root to carry the drag into the preset thumbnails.
+      const mainPreviewRoots = livePreviewRoots(activeCanvasId)
 
       if (selectedText) {
         setElementPositionPreview(
@@ -276,12 +286,16 @@ export function MobileMovePanel() {
         const dims = measureMainStageDims()
         if (dims) {
           const target = bareScreenshotTargetLeftTop(dims, safePoint)
-          setMainScreenshotBarePreviewPx(canvasElement, target.left, target.top)
+          setMainScreenshotBarePreviewPx(
+            mainPreviewRoots,
+            target.left,
+            target.top
+          )
           return
         }
       }
       if (hasMainTarget) {
-        setMainScreenshotPositionPreview(canvasElement, safePoint)
+        setMainScreenshotPositionPreview(mainPreviewRoots, safePoint)
         return
       }
       if (hasSlotGroup) {
@@ -303,6 +317,7 @@ export function MobileMovePanel() {
       }
     },
     [
+      activeCanvasId,
       editor.screenshotSlots,
       getActiveCanvasElement,
       hasMainTarget,

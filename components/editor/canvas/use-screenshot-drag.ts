@@ -15,6 +15,7 @@ import {
 } from "@/components/editor/position-preview-vars"
 
 import type { CenterGuidesState } from "./center-guides"
+import { useDragSession } from "./use-drag-session"
 import { screenshotPlacementStyle, snapCenterToTarget } from "./helpers"
 import type { PlacementDims } from "./use-placement-measurement"
 
@@ -92,6 +93,11 @@ export function useScreenshotDrag({
   const liveOffsetRef = React.useRef<Offset | null>(null)
   const dragRef = React.useRef<ScreenshotDragState | null>(null)
   const mockupDragRef = React.useRef<MockupDragState | null>(null)
+  // Marks each gesture so a previous drag's deferred cleanup (var clear + delayed
+  // dragging-flag reset) can tell it has been superseded and bail — otherwise a
+  // fast re-grab lets the old callbacks wipe the new drag's live preview vars and
+  // switch its dragging flag off mid-gesture.
+  const dragSession = useDragSession()
   const setDraggingFlag = setScreenshotPositionDragging
   const previewLive = onLiveOffsetPreview
   const getPreviewCanvas = getPreviewCanvasElement
@@ -169,6 +175,7 @@ export function useScreenshotDrag({
   }
 
   const beginDrag = () => {
+    dragSession.begin()
     setIsScreenshotDragging(true)
     setDraggingFlag?.(true)
   }
@@ -177,15 +184,18 @@ export function useScreenshotDrag({
     setIsScreenshotDragging(false)
     updateCenterGuides({ x: false, y: false })
     const canvasEl = getPreviewCanvas?.() ?? []
+    const token = dragSession.current()
+    const isCurrent = () => dragSession.isCurrent(token)
     try {
       commitLiveOffset(normalize)
     } finally {
       // Drop the live-preview vars so the committed left/offset fallbacks take
       // over (outside Animate mode nothing else clears them; inside, hold the
       // dragging flag until after the clear paints so AnimationLayer doesn't
-      // re-sample the pre-drag pose for a frame).
-      clearPositionPreviewVarsAfterPaint(canvasEl)
-      afterPositionPreviewCleared(() => setDraggingFlag?.(false))
+      // re-sample the pre-drag pose for a frame). Skip both if a newer drag has
+      // begun in the meantime — it owns the vars and flag now.
+      clearPositionPreviewVarsAfterPaint(canvasEl, isCurrent)
+      afterPositionPreviewCleared(() => setDraggingFlag?.(false), isCurrent)
     }
   }
 

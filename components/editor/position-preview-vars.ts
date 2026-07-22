@@ -107,14 +107,17 @@ export function clearPositionPreviewVars(
 }
 
 export function clearPositionPreviewVarsAfterPaint(
-  elements: Array<HTMLElement | null | undefined>
+  elements: Array<HTMLElement | null | undefined>,
+  shouldRun?: () => boolean
 ) {
   if (typeof requestAnimationFrame === "undefined") {
+    if (shouldRun && !shouldRun()) return
     for (const element of elements) clearPositionPreviewVars(element)
     return
   }
 
   requestAnimationFrame(() => {
+    if (shouldRun && !shouldRun()) return
     for (const element of elements) clearPositionPreviewVars(element)
   })
 }
@@ -130,12 +133,19 @@ export function clearPositionPreviewVarsAfterPaint(
  * representations — the wobble slots (whose preview and committed positions share
  * one xPct) never show. Keeping the flag set through the clear frame avoids it.
  */
-export function afterPositionPreviewCleared(cb: () => void) {
+export function afterPositionPreviewCleared(
+  cb: () => void,
+  shouldRun?: () => boolean
+) {
   if (typeof requestAnimationFrame === "undefined") {
-    cb()
+    if (!shouldRun || shouldRun()) cb()
     return
   }
-  requestAnimationFrame(() => requestAnimationFrame(cb))
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (!shouldRun || shouldRun()) cb()
+    })
+  )
 }
 
 function frameAnchorTravel(percent: number, axis: "x" | "y") {

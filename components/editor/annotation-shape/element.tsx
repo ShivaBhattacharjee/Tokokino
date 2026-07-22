@@ -33,6 +33,7 @@ import {
 } from "./geometry"
 import { BlurRedactionShape } from "./previews"
 import { AnnotationShapeToolbar } from "./toolbar"
+import { useDragSession } from "@/components/editor/canvas/use-drag-session"
 
 type DragState = {
   pointerId: number
@@ -108,6 +109,7 @@ export function AnnotationShapeElement({
   const elRef = React.useRef<HTMLDivElement>(null)
   const selectionChromeRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
+  const dragSession = useDragSession()
   const resizeRef = React.useRef<ResizeState | null>(null)
   const arrowEndpointRef = React.useRef<ArrowEndpointState | null>(null)
   const rotateRef = React.useRef<RotateState | null>(null)
@@ -214,6 +216,7 @@ export function AnnotationShapeElement({
       nextYPct: shape.yPct,
       moved: false,
     }
+    dragSession.begin()
     setIsDragging(true)
   }
 
@@ -264,8 +267,9 @@ export function AnnotationShapeElement({
       // Skip if the shape was grabbed again before the frame ran — the new
       // drag owns the vars now.
       const roots = livePreviewRoots(canvasScopeId)
+      const token = dragSession.current()
       requestAnimationFrame(() => {
-        if (dragRef.current) return
+        if (!dragSession.isCurrent(token)) return
         clearElementLivePosition(roots, shape.id)
       })
     }

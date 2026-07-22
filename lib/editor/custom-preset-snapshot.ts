@@ -15,6 +15,7 @@ import type {
   CustomPresetGeometry,
   CustomPresetType,
 } from "./store"
+import { pickPresetStyle } from "./preset-fields"
 import { tweetSettingsFromCard } from "./tweet-settings"
 
 export type { CustomPresetType }
@@ -152,30 +153,14 @@ export function captureCustomPresetGeometry(
         designHeight ? (canvas.screenshotOffset.y / designHeight) * 100 : 0
       ),
     },
+    // Every style field is captured by default (deny-list in preset-fields);
+    // `background` is stored sanitized and `tweet` transformed to `tweetSettings`.
     canvasStyle: {
+      ...pickPresetStyle(canvas),
       background,
-      padding: canvas.padding,
-      borderRadius: canvas.borderRadius,
-      canvasBorderRadius: canvas.canvasBorderRadius,
-      border: canvas.border,
-      backdrop: canvas.backdrop,
-      screenshotPosition: canvas.screenshotPosition,
-      screenshotLayer: canvas.screenshotLayer,
-      shadow: canvas.shadow,
-      overlay: canvas.overlay,
-      frame: canvas.frame,
-      portrait: canvas.portrait,
-      enhance: canvas.enhance,
-      objectFit: canvas.objectFit,
-      frameAddress: canvas.frameAddress,
-      texts: canvas.texts,
-      assets: canvas.assets,
-      annotations: canvas.annotations,
-      annotationShapes: canvas.annotationShapes,
-      aspect: canvas.aspect,
-      tweetSettings: canvas.tweet
-        ? tweetSettingsFromCard(canvas.tweet)
-        : undefined,
+      ...(canvas.tweet
+        ? { tweetSettings: tweetSettingsFromCard(canvas.tweet) }
+        : {}),
     },
   }
 

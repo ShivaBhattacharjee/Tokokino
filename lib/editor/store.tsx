@@ -16,7 +16,8 @@ import { MAX_DURATION_MS, resolveRippleDrop } from "./animation-timeline"
 import { isVideoSrc } from "./media-type"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "./present-presets"
 import { screenshotPositionAnchor } from "./presets"
-import type { TweetCardSettings } from "./tweet-settings"
+import { mergeCanvasStyle } from "./preset-fields"
+import type { CustomPresetCanvasStyle } from "./preset-fields"
 import type { PresetSort } from "@/lib/schemas/preset"
 import {
   resolveActivePresetGeometry,
@@ -77,7 +78,6 @@ import type {
   AssetElement,
   AssetFilter,
   Background,
-  Backdrop,
   BackdropEffects,
   BackdropLighting,
   BackdropPattern,
@@ -689,35 +689,13 @@ export type CustomPresetSlotConfig = {
 }
 
 /**
- * Full visual snapshot of a canvas that gets re-applied when a custom preset
- * is selected. We capture every styling field — background, backdrop, border,
- * shadow, overlay, frame, portrait, enhance, padding/radius, layers, etc. —
- * but never the actual screenshot pixels. Slots carry geometry + filters but
- * never their image source either.
+ * Full visual snapshot of a canvas that gets re-applied when a custom preset is
+ * selected — every styling field but never the actual screenshot pixels. The
+ * exact field set is derived from {@link PRESET_NON_STYLE_KEYS}: capture, apply,
+ * and preview all read it from `preset-fields` so a new canvas styling field
+ * flows into presets with no change here.
  */
-export type CustomPresetCanvasStyle = {
-  background: Background
-  padding: number
-  borderRadius: number
-  canvasBorderRadius: number
-  border: Border
-  backdrop: Backdrop
-  screenshotPosition: ScreenshotPosition
-  screenshotLayer: ScreenshotLayer
-  shadow: Shadow
-  overlay: Overlay
-  frame: DeviceFrame
-  portrait: Portrait
-  enhance: EnhancePreset
-  objectFit?: "contain" | "cover" | "fill"
-  frameAddress: string
-  texts: TextElement[]
-  assets: AssetElement[]
-  annotations: AnnotationStroke[]
-  annotationShapes: AnnotationShape[]
-  aspect?: AspectState
-  tweetSettings?: TweetCardSettings
-}
+export type { CustomPresetCanvasStyle }
 
 /** User-saved custom preset kind: static look vs timeline (animate). */
 export type CustomPresetType = "style" | "animate"
@@ -1090,8 +1068,17 @@ export type EditorStore = {
   customPresetsLoading: boolean
   /** User id the current `customPresets` list was fetched for. */
   customPresetsForUserId: string | null
-  /** Sort the current `customPresets` list was fetched with. */
+  /**
+   * Sort currently requested — drives the sort dropdown. Leads the displayed
+   * list while a re-sort request is in flight.
+   */
   customPresetsSort: PresetSort
+  /**
+   * Sort the displayed `customPresets` list is actually ordered by. Updated only
+   * once a sort response lands, so `addCustomPreset` and failure rollback use the
+   * order the user is really looking at rather than a pending request.
+   */
+  customPresetsListSort: PresetSort
   currentDraft: CurrentDraftInfo | null
 } & EditorActions
 
@@ -1366,6 +1353,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     customPresetsLoading: false,
     customPresetsForUserId: null,
     customPresetsSort: "latest",
+    customPresetsListSort: "latest",
     currentDraft: null,
 
     setActiveTool: (t) => commit({ activeTool: t }, null),
@@ -1437,6 +1425,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             customPresetsLoaded: true,
             customPresetsLoading: false,
             customPresetsForUserId: userId,
+            // The displayed list now reflects the requested sort.
+            customPresetsListSort: nextSort,
           })
         })
         .catch((err) => {
@@ -1444,25 +1434,30 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           if (token !== customPresetsRequestToken) return
           customPresetsInFlightUserId = null
           // Keep whatever list is on screen: a failed re-sort must not erase
-          // presets that loaded fine. Roll the sort back so the picker matches
-          // the order actually displayed.
-          set((current) => ({
-            customPresetsSort: current.customPresetsLoaded
-              ? state.customPresetsSort
-              : nextSort,
-            customPresetsLoaded: true,
-            customPresetsLoading: false,
-            customPresetsForUserId: userId,
-          }))
+          // presets that loaded fine. Roll the requested sort back to the order
+          // actually displayed so the picker matches it.
+          set((current) => {
+            const rolledSort = current.customPresetsLoaded
+              ? current.customPresetsListSort
+              : nextSort
+            return {
+              customPresetsSort: rolledSort,
+              customPresetsListSort: rolledSort,
+              customPresetsLoaded: true,
+              customPresetsLoading: false,
+              customPresetsForUserId: userId,
+            }
+          })
         })
     },
     addCustomPreset: (preset) =>
       set((state) => ({
         // A new preset is the newest, so it belongs at whichever end the
-        // active sort puts newest — otherwise saving under "Oldest" drops it
-        // at the top, where a refetch would not have put it.
+        // displayed order puts newest — otherwise saving under "Oldest" drops it
+        // at the top, where a refetch would not have put it. Uses the list's real
+        // sort, not a sort request still in flight.
         customPresets:
-          state.customPresetsSort === "oldest"
+          state.customPresetsListSort === "oldest"
             ? [...state.customPresets, preset]
             : [preset, ...state.customPresets],
         customPresetsLoaded: true,
@@ -1558,51 +1553,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
           const style = snapshot.canvasStyle
           let next: CanvasState = {
-            ...canvas,
-            // styling — only override fields the snapshot actually carries
-            ...(style?.background ? { background: style.background } : {}),
-            ...(style && typeof style.padding === "number"
-              ? { padding: style.padding }
-              : {}),
-            ...(style && typeof style.borderRadius === "number"
-              ? { borderRadius: style.borderRadius }
-              : {}),
-            ...(style && typeof style.canvasBorderRadius === "number"
-              ? { canvasBorderRadius: style.canvasBorderRadius }
-              : {}),
-            ...(style?.border ? { border: style.border } : {}),
-            ...(style?.backdrop ? { backdrop: style.backdrop } : {}),
-            ...(style?.screenshotLayer
-              ? { screenshotLayer: style.screenshotLayer }
-              : {}),
-            ...(style?.shadow ? { shadow: style.shadow } : {}),
-            ...(style?.overlay ? { overlay: style.overlay } : {}),
-            ...(style?.frame && !canvas.tweet ? { frame: style.frame } : {}),
-            ...(style?.portrait ? { portrait: style.portrait } : {}),
-            ...(style?.enhance ? { enhance: style.enhance } : {}),
-            ...(style?.objectFit ? { objectFit: style.objectFit } : {}),
-            ...(typeof style?.frameAddress === "string"
-              ? { frameAddress: style.frameAddress }
-              : {}),
-            ...(Array.isArray(style?.texts) ? { texts: style.texts } : {}),
-            ...(Array.isArray(style?.assets) ? { assets: style.assets } : {}),
-            ...(Array.isArray(style?.annotations)
-              ? { annotations: style.annotations }
-              : {}),
-            ...(Array.isArray(style?.annotationShapes)
-              ? { annotationShapes: style.annotationShapes }
-              : {}),
-            ...(style?.aspect ? { aspect: style.aspect } : {}),
-            ...(style?.tweetSettings && canvas.tweet
-              ? { tweet: { ...canvas.tweet, ...style.tweetSettings } }
-              : {}),
-            // geometry
+            // Style bag (background, shadow, layers, …) layered over the live
+            // canvas. mergeCanvasStyle honours the frame-vs-tweet and
+            // tweetSettings special cases and skips absent fields.
+            ...mergeCanvasStyle(canvas, style),
+            // geometry — always driven by the preset, never the style bag
             tilt: snapshot.canvasTilt,
             scale: snapshot.canvasScale,
             screenshotPosition: style?.screenshotPosition ?? "center",
             screenshotOffset: offset,
             screenshotSlots: canvas.tweet ? [] : slots,
-            // always preserved from the live canvas
+            // live pixels are preserved by mergeCanvasStyle (not in the style
+            // bag); kept explicit here for clarity at the apply boundary.
             screenshot: canvas.screenshot,
             originalScreenshot: canvas.originalScreenshot,
             lastCropRegion: canvas.lastCropRegion,
