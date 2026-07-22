@@ -16,6 +16,9 @@
       "migrations_dir": "migrations"
     }
   ],
+  "browser": {
+    "binding": "TOKOKINO_BROWSER"
+  },
   "ratelimits": [
     {
       "name": "HEAVY_RATE_LIMITER",
