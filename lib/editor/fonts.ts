@@ -425,7 +425,7 @@ function toFontId(label: string, category: FontCategory) {
 
 function makeCss(label: string, category: FontCategory) {
   if (label === "Doto") return "var(--font-doto), 'Doto', sans-serif"
-  const quoted = `'${label.replace(/'/g, "\\'")}'`
+  const quoted = `'${label.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`
   if (category === "serif") return `${quoted}, serif`
   if (category === "mono") return `${quoted}, ui-monospace, monospace`
   if (category === "script") return `${quoted}, cursive`
