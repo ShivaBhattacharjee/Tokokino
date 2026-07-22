@@ -77,10 +77,10 @@ import {
 } from "./helpers"
 import { mainScreenshotPositionPct } from "@/components/editor/mobile-controls/position-math"
 import {
+  livePreviewRoots,
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
-} from "@/components/editor/position-preview-vars"
-import { livePreviewRoots } from "@/lib/editor/live-preview-roots"
+} from "@/lib/editor/live-preview-vars"
 import { MainScreenshotRowItem } from "./main-screenshot-row-item"
 import { ScreenshotBare } from "./screenshot-bare"
 import {

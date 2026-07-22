@@ -14,7 +14,7 @@ import {
 import {
   livePreviewRoots,
   setLivePreviewVar,
-} from "@/lib/editor/live-preview-roots"
+} from "@/lib/editor/live-preview-vars"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import { cn } from "@/lib/utils"
 

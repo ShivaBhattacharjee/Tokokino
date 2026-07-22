@@ -45,7 +45,7 @@ import {
 import { ShimmerBox } from "@/components/ui/shimmer-image"
 import { PRESET_NAME_MAX_LENGTH } from "@/lib/schemas/preset"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
-import { LIVE_PREVIEW_ROOT_ATTR } from "@/lib/editor/live-preview-roots"
+import { LIVE_PREVIEW_ROOT_ATTR } from "@/lib/editor/live-preview-vars"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import {
@@ -54,6 +54,7 @@ import {
   type SinglePresetSlotRow,
 } from "@/lib/editor/preset-application"
 import { resolveMainOffsetPx } from "@/lib/editor/preset-geometry"
+import { mergeCanvasStyle } from "@/lib/editor/preset-fields"
 import {
   LAYOUT_PRESETS,
   PRESENT_PRESETS,
@@ -419,44 +420,13 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
       shadow: cfg.shadow,
     }))
     const offsetPx = resolveMainOffsetPx(geometry.mainOffset)
-    const previewBg = previewSafeBackground(
-      style?.background ?? canvas.background
-    )
+    // Layer the saved style over the live canvas so the preview shows the saved
+    // background/backdrop/border/shadow/etc; screenshot pixels stay live (the
+    // preset carries none). Geometry is set from the preset below.
+    const styled = mergeCanvasStyle(canvas, style)
     return {
-      ...canvas,
-      // Layer the saved style on top of the live canvas so the preview shows
-      // the saved background/backdrop/border/shadow/etc. The screenshot
-      // pixels still come from the live canvas, since the preset doesn't
-      // carry images.
-      background: previewBg,
-      ...(style && typeof style.padding === "number"
-        ? { padding: style.padding }
-        : {}),
-      ...(style && typeof style.borderRadius === "number"
-        ? { borderRadius: style.borderRadius }
-        : {}),
-      ...(style && typeof style.canvasBorderRadius === "number"
-        ? { canvasBorderRadius: style.canvasBorderRadius }
-        : {}),
-      ...(style?.border ? { border: style.border } : {}),
-      ...(style?.backdrop ? { backdrop: style.backdrop } : {}),
-      ...(style?.screenshotLayer
-        ? { screenshotLayer: style.screenshotLayer }
-        : {}),
-      ...(style?.shadow ? { shadow: style.shadow } : {}),
-      ...(style?.overlay ? { overlay: style.overlay } : {}),
-      ...(style?.frame ? { frame: style.frame } : {}),
-      ...(style?.portrait ? { portrait: style.portrait } : {}),
-      ...(style?.enhance ? { enhance: style.enhance } : {}),
-      ...(style?.objectFit ? { objectFit: style.objectFit } : {}),
-      ...(Array.isArray(style?.texts) ? { texts: style.texts } : {}),
-      ...(Array.isArray(style?.assets) ? { assets: style.assets } : {}),
-      ...(Array.isArray(style?.annotations)
-        ? { annotations: style.annotations }
-        : {}),
-      ...(Array.isArray(style?.annotationShapes)
-        ? { annotationShapes: style.annotationShapes }
-        : {}),
+      ...styled,
+      background: previewSafeBackground(styled.background),
       tilt: geometry.canvasTilt,
       scale: geometry.canvasScale,
       screenshotSlots: virtualSlots,

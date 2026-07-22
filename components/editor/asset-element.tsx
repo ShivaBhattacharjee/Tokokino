@@ -37,9 +37,10 @@ import {
   elementPositionVars,
   livePreviewRoots,
   setElementLivePosition,
-} from "@/lib/editor/live-preview-roots"
+} from "@/lib/editor/live-preview-vars"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
+import { useDragSession } from "@/components/editor/canvas/use-drag-session"
 import { cn } from "@/lib/utils"
 
 type DragState = {
@@ -105,6 +106,7 @@ export function AssetElementView({
   const elRef = React.useRef<HTMLDivElement>(null)
   const imgRef = React.useRef<HTMLImageElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
+  const dragSession = useDragSession()
   const resizeRef = React.useRef<ResizeState | null>(null)
   const [isDragging, setIsDragging] = React.useState(false)
   const [isResizing, setIsResizing] = React.useState(false)
@@ -189,6 +191,7 @@ export function AssetElementView({
       lastYPct: asset.yPct,
       moved: false,
     }
+    dragSession.begin()
     setIsDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
   }
@@ -229,8 +232,9 @@ export function AssetElementView({
       // without a one-frame jump back to where the drag started. Skip if the
       // asset was grabbed again meanwhile — the new drag owns the vars now.
       const roots = livePreviewRoots(canvasScopeId)
+      const token = dragSession.current()
       requestAnimationFrame(() => {
-        if (dragRef.current) return
+        if (!dragSession.isCurrent(token)) return
         clearElementLivePosition(roots, asset.id)
       })
     }

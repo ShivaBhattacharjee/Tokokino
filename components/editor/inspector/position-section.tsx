@@ -9,16 +9,16 @@ import {
 import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
+  livePreviewRoots,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
-} from "@/components/editor/position-preview-vars"
+} from "@/lib/editor/live-preview-vars"
 import { EffectSlider } from "@/components/editor/inspector/effect-slider"
 import {
   allScreenshotGroupCenter,
   screenshotSlotGroupCenter,
 } from "@/components/editor/floating-toolbar-parts/geometry"
-import { livePreviewRoots } from "@/lib/editor/live-preview-roots"
 import { useEditor, useEditorStore } from "@/lib/editor/store"
 
 import {
@@ -155,7 +155,12 @@ export function PositionSection() {
   const collectAllPreviewElements = React.useCallback(() => {
     const canvasElement = getActiveCanvasElement()
     if (!canvasElement) return []
-    const elements: Array<HTMLElement | null> = [canvasElement]
+    // Main-screenshot vars were previewed on every live-preview root, so clear
+    // them from the same set; slot vars only ever land on the real canvas's slot
+    // elements (preview subtrees strip the slot id), so query those from there.
+    const elements: Array<HTMLElement | null> = [
+      ...livePreviewRoots(activeCanvasId),
+    ]
     for (const slot of editor.screenshotSlots) {
       elements.push(
         canvasElement.querySelector<HTMLElement>(
@@ -164,7 +169,7 @@ export function PositionSection() {
       )
     }
     return elements
-  }, [editor.screenshotSlots, getActiveCanvasElement])
+  }, [activeCanvasId, editor.screenshotSlots, getActiveCanvasElement])
 
   const currentPosition = React.useMemo<PositionSwipePoint | null>(() => {
     if (selectedSlot) {
@@ -305,7 +310,9 @@ export function PositionSection() {
         yPct: clampPercent(point.yPct),
       }
       const position = positionIdFromPercent(safePoint.xPct, safePoint.yPct)
-      const canvasElement = getActiveCanvasElement()
+      // Main-screenshot position vars were previewed on every live-preview root
+      // (canvas + preset thumbnails); clear them from that same complete set.
+      const roots = livePreviewRoots(activeCanvasId)
 
       if (selectedSlot) {
         const slotElement = getSelectedSlotElement()
@@ -396,14 +403,14 @@ export function PositionSection() {
         )
       } finally {
         clearPositionPreviewVarsAfterPaint(
-          isAllTarget ? collectAllPreviewElements() : [canvasElement]
+          isAllTarget ? collectAllPreviewElements() : roots
         )
       }
     },
     [
+      activeCanvasId,
       collectAllPreviewElements,
       editor,
-      getActiveCanvasElement,
       getSelectedSlotElement,
       hasMainScreenshotBox,
       isAllTarget,

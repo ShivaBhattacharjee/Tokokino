@@ -21,10 +21,11 @@ import {
 import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
+  livePreviewRoots,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
-} from "@/components/editor/position-preview-vars"
+} from "@/lib/editor/live-preview-vars"
 import {
   bareScreenshotPositionPct,
   bareScreenshotTargetLeftTop,
@@ -347,7 +348,12 @@ export function DefaultToolbarContents() {
     const canvasElement = getActiveCanvasElement()
     if (!canvasElement) return []
 
-    const elements: Array<HTMLElement | null> = [canvasElement]
+    // Main-screenshot vars fan out to every live-preview root (canvas + preset
+    // thumbnails), so clear from that same set; element/slot vars only land on
+    // the real canvas's own elements (preview subtrees strip the ids).
+    const elements: Array<HTMLElement | null> = [
+      ...livePreviewRoots(activeCanvasId),
+    ]
     if (selectedTextId) {
       elements.push(
         canvasElement.querySelector<HTMLElement>(
@@ -378,6 +384,7 @@ export function DefaultToolbarContents() {
     }
     return elements
   }, [
+    activeCanvasId,
     getActiveCanvasElement,
     screenshotSlots,
     selectedAnnotationShapeId,
@@ -536,6 +543,9 @@ export function DefaultToolbarContents() {
       }
       const canvasElement = getActiveCanvasElement()
       if (!canvasElement) return
+      // Main-screenshot vars live on the root, so fan them out to every preview
+      // root to carry the drag into the preset thumbnails.
+      const mainPreviewRoots = livePreviewRoots(activeCanvasId)
 
       if (positionTarget === "text" && selectedTextId) {
         setElementPositionPreview(
@@ -597,14 +607,14 @@ export function DefaultToolbarContents() {
           if (dims) {
             const target = bareScreenshotTargetLeftTop(dims, safePoint)
             setMainScreenshotBarePreviewPx(
-              canvasElement,
+              mainPreviewRoots,
               target.left,
               target.top
             )
             return
           }
         }
-        setMainScreenshotPositionPreview(canvasElement, safePoint)
+        setMainScreenshotPositionPreview(mainPreviewRoots, safePoint)
         return
       }
       if (positionTarget === "allScreenshots") {
@@ -629,7 +639,7 @@ export function DefaultToolbarContents() {
             offset: screenshotOffset,
             slots: screenshotSlots,
           })
-          setMainScreenshotPositionPreview(canvasElement, {
+          setMainScreenshotPositionPreview(mainPreviewRoots, {
             xPct: clampPercent(mainCenter.xPct + dx),
             yPct: clampPercent(mainCenter.yPct + dy),
           })
@@ -649,6 +659,7 @@ export function DefaultToolbarContents() {
       }
     },
     [
+      activeCanvasId,
       aspect,
       frame,
       getActiveCanvasElement,
