@@ -78,10 +78,14 @@ function delayMsFromSetting(delay: z.infer<typeof requestSchema>["delay"]) {
 }
 
 function getBrowserBinding(): BrowserWorker | null {
-  const binding = getCloudflareContext().env.TOKOKINO_BROWSER
-  // The runtime binding is structurally a `{ fetch }` — what puppeteer wants —
-  // but typed as the platform's BrowserRun; bridge the two here.
-  return binding ?? null
+  // TOKOKINO_BROWSER lives only in the generated cloudflare-env.d.ts, not the
+  // committed CloudflareEnv type, so read it through a local shape rather than
+  // as a typed property (keeps CI typecheck green without cf-typegen). The
+  // runtime object is a `{ fetch }`, which is exactly puppeteer's BrowserWorker.
+  const env = getCloudflareContext().env as unknown as {
+    TOKOKINO_BROWSER?: BrowserWorker
+  }
+  return env.TOKOKINO_BROWSER ?? null
 }
 
 // Reuse an idle browser session when one is free; otherwise launch a fresh one.
