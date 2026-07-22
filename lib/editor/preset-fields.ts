@@ -93,7 +93,11 @@ export function mergeCanvasStyle(
   const next: CanvasState = { ...base }
   const record = next as Record<string, unknown>
   for (const [key, value] of Object.entries(style)) {
-    if (value === undefined) continue
+    // A persisted bag is untrusted: a malformed or newer preset may carry
+    // non-style keys (id, position, screenshot, geometry…) or a nullish value.
+    // Only copy real style fields that carry a value, so a preset can never
+    // overwrite canvas identity/placement or blank out a live field.
+    if (value == null || NON_STYLE.has(key)) continue
     if (key === "tweetSettings" || STYLE_MERGE_SPECIAL.has(key)) continue
     record[key] = value
   }
