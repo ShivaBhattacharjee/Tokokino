@@ -147,9 +147,24 @@ describe("/api/account", () => {
     const response = await DELETE(request("DELETE", { confirmation: "DELETE" }))
 
     expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      status: "pending",
+    })
+    expect(mocks.requestAccountDeletion).toHaveBeenCalledWith("user_1")
+  })
+
+  it("signs the user out before handing the deletion to the queue", async () => {
+    const { DELETE } = await loadRoute()
+
+    await DELETE(request("DELETE", { confirmation: "DELETE" }))
+
+    const revokeOrder = mocks.revokeSessions.mock.invocationCallOrder[0]
+    const requestOrder =
+      mocks.requestAccountDeletion.mock.invocationCallOrder[0]
     expect(mocks.revokeSessions).toHaveBeenCalledWith({
       headers: expect.any(Headers),
     })
-    expect(mocks.requestAccountDeletion).toHaveBeenCalledWith("user_1")
+    expect(revokeOrder).toBeLessThan(requestOrder)
   })
 })
