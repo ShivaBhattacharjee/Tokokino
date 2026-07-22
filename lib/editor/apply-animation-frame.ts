@@ -17,7 +17,7 @@ import {
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
-} from "@/components/editor/position-preview-vars"
+} from "@/lib/editor/live-preview-vars"
 import {
   BACKDROP_FX_PREVIEW_VAR,
   BACKDROP_NOISE_PREVIEW_VAR,

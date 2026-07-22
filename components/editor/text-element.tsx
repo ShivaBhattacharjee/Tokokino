@@ -1,6 +1,6 @@
 "use client"
 
-import { elementPositionVars } from "@/lib/editor/live-preview-roots"
+import { elementPositionVars } from "@/lib/editor/live-preview-vars"
 import { cn } from "@/lib/utils"
 
 import { TextElementFloatingToolbar } from "./text-element-parts/floating-toolbar"

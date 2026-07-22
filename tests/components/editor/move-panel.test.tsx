@@ -66,8 +66,10 @@ vi.mock("@/components/editor/position-swipe-field", () => ({
   ),
 }))
 
-vi.mock("@/components/editor/position-preview-vars", () => ({
+vi.mock("@/lib/editor/live-preview-vars", () => ({
+  afterPositionPreviewCleared: vi.fn(),
   clearPositionPreviewVarsAfterPaint: vi.fn(),
+  livePreviewRoots: () => [],
   setElementPositionPreview: vi.fn(),
   setMainScreenshotBarePreviewPx: vi.fn(),
   setMainScreenshotPositionPreview: vi.fn(),

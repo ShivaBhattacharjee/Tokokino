@@ -45,7 +45,7 @@ import {
 import { ShimmerBox } from "@/components/ui/shimmer-image"
 import { PRESET_NAME_MAX_LENGTH } from "@/lib/schemas/preset"
 import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
-import { LIVE_PREVIEW_ROOT_ATTR } from "@/lib/editor/live-preview-roots"
+import { LIVE_PREVIEW_ROOT_ATTR } from "@/lib/editor/live-preview-vars"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 import {

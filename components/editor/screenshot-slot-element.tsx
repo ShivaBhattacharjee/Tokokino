@@ -74,7 +74,7 @@ import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
   setElementPositionPreview,
-} from "@/components/editor/position-preview-vars"
+} from "@/lib/editor/live-preview-vars"
 import { cn } from "@/lib/utils"
 
 /**

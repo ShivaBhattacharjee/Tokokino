@@ -12,7 +12,7 @@ import {
 import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
-} from "@/components/editor/position-preview-vars"
+} from "@/lib/editor/live-preview-vars"
 
 import type { CenterGuidesState } from "./center-guides"
 import { useDragSession } from "./use-drag-session"

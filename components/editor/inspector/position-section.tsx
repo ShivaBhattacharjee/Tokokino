@@ -9,16 +9,16 @@ import {
 import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
+  livePreviewRoots,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
-} from "@/components/editor/position-preview-vars"
+} from "@/lib/editor/live-preview-vars"
 import { EffectSlider } from "@/components/editor/inspector/effect-slider"
 import {
   allScreenshotGroupCenter,
   screenshotSlotGroupCenter,
 } from "@/components/editor/floating-toolbar-parts/geometry"
-import { livePreviewRoots } from "@/lib/editor/live-preview-roots"
 import { useEditor, useEditorStore } from "@/lib/editor/store"
 
 import {

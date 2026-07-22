@@ -6,7 +6,7 @@ import {
   clearElementLivePosition,
   livePreviewRoots,
   setElementLivePosition,
-} from "@/lib/editor/live-preview-roots"
+} from "@/lib/editor/live-preview-vars"
 import {
   type TextElement,
   pickContrastColorAtPosition,

@@ -37,7 +37,7 @@ import {
   elementPositionVars,
   livePreviewRoots,
   setElementLivePosition,
-} from "@/lib/editor/live-preview-roots"
+} from "@/lib/editor/live-preview-vars"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import { useDragSession } from "@/components/editor/canvas/use-drag-session"

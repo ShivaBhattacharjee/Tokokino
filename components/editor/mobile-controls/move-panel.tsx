@@ -9,11 +9,11 @@ import {
 import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
+  livePreviewRoots,
   setElementPositionPreview,
   setMainScreenshotBarePreviewPx,
   setMainScreenshotPositionPreview,
-} from "@/components/editor/position-preview-vars"
-import { livePreviewRoots } from "@/lib/editor/live-preview-roots"
+} from "@/lib/editor/live-preview-vars"
 import { useEditor, useEditorStore } from "@/lib/editor/store"
 
 import {
