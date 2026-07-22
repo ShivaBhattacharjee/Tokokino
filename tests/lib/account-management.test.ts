@@ -82,6 +82,18 @@ describe("requestAccountDeletion", () => {
     expect(mocks.clearAccountDeletion).not.toHaveBeenCalled()
   })
 
+  it("falls back to inline deletion when the enqueue fails", async () => {
+    const send = vi.fn().mockRejectedValue(new Error("queue unavailable"))
+    mocks.getAccountDeletionQueue.mockReturnValue({ send })
+
+    const result = await requestAccountDeletion("user_1")
+
+    // Must not leave the account flagged with no job to run it.
+    expect(result).toEqual({ queued: false })
+    expect(mocks.batch).toHaveBeenCalledTimes(1)
+    expect(mocks.clearAccountDeletion).toHaveBeenCalledWith("user_1")
+  })
+
   it("deletes inline when no queue binding is available (local next dev)", async () => {
     mocks.getAccountDeletionQueue.mockReturnValue(null)
 

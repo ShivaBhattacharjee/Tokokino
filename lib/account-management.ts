@@ -144,13 +144,19 @@ export async function requestAccountDeletion(
   await markAccountDeletion(userId, "pending")
 
   const queue = getAccountDeletionQueue()
-  if (!queue) {
-    await processAccountDeletion(userId)
-    return { queued: false }
+  if (queue) {
+    try {
+      await queue.send({ userId, requestedAt: new Date().toISOString() })
+      return { queued: true }
+    } catch (error) {
+      // A failed send must not leave the account flagged with no job to run it
+      // (the flag blocks re-login). Fall back to deleting inline.
+      console.error("Account deletion enqueue failed; deleting inline", error)
+    }
   }
 
-  await queue.send({ userId, requestedAt: new Date().toISOString() })
-  return { queued: true }
+  await processAccountDeletion(userId)
+  return { queued: false }
 }
 
 /**

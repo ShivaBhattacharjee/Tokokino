@@ -341,11 +341,18 @@ function ConnectedAccounts() {
 
   React.useEffect(() => {
     let cancelled = false
-    void authClient.listAccounts().then((res) => {
-      if (cancelled) return
-      const list = (res.data ?? []) as LinkedAccount[]
-      setAccounts(list.filter((a) => a.providerId in SOCIAL_PROVIDERS))
-    })
+    authClient
+      .listAccounts()
+      .then((res) => {
+        if (cancelled) return
+        const list = (res.data ?? []) as LinkedAccount[]
+        setAccounts(list.filter((a) => a.providerId in SOCIAL_PROVIDERS))
+      })
+      .catch(() => {
+        // Network/auth failure — settle to empty so we don't hang on null and
+        // don't surface an unhandled rejection.
+        if (!cancelled) setAccounts([])
+      })
     return () => {
       cancelled = true
     }
