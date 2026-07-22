@@ -116,6 +116,22 @@ describe("account-deletion flag store", () => {
 
       expect(await listStalePendingDeletions()).toEqual([])
     })
+
+    it("rejects invalid options without touching the database", async () => {
+      await expect(
+        listStalePendingDeletions({ olderThanMinutes: -1 })
+      ).rejects.toThrow(/olderThanMinutes/)
+      await expect(
+        listStalePendingDeletions({ olderThanMinutes: Number.NaN })
+      ).rejects.toThrow(/olderThanMinutes/)
+      await expect(listStalePendingDeletions({ limit: -5 })).rejects.toThrow(
+        /limit/
+      )
+      await expect(listStalePendingDeletions({ limit: 2.5 })).rejects.toThrow(
+        /limit/
+      )
+      expect(mocks.all).not.toHaveBeenCalled()
+    })
   })
 
   describe("getAccountDeletionQueue", () => {

@@ -88,6 +88,12 @@ export async function listStalePendingDeletions(options?: {
 }): Promise<StalePendingDeletion[]> {
   const olderThanMinutes = options?.olderThanMinutes ?? 15
   const limit = options?.limit ?? 25
+  if (!Number.isFinite(olderThanMinutes) || olderThanMinutes < 0) {
+    throw new Error(`Invalid olderThanMinutes: ${olderThanMinutes}`)
+  }
+  if (!Number.isInteger(limit) || limit < 0) {
+    throw new Error(`Invalid limit: ${limit}`)
+  }
   const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString()
   const rows = await getD1Database()
     .prepare(
