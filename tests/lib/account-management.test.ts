@@ -136,25 +136,53 @@ describe("processAccountDeletion", () => {
 })
 
 describe("reconcileStaleAccountDeletions", () => {
+  const recent = () => new Date().toISOString()
+  const longAgo = () => new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+
   it("retries every stale flag and reports the count", async () => {
-    mocks.listStalePendingDeletions.mockResolvedValue(["user_1", "user_2"])
+    mocks.listStalePendingDeletions.mockResolvedValue([
+      { userId: "user_1", requestedAt: recent() },
+      { userId: "user_2", requestedAt: recent() },
+    ])
 
     const result = await reconcileStaleAccountDeletions()
 
-    expect(result).toEqual({ processed: 2, failed: 0 })
+    expect(result).toEqual({ processed: 2, failed: 0, abandoned: 0 })
     expect(mocks.batch).toHaveBeenCalledTimes(2)
     expect(mocks.clearAccountDeletion).toHaveBeenCalledWith("user_1")
     expect(mocks.clearAccountDeletion).toHaveBeenCalledWith("user_2")
   })
 
-  it("counts failures and keeps going after one throws", async () => {
-    mocks.listStalePendingDeletions.mockResolvedValue(["user_1", "user_2"])
+  it("counts recent failures and keeps going after one throws", async () => {
+    mocks.listStalePendingDeletions.mockResolvedValue([
+      { userId: "user_1", requestedAt: recent() },
+      { userId: "user_2", requestedAt: recent() },
+    ])
     mocks.batch.mockRejectedValueOnce(new Error("still failing"))
 
     const result = await reconcileStaleAccountDeletions()
 
-    expect(result).toEqual({ processed: 1, failed: 1 })
+    expect(result).toEqual({ processed: 1, failed: 1, abandoned: 0 })
+    // A recent failure is not marked terminal — it will retry next pass.
+    expect(mocks.markAccountDeletion).not.toHaveBeenCalledWith(
+      "user_1",
+      "failed"
+    )
     // The second account still got processed despite the first failing.
     expect(mocks.clearAccountDeletion).toHaveBeenCalledWith("user_2")
+  })
+
+  it("gives up terminally when a failure persists past the window", async () => {
+    mocks.listStalePendingDeletions.mockResolvedValue([
+      { userId: "user_1", requestedAt: longAgo() },
+    ])
+    mocks.batch.mockRejectedValue(new Error("missing R2 config"))
+
+    const result = await reconcileStaleAccountDeletions()
+
+    expect(result).toEqual({ processed: 0, failed: 0, abandoned: 1 })
+    // Flag is marked terminal so it stops retrying and no longer blocks login.
+    expect(mocks.markAccountDeletion).toHaveBeenCalledWith("user_1", "failed")
+    expect(mocks.clearAccountDeletion).not.toHaveBeenCalled()
   })
 })

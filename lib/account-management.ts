@@ -172,28 +172,54 @@ export async function processAccountDeletion(userId: string) {
 }
 
 /**
+ * After this long a still-failing deletion is treated as terminal: a permanent
+ * fault (e.g. missing R2 config) would otherwise retry forever under a flag
+ * that keeps blocking login. Marking it "failed" stops the retries and unblocks
+ * sign-in, while leaving the row for manual recovery.
+ */
+const DELETION_GIVE_UP_AFTER_MS = 24 * 60 * 60 * 1000
+
+/**
  * Retries deletion for accounts whose flag has gone stale (a job that was
  * dropped or dead-lettered). Runs on a cron so a stuck `account_deletions` row
  * cannot lock a user out permanently — a transient failure clears on a later
- * pass. Idempotent: an already-deleted account's rows simply no-op.
+ * pass. Idempotent: an already-deleted account's rows simply no-op. A failure
+ * that persists past `DELETION_GIVE_UP_AFTER_MS` becomes terminal.
  */
 export async function reconcileStaleAccountDeletions(): Promise<{
   processed: number
   failed: number
+  abandoned: number
 }> {
-  const userIds = await listStalePendingDeletions()
+  const stale = await listStalePendingDeletions()
   let processed = 0
   let failed = 0
-  for (const userId of userIds) {
+  let abandoned = 0
+  for (const { userId, requestedAt } of stale) {
     try {
       await processAccountDeletion(userId)
       processed++
     } catch (error) {
-      failed++
-      console.error("Reconcile: account deletion still failing", userId, error)
+      const stuckMs = Date.now() - new Date(requestedAt).getTime()
+      if (stuckMs >= DELETION_GIVE_UP_AFTER_MS) {
+        await markAccountDeletion(userId, "failed")
+        abandoned++
+        console.error(
+          "Reconcile: giving up on account deletion (terminal)",
+          userId,
+          error
+        )
+      } else {
+        failed++
+        console.error(
+          "Reconcile: account deletion still failing",
+          userId,
+          error
+        )
+      }
     }
   }
-  return { processed, failed }
+  return { processed, failed, abandoned }
 }
 
 /** Retries durable R2 cleanup from previous account-deletion requests. */

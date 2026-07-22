@@ -8,7 +8,11 @@ import { getD1Database } from "@/lib/d1"
 export const ACCOUNT_DELETION_QUEUE = "ACCOUNT_DELETION_QUEUE"
 
 export type AccountDeletionMessage = { userId: string; requestedAt: string }
-export type AccountDeletionStatus = "pending" | "processing"
+// "failed" is terminal: the deletion could not complete after repeated retries.
+// It stays in the table for manual recovery but no longer blocks login or gets
+// re-reconciled.
+export type AccountDeletionStatus = "pending" | "processing" | "failed"
+export type StalePendingDeletion = { userId: string; requestedAt: string }
 
 type DeletionQueue = { send: (body: AccountDeletionMessage) => Promise<void> }
 
@@ -48,12 +52,18 @@ export async function markAccountDeletion(
     .run()
 }
 
-/** True while an account is flagged for deletion — used to block re-login. */
+/**
+ * True while an account is actively flagged for deletion — used to block
+ * re-login. A terminal "failed" flag does not count, so a deletion that can
+ * never complete cannot lock the account out forever.
+ */
 export async function isAccountDeletionPending(
   userId: string
 ): Promise<boolean> {
   const row = await getD1Database()
-    .prepare("SELECT 1 AS present FROM account_deletions WHERE user_id = ?")
+    .prepare(
+      "SELECT 1 AS present FROM account_deletions WHERE user_id = ? AND status IN ('pending', 'processing')"
+    )
     .bind(userId)
     .first<{ present: number }>()
   return Boolean(row)
@@ -75,15 +85,18 @@ export async function clearAccountDeletion(userId: string) {
 export async function listStalePendingDeletions(options?: {
   olderThanMinutes?: number
   limit?: number
-}): Promise<string[]> {
+}): Promise<StalePendingDeletion[]> {
   const olderThanMinutes = options?.olderThanMinutes ?? 15
   const limit = options?.limit ?? 25
   const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString()
   const rows = await getD1Database()
     .prepare(
-      "SELECT user_id FROM account_deletions WHERE updated_at <= ? ORDER BY updated_at ASC LIMIT ?"
+      "SELECT user_id, requested_at FROM account_deletions WHERE status IN ('pending', 'processing') AND updated_at <= ? ORDER BY updated_at ASC LIMIT ?"
     )
     .bind(cutoff, limit)
-    .all<{ user_id: string }>()
-  return (rows.results ?? []).map((row) => row.user_id)
+    .all<{ user_id: string; requested_at: string }>()
+  return (rows.results ?? []).map((row) => ({
+    userId: row.user_id,
+    requestedAt: row.requested_at,
+  }))
 }

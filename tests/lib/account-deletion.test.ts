@@ -68,6 +68,9 @@ describe("account-deletion flag store", () => {
 
       expect(await isAccountDeletionPending("user_1")).toBe(true)
       expect(mocks.bind).toHaveBeenCalledWith("user_1")
+      // A terminal "failed" flag must not count as pending.
+      const sql = String(mocks.prepare.mock.calls[0][0])
+      expect(sql).toContain("status IN ('pending', 'processing')")
     })
 
     it("returns false when no flag row exists", async () => {
@@ -89,16 +92,23 @@ describe("account-deletion flag store", () => {
   })
 
   describe("listStalePendingDeletions", () => {
-    it("returns the flagged user ids older than the cutoff", async () => {
+    it("returns the stale flags with their request time, excluding failed", async () => {
       mocks.all.mockResolvedValue({
-        results: [{ user_id: "user_1" }, { user_id: "user_2" }],
+        results: [
+          { user_id: "user_1", requested_at: "2026-07-22T00:00:00.000Z" },
+          { user_id: "user_2", requested_at: "2026-07-22T01:00:00.000Z" },
+        ],
       })
 
-      const ids = await listStalePendingDeletions()
+      const stale = await listStalePendingDeletions()
 
-      expect(ids).toEqual(["user_1", "user_2"])
+      expect(stale).toEqual([
+        { userId: "user_1", requestedAt: "2026-07-22T00:00:00.000Z" },
+        { userId: "user_2", requestedAt: "2026-07-22T01:00:00.000Z" },
+      ])
       const sql = String(mocks.prepare.mock.calls[0][0])
-      expect(sql).toContain("FROM account_deletions WHERE updated_at <= ?")
+      expect(sql).toContain("status IN ('pending', 'processing')")
+      expect(sql).toContain("updated_at <= ?")
     })
 
     it("returns an empty array when nothing is stale", async () => {

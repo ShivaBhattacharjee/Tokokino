@@ -25,6 +25,7 @@ beforeEach(() => {
   mocks.reconcileStaleAccountDeletions.mockResolvedValue({
     processed: 2,
     failed: 0,
+    abandoned: 0,
   })
 })
 
@@ -53,6 +54,7 @@ describe("POST /api/internal/account-deletion/reconcile", () => {
       ok: true,
       processed: 2,
       failed: 0,
+      abandoned: 0,
     })
     expect(mocks.reconcileStaleAccountDeletions).toHaveBeenCalledTimes(1)
   })
