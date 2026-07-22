@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   bind: vi.fn(),
   run: vi.fn(),
   first: vi.fn(),
+  all: vi.fn(),
   getCloudflareContext: vi.fn(),
 }))
 
@@ -21,12 +22,17 @@ import {
   clearAccountDeletion,
   getAccountDeletionQueue,
   isAccountDeletionPending,
+  listStalePendingDeletions,
   markAccountDeletion,
 } from "@/lib/account-deletion"
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mocks.bind.mockReturnValue({ run: mocks.run, first: mocks.first })
+  mocks.bind.mockReturnValue({
+    run: mocks.run,
+    first: mocks.first,
+    all: mocks.all,
+  })
   mocks.prepare.mockReturnValue({ bind: mocks.bind })
   mocks.run.mockResolvedValue(undefined)
 })
@@ -79,6 +85,26 @@ describe("account-deletion flag store", () => {
         expect.stringContaining("DELETE FROM account_deletions")
       )
       expect(mocks.bind).toHaveBeenCalledWith("user_1")
+    })
+  })
+
+  describe("listStalePendingDeletions", () => {
+    it("returns the flagged user ids older than the cutoff", async () => {
+      mocks.all.mockResolvedValue({
+        results: [{ user_id: "user_1" }, { user_id: "user_2" }],
+      })
+
+      const ids = await listStalePendingDeletions()
+
+      expect(ids).toEqual(["user_1", "user_2"])
+      const sql = String(mocks.prepare.mock.calls[0][0])
+      expect(sql).toContain("FROM account_deletions WHERE updated_at <= ?")
+    })
+
+    it("returns an empty array when nothing is stale", async () => {
+      mocks.all.mockResolvedValue({ results: [] })
+
+      expect(await listStalePendingDeletions()).toEqual([])
     })
   })
 

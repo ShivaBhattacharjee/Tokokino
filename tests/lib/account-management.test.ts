@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   markAccountDeletion: vi.fn(),
   getAccountDeletionQueue: vi.fn(),
   clearAccountDeletion: vi.fn(),
+  listStalePendingDeletions: vi.fn(),
   batch: vi.fn(),
   prepare: vi.fn(),
   bind: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock("@/lib/account-deletion", () => ({
   markAccountDeletion: mocks.markAccountDeletion,
   getAccountDeletionQueue: mocks.getAccountDeletionQueue,
   clearAccountDeletion: mocks.clearAccountDeletion,
+  listStalePendingDeletions: mocks.listStalePendingDeletions,
 }))
 
 vi.mock("@/lib/d1", () => ({
@@ -49,6 +51,7 @@ vi.mock("@/lib/db/schema", () => ({
 
 import {
   processAccountDeletion,
+  reconcileStaleAccountDeletions,
   requestAccountDeletion,
 } from "@/lib/account-management"
 
@@ -129,5 +132,29 @@ describe("processAccountDeletion", () => {
 
     // Flag stays so the queue retry (or login gate) still sees it as pending.
     expect(mocks.clearAccountDeletion).not.toHaveBeenCalled()
+  })
+})
+
+describe("reconcileStaleAccountDeletions", () => {
+  it("retries every stale flag and reports the count", async () => {
+    mocks.listStalePendingDeletions.mockResolvedValue(["user_1", "user_2"])
+
+    const result = await reconcileStaleAccountDeletions()
+
+    expect(result).toEqual({ processed: 2, failed: 0 })
+    expect(mocks.batch).toHaveBeenCalledTimes(2)
+    expect(mocks.clearAccountDeletion).toHaveBeenCalledWith("user_1")
+    expect(mocks.clearAccountDeletion).toHaveBeenCalledWith("user_2")
+  })
+
+  it("counts failures and keeps going after one throws", async () => {
+    mocks.listStalePendingDeletions.mockResolvedValue(["user_1", "user_2"])
+    mocks.batch.mockRejectedValueOnce(new Error("still failing"))
+
+    const result = await reconcileStaleAccountDeletions()
+
+    expect(result).toEqual({ processed: 1, failed: 1 })
+    // The second account still got processed despite the first failing.
+    expect(mocks.clearAccountDeletion).toHaveBeenCalledWith("user_2")
   })
 })

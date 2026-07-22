@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import {
   clearAccountDeletion,
   getAccountDeletionQueue,
+  listStalePendingDeletions,
   markAccountDeletion,
 } from "@/lib/account-deletion"
 import { draftMedia, drafts, shares, shareUploads } from "@/lib/db/schema"
@@ -168,6 +169,31 @@ export async function processAccountDeletion(userId: string) {
   await markAccountDeletion(userId, "processing")
   await deleteManagedAccount(userId)
   await clearAccountDeletion(userId)
+}
+
+/**
+ * Retries deletion for accounts whose flag has gone stale (a job that was
+ * dropped or dead-lettered). Runs on a cron so a stuck `account_deletions` row
+ * cannot lock a user out permanently — a transient failure clears on a later
+ * pass. Idempotent: an already-deleted account's rows simply no-op.
+ */
+export async function reconcileStaleAccountDeletions(): Promise<{
+  processed: number
+  failed: number
+}> {
+  const userIds = await listStalePendingDeletions()
+  let processed = 0
+  let failed = 0
+  for (const userId of userIds) {
+    try {
+      await processAccountDeletion(userId)
+      processed++
+    } catch (error) {
+      failed++
+      console.error("Reconcile: account deletion still failing", userId, error)
+    }
+  }
+  return { processed, failed }
 }
 
 /** Retries durable R2 cleanup from previous account-deletion requests. */

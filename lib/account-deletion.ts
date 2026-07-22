@@ -65,3 +65,25 @@ export async function clearAccountDeletion(userId: string) {
     .bind(userId)
     .run()
 }
+
+/**
+ * User ids whose deletion flag has not advanced for a while — a job that was
+ * dropped, dead-lettered, or hit a transient failure. `updated_at` bumps on
+ * every status transition, so an actively-processing row is never returned and
+ * a repeatedly-failing one backs off ~`olderThanMinutes` between retries.
+ */
+export async function listStalePendingDeletions(options?: {
+  olderThanMinutes?: number
+  limit?: number
+}): Promise<string[]> {
+  const olderThanMinutes = options?.olderThanMinutes ?? 15
+  const limit = options?.limit ?? 25
+  const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString()
+  const rows = await getD1Database()
+    .prepare(
+      "SELECT user_id FROM account_deletions WHERE updated_at <= ? ORDER BY updated_at ASC LIMIT ?"
+    )
+    .bind(cutoff, limit)
+    .all<{ user_id: string }>()
+  return (rows.results ?? []).map((row) => row.user_id)
+}

@@ -112,4 +112,24 @@ export default {
       }
     }
   },
+
+  // Cron reconciler: retries deletion flags that went stale (a dropped or
+  // dead-lettered job) so a stuck row can never lock an account out for good.
+  async scheduled(_controller, env, ctx): Promise<void> {
+    const cfEnv = env as CloudflareEnv
+    const request = new Request(
+      new URL(
+        "/api/internal/account-deletion/reconcile",
+        cfEnv.BETTER_AUTH_URL
+      ),
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${cfEnv.BETTER_AUTH_SECRET}` },
+      }
+    ) as unknown as Parameters<typeof handler.fetch>[0]
+    const response = await handler.fetch(request, env, ctx)
+    if (!response.ok) {
+      console.error(`account deletion reconcile responded ${response.status}`)
+    }
+  },
 } satisfies ExportedHandler
