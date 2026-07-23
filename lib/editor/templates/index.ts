@@ -4,6 +4,7 @@ import ipadShowcase from "./ipad-showcase"
 import iphonePresentation from "./iphone-presentation"
 import iphoneShowcase from "./iphone-showcase"
 import screenshotGlow from "./screenshot-glow"
+import silentReveal from "./silent-reveal"
 
 export type { Template, TemplateCategory, TemplateTab } from "./types"
 
@@ -16,6 +17,7 @@ export type { Template, TemplateCategory, TemplateTab } from "./types"
 export const TEMPLATES: Template[] = [
   browserDark,
   screenshotGlow,
+  silentReveal,
   iphoneShowcase,
   iphonePresentation,
   ipadShowcase,
