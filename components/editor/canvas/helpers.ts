@@ -522,6 +522,7 @@ export function framePositionedStyle({
   shadowFilter,
   enhanceFilter,
   layer,
+  readPreviewVars = true,
 }: {
   aspectRatio: string
   rotation?: number
@@ -533,6 +534,9 @@ export function framePositionedStyle({
   shadowFilter?: string
   enhanceFilter?: string
   layer?: ScreenshotLayer
+  /** See {@link framePositionTransform}. Slots pass false so their framed
+   * content ignores the main screenshot's live-drag vars. */
+  readPreviewVars?: boolean
 }): React.CSSProperties {
   const filter =
     [shadowDropFilterPreviewCss(shadowFilter), enhanceFilter]
@@ -546,7 +550,13 @@ export function framePositionedStyle({
     }),
     left: "50%",
     top: "50%",
-    transform: framePositionTransform({ anchor, offset, transform, rotation }),
+    transform: framePositionTransform({
+      anchor,
+      offset,
+      transform,
+      rotation,
+      readPreviewVars,
+    }),
     transformOrigin: "center",
     // Deliberately no preserve-3d. Everything in this box is coplanar (the frame
     // chrome and the lighting overlay above it), and a 3D rendering context makes

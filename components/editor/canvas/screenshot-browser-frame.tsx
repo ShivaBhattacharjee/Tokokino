@@ -76,6 +76,8 @@ type ScreenshotBrowserFrameProps = {
   captureDefaultDevice?: CaptureDevice
   captureStateKey?: string
   showHoverActions?: boolean
+  /** False for slots so the frame ignores the main screenshot's live-drag vars. */
+  readMainPreviewVars?: boolean
   innerLightingStyle?: React.CSSProperties | null
   /** Register the framed <video> with the docked control bar. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
@@ -106,6 +108,8 @@ type BrowserFrameEmptyStateProps = {
   onDemo?: (src: string) => void | Promise<void>
   defaultCaptureDevice?: CaptureDevice
   captureStateKey?: string
+  /** False for slots so the empty frame ignores the main screenshot's live-drag vars. */
+  readMainPreviewVars?: boolean
   innerLightingStyle?: React.CSSProperties | null
   /** Whether videos are accepted (false for multi-screenshot boxes). Forwarded
    * to the upload card for its label. Defaults to true. */
@@ -145,6 +149,7 @@ export function ScreenshotBrowserFrame({
   captureDefaultDevice,
   captureStateKey,
   showHoverActions = true,
+  readMainPreviewVars = true,
   innerLightingStyle,
   onMediaElement,
   mediaStyle,
@@ -162,6 +167,7 @@ export function ScreenshotBrowserFrame({
     shadowFilter,
     enhanceFilter,
     layer: screenshotLayer,
+    readPreviewVars: readMainPreviewVars,
   })
   const isVideo = isVideoSrc(screenshot)
   const imageSrc = isVideo ? undefined : screenshot
@@ -267,6 +273,7 @@ export function ScreenshotBrowserFrame({
               anchor: screenshotAnchor,
               offset: screenshotOffset,
               transform,
+              readPreviewVars: readMainPreviewVars,
             }),
             transformOrigin: "center",
             transformStyle: "preserve-3d",
@@ -328,6 +335,7 @@ export function BrowserFrameEmptyState({
   onDemo,
   defaultCaptureDevice,
   captureStateKey,
+  readMainPreviewVars = true,
   innerLightingStyle,
   allowVideo = true,
 }: BrowserFrameEmptyStateProps) {
@@ -342,6 +350,7 @@ export function BrowserFrameEmptyState({
     transform,
     shadowFilter,
     enhanceFilter,
+    readPreviewVars: readMainPreviewVars,
   })
 
   return (
@@ -442,6 +451,7 @@ export function BrowserFrameEmptyState({
               anchor: screenshotAnchor,
               offset: screenshotOffset,
               transform: "",
+              readPreviewVars: readMainPreviewVars,
             }),
             transformOrigin: "center",
           }}

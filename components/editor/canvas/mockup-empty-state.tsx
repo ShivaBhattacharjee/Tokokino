@@ -38,6 +38,8 @@ type MockupEmptyStateProps = {
   compact?: boolean
   /** Cap frame size to min(cqw, cqh) so it stays consistent across canvas aspect ratios. */
   scopeToMinSide?: boolean
+  /** False for slots so the empty frame ignores the main screenshot's live-drag vars. */
+  readMainPreviewVars?: boolean
   innerLightingStyle?: React.CSSProperties | null
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
   /** Full-page demo screenshot (same semantics as API capture). */
@@ -68,6 +70,7 @@ export function MockupEmptyState({
   onPointerUp,
   compact = false,
   scopeToMinSide = false,
+  readMainPreviewVars = true,
   innerLightingStyle,
   onCapture,
   onDemo,
@@ -118,6 +121,7 @@ export function MockupEmptyState({
           transform,
           shadowFilter,
           enhanceFilter,
+          readPreviewVars: readMainPreviewVars,
         })}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

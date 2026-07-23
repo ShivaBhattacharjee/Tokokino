@@ -61,6 +61,9 @@ type ScreenshotFrameContentProps = {
   aspectH?: number
   /** Cap the mockup empty frame to the smaller canvas dimension (canvas-level only). */
   mockupScopeToMinSide?: boolean
+  /** False for slots so framed content ignores the main screenshot's live-drag
+   * vars (the slot sits in its own positioned container). */
+  readMainPreviewVars?: boolean
   innerLightingStyle?: React.CSSProperties | null
   /**
    * Whether this screenshot is the active selection. Forwarded to bare images so
@@ -131,6 +134,7 @@ export function ScreenshotFrameContent({
   aspectW,
   aspectH,
   mockupScopeToMinSide = false,
+  readMainPreviewVars = true,
   innerLightingStyle,
   isScreenshotSelected = false,
   onCapture,
@@ -192,6 +196,7 @@ export function ScreenshotFrameContent({
           captureDefaultDevice={captureDefaultDevice}
           captureStateKey={captureStateKey}
           showHoverActions={false}
+          readMainPreviewVars={readMainPreviewVars}
           innerLightingStyle={innerLightingStyle}
           onMediaElement={onMediaElement}
           mediaStyle={mediaStyle}
@@ -233,6 +238,7 @@ export function ScreenshotFrameContent({
           captureStateKey={captureStateKey}
           showHoverActions={false}
           scopeToMinSide={mockupScopeToMinSide}
+          readMainPreviewVars={readMainPreviewVars}
           innerLightingStyle={innerLightingStyle}
           onMediaElement={onMediaElement}
           mediaStyle={mediaStyle}
@@ -320,6 +326,7 @@ export function ScreenshotFrameContent({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         compact={emptyCompact}
+        readMainPreviewVars={readMainPreviewVars}
         innerLightingStyle={innerLightingStyle}
       />
     )
@@ -351,6 +358,7 @@ export function ScreenshotFrameContent({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        readMainPreviewVars={readMainPreviewVars}
         innerLightingStyle={innerLightingStyle}
       />
     )

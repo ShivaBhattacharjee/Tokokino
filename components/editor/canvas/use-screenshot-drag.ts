@@ -33,6 +33,7 @@ type ScreenshotDragState = {
   stageH: number
   imgW: number
   imgH: number
+  moved: boolean
 }
 
 type MockupDragState = {
@@ -41,7 +42,16 @@ type MockupDragState = {
   startClientY: number
   startOffsetX: number
   startOffsetY: number
+  moved: boolean
 }
+
+/**
+ * A press must travel this many CSS px before it counts as a drag. Below it, a
+ * click never touches the live-preview vars — otherwise a plain select fires a
+ * 1px "drag" that sets then clears the main vars, briefly easing the mockup out
+ * of sync with its (transition-less) selection border.
+ */
+const DRAG_START_THRESHOLD_PX = 3
 
 export function useScreenshotDrag({
   activeTool,
@@ -220,6 +230,7 @@ export function useScreenshotDrag({
       stageH: placementDims.stageH,
       imgW: placementDims.imgW,
       imgH: placementDims.imgH,
+      moved: false,
     }
   }
 
@@ -228,6 +239,14 @@ export function useScreenshotDrag({
     if (!drag || drag.pointerId !== e.pointerId) return
 
     e.preventDefault()
+    if (
+      !drag.moved &&
+      Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY) <
+        DRAG_START_THRESHOLD_PX
+    ) {
+      return
+    }
+    drag.moved = true
     let nextX =
       drag.startOffsetX + (e.clientX - drag.startClientX) / effectiveScale
     let nextY =
@@ -271,6 +290,7 @@ export function useScreenshotDrag({
       startClientY: e.clientY,
       startOffsetX: screenshotOffset.x,
       startOffsetY: screenshotOffset.y,
+      moved: false,
     }
   }
 
@@ -279,6 +299,14 @@ export function useScreenshotDrag({
     if (!drag || drag.pointerId !== e.pointerId) return
 
     e.preventDefault()
+    if (
+      !drag.moved &&
+      Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY) <
+        DRAG_START_THRESHOLD_PX
+    ) {
+      return
+    }
+    drag.moved = true
     let nextX =
       drag.startOffsetX + (e.clientX - drag.startClientX) / effectiveScale
     let nextY =

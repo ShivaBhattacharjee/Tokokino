@@ -245,6 +245,11 @@ export function MainScreenshotRender({
               mediaStyle={mediaStyle}
               applyTransformWhenEmpty
               suppressEmptyTransition
+              // This box's container is already positioned by the main
+              // screenshot's live-drag vars; the framed content must not read
+              // them too, or it double-applies the move and drifts out of sync
+              // with the (container-positioned) selection border during a drag.
+              readMainPreviewVars={false}
               emptyCompact={emptyCompact}
               objectFit={objectFit}
               isScreenshotSelected={isSelected && !previewMode}

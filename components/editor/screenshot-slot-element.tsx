@@ -399,6 +399,9 @@ export function ScreenshotSlotRender({
                 bareStyle={bareImgStyle}
                 applyTransformWhenEmpty
                 suppressEmptyTransition
+                // Slots position via their own container; never inherit the main
+                // screenshot's live-drag vars, or dragging the main moves the slot.
+                readMainPreviewVars={false}
                 emptyCompact={Boolean(rowLayout)}
                 objectFit={effectiveObjectFit}
                 mediaStyle={fullPageMediaStyle}

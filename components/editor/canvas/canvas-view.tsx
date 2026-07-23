@@ -1222,6 +1222,12 @@ function CanvasViewInner({
                   transform={transform}
                   shadowFilter={computedShadowFilter}
                   boxStyle={emptyStateBoxStyle}
+                  // Match the canvas box's aspect (which follows the last loaded
+                  // screenshot's natural ratio on an auto canvas) so deleting the
+                  // screenshot doesn't snap the empty box to the default 16:10 and
+                  // make it jump under tilt/scale.
+                  aspectW={aw}
+                  aspectH={ah}
                   compact={
                     tilt.rx !== 0 ||
                     tilt.ry !== 0 ||
