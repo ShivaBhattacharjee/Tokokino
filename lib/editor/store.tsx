@@ -768,6 +768,12 @@ export type EditorActions = {
     draft: CurrentDraftInfo,
     ui?: DraftLoadUi
   ) => void
+  /**
+   * Apply a bundled template's full composition as a brand-new, unsaved
+   * project. Same restore path as {@link loadDraftState} but never links to a
+   * saved draft, so the next Save creates a fresh draft.
+   */
+  loadTemplateState: (state: Partial<EditorState>, ui?: DraftLoadUi) => void
   applyPresetSnapshot: (
     snapshot: CustomPresetGeometry,
     canvasId?: string
@@ -1501,6 +1507,83 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         currentDraft: draft,
         // UI state — fall back to defaults when the saved draft predates the
         // wrapped payload shape.
+        presetTab: ui?.presetTab ?? "single",
+        activeLayoutPresetId: ui?.activeLayoutPresetId ?? null,
+        activeCustomPresetId: ui?.activeCustomPresetId ?? null,
+        activeSinglePresetId: ui?.activeSinglePresetId ?? null,
+        bulkEditMode: ui?.bulkEditMode ?? defaultBulk,
+        bulkViewportZoom: ui?.bulkViewportZoom ?? 1,
+        bulkScale: ui?.bulkScale ?? 65,
+        previewAutoScrollDelay: ui?.previewAutoScrollDelay ?? 3000,
+        previewAnimation: ui?.previewAnimation ?? "slide",
+        isAnimateMode: restoreAnimate,
+        selectedAnimationClipId: selectedClipId,
+        selectedAnimationClipIds: selectedClipId ? [selectedClipId] : [],
+        ...CLEAR_SELECTION,
+      })
+    },
+    loadTemplateState: (state, ui) => {
+      const incoming = normalizeEditorState(state)
+      // A template ships a screenshot only so it can render a thumbnail — the
+      // composition (background, frame, shadow, layout…) is what we apply. Drop
+      // every media field and carry over whatever the user already had on their
+      // active canvas, so applying a template restyles their screenshot (or
+      // leaves the canvas empty when they have none).
+      const prev = get().present
+      const prevActive = prev.canvases.find((c) => c.id === prev.activeCanvasId)
+      const present: EditorState = {
+        ...incoming,
+        canvases: incoming.canvases.map((canvas) => {
+          const cleared: CanvasState = {
+            ...canvas,
+            screenshot: null,
+            originalScreenshot: null,
+            lastCropRegion: null,
+            videoClips: null,
+            tweet: null,
+            fullPageCapture: { scrollPosition: 0 },
+            screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+              ...slot,
+              src: null,
+            })),
+          }
+          if (canvas.id === incoming.activeCanvasId && prevActive) {
+            return {
+              ...cleared,
+              screenshot: prevActive.screenshot,
+              originalScreenshot: prevActive.originalScreenshot,
+              lastCropRegion: prevActive.lastCropRegion,
+              videoClips: prevActive.videoClips ?? null,
+              fullPageCapture: prevActive.fullPageCapture ?? {
+                scrollPosition: 0,
+              },
+            }
+          }
+          return cleared
+        }),
+      }
+      const defaultBulk = present.canvases.length > 1
+      const restoreAnimate = Boolean(ui?.isAnimateMode)
+      let selectedClipId: string | null = null
+      if (restoreAnimate) {
+        const active = present.canvases.find(
+          (c) => c.id === present.activeCanvasId
+        )
+        const clips = active?.animation?.clips ?? []
+        if (clips.length > 0) {
+          const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+          selectedClipId = sorted[sorted.length - 1]?.id ?? null
+        }
+      }
+      set({
+        past: [],
+        present,
+        future: [],
+        _lastGroup: null,
+        _lastTs: 0,
+        // Templates are a starting point, not a saved project: keep the draft
+        // pointer empty so the first Save writes a new draft.
+        currentDraft: null,
         presetTab: ui?.presetTab ?? "single",
         activeLayoutPresetId: ui?.activeLayoutPresetId ?? null,
         activeCustomPresetId: ui?.activeCustomPresetId ?? null,

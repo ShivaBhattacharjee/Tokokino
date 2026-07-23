@@ -326,6 +326,7 @@ export function useEditor(): EditorContext {
     removeCustomPreset: store.removeCustomPreset,
     setCurrentDraft: store.setCurrentDraft,
     loadDraftState: store.loadDraftState,
+    loadTemplateState: store.loadTemplateState,
     applyPresetSnapshot: (snapshot, canvasId) =>
       store.applyPresetSnapshot(snapshot, canvasId ?? targetId),
     setScreenshot: (s, canvasId) =>
