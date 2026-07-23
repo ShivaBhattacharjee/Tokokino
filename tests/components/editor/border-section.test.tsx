@@ -143,16 +143,15 @@ describe("BorderSection", () => {
     ).toEqual({ borderRadius: 48 })
   })
 
-  it("renders all seven border-style options", () => {
+  it("renders all six frame-effect presets", () => {
     render(<BorderSection />)
     for (const label of [
       "None",
-      "Solid",
-      "Dashed",
-      "Dotted",
-      "Double",
-      "Groove",
-      "Ridge",
+      "Frost",
+      "Frost Dark",
+      "Hairline",
+      "Mat",
+      "Mat Dark",
     ]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument()
     }
@@ -168,16 +167,45 @@ describe("BorderSection", () => {
     expect(patch.border.color).toBeNull()
   })
 
-  it("sets the style and a default color when enabling a style from a disabled border", async () => {
+  it("applies the solid Mat frame's color, width and padding", async () => {
+    const user = userEvent.setup()
+    render(<BorderSection />)
+
+    await user.click(screen.getByRole("button", { name: "Mat" }))
+
+    const patch = store.applyStyle.mock.calls[0][0] as { border: BorderState }
+    expect(patch.border).toMatchObject({
+      style: "solid",
+      color: "#ffffff",
+      width: 10,
+      padding: 0,
+    })
+  })
+
+  it("applies the translucent Frost frame tint even from a disabled border", async () => {
     store.canvas.border = { color: null, width: 4, padding: 8 }
     const user = userEvent.setup()
     render(<BorderSection />)
 
-    await user.click(screen.getByRole("button", { name: "Dashed" }))
+    await user.click(screen.getByRole("button", { name: "Frost" }))
 
     const patch = store.applyStyle.mock.calls[0][0] as { border: BorderState }
-    expect(patch.border.style).toBe("dashed")
-    expect(patch.border.color).toBe("#f08a9a")
+    expect(patch.border).toMatchObject({
+      style: "solid",
+      color: "rgba(255,255,255,0.5)",
+      width: 8,
+      padding: 3,
+    })
+  })
+
+  it("highlights the active preset that matches the current border", () => {
+    store.canvas.border = { color: "#ffffff", width: 10, padding: 0 }
+    render(<BorderSection />)
+    // Only the matching preset button carries the active text colour class.
+    const mat = screen.getByRole("button", { name: "Mat" })
+    expect(mat.querySelector(".text-primary")).not.toBeNull()
+    const frost = screen.getByRole("button", { name: "Frost" })
+    expect(frost.querySelector(".text-primary")).toBeNull()
   })
 
   it("passes six presets and the current color to the color grid", () => {
