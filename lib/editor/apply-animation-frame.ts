@@ -450,6 +450,7 @@ export function applyAnimationFrameAtTime({
       "--canvas-ts-scale",
       zoomVal != null ? String(zoomVal / 100) : null
     )
+    const placementScale = zoomVal ?? scale
 
     // The crop this frame lands on, and the shell geometry it implies. Sampled
     // here rather than in the crop block below because the placement needs it:
@@ -507,7 +508,7 @@ export function applyAnimationFrameAtTime({
         dims != null
           ? bareScreenshotPositionPct({
               dims,
-              scaleFactor: scale / 100,
+              scaleFactor: placementScale / 100,
               position: pos,
               offset: off,
             })
