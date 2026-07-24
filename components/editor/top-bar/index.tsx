@@ -58,7 +58,12 @@ import {
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
 import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
-import { isVideoSrc } from "@/lib/editor/media-type"
+import {
+  createVideoObjectUrl,
+  isVideoFile,
+  isVideoSrc,
+  VIDEO_SIZE_LIMIT,
+} from "@/lib/editor/media-type"
 import {
   downloadDraftVideos,
   inlineDraftImageBlobs,
@@ -274,7 +279,8 @@ export function TopBar() {
 
   const [showNewAlert, setShowNewAlert] = React.useState(false)
   const [templatesOpen, setTemplatesOpen] = React.useState(false)
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const imageInputRef = React.useRef<HTMLInputElement>(null)
+  const videoInputRef = React.useRef<HTMLInputElement>(null)
   const [feedbackOpen, setFeedbackOpen] = React.useState(false)
   const [saveOpen, setSaveOpen] = React.useState(false)
   const [mobileSaveOpen, setMobileSaveOpen] = React.useState(false)
@@ -311,7 +317,7 @@ export function TopBar() {
     "create" | "update"
   >("create")
 
-  const handleOpenFile = React.useCallback(
+  const handleOpenImage = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (!file) return
@@ -331,7 +337,7 @@ export function TopBar() {
           } else {
             setScreenshot(src)
           }
-          toast.success("Image opened successfully")
+          toast.success("Image added")
         })
         .catch(() => {
           toast.error("Could not read image")
@@ -339,6 +345,44 @@ export function TopBar() {
       e.target.value = ""
     },
     [selectedScreenshotSlotId, setScreenshot, setScreenshotSlotImage]
+  )
+
+  const activeCanvasSlotCount = useEditorStore((s) => {
+    const canvas = s.present.canvases.find(
+      (c) => c.id === s.present.activeCanvasId
+    )
+    return canvas?.screenshotSlots.length ?? 0
+  })
+
+  const handleOpenVideo = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      if (!isVideoFile(file)) {
+        toast.error("Please select a video file")
+        e.target.value = ""
+        return
+      }
+
+      // Videos can only be the sole screenshot — same rule as canvas drop/paste.
+      if (selectedScreenshotSlotId || activeCanvasSlotCount > 0) {
+        toast.error("Videos can only be used as a single screenshot")
+        e.target.value = ""
+        return
+      }
+
+      if (file.size > VIDEO_SIZE_LIMIT) {
+        toast.error("Video is too large (max 1 GB)")
+        e.target.value = ""
+        return
+      }
+
+      setScreenshot(createVideoObjectUrl(file))
+      toast.success("Video added")
+      e.target.value = ""
+    },
+    [activeCanvasSlotCount, selectedScreenshotSlotId, setScreenshot]
   )
 
   const handleCopyShareLink = React.useCallback(async (url: string) => {
@@ -1178,7 +1222,8 @@ export function TopBar() {
           )}
           <OpenControls
             currentDraftName={currentDraft?.name ?? null}
-            onOpenImage={() => fileInputRef.current?.click()}
+            onOpenImage={() => imageInputRef.current?.click()}
+            onOpenVideo={() => videoInputRef.current?.click()}
             onOpenProject={() => handleProtectedAction("open")}
           />
         </div>
@@ -1372,10 +1417,17 @@ export function TopBar() {
 
         <input
           type="file"
-          ref={fileInputRef}
+          ref={imageInputRef}
           className="hidden"
           accept="image/*"
-          onChange={handleOpenFile}
+          onChange={handleOpenImage}
+        />
+        <input
+          type="file"
+          ref={videoInputRef}
+          className="hidden"
+          accept="video/*"
+          onChange={handleOpenVideo}
         />
 
         <Dialog
@@ -1626,7 +1678,8 @@ export function TopBar() {
           isCopyingPng={isCopyingPng}
           isPreparingShare={shareDialog.status === "preparing"}
           onNewClick={() => setShowNewAlert(true)}
-          onOpenClick={() => fileInputRef.current?.click()}
+          onOpenImageClick={() => imageInputRef.current?.click()}
+          onOpenVideoClick={() => videoInputRef.current?.click()}
           onOpenProjectClick={() => handleProtectedAction("open")}
           onFeedbackClick={() => setFeedbackOpen(true)}
         />

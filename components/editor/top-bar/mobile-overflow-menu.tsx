@@ -11,6 +11,7 @@ import {
   RiFolderOpenLine,
   RiFileAddLine,
   RiImageAddLine,
+  RiVideoAddLine,
   RiLayoutGridLine,
   RiMoreLine,
   RiMoonLine,
@@ -53,7 +54,8 @@ export function MobileOverflowMenu({
   isCopyingPng,
   isPreparingShare,
   onNewClick,
-  onOpenClick,
+  onOpenImageClick,
+  onOpenVideoClick,
   onOpenProjectClick,
   onFeedbackClick,
 }: {
@@ -65,7 +67,8 @@ export function MobileOverflowMenu({
   isCopyingPng: boolean
   isPreparingShare: boolean
   onNewClick: () => void
-  onOpenClick: () => void
+  onOpenImageClick: () => void
+  onOpenVideoClick: () => void
   onOpenProjectClick: () => void
   onFeedbackClick: () => void
 }) {
@@ -144,13 +147,17 @@ export function MobileOverflowMenu({
             <RiFileAddLine />
             New project
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onOpenClick}>
-            <RiImageAddLine />
-            Open image
-          </DropdownMenuItem>
           <DropdownMenuItem onClick={onOpenProjectClick}>
             <RiFolderOpenLine />
-            Open project…
+            Open project
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenImageClick}>
+            <RiImageAddLine />
+            Add image
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenVideoClick}>
+            <RiVideoAddLine />
+            Add video
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

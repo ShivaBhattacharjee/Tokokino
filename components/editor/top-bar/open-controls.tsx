@@ -1,6 +1,10 @@
 "use client"
 
-import { RiFolderOpenLine, RiImageAddLine } from "@remixicon/react"
+import {
+  RiFolderOpenLine,
+  RiImageAddLine,
+  RiVideoAddLine,
+} from "@remixicon/react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -18,10 +22,12 @@ import {
 export function OpenControls({
   currentDraftName,
   onOpenImage,
+  onOpenVideo,
   onOpenProject,
 }: {
   currentDraftName: string | null
   onOpenImage: () => void
+  onOpenVideo: () => void
   onOpenProject: () => void
 }) {
   return (
@@ -31,22 +37,26 @@ export function OpenControls({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="lg">
               <RiFolderOpenLine />
-              <span className="hidden xl:inline">Open</span>
+              <span className="hidden xl:inline">File</span>
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {currentDraftName ? `Editing ${currentDraftName}` : "Open"}
+          {currentDraftName ? `Editing ${currentDraftName}` : "File"}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="start" className="w-52">
-        <DropdownMenuItem className="cursor-pointer" onClick={onOpenImage}>
-          <RiImageAddLine />
-          Open image
-        </DropdownMenuItem>
         <DropdownMenuItem className="cursor-pointer" onClick={onOpenProject}>
           <RiFolderOpenLine />
-          Open project…
+          Open project
+        </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer" onClick={onOpenImage}>
+          <RiImageAddLine />
+          Add image
+        </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer" onClick={onOpenVideo}>
+          <RiVideoAddLine />
+          Add video
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

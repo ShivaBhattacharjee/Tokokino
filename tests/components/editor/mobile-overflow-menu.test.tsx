@@ -49,7 +49,8 @@ const baseProps = {
   isCopyingPng: false,
   isPreparingShare: false,
   onNewClick: vi.fn(),
-  onOpenClick: vi.fn(),
+  onOpenImageClick: vi.fn(),
+  onOpenVideoClick: vi.fn(),
   onOpenProjectClick: vi.fn(),
   onFeedbackClick: vi.fn(),
 }
