@@ -10,6 +10,8 @@ import productReveal from "./product-reveal"
 import responsiveLayout from "./responsive-layout"
 import screenshotGlow from "./screenshot-glow"
 import silentReveal from "./silent-reveal"
+import slideUpReveal from "./slide-up-reveal"
+import slideReveal from "./slide-reveal"
 import twinPhoneStage from "./twin-phone-stage"
 import uiCloseupShowcase from "./ui-closeup-showcase"
 
@@ -28,6 +30,8 @@ export const TEMPLATES: Template[] = [
   silentReveal,
   // Animations
   productReveal,
+  slideReveal,
+  slideUpReveal,
   // iPad
   ipadShowcase,
   // Responsive / multi-device

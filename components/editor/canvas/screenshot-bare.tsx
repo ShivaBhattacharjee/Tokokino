@@ -4,6 +4,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { useAnimationPlayerOptional } from "@/hooks/use-animation-player"
 import { cn } from "@/lib/utils"
 import {
   CROP_FIT_ORIGIN_VAR,
@@ -141,6 +142,8 @@ export function ScreenshotBare({
   onMediaElement,
 }: ScreenshotBareProps) {
   const [editOpen, setEditOpen] = React.useState(false)
+  const animationPlayer = useAnimationPlayerOptional()
+  const isAnimationPlaying = animationPlayer?.isPlaying ?? false
   const videoPreload = useVideoPreload()
   const isVideo = isVideoSrc(screenshot)
   const activeCrop =
@@ -652,44 +655,47 @@ export function ScreenshotBare({
         />
       ) : null}
 
-      {activeTool === "pointer" && placementDims && !selectedTextId && (
-        <div
-          className={cn(
-            "pointer-events-none absolute z-50 flex items-center justify-center transition-opacity",
-            editOpen || isScreenshotSelected
-              ? "opacity-100"
-              : "opacity-0 group-hover/screenshot:opacity-100",
-            isScreenshotDragging || suppressTransition
-              ? "transition-none"
-              : "transition-[opacity,left,top] duration-300 ease-out"
-          )}
-          style={{
-            left:
-              (screenshotLeft ??
-                placementDims.stageW / 2 - placementDims.imgW / 2) +
-              placementDims.imgW / 2,
-            top:
-              (screenshotTop ??
-                placementDims.stageH / 2 - placementDims.imgH / 2) +
-              placementDims.imgH / 2,
-            transform: `translate(-50%, -50%) ${transform}`,
-            transformOrigin: "center",
-            transformStyle: "preserve-3d",
-          }}
-        >
-          <ScreenshotEditMenu
-            open={editOpen}
-            onOpenChange={setEditOpen}
-            onCrop={onCropClick}
-            onReplaceFile={onReplaceFile}
-            onDelete={onDelete}
-            onCaptureWebsite={onCaptureWebsite}
-            onLoadTweet={onLoadTweet}
-            captureDefaultDevice={captureDefaultDevice}
-            captureStateKey={captureStateKey}
-          />
-        </div>
-      )}
+      {activeTool === "pointer" &&
+        placementDims &&
+        !selectedTextId &&
+        !isAnimationPlaying && (
+          <div
+            className={cn(
+              "pointer-events-none absolute z-50 flex items-center justify-center transition-opacity",
+              editOpen || isScreenshotSelected
+                ? "opacity-100"
+                : "opacity-0 group-hover/screenshot:opacity-100",
+              isScreenshotDragging || suppressTransition
+                ? "transition-none"
+                : "transition-[opacity,left,top] duration-300 ease-out"
+            )}
+            style={{
+              left:
+                (screenshotLeft ??
+                  placementDims.stageW / 2 - placementDims.imgW / 2) +
+                placementDims.imgW / 2,
+              top:
+                (screenshotTop ??
+                  placementDims.stageH / 2 - placementDims.imgH / 2) +
+                placementDims.imgH / 2,
+              transform: `translate(-50%, -50%) ${transform}`,
+              transformOrigin: "center",
+              transformStyle: "preserve-3d",
+            }}
+          >
+            <ScreenshotEditMenu
+              open={editOpen}
+              onOpenChange={setEditOpen}
+              onCrop={onCropClick}
+              onReplaceFile={onReplaceFile}
+              onDelete={onDelete}
+              onCaptureWebsite={onCaptureWebsite}
+              onLoadTweet={onLoadTweet}
+              captureDefaultDevice={captureDefaultDevice}
+              captureStateKey={captureStateKey}
+            />
+          </div>
+        )}
     </div>
   )
 }

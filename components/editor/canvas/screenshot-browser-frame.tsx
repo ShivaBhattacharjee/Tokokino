@@ -9,6 +9,7 @@ import {
   type CaptureDevice,
   type CaptureSettings,
 } from "@/components/editor/canvas/upload-card"
+import { useAnimationPlayerOptional } from "@/hooks/use-animation-player"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { Arc } from "@/components/ui/arc"
 import { Chrome } from "@/components/ui/chrome"
@@ -156,6 +157,8 @@ export function ScreenshotBrowserFrame({
 }: ScreenshotBrowserFrameProps) {
   const frameRef = React.useRef<HTMLDivElement>(null)
   const [editOpen, setEditOpen] = React.useState(false)
+  const animationPlayer = useAnimationPlayerOptional()
+  const isAnimationPlaying = animationPlayer?.isPlaying ?? false
   const frame = getBrowserFrame(frameId)
   const aspectRatio = frame?.aspectRatio ?? BROWSER_FRAME_ASPECT_RATIO
   const fitStyle = frameFitStyle(aspectRatio)
@@ -262,6 +265,7 @@ export function ScreenshotBrowserFrame({
       </div>
       {showHoverActions &&
       activeTool === "pointer" &&
+      !isAnimationPlaying &&
       !screenshotLayer.hidden ? (
         <div
           className="pointer-events-none absolute top-0 left-0 max-h-full max-w-full"
