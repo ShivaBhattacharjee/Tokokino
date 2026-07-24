@@ -89,10 +89,16 @@ export const layoutSlotsInRow = (
 ): ScreenshotSlot[] => {
   const n = slots.length
   if (n === 0) return slots
+  // Each slot may override the canvas frame (phone next to laptop, etc.).
+  // Row width/centers must use the *effective* frame per box — treating every
+  // slot as canvasFrame makes mixed-frame rows pack as if they all matched.
   const layout = computeRowLayout(
     [
       { id: "__main__", frame: canvasFrame },
-      ...slots.map((slot) => ({ id: slot.id, frame: canvasFrame })),
+      ...slots.map((slot) => ({
+        id: slot.id,
+        frame: slot.frame ?? canvasFrame,
+      })),
     ],
     canvasAspect
   )
@@ -179,7 +185,10 @@ export function applyLayoutPresetGeometryToCanvas(
   const naturalLayout = computeRowLayout(
     [
       { id: "__main__", frame },
-      ...canvas.screenshotSlots.map((slot) => ({ id: slot.id, frame })),
+      ...canvas.screenshotSlots.map((slot) => ({
+        id: slot.id,
+        frame: slot.frame ?? frame,
+      })),
     ],
     aspect
   )

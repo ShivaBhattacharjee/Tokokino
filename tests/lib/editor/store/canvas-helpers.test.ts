@@ -7,6 +7,7 @@ import {
   CANVAS_GAP,
   createScreenshotSlot,
   duplicateLayerItem,
+  layoutSlotsInRow,
   migrateLegacySlot,
   placementAfterCanvas,
   removeSlotFromRow,
@@ -56,6 +57,38 @@ describe("canvas store helpers", () => {
     expect(reflowed[0]?.rotation).toBe(0)
     expect(reflowed[0]?.xPct).toBeCloseTo(75)
     expect(reflowed[0]?.widthPct).toBeCloseTo(48)
+  })
+
+  it("packs mixed-frame rows using each slot's effective frame", () => {
+    const browser: DeviceFrame = {
+      id: "browser",
+      color: "dark",
+      orientation: "vertical",
+    }
+    const galaxy: DeviceFrame = {
+      id: "galaxy_s24_ultra",
+      color: "black",
+      orientation: "vertical",
+    }
+    const slots = [
+      createScreenshotSlot({ id: "phone", frame: galaxy }, 1),
+      createScreenshotSlot({ id: "wide" }, 2),
+    ]
+
+    const asCanvasFrame = layoutSlotsInRow(
+      slots.map((s) => ({ ...s, frame: undefined })),
+      browser,
+      16 / 10
+    )
+    const mixed = layoutSlotsInRow(slots, browser, 16 / 10)
+
+    // A tall phone next to an inheriting browser box is not the same width as
+    // two browser boxes — and the override must still be on the slot after reflow.
+    expect(mixed[0]?.frame).toEqual(galaxy)
+    expect(mixed[0]?.widthPct).not.toBeCloseTo(
+      asCanvasFrame[0]?.widthPct ?? 0,
+      1
+    )
   })
 
   it("migrates legacy slots and fills modern defaults", () => {

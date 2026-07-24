@@ -50,6 +50,8 @@ function sanitizeCanvasForTemplate(canvas: CanvasState): CanvasState {
       ...slot,
       src: null,
       originalSrc: null,
+      lastCropRegion: null,
+      fullPageCapture: null,
     })),
   }
 }
@@ -100,8 +102,8 @@ async function publishPoster(slug: string): Promise<string | null> {
  * JSON to the clipboard, and publish the active canvas as a poster to R2 under
  * `templates/<slug>.jpg`. The developer names the slug (defaults to the current
  * project name); the maintainer drops the JSON into the catalogue and points
- * `thumbnail` at the returned URL. Screenshots are inlined back to data URLs so
- * the payload is fully self-contained (no live server media references).
+ * `thumbnail` at the returned URL. Screenshot and media fields (main + slots)
+ * are stripped/nulled before serialization so the JSON is composition-only.
  */
 export async function captureCurrentAsTemplate(
   slugInput?: string

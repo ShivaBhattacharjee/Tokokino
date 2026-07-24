@@ -73,4 +73,65 @@ describe("preset application planners", () => {
     })
     expect(plan.slots[0]?.xPct).toBeCloseTo(65)
   })
+
+  it("plans layout presets from each existing slot's frame override", () => {
+    const canvas = {
+      ...createCanvas("canvas"),
+      frame: {
+        id: "browser" as const,
+        color: "dark",
+        orientation: "vertical" as const,
+      },
+      screenshotSlots: [
+        createScreenshotSlot(
+          {
+            id: "slot-1",
+            frame: {
+              id: "galaxy_s24_ultra",
+              color: "black",
+              orientation: "vertical",
+            },
+          },
+          1
+        ),
+      ],
+    }
+    const preset: LayoutPreset = {
+      id: "relative-mixed",
+      name: "Relative Mixed",
+      canvasTilt: { rx: 0, ry: 0, rz: 0 },
+      canvasScale: 100,
+      relativeSlotPositions: true,
+      slots: [
+        {
+          xPct: 0,
+          yPct: 0,
+          rotation: 0,
+          tilt: { rx: 0, ry: 0, rz: 0 },
+          scale: 100,
+        },
+      ],
+    }
+
+    const allBrowser = planLayoutPreset(
+      preset,
+      {
+        ...canvas,
+        screenshotSlots: [{ ...canvas.screenshotSlots[0], frame: undefined }],
+      },
+      { id: "16-10", w: 16, h: 10 }
+    )
+    const mixed = planLayoutPreset(preset, canvas, {
+      id: "16-10",
+      w: 16,
+      h: 10,
+    })
+
+    // Relative xPct is 0, so planned x is the natural center — which shifts when
+    // the existing slot is a phone instead of another browser frame.
+    expect(mixed.slots[0]?.xPct).not.toBeCloseTo(
+      allBrowser.slots[0]?.xPct ?? 0,
+      1
+    )
+  })
 })

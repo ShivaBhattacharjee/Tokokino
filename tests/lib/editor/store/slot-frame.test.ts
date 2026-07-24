@@ -74,4 +74,38 @@ describe("per-slot device frame", () => {
     expect(canvas.frame.id).toBe("pixel-9")
     expect(canvas.screenshotSlots[0]?.frame).toBeUndefined()
   })
+
+  it("keeps per-slot frames when arranging the row", () => {
+    const a = store.getState().addScreenshotSlot()!
+    store.getState().updateScreenshotSlot(a, { frame: iphone })
+
+    store.getState().arrangeScreenshotSlotsInRow()
+
+    expect(activeCanvas().screenshotSlots[0]?.frame).toEqual(iphone)
+  })
+
+  it("retains per-slot frames when applying a custom preset snapshot", () => {
+    const a = store.getState().addScreenshotSlot()!
+    store.getState().updateScreenshotSlot(a, { frame: android, padding: 64 })
+
+    store.getState().applyPresetSnapshot({
+      canvasTilt: { rx: 0, ry: 0, rz: 0 },
+      canvasScale: 100,
+      slots: [
+        {
+          xPct: 70,
+          yPct: 50,
+          rotation: 0,
+          tilt: { rx: 0, ry: 0, rz: 0 },
+          scale: 100,
+        },
+      ],
+      mainOffset: { xPct: 0, yPct: 0 },
+    })
+
+    const slot = activeCanvas().screenshotSlots[0]
+    expect(slot?.frame).toEqual(android)
+    expect(slot?.padding).toBe(64)
+    expect(slot?.xPct).toBe(70)
+  })
 })

@@ -163,7 +163,7 @@ const responsiveLayout: Template = {
               frame: {
                 id: "macbook_pro_16__5th_gen",
                 color: "silver",
-                orientation: "vertical",
+                orientation: "horizontal",
               },
             },
           ],

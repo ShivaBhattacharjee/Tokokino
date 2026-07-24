@@ -1,7 +1,7 @@
 import type { Template } from "./types"
 
 const twinPhoneStage: Template = {
-  id: "twin-phone-stage",
+  id: "twin-phones-stage",
   name: "Twin Phones, Stage",
   category: "image",
   thumbnail: "https://assets.tokokino.com/templates/twin-phones-stage.jpg",

@@ -1639,9 +1639,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             ? []
             : snapshot.slots.map((config, index) => {
                 const previous = existingSlots[index]
+                // Preset geometry drives pose; live media + per-slot overrides
+                // that presets don't capture (frame, border, padding, …) stay
+                // on the matching index so mixed-frame layouts survive apply.
                 return {
                   id: previous?.id ?? makeId(),
                   src: previous?.src ?? null,
+                  originalSrc: previous?.originalSrc ?? null,
+                  lastCropRegion: previous?.lastCropRegion ?? null,
                   fullPageCapture: previous?.fullPageCapture ?? null,
                   xPct: config.xPct,
                   yPct: config.yPct,
@@ -1658,6 +1663,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   hidden: config.hidden ?? previous?.hidden,
                   objectFit: config.objectFit ?? previous?.objectFit,
                   shadow: config.shadow ?? previous?.shadow,
+                  border: previous?.border,
+                  borderRadius: previous?.borderRadius,
+                  padding: previous?.padding,
+                  lighting: previous?.lighting,
+                  frame: previous?.frame,
                 }
               })
 
@@ -2242,9 +2252,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "borderRadius"
       ),
     setMainScreenshotBorder: (b, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
         (canvas) => applyScreenshotStyle(canvas, "main", { border: b }),
+        "border",
         "border"
       ),
     setBackdropEffects: (e, canvasId) =>
@@ -2407,21 +2418,20 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               frameAddress: "",
             }
           }
-          const patch = applySharedFrameToCanvas(
-            canvas,
+          // Strip overrides *before* reflow so row math packs everyone as the
+          // shared frame (not the pre-apply mixed-frame widths).
+          const withoutSlotFrames: CanvasState = {
+            ...canvas,
+            screenshotSlots: canvas.screenshotSlots.map((slot) =>
+              slot.frame ? { ...slot, frame: undefined } : slot
+            ),
+          }
+          return applySharedFrameToCanvas(
+            withoutSlotFrames,
             state,
             f,
             get().activeLayoutPresetId
           )
-          // "Apply to all" — drop any per-slot frame override so every
-          // screenshot ends up on this frame, not just the inheriting ones.
-          const slots = patch.screenshotSlots ?? canvas.screenshotSlots
-          return {
-            ...patch,
-            screenshotSlots: slots.map((slot) =>
-              slot.frame ? { ...slot, frame: undefined } : slot
-            ),
-          }
         },
         "frame"
       ),

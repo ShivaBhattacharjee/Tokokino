@@ -489,6 +489,7 @@ function CanvasViewInner({
   // The image-box CSS (transform, shadow, filter, radius var, border outline) is
   // shared with every screenshot slot via buildScreenshotImageStyle, so a slot
   // can never drift from the main screenshot's look.
+  const fullPageMediaStyle = fullPageCaptureMediaStyle(fullPageCapture)
   const {
     transform,
     imgStyle,
@@ -508,18 +509,16 @@ function CanvasViewInner({
     assetFilter: null,
     transformVarPrefix: "canvas-ts",
     borderAnimated,
-    fullPageMediaStyle: null,
+    fullPageMediaStyle,
   })
   imgStyle.opacity = screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     imgStyle.mixBlendMode = screenshotLayer.blendMode
   }
-  const fullPageMediaStyle = fullPageCaptureMediaStyle(fullPageCapture)
   const effectiveObjectFit = fullPageCaptureObjectFit(
     fullPageCapture,
     objectFit ?? "cover"
   )
-  if (fullPageMediaStyle) Object.assign(imgStyle, fullPageMediaStyle)
   const handleFullPageWheel = React.useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
       if (!fullPageCapture || isCanvasPreview) return

@@ -6,6 +6,7 @@ import { ElasticSlider } from "@/components/elastic-slider"
 import { sampleImageColorsRaw, useActiveCanvasField } from "@/lib/editor/store"
 import type { Border } from "@/lib/editor/state-types"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
+import { editorValueSchemas } from "@/lib/editor/value-schemas"
 import { cn } from "@/lib/utils"
 
 import { ColorPresetGrid, SubHeader } from "./primitives"
@@ -103,10 +104,20 @@ export function BorderSection() {
   const canvasScreenshot = useActiveCanvasField((c) => c.screenshot)
   const screenshot = selectedSlot?.src ?? canvasScreenshot
   const applyBorder = (nextBorder: typeof border) => {
-    applyStyle({ border: nextBorder })
+    applyStyle({
+      border: {
+        ...nextBorder,
+        width: editorValueSchemas.borderWidth.catch(0).parse(nextBorder.width),
+        padding: editorValueSchemas.borderInnerPadding
+          .catch(0)
+          .parse(nextBorder.padding),
+      },
+    })
   }
   const applyBorderRadius = (nextRadius: number) => {
-    applyStyle({ borderRadius: nextRadius })
+    applyStyle({
+      borderRadius: editorValueSchemas.borderRadius.catch(0).parse(nextRadius),
+    })
   }
   const enabled = border.color !== null
   const currentColor = border.color || DEFAULT_BORDER_COLOR

@@ -9,6 +9,7 @@ import {
   setLivePreviewVar,
 } from "@/lib/editor/live-preview-vars"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
+import { editorValueSchemas } from "@/lib/editor/value-schemas"
 import { cn } from "@/lib/utils"
 
 const PADDING_PREVIEW_VAR = "--editor-padding-preview"
@@ -49,7 +50,9 @@ export function PaddingSection() {
   }, [setPreviewPadding])
   const applyPadding = React.useCallback(
     (value: number) => {
-      applyStyle({ padding: value })
+      applyStyle({
+        padding: editorValueSchemas.padding.catch(0).parse(value),
+      })
       setDraftPadding(null)
       clearPreviewPaddingAfterPaint()
     },
