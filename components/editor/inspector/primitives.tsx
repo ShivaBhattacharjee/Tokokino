@@ -188,9 +188,12 @@ export function ColorPresetGrid({
             <span
               className="block size-full rounded-[inherit]"
               style={{
-                background: isCustom ? customColor : "transparent",
+                // Longhands only — mixing `background` + `backgroundImage`
+                // across isCustom toggles triggers React's shorthand conflict
+                // warning and can leave a stale gradient under a solid color.
+                backgroundColor: isCustom ? customColor : "transparent",
                 backgroundImage: isCustom
-                  ? undefined
+                  ? "none"
                   : "conic-gradient(from 180deg at 50% 50%, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)",
               }}
             />

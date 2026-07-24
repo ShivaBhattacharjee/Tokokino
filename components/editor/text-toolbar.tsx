@@ -699,9 +699,11 @@ function TextBorderSettings({
               <span
                 className="block size-full rounded-full"
                 style={{
-                  background: isCustomColor ? currentColor : undefined,
+                  // Longhands only — don't mix `background` + `backgroundImage`
+                  // or React warns and a stale gradient can stick under solids.
+                  backgroundColor: isCustomColor ? currentColor : "transparent",
                   backgroundImage: isCustomColor
-                    ? undefined
+                    ? "none"
                     : "conic-gradient(from 180deg, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)",
                 }}
               />

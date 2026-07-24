@@ -4,6 +4,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
+import {
+  MAIN_BARE_LEFT_VAR,
+  MAIN_BARE_TOP_VAR,
+} from "@/lib/editor/live-preview-vars"
 import { useEditor } from "@/lib/editor/store"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { BoxEmptyState } from "./box-empty-state"
@@ -11,6 +15,14 @@ import { frameFitStyle, framePositionTransform } from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
 import type { EditorTool } from "@/lib/editor/store"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
+
+/** Free-placement box matching bare {@link ScreenshotBare} left/top/size math. */
+export type EmptyFreePlacement = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
 
 type CanvasEmptyStateProps = {
   isDragOver: boolean
@@ -36,6 +48,12 @@ type CanvasEmptyStateProps = {
   /** When provided, the empty state is positioned using the anchor/offset like device frames. */
   screenshotAnchor?: { x: number; y: number }
   screenshotOffset?: { x: number; y: number }
+  /**
+   * Bare (no-frame) free placement — same pixel left/top/size math as
+   * {@link ScreenshotBare}. Takes priority over frame-style anchor positioning
+   * so empty templates land where the screenshot will after upload.
+   */
+  freePlacement?: EmptyFreePlacement | null
   /** The CSS transform string for tilt/scale (e.g. perspective + rotateX/Y/Z + scale). */
   transform?: string
   /** The shadow drop-filter for the screenshot box. */
@@ -67,6 +85,7 @@ export function CanvasEmptyState({
   innerLightingStyle,
   screenshotAnchor,
   screenshotOffset,
+  freePlacement,
   transform,
   shadowFilter,
   boxStyle,
@@ -103,6 +122,76 @@ export function CanvasEmptyState({
     trigger?.click()
   }
 
+  const interactionClass = cn(
+    "pointer-events-auto absolute top-0 left-0 select-none",
+    "overflow-hidden rounded-3xl border border-border/30 transition-all duration-300 ease-out dark:border-white/8",
+    "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35",
+    onPointerDown && activeTool === "pointer"
+      ? isBeingDragged
+        ? "cursor-grabbing transition-none"
+        : "cursor-grab"
+      : "cursor-pointer"
+  )
+
+  const emptyBody = (
+    <>
+      <InnerLightingOverlay style={innerLightingStyle} />
+      <BoxEmptyState
+        isDragOver={isDragOver}
+        onBrowse={onBrowse}
+        onCapture={onCapture}
+        onLoadTweet={onLoadTweet}
+        onDemo={onDemo}
+        compact={useCompact}
+        allowVideo={allowVideo}
+        defaultCaptureDevice={defaultCaptureDevice}
+        captureStateKey={captureStateKey}
+      />
+    </>
+  )
+
+  // Bare free placement: same pixel left/top/size path as ScreenshotBare so a
+  // template with corner anchors + offsets (e.g. Silent Reveal) doesn't jump
+  // the moment a screenshot lands.
+  if (freePlacement) {
+    return (
+      <div
+        className="pointer-events-none relative h-full w-full"
+        style={{ containerType: "size" }}
+      >
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+        <div
+          ref={rootRef}
+          onClick={handleAreaClick}
+          data-drag-over={isDragOver}
+          data-active={isActive}
+          data-editor-shadow-filter-target
+          data-editor-shadow-filter-base={shadowFilter || ""}
+          className={interactionClass}
+          style={{
+            ...boxStyle,
+            left: `var(${MAIN_BARE_LEFT_VAR}, ${freePlacement.left}px)`,
+            top: `var(${MAIN_BARE_TOP_VAR}, ${freePlacement.top}px)`,
+            width: freePlacement.width,
+            height: freePlacement.height,
+            maxWidth: "none",
+            maxHeight: "none",
+            transform: transform || undefined,
+            transformOrigin: "center",
+            transformStyle: "preserve-3d",
+            filter: shadowDropFilterPreviewCss(shadowFilter) || undefined,
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        >
+          {emptyBody}
+        </div>
+      </div>
+    )
+  }
+
   // When screenshotAnchor is provided, use absolute positioning like frame
   // empty states do — the box is sized via container queries and positioned
   // with framePositionTransform so it follows the preset direction.
@@ -125,16 +214,7 @@ export function CanvasEmptyState({
           data-active={isActive}
           data-editor-shadow-filter-target
           data-editor-shadow-filter-base={shadowFilter || ""}
-          className={cn(
-            "pointer-events-auto absolute top-0 left-0 max-h-full max-w-full select-none",
-            "overflow-hidden rounded-3xl border border-border/30 transition-all duration-300 ease-out dark:border-white/8",
-            "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35",
-            onPointerDown && activeTool === "pointer"
-              ? isBeingDragged
-                ? "cursor-grabbing transition-none"
-                : "cursor-grab"
-              : "cursor-pointer"
-          )}
+          className={cn(interactionClass, "max-h-full max-w-full")}
           style={{
             ...fitStyle,
             ...boxStyle,
@@ -158,18 +238,7 @@ export function CanvasEmptyState({
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          <InnerLightingOverlay style={innerLightingStyle} />
-          <BoxEmptyState
-            isDragOver={isDragOver}
-            onBrowse={onBrowse}
-            onCapture={onCapture}
-            onLoadTweet={onLoadTweet}
-            onDemo={onDemo}
-            compact={useCompact}
-            allowVideo={allowVideo}
-            defaultCaptureDevice={defaultCaptureDevice}
-            captureStateKey={captureStateKey}
-          />
+          {emptyBody}
         </div>
       </div>
     )

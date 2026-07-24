@@ -67,6 +67,7 @@ import {
 import { MockupEmptyState } from "./mockup-empty-state"
 import {
   deviceMockupSpec,
+  fitContainBox,
   lightingOverlayCss,
   overlayLayerCss,
   screenshotPlacementStyle,
@@ -257,6 +258,10 @@ function CanvasViewInner({
     w: number
     h: number
   } | null>(null)
+  // Ignore stale intrinsic size while empty. Keeping naturalDims after delete
+  // made Auto-aspect empty boxes reuse the previous image ratio (tall full-page
+  // captures became a thin vertical strip) even after applying a new template.
+  const activeNaturalDims = screenshot ? naturalDims : null
   // Chrome/Edge: native object-view-box. Firefox/Safari: overflow polyfill.
   // Server snapshot prefers native so SSR matches the working Chrome path.
   const nativeVideoCrop = React.useSyncExternalStore(
@@ -289,7 +294,7 @@ function CanvasViewInner({
     // Natural dims cover a media swap: they reset to null and land again on
     // load, and without them a new image/video keeps the previous media's
     // measured box (the contain shell is sized from it, so it never resizes).
-    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}:${naturalDims ? `${naturalDims.w}x${naturalDims.h}` : "none"}`,
+    layoutKey: `${inRowMode ? "row" : "single"}:${frame.id}:${frame.orientation}:${screenshotSlots.length}:${widthPx}:${heightPx}:${padding}:${objectFit ?? "cover"}:${activeNaturalDims ? `${activeNaturalDims.w}x${activeNaturalDims.h}` : "none"}`,
   })
   const suppressTransitionPlacement = useSuppressTransitionOnChange(
     placementDims
@@ -375,20 +380,24 @@ function CanvasViewInner({
   ])
   const isAuto = aspect.id === "auto" || aspect.w === 0 || aspect.h === 0
   const canUseNaturalCanvasAspect =
-    isAuto && naturalDims && !inRowMode && frame.id === "none"
+    isAuto && activeNaturalDims && !inRowMode && frame.id === "none"
   // Visible media size after a non-destructive video crop (full size otherwise).
   const croppedDims =
-    naturalDims &&
+    activeNaturalDims &&
     lastCropRegion &&
     isVideoSrc(screenshot) &&
     isActiveCropRegion(lastCropRegion)
-      ? croppedNaturalSize(naturalDims.w, naturalDims.h, lastCropRegion)
+      ? croppedNaturalSize(
+          activeNaturalDims.w,
+          activeNaturalDims.h,
+          lastCropRegion
+        )
       : null
   // Drives the CANVAS box (and so the encoder's frame size), which must not move
   // while a crop animates — see `cropAnimated`.
   const visibleNaturalDims = cropAnimated
-    ? naturalDims
-    : (croppedDims ?? naturalDims)
+    ? activeNaturalDims
+    : (croppedDims ?? activeNaturalDims)
   // Auto canvas aspect follows the visible video crop when one is set.
   const autoDims = canUseNaturalCanvasAspect ? visibleNaturalDims : null
   const aw = autoDims ? autoDims.w : aspect.w || 16
@@ -477,6 +486,46 @@ function CanvasViewInner({
   const positionedStyle: React.CSSProperties | null = placementDims
     ? screenshotPlacementStyle(placementDims, scaleFactor, positionX, positionY)
     : null
+  // Bare (no-frame) empty / preparing placeholder: same free-placement math as
+  // ScreenshotBare so templates with corner anchors + offsets (Silent Reveal)
+  // don't jump when a screenshot lands. Assumes the empty box fills the stage
+  // the way cover/contain-matching-aspect will after upload.
+  const bareEmptyFreePlacement = React.useMemo(() => {
+    if (frame.id !== "none" || inRowMode || tweet) return null
+    // CSS % padding is relative to the containing block's WIDTH on every side.
+    const padPx = (Math.max(0, Math.min(240, padding)) / 1200) * widthPx
+    const stageW = Math.max(1, widthPx - 2 * padPx)
+    const stageH = Math.max(1, heightPx - 2 * padPx)
+    const fit = objectFit ?? "contain"
+    let imgW = stageW
+    let imgH = stageH
+    if (fit === "contain") {
+      const box = fitContainBox(stageW, stageH, canvasAspectRatio)
+      imgW = box.width
+      imgH = box.height
+    }
+    const base = screenshotPlacementStyle(
+      { stageW, stageH, imgW, imgH },
+      scaleFactor,
+      positionX,
+      positionY
+    )
+    const left = typeof base.left === "number" ? base.left : 0
+    const top = typeof base.top === "number" ? base.top : 0
+    return { left, top, width: imgW, height: imgH }
+  }, [
+    canvasAspectRatio,
+    frame.id,
+    heightPx,
+    inRowMode,
+    objectFit,
+    padding,
+    positionX,
+    positionY,
+    scaleFactor,
+    tweet,
+    widthPx,
+  ])
   const enhanceFilter = enhanceFilterCss(enhance)
   // Read the animated radius via a var so an Animate-mode clip can ease it,
   // falling back to the committed value at rest / outside Animate mode.
@@ -666,12 +715,23 @@ function CanvasViewInner({
           positionedStyle.left + offset.x,
           positionedStyle.top + offset.y
         )
+        return
+      }
+
+      // Empty bare canvas: same free-placement base as the empty placeholder.
+      if (bareEmptyFreePlacement) {
+        setMainScreenshotBarePreviewPx(
+          canvasEl,
+          bareEmptyFreePlacement.left + offset.x,
+          bareEmptyFreePlacement.top + offset.y
+        )
       }
     },
     [
       ah,
       aspect.id,
       aw,
+      bareEmptyFreePlacement,
       frame,
       inRowMode,
       positionedStyle,
@@ -1130,6 +1190,16 @@ function CanvasViewInner({
                   label="Preparing GIF…"
                   screenshotAnchor={screenshotAnchor}
                   screenshotOffset={effectiveOffset}
+                  freePlacement={
+                    bareEmptyFreePlacement
+                      ? {
+                          left: bareEmptyFreePlacement.left + effectiveOffset.x,
+                          top: bareEmptyFreePlacement.top + effectiveOffset.y,
+                          width: bareEmptyFreePlacement.width,
+                          height: bareEmptyFreePlacement.height,
+                        }
+                      : null
+                  }
                   transform={transform}
                   shadowFilter={computedShadowFilter}
                   boxStyle={emptyStateBoxStyle}
@@ -1221,13 +1291,23 @@ function CanvasViewInner({
                   innerLightingStyle={innerLightingStyle}
                   screenshotAnchor={screenshotAnchor}
                   screenshotOffset={effectiveOffset}
+                  freePlacement={
+                    bareEmptyFreePlacement
+                      ? {
+                          left: bareEmptyFreePlacement.left + effectiveOffset.x,
+                          top: bareEmptyFreePlacement.top + effectiveOffset.y,
+                          width: bareEmptyFreePlacement.width,
+                          height: bareEmptyFreePlacement.height,
+                        }
+                      : null
+                  }
                   transform={transform}
                   shadowFilter={computedShadowFilter}
                   boxStyle={emptyStateBoxStyle}
-                  // Match the canvas box's aspect (which follows the last loaded
-                  // screenshot's natural ratio on an auto canvas) so deleting the
-                  // screenshot doesn't snap the empty box to the default 16:10 and
-                  // make it jump under tilt/scale.
+                  // Canvas aspect for frame-style empty (and portrait compact).
+                  // Free-placement bare empty uses stage contain math instead;
+                  // activeNaturalDims is null while empty so Auto doesn't keep a
+                  // previous tall capture as a thin strip after delete.
                   aspectW={aw}
                   aspectH={ah}
                   compact={
