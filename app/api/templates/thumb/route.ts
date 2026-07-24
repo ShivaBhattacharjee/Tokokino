@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { requireSession } from "@/lib/api-auth"
+import { assertTemplateMaintainer, requireSession } from "@/lib/api-auth"
 import {
   MAX_TEMPLATE_ASSET_BYTES,
   templateAssetExt,
@@ -24,6 +24,8 @@ export async function POST(request: Request) {
 
   const auth = await requireSession(request)
   if (!auth.ok) return auth.response
+  const forbidden = assertTemplateMaintainer(auth.session)
+  if (forbidden) return forbidden
 
   const slug = new URL(request.url).searchParams.get("slug")?.trim() ?? ""
   if (!SLUG_RE.test(slug)) {

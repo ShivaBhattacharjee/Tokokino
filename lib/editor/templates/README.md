@@ -8,13 +8,14 @@ their poster/preview assets live on R2 at `assets.tokokino.com/templates/`.
 ## Authoring a template
 
 1. Build the composition in the editor (image or animate mode).
-2. Click the dev-only **Copy template** button in the top bar (only rendered
-   when `NODE_ENV === "development"`). Enter a kebab-case slug when prompted.
-   This:
+2. Click the **Copy template** button in the top bar (shown when
+   `NEXT_PUBLIC_ENABLE_TEMPLATE_COPY=true`). Enter a kebab-case slug when
+   prompted. This:
    - copies the full `DraftPayload` JSON to the clipboard, and
    - publishes a poster to R2 at `templates/<slug>.jpg` via
-     `POST /api/templates/thumb` (dev-only), returning its public URL (shown in
-     the success toast and logged to the console).
+     `POST /api/templates/thumb` (disabled in production; requires your
+     account email in `TEMPLATE_MAINTAINER_EMAILS`), returning its public URL
+     (shown in the success toast and logged to the console).
 3. For an **animation** template, also record a short loop-friendly preview clip
    and publish it (e.g. upload `templates/<slug>.webm`).
 4. Create `lib/editor/templates/<slug>.ts`:

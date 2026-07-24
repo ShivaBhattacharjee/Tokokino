@@ -3,6 +3,7 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { getAuth } from "@/lib/auth"
+import { env } from "@/lib/env"
 
 export type AuthorizedSession = {
   session: {
@@ -33,6 +34,27 @@ export async function requireSession(
     }
   }
   return { ok: true, session }
+}
+
+/**
+ * Session must belong to a maintainer email listed in
+ * TEMPLATE_MAINTAINER_EMAILS. Fail closed when the allowlist is empty.
+ */
+export function assertTemplateMaintainer(
+  session: AuthorizedSession
+): NextResponse | null {
+  const email = session.user.email?.trim().toLowerCase()
+  if (!email) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  const allowed = (env.TEMPLATE_MAINTAINER_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+  if (!allowed.includes(email)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  return null
 }
 
 /**

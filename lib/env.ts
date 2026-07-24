@@ -19,6 +19,11 @@ const serverSchema = z.object({
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   CLOUDFLARE_BROWSER_API_TOKEN: z.string().optional(),
   FEEDBACK_DISCORD_WEBHOOK_URL: z.url().optional(),
+  /**
+   * Comma-separated emails allowed to publish curated template assets via
+   * POST /api/templates/thumb (dev/staging only). Empty → no one may publish.
+   */
+  TEMPLATE_MAINTAINER_EMAILS: z.string().optional(),
 })
 
 const booleanEnvFlag = z
@@ -49,6 +54,7 @@ const serverEnv = serverSchema.parse({
   CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
   CLOUDFLARE_BROWSER_API_TOKEN: process.env.CLOUDFLARE_BROWSER_API_TOKEN,
   FEEDBACK_DISCORD_WEBHOOK_URL: process.env.FEEDBACK_DISCORD_WEBHOOK_URL,
+  TEMPLATE_MAINTAINER_EMAILS: process.env.TEMPLATE_MAINTAINER_EMAILS,
 })
 
 const clientEnv = clientSchema.parse({
