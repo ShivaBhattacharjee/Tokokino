@@ -4,9 +4,14 @@ import * as React from "react"
 
 import { ShimmerBox } from "@/components/ui/shimmer-image"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
+import {
+  MAIN_BARE_LEFT_VAR,
+  MAIN_BARE_TOP_VAR,
+} from "@/lib/editor/live-preview-vars"
 import { useEditor } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
+import type { EmptyFreePlacement } from "./canvas-empty-state"
 import { frameFitStyle, framePositionTransform } from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
 
@@ -18,6 +23,8 @@ type MediaPreparingStateProps = {
   innerLightingStyle?: React.CSSProperties | null
   screenshotAnchor: { x: number; y: number }
   screenshotOffset?: { x: number; y: number }
+  /** Bare free placement — same as {@link CanvasEmptyState.freePlacement}. */
+  freePlacement?: EmptyFreePlacement | null
   transform?: string
   shadowFilter?: string
   boxStyle?: React.CSSProperties
@@ -36,6 +43,7 @@ export function MediaPreparingState({
   innerLightingStyle,
   screenshotAnchor,
   screenshotOffset,
+  freePlacement,
   transform,
   shadowFilter,
   boxStyle,
@@ -52,6 +60,59 @@ export function MediaPreparingState({
     }
   )
 
+  const shellClass = cn(
+    "absolute top-0 left-0 overflow-hidden select-none",
+    "rounded-3xl border border-border/40"
+  )
+
+  const content = (
+    <>
+      <InnerLightingOverlay style={innerLightingStyle} />
+      <ShimmerBox className="absolute inset-0 size-full rounded-3xl" />
+      <div className="absolute inset-0 flex items-center justify-center px-4">
+        <span
+          aria-hidden
+          className="animate-text-shimmer bg-linear-to-r from-muted-foreground/45 via-foreground/70 to-muted-foreground/45 bg-clip-text text-xs font-medium text-transparent sm:text-sm dark:from-muted-foreground/40 dark:via-muted-foreground dark:to-muted-foreground/40"
+        >
+          {label}
+        </span>
+      </div>
+    </>
+  )
+
+  if (freePlacement) {
+    return (
+      <div
+        className="pointer-events-none relative h-full w-full"
+        style={{ containerType: "size" }}
+        role="status"
+        aria-live="polite"
+        aria-label={label}
+      >
+        <div
+          data-editor-shadow-filter-target
+          data-editor-shadow-filter-base={shadowFilter || ""}
+          className={shellClass}
+          style={{
+            ...boxStyle,
+            left: `var(${MAIN_BARE_LEFT_VAR}, ${freePlacement.left}px)`,
+            top: `var(${MAIN_BARE_TOP_VAR}, ${freePlacement.top}px)`,
+            width: freePlacement.width,
+            height: freePlacement.height,
+            maxWidth: "none",
+            maxHeight: "none",
+            transform: transform || undefined,
+            transformOrigin: "center",
+            transformStyle: "preserve-3d",
+            filter: shadowDropFilterPreviewCss(shadowFilter) || undefined,
+          }}
+        >
+          {content}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="pointer-events-none relative h-full w-full"
@@ -63,10 +124,7 @@ export function MediaPreparingState({
       <div
         data-editor-shadow-filter-target
         data-editor-shadow-filter-base={shadowFilter || ""}
-        className={cn(
-          "absolute top-0 left-0 max-h-full max-w-full overflow-hidden select-none",
-          "rounded-3xl border border-border/40"
-        )}
+        className={cn(shellClass, "max-h-full max-w-full")}
         style={{
           ...fitStyle,
           ...boxStyle,
@@ -82,16 +140,7 @@ export function MediaPreparingState({
           filter: shadowDropFilterPreviewCss(shadowFilter) || undefined,
         }}
       >
-        <InnerLightingOverlay style={innerLightingStyle} />
-        <ShimmerBox className="absolute inset-0 size-full rounded-3xl" />
-        <div className="absolute inset-0 flex items-center justify-center px-4">
-          <span
-            aria-hidden
-            className="animate-text-shimmer bg-linear-to-r from-muted-foreground/45 via-foreground/70 to-muted-foreground/45 bg-clip-text text-xs font-medium text-transparent sm:text-sm dark:from-muted-foreground/40 dark:via-muted-foreground dark:to-muted-foreground/40"
-          >
-            {label}
-          </span>
-        </div>
+        {content}
       </div>
     </div>
   )

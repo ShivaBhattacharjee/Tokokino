@@ -65,4 +65,27 @@ describe("CanvasEmptyState", () => {
     expect(positioned).not.toBeNull()
     expect(positioned.style.transform).toContain("translate(-50%, -50%)")
   })
+
+  it("prefers bare free placement over frame-style anchor positioning", () => {
+    const { container } = render(
+      <CanvasEmptyState
+        isDragOver={false}
+        onBrowse={() => {}}
+        screenshotAnchor={{ x: 100, y: 100 }}
+        freePlacement={{ left: 12, top: 34, width: 200, height: 120 }}
+        transform="perspective(1400px) scale(1.16)"
+      />
+    )
+    const positioned = container.querySelector(
+      "[data-editor-shadow-filter-target]"
+    ) as HTMLElement
+    expect(positioned).not.toBeNull()
+    // Free placement uses pixel left/top (via live-preview vars) — not the
+    // frame translate(-50%, -50%) centering used by device mockups.
+    expect(positioned.style.left).toContain("12px")
+    expect(positioned.style.top).toContain("34px")
+    expect(positioned.style.width).toBe("200px")
+    expect(positioned.style.height).toBe("120px")
+    expect(positioned.style.transform).toBe("perspective(1400px) scale(1.16)")
+  })
 })
