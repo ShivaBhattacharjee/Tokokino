@@ -12,6 +12,10 @@ import {
   LIGHTING_IMAGE_VAR,
   LIGHTING_OPACITY_VAR,
 } from "@/components/editor/inspector/backdrop-section-parts/constants"
+import {
+  MAIN_BARE_LEFT_VAR,
+  MAIN_BARE_TOP_VAR,
+} from "@/lib/editor/live-preview-vars"
 import { DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
 import { overlayUrl } from "@/lib/editor/presets"
 import type {
@@ -602,5 +606,43 @@ export function screenshotPlacementStyle(
   return {
     left: visualLeft + (visualW - dims.imgW) / 2,
     top: visualTop + (visualH - dims.imgH) / 2,
+  }
+}
+
+/** Free-placement box matching bare {@link ScreenshotBare} left/top/size math. */
+export type BareFreePlacement = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * Style object for bare (no-frame) empty / preparing placeholders — same pixel
+ * left/top/size path as {@link ScreenshotBare}, with live-preview CSS vars.
+ */
+export function bareFreePlacementStyle({
+  freePlacement,
+  boxStyle,
+  transform,
+  shadowFilter,
+}: {
+  freePlacement: BareFreePlacement
+  boxStyle?: React.CSSProperties
+  transform?: string
+  shadowFilter?: string
+}): React.CSSProperties {
+  return {
+    ...boxStyle,
+    left: `var(${MAIN_BARE_LEFT_VAR}, ${freePlacement.left}px)`,
+    top: `var(${MAIN_BARE_TOP_VAR}, ${freePlacement.top}px)`,
+    width: freePlacement.width,
+    height: freePlacement.height,
+    maxWidth: "none",
+    maxHeight: "none",
+    transform: transform || undefined,
+    transformOrigin: "center",
+    transformStyle: "preserve-3d",
+    filter: shadowDropFilterPreviewCss(shadowFilter) || undefined,
   }
 }

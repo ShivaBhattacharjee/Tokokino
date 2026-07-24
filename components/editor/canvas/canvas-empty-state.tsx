@@ -4,25 +4,21 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
-import {
-  MAIN_BARE_LEFT_VAR,
-  MAIN_BARE_TOP_VAR,
-} from "@/lib/editor/live-preview-vars"
 import { useEditor } from "@/lib/editor/store"
 import type { TweetCardSettings } from "@/lib/editor/tweet-settings"
 import { BoxEmptyState } from "./box-empty-state"
-import { frameFitStyle, framePositionTransform } from "./helpers"
+import {
+  bareFreePlacementStyle,
+  frameFitStyle,
+  framePositionTransform,
+  type BareFreePlacement,
+} from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
 import type { EditorTool } from "@/lib/editor/store"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
 /** Free-placement box matching bare {@link ScreenshotBare} left/top/size math. */
-export type EmptyFreePlacement = {
-  left: number
-  top: number
-  width: number
-  height: number
-}
+export type EmptyFreePlacement = BareFreePlacement
 
 type CanvasEmptyStateProps = {
   isDragOver: boolean
@@ -168,19 +164,12 @@ export function CanvasEmptyState({
           data-editor-shadow-filter-target
           data-editor-shadow-filter-base={shadowFilter || ""}
           className={interactionClass}
-          style={{
-            ...boxStyle,
-            left: `var(${MAIN_BARE_LEFT_VAR}, ${freePlacement.left}px)`,
-            top: `var(${MAIN_BARE_TOP_VAR}, ${freePlacement.top}px)`,
-            width: freePlacement.width,
-            height: freePlacement.height,
-            maxWidth: "none",
-            maxHeight: "none",
-            transform: transform || undefined,
-            transformOrigin: "center",
-            transformStyle: "preserve-3d",
-            filter: shadowDropFilterPreviewCss(shadowFilter) || undefined,
-          }}
+          style={bareFreePlacementStyle({
+            freePlacement,
+            boxStyle,
+            transform,
+            shadowFilter,
+          })}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

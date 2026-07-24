@@ -496,7 +496,9 @@ function CanvasViewInner({
     const padPx = (Math.max(0, Math.min(240, padding)) / 1200) * widthPx
     const stageW = Math.max(1, widthPx - 2 * padPx)
     const stageH = Math.max(1, heightPx - 2 * padPx)
-    const fit = objectFit ?? "contain"
+    // Match ScreenshotBare / buildScreenshotImageStyle: unset objectFit is cover.
+    // Only explicit "contain" uses fitContainBox so the placeholder matches upload.
+    const fit = objectFit ?? "cover"
     let imgW = stageW
     let imgH = stageH
     if (fit === "contain") {

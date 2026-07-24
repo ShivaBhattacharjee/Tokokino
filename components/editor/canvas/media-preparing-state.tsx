@@ -4,15 +4,15 @@ import * as React from "react"
 
 import { ShimmerBox } from "@/components/ui/shimmer-image"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
-import {
-  MAIN_BARE_LEFT_VAR,
-  MAIN_BARE_TOP_VAR,
-} from "@/lib/editor/live-preview-vars"
 import { useEditor } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
-import type { EmptyFreePlacement } from "./canvas-empty-state"
-import { frameFitStyle, framePositionTransform } from "./helpers"
+import {
+  bareFreePlacementStyle,
+  frameFitStyle,
+  framePositionTransform,
+  type BareFreePlacement,
+} from "./helpers"
 import { InnerLightingOverlay } from "./inner-lighting-overlay"
 
 type MediaPreparingStateProps = {
@@ -24,7 +24,7 @@ type MediaPreparingStateProps = {
   screenshotAnchor: { x: number; y: number }
   screenshotOffset?: { x: number; y: number }
   /** Bare free placement — same as {@link CanvasEmptyState.freePlacement}. */
-  freePlacement?: EmptyFreePlacement | null
+  freePlacement?: BareFreePlacement | null
   transform?: string
   shadowFilter?: string
   boxStyle?: React.CSSProperties
@@ -93,19 +93,12 @@ export function MediaPreparingState({
           data-editor-shadow-filter-target
           data-editor-shadow-filter-base={shadowFilter || ""}
           className={shellClass}
-          style={{
-            ...boxStyle,
-            left: `var(${MAIN_BARE_LEFT_VAR}, ${freePlacement.left}px)`,
-            top: `var(${MAIN_BARE_TOP_VAR}, ${freePlacement.top}px)`,
-            width: freePlacement.width,
-            height: freePlacement.height,
-            maxWidth: "none",
-            maxHeight: "none",
-            transform: transform || undefined,
-            transformOrigin: "center",
-            transformStyle: "preserve-3d",
-            filter: shadowDropFilterPreviewCss(shadowFilter) || undefined,
-          }}
+          style={bareFreePlacementStyle({
+            freePlacement,
+            boxStyle,
+            transform,
+            shadowFilter,
+          })}
         >
           {content}
         </div>

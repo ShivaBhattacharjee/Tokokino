@@ -20,10 +20,14 @@ vi.mock("@/components/editor/canvas/box-empty-state", () => ({
   ),
 }))
 
-vi.mock("@/components/editor/canvas/helpers", () => ({
-  frameFitStyle: () => ({}),
-  framePositionTransform: () => "translate(-50%, -50%)",
-}))
+vi.mock("@/components/editor/canvas/helpers", async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...(actual as object),
+    frameFitStyle: () => ({}),
+    framePositionTransform: () => "translate(-50%, -50%)",
+  }
+})
 
 import { CanvasEmptyState } from "@/components/editor/canvas/canvas-empty-state"
 
