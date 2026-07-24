@@ -1,12 +1,16 @@
 import type { Template, TemplateTab } from "./types"
 import browserDark from "./browser-dark"
+import galaxySandStage from "./galaxy-sand-stage"
 import ipadShowcase from "./ipad-showcase"
 import iphonePresentation from "./iphone-presentation"
 import iphoneShowcase from "./iphone-showcase"
 import iphoneSpotlight from "./iphone-spotlight"
+import pastleUiShowcase from "./pastle-ui-showcase"
 import responsiveLayout from "./responsive-layout"
 import screenshotGlow from "./screenshot-glow"
 import silentReveal from "./silent-reveal"
+import twinPhoneStage from "./twin-phone-stage"
+import uiCloseupShowcase from "./ui-closeup-showcase"
 
 export type { Template, TemplateCategory, TemplateTab } from "./types"
 
@@ -17,14 +21,22 @@ export type { Template, TemplateCategory, TemplateTab } from "./types"
  * module, and register it here pointing `thumbnail` at the returned R2 URL.
  */
 export const TEMPLATES: Template[] = [
+  // Normal screenshots
   browserDark,
   screenshotGlow,
   silentReveal,
+  // iPad
+  ipadShowcase,
+  // Responsive / multi-device
+  responsiveLayout,
+  // All phones together
   iphoneShowcase,
   iphonePresentation,
   iphoneSpotlight,
-  ipadShowcase,
-  responsiveLayout,
+  pastleUiShowcase,
+  uiCloseupShowcase,
+  twinPhoneStage,
+  galaxySandStage,
 ]
 
 const TAB_LABELS: Record<TemplateTab, string> = {

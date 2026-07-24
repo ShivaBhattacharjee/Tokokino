@@ -27,7 +27,7 @@ import type { Template, TemplateTab } from "@/lib/editor/templates"
 import { cn } from "@/lib/utils"
 
 const DIALOG_SHELL =
-  "flex h-[min(760px,calc(100dvh-1.5rem))] w-[min(calc(100vw-1.5rem),1080px)] flex-col gap-0 overflow-hidden rounded-md bg-background p-0 sm:max-w-[1080px]"
+  "flex h-[min(725px,calc(100dvh-1.5rem))] w-[min(calc(100vw-1.5rem),1080px)] flex-col gap-0 overflow-hidden rounded-md bg-background p-0 sm:max-w-[1080px]"
 
 const TABS: TemplateTab[] = ["all", "image", "animation"]
 

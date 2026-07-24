@@ -1,0 +1,151 @@
+import type { Template } from "./types"
+
+const uiCloseupShowcase: Template = {
+  id: "ui-closeup-showcase",
+  name: "UI Closeup Showcase",
+  category: "image",
+  thumbnail: "https://assets.tokokino.com/templates/ui-closeup-showcase.jpg",
+  state: {
+    schemaVersion: 1,
+    present: {
+      activeTool: "pointer",
+      aspect: {
+        id: "auto",
+        w: 0,
+        h: 0,
+      },
+      canvasZoom: 100,
+      annotation: {
+        mode: "pen",
+        color: "#ef4444",
+        strokeWidth: 4,
+        lineStyle: "solid",
+        blurEffect: "blur",
+        blurAmount: 14,
+      },
+      canvases: [
+        {
+          screenshot: null,
+          originalScreenshot: null,
+          lastCropRegion: null,
+          videoClips: null,
+          background: {
+            type: "auto",
+            value: "linear-gradient(0deg, #979797, #cccccb)",
+          },
+          padding: 40,
+          borderRadius: 7,
+          canvasBorderRadius: 0,
+          border: {
+            color: null,
+            width: 1,
+            style: "solid",
+            padding: 0,
+          },
+          backdrop: {
+            effects: {
+              noise: 0,
+              blur: 0,
+              brightness: 100,
+              contrast: 100,
+              saturation: 100,
+              hue: 0,
+              grayscale: 0,
+              sepia: 0,
+              invert: 0,
+              opacity: 100,
+            },
+            pattern: {
+              ids: [],
+              intensity: 50,
+              thickness: 1,
+              color: "#FFFFFF",
+            },
+            lighting: {
+              target: "inner",
+              intensity: 0,
+              direction: "0-0",
+              color: "#FFFFFF",
+            },
+            filter: "none",
+          },
+          tilt: {
+            rx: 0,
+            ry: 19,
+            rz: 0,
+          },
+          scale: 130,
+          screenshotPosition: "center",
+          screenshotOffset: {
+            x: 13.476122606981983,
+            y: -155.29235289977476,
+          },
+          objectFit: "contain",
+          screenshotLayer: {
+            zIndex: 5,
+            opacity: 100,
+            blendMode: "normal",
+            hidden: false,
+          },
+          shadow: {
+            type: "glow",
+            intensity: 100,
+            lightSource: "2-0",
+            color: "#FFFFFF",
+          },
+          overlay: {
+            id: null,
+            opacity: 50,
+            position: "overlay",
+          },
+          frame: {
+            id: "iphone_17",
+            color: "black",
+            orientation: "vertical",
+          },
+          portrait: {
+            mode: "off",
+            intensity: 60,
+            position: 50,
+            distance: 50,
+          },
+          texts: [],
+          assets: [],
+          enhance: "off",
+          annotations: [],
+          annotationShapes: [],
+          screenshotSlots: [],
+          frameAddress: "",
+          tweet: null,
+          animation: {
+            durationMs: 5000,
+            clips: [],
+          },
+          id: "canvas-default",
+          position: {
+            x: 0,
+            y: 0,
+          },
+          fullPageCapture: {
+            scrollPosition: 0,
+          },
+        },
+      ],
+      activeCanvasId: "canvas-default",
+    },
+    ui: {
+      presetTab: "single",
+      activeLayoutPresetId: null,
+      activeCustomPresetId: null,
+      activeSinglePresetId: null,
+      bulkEditMode: false,
+      bulkViewportZoom: 1,
+      bulkScale: 65,
+      previewAutoScrollDelay: 3000,
+      previewAnimation: "slide",
+      isAnimateMode: false,
+    },
+  },
+}
+
+export default uiCloseupShowcase
