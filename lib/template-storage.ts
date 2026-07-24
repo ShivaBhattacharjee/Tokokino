@@ -18,8 +18,14 @@ const EXT_BY_CONTENT_TYPE: Record<string, string> = {
   "video/mp4": "mp4",
 }
 
+export function normalizeTemplateAssetContentType(contentType: string): string {
+  return contentType.split(";")[0]?.trim().toLowerCase() ?? ""
+}
+
 export function templateAssetExt(contentType: string): string | null {
-  return EXT_BY_CONTENT_TYPE[contentType.toLowerCase()] ?? null
+  return (
+    EXT_BY_CONTENT_TYPE[normalizeTemplateAssetContentType(contentType)] ?? null
+  )
 }
 
 export function templateAssetKey(slug: string, ext: string): string {
@@ -54,13 +60,14 @@ export async function uploadTemplateAsset({
   }
 
   const key = templateAssetKey(slug, ext)
+  const normalizedContentType = normalizeTemplateAssetContentType(contentType)
   const { bucket } = requireR2Config()
   await getR2Client().send(
     new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       Body: body,
-      ContentType: contentType,
+      ContentType: normalizedContentType,
       CacheControl: "public, max-age=31536000, immutable",
     })
   )

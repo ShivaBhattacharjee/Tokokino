@@ -1079,12 +1079,19 @@ export function TopBar() {
     if (slugInput === undefined) return
     const toastId = toast.loading("Capturing template…")
     try {
-      const { category, slug, thumbnailUrl } =
+      const { category, slug, thumbnailUrl, previewUrl } =
         await captureCurrentAsTemplate(slugInput)
       if (thumbnailUrl) {
         console.log(`[template] ${slug} (${category}) poster → ${thumbnailUrl}`)
+        if (previewUrl) {
+          console.log(
+            `[template] ${slug} (${category}) preview → ${previewUrl}`
+          )
+        }
         toast.success(
-          `Template JSON copied (${category}). Poster: ${thumbnailUrl}`,
+          previewUrl
+            ? `Template JSON copied (${category}). Poster + WebM uploaded.`
+            : `Template JSON copied (${category}). Poster: ${thumbnailUrl}`,
           { id: toastId, duration: 12000 }
         )
       } else {
