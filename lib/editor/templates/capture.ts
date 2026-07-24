@@ -1,4 +1,5 @@
 import { captureCanvasThumbnail } from "@/lib/editor/export"
+import { exportAnimationBlob } from "@/lib/editor/animation-export"
 import type {
   Background,
   CanvasState,
@@ -16,6 +17,8 @@ export type CapturedTemplate = {
   json: string
   /** Permanent R2 poster URL, or null if the upload was skipped/failed. */
   thumbnailUrl: string | null
+  /** Permanent R2 hover-preview URL for animation templates. */
+  previewUrl: string | null
 }
 
 function isBulky(value: string | null | undefined): boolean {
@@ -73,18 +76,17 @@ function slugify(input: string): string {
   )
 }
 
-async function publishPoster(slug: string): Promise<string | null> {
-  const state = useEditorStore.getState()
-  const thumb = await captureCanvasThumbnail(state.present.activeCanvasId, 800)
-  if (!thumb) return null
-
+async function publishTemplateAsset(
+  slug: string,
+  asset: Blob
+): Promise<string> {
   const res = await fetch(
     `/api/templates/thumb?slug=${encodeURIComponent(slug)}`,
     {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": thumb.type || "image/jpeg" },
-      body: thumb,
+      headers: { "Content-Type": asset.type || "application/octet-stream" },
+      body: asset,
     }
   )
   const data = (await res.json().catch(() => null)) as {
@@ -92,9 +94,36 @@ async function publishPoster(slug: string): Promise<string | null> {
     error?: string
   } | null
   if (!res.ok || !data?.url) {
-    throw new Error(data?.error ?? "Could not publish poster")
+    throw new Error(data?.error ?? "Could not publish template asset")
   }
   return data.url
+}
+
+async function publishPoster(slug: string): Promise<string | null> {
+  const state = useEditorStore.getState()
+  const thumb = await captureCanvasThumbnail(state.present.activeCanvasId, 800)
+  if (!thumb) return null
+
+  return publishTemplateAsset(slug, thumb)
+}
+
+async function publishAnimationPreview(slug: string): Promise<string | null> {
+  const state = useEditorStore.getState()
+  const canvasId = state.present.activeCanvasId
+  const result = await exportAnimationBlob(canvasId, {
+    format: "webm",
+    fps: 24,
+    targetWidth: 720,
+    watermark: false,
+    capture: "auto",
+  })
+
+  return publishTemplateAsset(
+    slug,
+    result.blob.type
+      ? result.blob
+      : new Blob([result.blob], { type: result.contentType || "video/webm" })
+  )
 }
 
 /**
@@ -146,5 +175,14 @@ export async function captureCurrentAsTemplate(
     console.warn("Could not publish template poster", err)
   }
 
-  return { category, slug, json, thumbnailUrl }
+  let previewUrl: string | null = null
+  if (category === "animation") {
+    try {
+      previewUrl = await publishAnimationPreview(slug)
+    } catch (err) {
+      console.warn("Could not publish template animation preview", err)
+    }
+  }
+
+  return { category, slug, json, thumbnailUrl, previewUrl }
 }

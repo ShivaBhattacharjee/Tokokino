@@ -21,6 +21,7 @@ import {
   type DeviceFrame,
   type EditorTool,
 } from "@/lib/editor/store"
+import { useAnimationPlayerOptional } from "@/hooks/use-animation-player"
 import { useFloatingToolbarRect } from "@/hooks/use-floating-toolbar-rect"
 import { cn } from "@/lib/utils"
 
@@ -133,6 +134,8 @@ export function MainScreenshotRender({
   // `style.transition = none` that any re-render would clobber) so it can't be
   // reintroduced mid-drag.
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  const animationPlayer = useAnimationPlayerOptional()
+  const isAnimationPlaying = animationPlayer?.isPlaying ?? false
   // A position-pad / group drag drives this box via the live-preview vars while
   // it still carries its move easing, so it would ease ~300ms behind the pad
   // (the preview appears to land somewhere other than the committed spot). Drop
@@ -162,7 +165,11 @@ export function MainScreenshotRender({
     frame.id,
     imgStyle.borderRadius as number
   )
-  const showEditMenu = !previewMode && screenshot && activeTool === "pointer"
+  const showEditMenu =
+    !previewMode &&
+    !isAnimationPlaying &&
+    screenshot &&
+    activeTool === "pointer"
   const editMenu = showEditMenu ? (
     <div
       className={cn(

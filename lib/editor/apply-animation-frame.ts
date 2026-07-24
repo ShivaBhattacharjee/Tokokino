@@ -7,8 +7,8 @@
  */
 
 import {
-  bareScreenshotPositionPct,
-  bareScreenshotTargetLeftTop,
+  bareScreenshotPositionPctRaw,
+  bareScreenshotTargetLeftTopRaw,
   mainScreenshotPositionPct,
   type StagePlacementDims,
 } from "@/components/editor/mobile-controls/position-math"
@@ -380,9 +380,10 @@ export function applyAnimationFrameAtTime({
   const frame = canvas.frame
   const hasTweet = Boolean(canvas.tweet)
   const hasDeviceFrame = (frame?.id ?? "none") !== "none"
-  const hasMainScreenshot = Boolean(canvas.screenshot)
-  const isBareMainTarget =
-    !hasTweet && hasMainScreenshot && !hasDeviceFrame && slots.length === 0
+  // Also true with no screenshot yet: the empty-state placeholder renders the
+  // same bare free-placement box (and exposes the same measurement target), so a
+  // position animation can preview center → target before an upload lands.
+  const isBareMainTarget = !hasTweet && !hasDeviceFrame && slots.length === 0
 
   const mainScopeEl =
     canvasEl.querySelector<HTMLElement>(
@@ -450,6 +451,7 @@ export function applyAnimationFrameAtTime({
       "--canvas-ts-scale",
       zoomVal != null ? String(zoomVal / 100) : null
     )
+    const placementScale = zoomVal ?? scale
 
     // The crop this frame lands on, and the shell geometry it implies. Sampled
     // here rather than in the crop block below because the placement needs it:
@@ -505,9 +507,9 @@ export function applyAnimationFrameAtTime({
         off: { x: number; y: number }
       ) =>
         dims != null
-          ? bareScreenshotPositionPct({
+          ? bareScreenshotPositionPctRaw({
               dims,
-              scaleFactor: scale / 100,
+              scaleFactor: placementScale / 100,
               position: pos,
               offset: off,
             })
@@ -549,7 +551,7 @@ export function applyAnimationFrameAtTime({
             committedPose.screenshotOffset
           )
       if (point && dims != null) {
-        const { left, top } = bareScreenshotTargetLeftTop(dims, point)
+        const { left, top } = bareScreenshotTargetLeftTopRaw(dims, point)
         setMainScreenshotBarePreviewPx(canvasEl, left, top)
       } else if (point) {
         setMainScreenshotPositionPreview(canvasEl, point)

@@ -79,8 +79,20 @@ export function AnimationLayer() {
     if (!canvasEl) return
     const frameClips = clips ?? []
 
+    // When a keyframe is open for editing, the store has already loaded that
+    // keyframe's resolved pose onto the committed canvas. If playback vars stay
+    // active while paused/scrubbed, the screenshot renders at the sampled
+    // timeline position while selection chrome and inspector controls still read
+    // the committed keyframe pose. Clear overrides so edit handles stay attached
+    // to the same visual pose the user is editing.
+    if (!isPlaying && selectedClipId) {
+      clearAnimationFrameVars(canvasEl, frameClips)
+      return
+    }
+
     // Only at rest (stopped at the very start) clear overrides so the committed
-    // inspector pose shows. While playing or parked mid-timeline, hold the frame.
+    // inspector pose shows. While playing or parked mid-timeline with no open
+    // keyframe, hold the sampled frame.
     if (!isPlaying && playheadMs <= 0) {
       clearAnimationFrameVars(canvasEl, frameClips)
       return

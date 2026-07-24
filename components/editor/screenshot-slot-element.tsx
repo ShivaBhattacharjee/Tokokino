@@ -15,6 +15,7 @@ import {
   ScreenshotEditMenu,
   ScreenshotFrameSettings,
 } from "@/components/editor/canvas/screenshot-edit-menu"
+import { useAnimationPlayerOptional } from "@/hooks/use-animation-player"
 import { ScreenshotFrameContent } from "@/components/editor/canvas/screenshot-frame-content"
 import { ScreenshotStage } from "@/components/editor/canvas/screenshot-stage"
 import type {
@@ -260,7 +261,9 @@ export function ScreenshotSlotRender({
     borderRadius: selectionRadius,
   }
 
-  const showEditMenu = !previewMode && Boolean(slot.src)
+  const animationPlayer = useAnimationPlayerOptional()
+  const isAnimationPlaying = animationPlayer?.isPlaying ?? false
+  const showEditMenu = !previewMode && !isAnimationPlaying && Boolean(slot.src)
   const editMenu = showEditMenu ? (
     <div
       className={cn(

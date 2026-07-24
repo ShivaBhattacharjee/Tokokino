@@ -6,9 +6,12 @@ import iphonePresentation from "./iphone-presentation"
 import iphoneShowcase from "./iphone-showcase"
 import iphoneSpotlight from "./iphone-spotlight"
 import pastleUiShowcase from "./pastle-ui-showcase"
+import productReveal from "./product-reveal"
 import responsiveLayout from "./responsive-layout"
 import screenshotGlow from "./screenshot-glow"
 import silentReveal from "./silent-reveal"
+import slideUpReveal from "./slide-up-reveal"
+import slideReveal from "./slide-reveal"
 import twinPhoneStage from "./twin-phone-stage"
 import uiCloseupShowcase from "./ui-closeup-showcase"
 
@@ -25,6 +28,10 @@ export const TEMPLATES: Template[] = [
   browserDark,
   screenshotGlow,
   silentReveal,
+  // Animations
+  productReveal,
+  slideReveal,
+  slideUpReveal,
   // iPad
   ipadShowcase,
   // Responsive / multi-device
