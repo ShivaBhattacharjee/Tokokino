@@ -1,0 +1,203 @@
+import type { Template } from "./types"
+
+const responsiveLayout: Template = {
+  id: "responsive-layout",
+  name: "Responsive Layout",
+  category: "image",
+  thumbnail: "https://assets.tokokino.com/templates/responsive-layout.jpg",
+  state: {
+    schemaVersion: 1,
+    present: {
+      activeTool: "pointer",
+      aspect: {
+        id: "auto",
+        w: 0,
+        h: 0,
+      },
+      canvasZoom: 100,
+      annotation: {
+        mode: "pen",
+        color: "#ef4444",
+        strokeWidth: 4,
+        lineStyle: "solid",
+        blurEffect: "blur",
+        blurAmount: 14,
+      },
+      canvases: [
+        {
+          screenshot: null,
+          originalScreenshot: null,
+          lastCropRegion: null,
+          videoClips: null,
+          background: {
+            type: "image",
+            value:
+              "https://assets.tokokino.com/Backgrounds/Raycast/cube-mono.png",
+            sourceUrl:
+              "https://assets.tokokino.com/Backgrounds/Raycast/cube-mono.png",
+            thumbUrl:
+              "https://assets.tokokino.com/Backgrounds/Raycast/thumbs/cube-mono.webp",
+          },
+          padding: 40,
+          borderRadius: 7,
+          canvasBorderRadius: 0,
+          border: {
+            color: null,
+            width: 1,
+            style: "solid",
+            padding: 0,
+          },
+          backdrop: {
+            effects: {
+              noise: 0,
+              blur: 0,
+              brightness: 100,
+              contrast: 100,
+              saturation: 100,
+              hue: 0,
+              grayscale: 0,
+              sepia: 0,
+              invert: 0,
+              opacity: 100,
+            },
+            pattern: {
+              ids: [],
+              intensity: 50,
+              thickness: 1,
+              color: "#FFFFFF",
+            },
+            lighting: {
+              target: "inner",
+              intensity: 0,
+              direction: "0-0",
+              color: "#FFFFFF",
+            },
+            filter: "none",
+          },
+          tilt: {
+            rx: 0,
+            ry: 0,
+            rz: 0,
+          },
+          scale: 100,
+          screenshotPosition: "center",
+          screenshotOffset: {
+            x: 40.54449957770272,
+            y: 0,
+          },
+          objectFit: "contain",
+          screenshotLayer: {
+            zIndex: 4,
+            opacity: 100,
+            blendMode: "normal",
+            hidden: false,
+          },
+          shadow: {
+            type: "none",
+            intensity: 40,
+            lightSource: "center",
+            color: "#050505",
+          },
+          overlay: {
+            id: null,
+            opacity: 50,
+            position: "overlay",
+          },
+          frame: {
+            id: "iphone_17",
+            color: "black",
+            orientation: "vertical",
+          },
+          portrait: {
+            mode: "off",
+            intensity: 60,
+            position: 50,
+            distance: 50,
+          },
+          texts: [],
+          assets: [],
+          enhance: "off",
+          annotations: [],
+          annotationShapes: [],
+          screenshotSlots: [
+            {
+              id: "2d923f3c-cd4f-4b79-acb0-7624e7f1d833",
+              src: null,
+              originalSrc: null,
+              lastCropRegion: null,
+              fullPageCapture: null,
+              xPct: 64.07393721846844,
+              yPct: 47.06644144144144,
+              widthPct: 48.00000000000001,
+              heightPct: 28,
+              rotation: 0,
+              tilt: {
+                rx: 0,
+                ry: 0,
+                rz: 0,
+              },
+              scale: 100,
+              zIndex: 2,
+              filter: "none",
+              objectFit: "contain",
+              border: {
+                color: null,
+                width: 1,
+                style: "solid",
+                padding: 0,
+              },
+              borderRadius: 7,
+              padding: 40,
+              shadow: {
+                type: "none",
+                intensity: 40,
+                lightSource: "center",
+                color: "#050505",
+              },
+              lighting: {
+                target: "inner",
+                intensity: 0,
+                direction: "0-0",
+                color: "#FFFFFF",
+              },
+              frame: {
+                id: "macbook_pro_16__5th_gen",
+                color: "silver",
+                orientation: "vertical",
+              },
+            },
+          ],
+          frameAddress: "",
+          tweet: null,
+          animation: {
+            durationMs: 5000,
+            clips: [],
+          },
+          id: "canvas-default",
+          position: {
+            x: 0,
+            y: 0,
+          },
+          fullPageCapture: {
+            scrollPosition: 0,
+          },
+        },
+      ],
+      activeCanvasId: "canvas-default",
+    },
+    ui: {
+      presetTab: "single",
+      activeLayoutPresetId: null,
+      activeCustomPresetId: null,
+      activeSinglePresetId: null,
+      bulkEditMode: false,
+      bulkViewportZoom: 1,
+      bulkScale: 65,
+      previewAutoScrollDelay: 3000,
+      previewAnimation: "slide",
+      isAnimateMode: false,
+    },
+  },
+}
+
+export default responsiveLayout

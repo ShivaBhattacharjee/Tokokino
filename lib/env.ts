@@ -31,6 +31,7 @@ const booleanEnvFlag = z
  */
 const clientSchema = z.object({
   NEXT_PUBLIC_ENABLE_DEBUG_PRESETS: booleanEnvFlag,
+  NEXT_PUBLIC_ENABLE_TEMPLATE_COPY: booleanEnvFlag,
 })
 
 const serverEnv = serverSchema.parse({
@@ -53,6 +54,8 @@ const serverEnv = serverSchema.parse({
 const clientEnv = clientSchema.parse({
   NEXT_PUBLIC_ENABLE_DEBUG_PRESETS:
     process.env.NEXT_PUBLIC_ENABLE_DEBUG_PRESETS,
+  NEXT_PUBLIC_ENABLE_TEMPLATE_COPY:
+    process.env.NEXT_PUBLIC_ENABLE_TEMPLATE_COPY,
 })
 
 export const env = {

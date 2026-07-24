@@ -3,6 +3,8 @@ import browserDark from "./browser-dark"
 import ipadShowcase from "./ipad-showcase"
 import iphonePresentation from "./iphone-presentation"
 import iphoneShowcase from "./iphone-showcase"
+import iphoneSpotlight from "./iphone-spotlight"
+import responsiveLayout from "./responsive-layout"
 import screenshotGlow from "./screenshot-glow"
 import silentReveal from "./silent-reveal"
 
@@ -20,7 +22,9 @@ export const TEMPLATES: Template[] = [
   silentReveal,
   iphoneShowcase,
   iphonePresentation,
+  iphoneSpotlight,
   ipadShowcase,
+  responsiveLayout,
 ]
 
 const TAB_LABELS: Record<TemplateTab, string> = {

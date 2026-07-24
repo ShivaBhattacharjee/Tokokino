@@ -49,6 +49,7 @@ function sanitizeCanvasForTemplate(canvas: CanvasState): CanvasState {
     screenshotSlots: canvas.screenshotSlots.map((slot) => ({
       ...slot,
       src: null,
+      originalSrc: null,
     })),
   }
 }

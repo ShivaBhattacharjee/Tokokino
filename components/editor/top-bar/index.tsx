@@ -95,6 +95,9 @@ import { randomDisplayName } from "@/lib/random-name"
 import { TemplatesDialog } from "@/components/editor/templates/templates-dialog"
 import type { Template } from "@/lib/editor/templates"
 import { captureCurrentAsTemplate } from "@/lib/editor/templates/capture"
+import { env } from "@/lib/env"
+
+const ENABLE_TEMPLATE_COPY = env.NEXT_PUBLIC_ENABLE_TEMPLATE_COPY
 
 import { ExportControls } from "./export-controls"
 import { MobileOverflowMenu } from "./mobile-overflow-menu"
@@ -1158,7 +1161,7 @@ export function TopBar() {
             tooltip="Pre-made templates"
             onClick={() => setTemplatesOpen(true)}
           />
-          {process.env.NODE_ENV === "development" && (
+          {ENABLE_TEMPLATE_COPY && (
             <TopBarButton
               label="Copy template"
               icon={RiFileCopyLine}
