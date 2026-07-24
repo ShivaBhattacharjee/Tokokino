@@ -99,4 +99,22 @@ export const FEATURES = [
     d: "Arrange multiple canvases on one board, then preview them with Slide, Fade, Zoom, or Flip before export.",
     tone: "matcha" as const,
   },
+  {
+    k: "16",
+    t: "Starter templates",
+    d: "Ship-ready compositions for browsers, iPhone, iPad, and multi-device layouts — plus animated reveals. Drop in your capture and export.",
+    tone: "primary" as const,
+  },
+  {
+    k: "17",
+    t: "Depth & focus",
+    d: "Portrait modes — Soft, Studio, Spot, Frame, Iris, and Stage — add depth-of-field so the subject reads first.",
+    tone: "matcha" as const,
+  },
+  {
+    k: "18",
+    t: "Share links",
+    d: "Publish any composition to a public link with view tracking, or copy straight to your clipboard — no export step needed.",
+    tone: "primary" as const,
+  },
 ]

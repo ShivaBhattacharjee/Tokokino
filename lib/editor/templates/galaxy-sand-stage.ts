@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const galaxySandStage: Template = {
-  id: "galaxy-sand-stage",
-  name: "Galaxy, Sand Stage",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/galaxy-sand-stage.jpg",
+  ...templateMeta["galaxy-sand-stage"],
   state: {
     schemaVersion: 1,
     present: {

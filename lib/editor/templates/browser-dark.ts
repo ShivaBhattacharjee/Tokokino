@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const browserDark: Template = {
-  id: "browser-dark",
-  name: "Browser, Dark",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/browser-dark.jpg",
+  ...templateMeta["browser-dark"],
   state: {
     schemaVersion: 1,
     present: {

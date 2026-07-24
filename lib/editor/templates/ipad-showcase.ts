@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const ipadShowcase: Template = {
-  id: "ipad-showcase",
-  name: "iPad Pro, UI Showcase",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/ipad-showcase.jpg",
+  ...templateMeta["ipad-showcase"],
   state: {
     schemaVersion: 1,
     present: {

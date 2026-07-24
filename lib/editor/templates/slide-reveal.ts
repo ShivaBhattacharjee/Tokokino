@@ -1,11 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const slideReveal: Template = {
-  id: "slide-reveal",
-  name: "Slide Reveal",
-  category: "animation",
-  thumbnail: "https://assets.tokokino.com/templates/slide-reveal.jpg",
-  preview: "https://assets.tokokino.com/templates/slide-reveal.webm",
+  ...templateMeta["slide-reveal"],
   state: {
     schemaVersion: 1,
     present: {

@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const silentReveal: Template = {
-  id: "silent-reveal",
-  name: "Silent Reveal",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/silent-reveal.jpg",
+  ...templateMeta["silent-reveal"],
   state: {
     schemaVersion: 1,
     present: {

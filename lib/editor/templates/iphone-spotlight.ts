@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const iphoneSpotlight: Template = {
-  id: "iphone-spotlight",
-  name: "iPhone, Spotlight",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/iphone-spotlight.jpg",
+  ...templateMeta["iphone-spotlight"],
   state: {
     schemaVersion: 1,
     present: {

@@ -1,5 +1,5 @@
 const SITE_URL = "https://tokokino.com"
-const UPDATED_AT = "2026-06-08"
+const UPDATED_AT = "2026-07-24"
 
 const content = `# Tokokino
 
@@ -11,12 +11,14 @@ Tokokino helps users create beautiful still compositions and timeline-based demo
 
 - Website: ${SITE_URL}
 - Editor: ${SITE_URL}/app
+- Templates showcase: ${SITE_URL}/showcase
 - Privacy Policy: ${SITE_URL}/privacy
 - Terms: ${SITE_URL}/terms
 - Sitemap: ${SITE_URL}/sitemap.xml
 
 ## What Tokokino Does
 
+- Offers ready-made starter templates (browser, iPhone, iPad, multi-device, and animated reveals) browsable at ${SITE_URL}/showcase; picking one opens it in the editor ready for a capture.
 - Adds browser frames and device mockups for mobile, desktop, and web captures.
 - Creates polished backgrounds with gradients, overlays, shadows, borders, padding, and layout presets.
 - Supports annotations, arrows, labels, multi-shot layouts, presentation-style compositions, and keyframe timeline edits.

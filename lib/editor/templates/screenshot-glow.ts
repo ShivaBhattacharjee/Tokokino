@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const screenshotGlow: Template = {
-  id: "screenshot-glow",
-  name: "Screenshot, Glow",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/screenshot-glow.jpg",
+  ...templateMeta["screenshot-glow"],
   state: {
     schemaVersion: 1,
     present: {

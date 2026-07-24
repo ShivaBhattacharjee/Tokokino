@@ -1,30 +1,19 @@
 import type { DraftPayload } from "@/lib/schemas/draft"
+import type { TemplateCategory, TemplateMeta } from "./catalog"
 
-/**
- * "image"     — a static screenshot composition (no timeline).
- * "animation" — an animate-mode composition with timeline clips; its card
- *                plays a recorded preview clip on hover.
- */
-export type TemplateCategory = "image" | "animation"
+export type { TemplateCategory, TemplateMeta } from "./catalog"
 
 export type TemplateTab = "all" | TemplateCategory
 
 /**
  * A curated, repo-baked starting composition. Unlike the per-user custom
- * presets stored in D1, templates ship with the app: their full editor state
- * lives inline (see `lib/editor/templates/<slug>.ts`) and applying one starts a
- * brand-new, unsaved project via `loadTemplateState`.
+ * presets stored in D1, templates ship with the app: their display metadata
+ * lives in `./catalog` (the single source used by both the editor and the
+ * landing showcase) and their full editor state lives inline in the per-slug
+ * module (see `lib/editor/templates/<slug>.ts`), merged onto the metadata.
+ * Applying one starts a brand-new, unsaved project via `loadTemplateState`.
  */
-export type Template = {
-  /** Stable kebab-case slug; also the asset basename on R2 (templates/<slug>.*). */
-  id: string
-  /** Display label, e.g. "Browser, Light". */
-  name: string
-  category: TemplateCategory
-  /** Poster image on R2, e.g. "https://assets.tokokino.com/templates/<slug>.jpg". */
-  thumbnail: string
-  /** Preview clip (R2) that plays on hover — animation templates only. */
-  preview?: string
+export type Template = TemplateMeta & {
   /** Full composition, same wire shape as a saved draft. */
   state: DraftPayload
 }

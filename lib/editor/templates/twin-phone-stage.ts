@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const twinPhoneStage: Template = {
-  id: "twin-phones-stage",
-  name: "Twin Phones, Stage",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/twin-phones-stage.jpg",
+  ...templateMeta["twin-phones-stage"],
   state: {
     schemaVersion: 1,
     present: {

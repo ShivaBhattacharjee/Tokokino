@@ -155,6 +155,61 @@ const ICONS: Record<string, React.ReactNode> = {
       <circle cx="12" cy="14" r="3" />
     </svg>
   ),
+  "16": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <rect x="3" y="3" width="8" height="8" rx="1.5" />
+      <rect
+        x="13"
+        y="3"
+        width="8"
+        height="5"
+        rx="1.5"
+        className="opacity-40"
+        fill="currentColor"
+        stroke="none"
+      />
+      <rect x="13" y="10" width="8" height="11" rx="1.5" />
+      <rect x="3" y="13" width="8" height="8" rx="1.5" />
+    </svg>
+  ),
+  "17": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <circle
+        cx="12"
+        cy="12"
+        r="3.5"
+        fill="currentColor"
+        stroke="none"
+        className="opacity-70"
+      />
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+    </svg>
+  ),
+  "18": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <path d="M9 13a4 4 0 005.66 0l3-3a4 4 0 00-5.66-5.66l-1.5 1.5" />
+      <path d="M15 11a4 4 0 00-5.66 0l-3 3a4 4 0 005.66 5.66l1.5-1.5" />
+    </svg>
+  ),
 }
 
 export function FeatureRow() {

@@ -1,11 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const productReveal: Template = {
-  id: "product-reveal",
-  name: "Product Reveal",
-  category: "animation",
-  thumbnail: "https://assets.tokokino.com/templates/product-reveal.jpg",
-  preview: "https://assets.tokokino.com/templates/product-reveal.webm",
+  ...templateMeta["product-reveal"],
   state: {
     schemaVersion: 1,
     present: {

@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const responsiveLayout: Template = {
-  id: "responsive-layout",
-  name: "Responsive Layout",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/responsive-layout.jpg",
+  ...templateMeta["responsive-layout"],
   state: {
     schemaVersion: 1,
     present: {

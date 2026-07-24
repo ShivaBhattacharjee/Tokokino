@@ -1,10 +1,8 @@
 import type { Template } from "./types"
+import { templateMeta } from "./catalog"
 
 const uiCloseupShowcase: Template = {
-  id: "ui-closeup-showcase",
-  name: "UI Closeup Showcase",
-  category: "image",
-  thumbnail: "https://assets.tokokino.com/templates/ui-closeup-showcase.jpg",
+  ...templateMeta["ui-closeup-showcase"],
   state: {
     schemaVersion: 1,
     present: {

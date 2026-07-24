@@ -13,6 +13,7 @@ import { HowItWorks } from "@/components/landing/how-it-works"
 import { Nav } from "@/components/landing/nav"
 import { ScrollToTop } from "@/components/landing/scroll-to-top"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
+import { TemplatesShowcase } from "@/components/landing/templates-showcase"
 import { UseCasesSection } from "@/components/landing/use-cases-section"
 import { FlickeringGrid } from "@/components/ui/flickering-grid"
 import { motion, useReducedMotion } from "motion/react"
@@ -68,6 +69,10 @@ export default function Page() {
         <DashedH />
         <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
           <FeatureRow />
+        </div>
+        <DashedH />
+        <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
+          <TemplatesShowcase />
         </div>
         <DashedH />
         <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>

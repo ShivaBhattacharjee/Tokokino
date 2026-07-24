@@ -6,6 +6,8 @@ import { toast } from "sonner"
 import { copyCanvasAsPng } from "../export"
 import type { CanvasState } from "../state-types"
 import { useEditorStore } from "../store"
+import { TEMPLATES } from "../templates"
+import { unwrapDraftState } from "@/lib/schemas/draft"
 
 import {
   applyEditorDraft,
@@ -24,10 +26,56 @@ function isEditableKeyboardTarget(target: EventTarget | null) {
   )
 }
 
+/**
+ * Resolve `/app?template=<id>` to a known template. The landing showcase links
+ * here so a picked template opens straight in the editor.
+ */
+function pendingTemplateFromUrl() {
+  if (typeof window === "undefined") return null
+  const id = new URLSearchParams(window.location.search).get("template")
+  if (!id) return null
+  return TEMPLATES.find((t) => t.id === id) ?? null
+}
+
+/**
+ * Apply a URL template as a fresh unsaved project and strip the query param so
+ * a refresh doesn't re-apply it over the user's subsequent edits. Returns
+ * whether a template was applied.
+ */
+function applyPendingTemplate(): boolean {
+  const template = pendingTemplateFromUrl()
+  if (!template) return false
+  try {
+    const { present, ui } = unwrapDraftState(template.state)
+    useEditorStore.getState().loadTemplateState(present, ui)
+  } catch (error) {
+    console.warn("Unable to apply template from URL", error)
+    return false
+  }
+  const url = new URL(window.location.href)
+  url.searchParams.delete("template")
+  window.history.replaceState(null, "", url.pathname + url.search + url.hash)
+  toast.success(`Applied "${template.name}"`)
+  return true
+}
+
 export function EditorProvider({ children }: { children: React.ReactNode }) {
   const isCopyingCanvasRef = React.useRef(false)
+  // Dedupe the URL-template apply across StrictMode's dev double-invoke (same
+  // instance, so refs persist) while still re-evaluating on a genuine remount.
+  const templateGuardRef = React.useRef(false)
+  const templateAppliedRef = React.useRef(false)
 
   React.useEffect(() => {
+    // A URL template starts a fresh unsaved project — apply it before anything
+    // reads persistence so it wins over a restored draft, and works even where
+    // IndexedDB is unavailable.
+    if (!templateGuardRef.current) {
+      templateGuardRef.current = true
+      templateAppliedRef.current = applyPendingTemplate()
+    }
+    const templateApplied = templateAppliedRef.current
+
     if (!isBrowserIndexedDbAvailable()) return
 
     let saveTimer: number | null = null
@@ -62,7 +110,9 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     void readEditorDraft()
       .then((draft) => {
         if (cancelled) return
-        if (draft) {
+        // Don't let a stored draft overwrite a template picked from the URL;
+        // autosave will persist the template as the new draft instead.
+        if (!templateApplied && draft) {
           useEditorStore.setState(applyEditorDraft(draft))
         }
         startAutosave()
