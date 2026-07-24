@@ -27,7 +27,7 @@ import type { Template, TemplateTab } from "@/lib/editor/templates"
 import { cn } from "@/lib/utils"
 
 const DIALOG_SHELL =
-  "flex h-[min(725px,calc(100dvh-1.5rem))] w-[min(calc(100vw-1.5rem),1080px)] flex-col gap-0 overflow-hidden rounded-md bg-background p-0 sm:max-w-[1080px]"
+  "flex h-[min(720px,calc(100dvh-1.5rem))] w-[min(calc(100vw-1.5rem),1080px)] flex-col gap-0 overflow-hidden rounded-md bg-background p-0 sm:max-w-[1080px]"
 
 const TABS: TemplateTab[] = ["all", "image", "animation"]
 
@@ -118,14 +118,14 @@ function TemplateCard({
       onMouseLeave={isAnimation ? handleLeave : undefined}
       className="group flex flex-col gap-2 text-left"
     >
-      <div className="relative w-full overflow-hidden rounded-md bg-secondary/40 ring-1 ring-foreground/10 transition-shadow group-hover:shadow-lg group-hover:ring-2 group-hover:ring-primary">
+      {/* Fixed aspect so the shimmer fills the card before the poster paints
+          (h-auto collapsed to 0 height and left only the title visible). */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-md bg-secondary/40 ring-1 ring-foreground/10 transition-shadow group-hover:shadow-lg group-hover:ring-2 group-hover:ring-primary">
         <ShimmerImage
           src={template.thumbnail}
           alt={template.name}
           className={cn(
-            // In-flow sizer: the card height follows the poster's natural
-            // ratio, so wide compositions don't letterbox inside a fixed box.
-            "block h-auto w-full object-contain transition-opacity",
+            "size-full object-cover transition-opacity",
             isAnimation && playing ? "opacity-0" : "opacity-100"
           )}
         />
@@ -140,7 +140,7 @@ function TemplateCard({
               playsInline
               preload="none"
               className={cn(
-                "absolute inset-0 size-full object-contain transition-opacity",
+                "absolute inset-0 size-full object-cover transition-opacity",
                 playing ? "opacity-100" : "opacity-0"
               )}
             />
