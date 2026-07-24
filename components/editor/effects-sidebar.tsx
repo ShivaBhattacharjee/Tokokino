@@ -59,8 +59,14 @@ export function EffectsSidebar({
   const setFrameForMatchingScreenshots = useEditorStore(
     (s) => s.setFrameForMatchingScreenshots
   )
+  const setMainScreenshotFrame = useEditorStore((s) => s.setMainScreenshotFrame)
+  const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
   const selectedSlot = useSelectedScreenshotSlot()
+  const isScreenshotSelected = useEditorStore((s) => s.isScreenshotSelected)
   const activeFrame = frame
+  // The picker shows/edits the selected slot's frame when one is selected,
+  // otherwise the canvas frame (which every un-overridden slot inherits).
+  const displayFrame = selectedSlot?.frame ?? frame
   const activeFrameRef = React.useRef(activeFrame)
   React.useLayoutEffect(() => {
     activeFrameRef.current = activeFrame
@@ -159,7 +165,7 @@ export function EffectsSidebar({
         <div>
           <SectionLabel>Frame</SectionLabel>
           <FramePopover
-            value={activeFrame}
+            value={displayFrame}
             align={popoverAlign}
             previewImage={selectedSlot ? selectedSlot.src : undefined}
             imageFit={selectedSlot?.objectFit ?? objectFit ?? "cover"}
@@ -167,7 +173,15 @@ export function EffectsSidebar({
             disabledLabel="Disabled for social posts"
             disabledTooltip="Frames are disabled for social posts because the post card already provides the frame and spacing."
             onChange={(nextFrame) => {
-              setFrameForMatchingScreenshots(nextFrame)
+              // Route by selection: a slot → that slot only; the main → the main
+              // only (siblings pinned); nothing selected → all screenshots.
+              if (selectedSlot) {
+                updateScreenshotSlot(selectedSlot.id, { frame: nextFrame })
+              } else if (isScreenshotSelected) {
+                setMainScreenshotFrame(nextFrame)
+              } else {
+                setFrameForMatchingScreenshots(nextFrame)
+              }
               showCompatibilityWarning(
                 aspect,
                 nextFrame,

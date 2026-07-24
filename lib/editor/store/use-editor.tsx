@@ -395,10 +395,14 @@ export function useEditor(): EditorContext {
     setShadow: (s, canvasId) => store.setShadow(s, canvasId ?? targetId),
     setMainScreenshotShadow: (s, canvasId) =>
       store.setMainScreenshotShadow(s, canvasId ?? targetId),
+    applyScreenshotStyle: (target, patch, canvasId) =>
+      store.applyScreenshotStyle(target, patch, canvasId ?? targetId),
     setOverlay: (o, canvasId) => store.setOverlay(o, canvasId ?? targetId),
     setFrame: (f, canvasId) => store.setFrame(f, canvasId ?? targetId),
     setFrameForMatchingScreenshots: (f, canvasId) =>
       store.setFrameForMatchingScreenshots(f, canvasId ?? targetId),
+    setMainScreenshotFrame: (f, canvasId) =>
+      store.setMainScreenshotFrame(f, canvasId ?? targetId),
     setObjectFit: (fit, canvasId) =>
       store.setObjectFit(fit, canvasId ?? targetId),
     setFrameAddress: (address, canvasId) =>

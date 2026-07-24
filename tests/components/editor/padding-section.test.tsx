@@ -12,8 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const store = vi.hoisted(() => ({
   canvas: { padding: 24 },
-  setPadding: vi.fn(),
-  setMainScreenshotPadding: vi.fn(),
   applyStyle: vi.fn(),
   selectedSlot: null as { id: string; padding?: number } | null,
   target: "all",
@@ -23,11 +21,6 @@ vi.mock("@/lib/editor/store", () => ({
   useActiveCanvasField: (selector: (c: unknown) => unknown) =>
     selector(store.canvas),
   useActiveCanvasId: () => "canvas-1",
-  useEditorStore: (selector: (s: unknown) => unknown) =>
-    selector({
-      setPadding: store.setPadding,
-      setMainScreenshotPadding: store.setMainScreenshotPadding,
-    }),
 }))
 
 vi.mock("@/lib/editor/screenshot-style-target", () => ({
@@ -127,16 +120,16 @@ describe("PaddingSection", () => {
     expect(slider).toHaveAttribute("aria-valuetext", "64px")
   })
 
-  it("routes the main and canvas setters through applyStyle's callbacks", async () => {
-    // applyStyle here forwards to the canvas callback (target = all).
-    store.applyStyle.mockImplementation(
-      (_patch: unknown, _main: () => void, all: () => void) => all()
-    )
+  it("emits a single target-agnostic patch (target is resolved in the store)", async () => {
     const user = userEvent.setup()
     render(<PaddingSection />)
 
     await user.click(screen.getByRole("button", { name: "16" }))
 
-    expect(store.setPadding).toHaveBeenCalledWith(16)
+    // The section no longer picks between main/all/slot setters — it hands one
+    // patch to applyStyle, which resolves the target in applyScreenshotStyle.
+    expect(store.applyStyle).toHaveBeenCalledTimes(1)
+    expect(store.applyStyle.mock.calls[0]).toHaveLength(1)
+    expect(store.applyStyle.mock.calls[0][0]).toEqual({ padding: 16 })
   })
 })

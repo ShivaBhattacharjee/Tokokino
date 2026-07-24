@@ -76,6 +76,39 @@ describe("draft persistence", () => {
     )
   })
 
+  it("preserves a persisted per-slot frame override on load (no migration needed)", () => {
+    const normalized = normalizeEditorState({
+      activeCanvasId: "canvas-a",
+      canvases: [
+        {
+          id: "canvas-a",
+          position: { x: 0, y: 0 },
+          screenshotSlots: [
+            {
+              id: "slot-a",
+              xPct: 25,
+              frame: {
+                id: "galaxy_s24_ultra",
+                color: "black",
+                orientation: "vertical",
+              },
+            } as never,
+            // A legacy slot with no frame stays inheriting (undefined).
+            { id: "slot-b", xPct: 75 } as never,
+          ],
+        } as never,
+      ],
+    })
+
+    const slots = normalized.canvases[0]?.screenshotSlots
+    expect(slots?.[0]?.frame).toEqual({
+      id: "galaxy_s24_ultra",
+      color: "black",
+      orientation: "vertical",
+    })
+    expect(slots?.[1]?.frame).toBeUndefined()
+  })
+
   it("applies persisted UI state while clearing volatile history and selection", () => {
     const draft: PersistedEditorDraft = {
       id: EDITOR_DRAFT_KEY,

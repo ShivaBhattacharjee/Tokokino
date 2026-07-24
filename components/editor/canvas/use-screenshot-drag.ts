@@ -61,6 +61,7 @@ export function useScreenshotDrag({
   placementDims,
   positionedStyle,
   screenshotOffset,
+  mockupCenterOffset,
   setScreenshotOffset,
   setScreenshotPlacement,
   setIsScreenshotSelected,
@@ -77,6 +78,13 @@ export function useScreenshotDrag({
   placementDims: PlacementDims | null
   positionedStyle: React.CSSProperties | null
   screenshotOffset: Offset
+  /**
+   * The offset at which the (framed/row) mockup sits at the canvas centre. It's
+   * `{0,0}` for a single screenshot (its natural spot IS the centre), but for a
+   * main screenshot sharing a row it's the offset that moves the box from its
+   * left cell to the middle — so the centre snap + guide fire at the real centre.
+   */
+  mockupCenterOffset?: Offset
   setScreenshotOffset: (offset: Offset) => void
   setScreenshotPlacement: (position: ScreenshotPosition, offset: Offset) => void
   setIsScreenshotSelected: (selected: boolean) => void
@@ -311,11 +319,13 @@ export function useScreenshotDrag({
       drag.startOffsetX + (e.clientX - drag.startClientX) / effectiveScale
     let nextY =
       drag.startOffsetY + (e.clientY - drag.startClientY) / effectiveScale
+    // Snap the box to the canvas centre, which for a row-mode main is a non-zero
+    // offset (its natural spot is the left cell, not the middle).
     const snap = snapCenterToTarget({
       centerX: nextX,
       centerY: nextY,
-      targetX: 0,
-      targetY: 0,
+      targetX: mockupCenterOffset?.x ?? 0,
+      targetY: mockupCenterOffset?.y ?? 0,
     })
 
     nextX += snap.deltaX

@@ -5,11 +5,7 @@ import * as React from "react"
 import { ElasticSlider } from "@/components/elastic-slider"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import type { Tilt } from "@/lib/editor/state-types"
-import {
-  useActiveCanvasField,
-  useActiveCanvasId,
-  useEditorStore,
-} from "@/lib/editor/store"
+import { useActiveCanvasField, useActiveCanvasId } from "@/lib/editor/store"
 import { editorValueSchemas } from "@/lib/editor/value-schemas"
 
 type LivePreviewKind = "canvas" | "slot"
@@ -89,12 +85,6 @@ export function TiltSection() {
   const activeCanvasId = useActiveCanvasId()
   const tilt = selectedSlot?.tilt ?? canvasTilt
   const scale = selectedSlot?.scale ?? canvasScale
-  const setTilt = useEditorStore((s) => s.setTilt)
-  const setScale = useEditorStore((s) => s.setScale)
-  const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
-  const setScreenshotTilt = useEditorStore((s) => s.setScreenshotTilt)
-  const setScreenshotScale = useEditorStore((s) => s.setScreenshotScale)
-  const setScreenshotRotation = useEditorStore((s) => s.setScreenshotRotation)
 
   // Resolve the live-preview DOM target on demand so we don't cache a stale
   // node across selection changes or canvas remounts.
@@ -167,20 +157,12 @@ export function TiltSection() {
       ry: editorValueSchemas.degree.catch(0).parse(nextTilt.ry),
       rz: editorValueSchemas.degree.catch(0).parse(nextTilt.rz),
     }
-    applyStyle(
-      { tilt: safeTilt },
-      () => setTilt(safeTilt),
-      () => setScreenshotTilt(safeTilt)
-    )
+    applyStyle({ tilt: safeTilt })
     clearAfterPaint(["rx", "ry", "rz"])
   }
   const commitScale = (nextScale: number) => {
     const safeScale = editorValueSchemas.scale.catch(100).parse(nextScale)
-    applyStyle(
-      { scale: safeScale },
-      () => setScale(safeScale),
-      () => setScreenshotScale(safeScale)
-    )
+    applyStyle({ scale: safeScale })
     clearAfterPaint(["scale"])
   }
 
@@ -205,19 +187,9 @@ export function TiltSection() {
     }
   }
   const commitRotZ = (v: number) => {
-    if (selectedSlot) {
-      const safe = editorValueSchemas.degree.catch(0).parse(v)
-      updateScreenshotSlot(selectedSlot.id, { rotation: safe })
-      clearAfterPaint(["rot"])
-    } else {
-      const safe = editorValueSchemas.degree.catch(0).parse(v)
-      if (target === "all") {
-        setScreenshotRotation(safe)
-        clearAfterPaint(["rz", "rot"])
-        return
-      }
-      commitTilt({ ...tilt, rz: safe })
-    }
+    const safe = editorValueSchemas.degree.catch(0).parse(v)
+    applyStyle({ rotation: safe })
+    clearAfterPaint(["rx", "ry", "rz", "rot"])
   }
 
   return (

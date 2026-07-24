@@ -9,11 +9,7 @@ import {
   setLivePreviewVar,
 } from "@/lib/editor/live-preview-vars"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
-import {
-  useActiveCanvasField,
-  useActiveCanvasId,
-  useEditorStore,
-} from "@/lib/editor/store"
+import { useActiveCanvasField, useActiveCanvasId } from "@/lib/editor/store"
 import {
   SHADOW_FILTER_PREVIEW_VAR,
   SHADOW_PREVIEW_VAR,
@@ -322,10 +318,6 @@ export function ShadowSection() {
   const canvasShadow = useActiveCanvasField((c) => c.shadow)
   const activeCanvasId = useActiveCanvasId()
   const { applyStyle, selectedSlot, target } = useScreenshotStyleTarget()
-  const setShadow = useEditorStore((s) => s.setShadow)
-  const setMainScreenshotShadow = useEditorStore(
-    (s) => s.setMainScreenshotShadow
-  )
 
   const shadow = selectedSlot
     ? (selectedSlot.shadow ?? canvasShadow)
@@ -373,14 +365,10 @@ export function ShadowSection() {
 
   const applyShadow = React.useCallback(
     (nextShadow: typeof canvasShadow) => {
-      applyStyle(
-        { shadow: nextShadow },
-        () => setMainScreenshotShadow(nextShadow),
-        () => setShadow(nextShadow)
-      )
+      applyStyle({ shadow: nextShadow })
       clearPreviewVarsAfterPaint()
     },
-    [applyStyle, clearPreviewVarsAfterPaint, setMainScreenshotShadow, setShadow]
+    [applyStyle, clearPreviewVarsAfterPaint]
   )
   const { type, intensity, lightSource, color = "#050505" } = shadow
 

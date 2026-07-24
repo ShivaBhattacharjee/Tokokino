@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 import { frameSelectionRadius } from "./helpers"
 import { ScreenshotEditMenu } from "./screenshot-edit-menu"
 import { ScreenshotFrameContent } from "./screenshot-frame-content"
+import { ScreenshotStage } from "./screenshot-stage"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
 /**
@@ -161,10 +162,44 @@ export function MainScreenshotRender({
     frame.id,
     imgStyle.borderRadius as number
   )
-  const contentStyle: React.CSSProperties = {
-    padding: `var(--editor-padding-preview, ${Math.max(0, Math.min(240, padding)) / 12}%)`,
-  }
   const showEditMenu = !previewMode && screenshot && activeTool === "pointer"
+  const editMenu = showEditMenu ? (
+    <div
+      className={cn(
+        "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
+        editOpen || isSelected
+          ? "opacity-100"
+          : "opacity-0 group-hover/main-row:opacity-100",
+        (bulkCanvasDragging || isScreenshotDragging) &&
+          !editOpen &&
+          "!opacity-0"
+      )}
+      style={{
+        transform: `translate(-50%, -50%) ${transform}`,
+        transformOrigin: "center",
+        transformStyle: "preserve-3d",
+      }}
+    >
+      <ScreenshotEditMenu
+        open={editOpen}
+        allowVideo={false}
+        onOpenChange={(open) => {
+          if (bulkCanvasDragging || isScreenshotDragging) {
+            onEditOpenChange(false)
+            return
+          }
+          onEditOpenChange(open)
+        }}
+        onCrop={onCropClick}
+        onReplaceFile={onReplaceFile}
+        onDelete={onDelete}
+        onCaptureWebsite={onCapture}
+        captureDefaultDevice={captureDefaultDevice}
+        captureDefaultOrientation={frame.orientation}
+        captureStateKey={captureStateKey}
+      />
+    </div>
+  ) : null
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events
     <div
@@ -193,127 +228,64 @@ export function MainScreenshotRender({
       onPointerCancel={previewMode ? undefined : onPointerUp}
       onWheel={previewMode ? undefined : onWheel}
     >
-      <div className="absolute inset-0" style={contentStyle}>
-        <div
-          className="relative h-full w-full"
-          style={{
-            opacity: imgStyle.opacity as number | undefined,
-            mixBlendMode: imgStyle.mixBlendMode,
-            borderRadius: selectionRadius,
-          }}
-        >
-          {/* Container selection for framed/empty boxes. Bare images draw their
-              own ring on the image box in ScreenshotBare so contain doesn't
-              leave a ring around letterboxed empty space. */}
-          {isSelected &&
-          !previewMode &&
-          (frame.id !== "none" || !screenshot) ? (
-            <div
-              aria-hidden
-              data-selection-border="true"
-              className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
-              style={{
-                transform,
-                transformStyle: "preserve-3d",
-                borderRadius: selectionRadius,
-              }}
-            />
-          ) : null}
-          {/* Animate-mode wrapper. Driven by CSS vars set on the canvas node by
-              AnimationLayer; defaults make it a visual no-op everywhere else. */}
-          <div
-            className="relative h-full w-full"
-            style={{
-              transform: "var(--anim-transform, none)",
-              opacity: "var(--anim-opacity, 1)" as unknown as number,
-              filter: "var(--anim-filter, none)",
-              transformOrigin: "center",
-            }}
-          >
-            <ScreenshotFrameContent
-              src={screenshot}
-              frame={frame}
-              isDragOver={isDragOver}
-              onBrowse={onBrowse}
-              // Row mode = multiple screenshots, so the main box can't take a
-              // video either (a video must be the sole screenshot).
-              allowVideo={false}
-              imageFilter={filterChain}
-              shadowFilter={shadowFilter}
-              contentTransform={transform}
-              bareStyle={imgStyle}
-              mediaStyle={mediaStyle}
-              applyTransformWhenEmpty
-              suppressEmptyTransition
-              // This box's container is already positioned by the main
-              // screenshot's live-drag vars; the framed content must not read
-              // them too, or it double-applies the move and drifts out of sync
-              // with the (container-positioned) selection border during a drag.
-              readMainPreviewVars={false}
-              emptyCompact={emptyCompact}
-              objectFit={objectFit}
-              isScreenshotSelected={isSelected && !previewMode}
-              activeTool={activeTool}
-              isDragging={isScreenshotDragging}
-              stageRef={stageRef}
-              imageRef={imageRef}
-              addressValue={addressValue}
-              onAddressChange={onAddressChange}
-              onSelect={onSelect}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onImageLoad={onImageLoad}
-              onCrop={onCropClick}
-              onReplaceFile={onReplaceFile}
-              onDelete={onDelete}
-              innerLightingStyle={innerLightingStyle}
-              onCapture={onCapture}
-              onDemo={onDemo}
-              captureDefaultDevice={captureDefaultDevice}
-              captureStateKey={captureStateKey}
-            />
-          </div>
-
-          {showEditMenu ? (
-            <div
-              className={cn(
-                "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
-                editOpen || isSelected
-                  ? "opacity-100"
-                  : "opacity-0 group-hover/main-row:opacity-100",
-                (bulkCanvasDragging || isScreenshotDragging) &&
-                  !editOpen &&
-                  "!opacity-0"
-              )}
-              style={{
-                transform: `translate(-50%, -50%) ${transform}`,
-                transformOrigin: "center",
-                transformStyle: "preserve-3d",
-              }}
-            >
-              <ScreenshotEditMenu
-                open={editOpen}
-                allowVideo={false}
-                onOpenChange={(open) => {
-                  if (bulkCanvasDragging || isScreenshotDragging) {
-                    onEditOpenChange(false)
-                    return
-                  }
-                  onEditOpenChange(open)
-                }}
-                onCrop={onCropClick}
-                onReplaceFile={onReplaceFile}
-                onDelete={onDelete}
-                onCaptureWebsite={onCapture}
-                captureDefaultDevice={captureDefaultDevice}
-                captureDefaultOrientation={frame.orientation}
-                captureStateKey={captureStateKey}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <ScreenshotStage
+        padding={padding}
+        transformedBoxStyle={{
+          opacity: imgStyle.opacity,
+          mixBlendMode: imgStyle.mixBlendMode,
+          borderRadius: selectionRadius,
+        }}
+        selectionRadius={selectionRadius}
+        contentTransform={transform}
+        showSelectionBorder={
+          isSelected && !previewMode && (frame.id !== "none" || !screenshot)
+        }
+        editMenu={editMenu}
+      >
+        <ScreenshotFrameContent
+          src={screenshot}
+          frame={frame}
+          isDragOver={isDragOver}
+          onBrowse={onBrowse}
+          // Row mode = multiple screenshots, so the main box can't take a
+          // video either (a video must be the sole screenshot).
+          allowVideo={false}
+          imageFilter={filterChain}
+          shadowFilter={shadowFilter}
+          contentTransform={transform}
+          bareStyle={imgStyle}
+          mediaStyle={mediaStyle}
+          applyTransformWhenEmpty
+          suppressEmptyTransition
+          // This box's container is already positioned by the main screenshot's
+          // live-drag vars; the framed content must not read them too, or it
+          // double-applies the move and drifts out of sync with the
+          // (container-positioned) selection border during a drag.
+          readMainPreviewVars={false}
+          emptyCompact={emptyCompact}
+          objectFit={objectFit}
+          isScreenshotSelected={isSelected && !previewMode}
+          activeTool={activeTool}
+          isDragging={isScreenshotDragging}
+          stageRef={stageRef}
+          imageRef={imageRef}
+          addressValue={addressValue}
+          onAddressChange={onAddressChange}
+          onSelect={onSelect}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onImageLoad={onImageLoad}
+          onCrop={onCropClick}
+          onReplaceFile={onReplaceFile}
+          onDelete={onDelete}
+          innerLightingStyle={innerLightingStyle}
+          onCapture={onCapture}
+          onDemo={onDemo}
+          captureDefaultDevice={captureDefaultDevice}
+          captureStateKey={captureStateKey}
+        />
+      </ScreenshotStage>
     </div>
   )
 }

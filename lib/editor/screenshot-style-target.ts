@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import type { ScreenshotStylePatch } from "./store/canvas-helpers"
 import {
   useEditorStore,
   useSelectedScreenshotSlot,
@@ -12,8 +13,8 @@ export type ScreenshotStyleTarget = "slot" | "main" | "all"
 
 export function useScreenshotStyleTarget() {
   const selectedSlot = useSelectedScreenshotSlot()
-  const updateScreenshotSlot = useEditorStore((s) => s.updateScreenshotSlot)
   const isScreenshotSelected = useEditorStore((s) => s.isScreenshotSelected)
+  const applyScreenshotStyle = useEditorStore((s) => s.applyScreenshotStyle)
 
   const target: ScreenshotStyleTarget = selectedSlot
     ? "slot"
@@ -21,24 +22,20 @@ export function useScreenshotStyleTarget() {
       ? "main"
       : "all"
 
+  // One patch, target resolved from the current selection. Callers no longer
+  // hand-pick between the main / all / per-slot setters.
   const applyStyle = React.useCallback(
-    (
-      slotPatch: Partial<ScreenshotSlot>,
-      applyMain: () => void,
-      applyAll: () => void
-    ) => {
+    (patch: ScreenshotStylePatch) => {
       if (selectedSlot) {
-        updateScreenshotSlot(selectedSlot.id, slotPatch)
+        applyScreenshotStyle({ slotId: selectedSlot.id }, patch)
         return
       }
-      if (isScreenshotSelected) {
-        applyMain()
-        return
-      }
-      applyAll()
+      applyScreenshotStyle(isScreenshotSelected ? "main" : "all", patch)
     },
-    [isScreenshotSelected, selectedSlot, updateScreenshotSlot]
+    [applyScreenshotStyle, isScreenshotSelected, selectedSlot]
   )
 
   return { applyStyle, selectedSlot, target }
 }
+
+export type { ScreenshotSlot }
