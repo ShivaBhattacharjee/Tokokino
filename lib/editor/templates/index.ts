@@ -1,4 +1,6 @@
 import type { Template, TemplateTab } from "./types"
+import threeDTilt from "./3d-tilt"
+import animatedBrowser from "./animated-browser"
 import browserDark from "./browser-dark"
 import galaxySandStage from "./galaxy-sand-stage"
 import ipadShowcase from "./ipad-showcase"
@@ -14,6 +16,7 @@ import slideUpReveal from "./slide-up-reveal"
 import slideReveal from "./slide-reveal"
 import twinPhoneStage from "./twin-phone-stage"
 import uiCloseupShowcase from "./ui-closeup-showcase"
+import uiShowcaseAnimated from "./ui-showcase-animated"
 
 export type { Template, TemplateCategory, TemplateTab } from "./types"
 
@@ -32,6 +35,9 @@ export const TEMPLATES: Template[] = [
   productReveal,
   slideReveal,
   slideUpReveal,
+  uiShowcaseAnimated,
+  threeDTilt,
+  animatedBrowser,
   // iPad
   ipadShowcase,
   // Responsive / multi-device

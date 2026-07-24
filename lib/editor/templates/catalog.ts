@@ -113,6 +113,27 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     category: "image",
     thumbnail: "https://assets.tokokino.com/templates/galaxy-sand-stage.jpg",
   },
+  {
+    id: "ui-showcase-animated",
+    name: "UI Showcase, Animated",
+    category: "animation",
+    thumbnail: "https://assets.tokokino.com/templates/ui-showcase.jpg",
+    preview: "https://assets.tokokino.com/templates/ui-showcase.webm",
+  },
+  {
+    id: "3d-tilt",
+    name: "3D Tilt",
+    category: "animation",
+    thumbnail: "https://assets.tokokino.com/templates/3d-tilt.jpg",
+    preview: "https://assets.tokokino.com/templates/3d-tilt.webm",
+  },
+  {
+    id: "animated-browser",
+    name: "Animated Browser",
+    category: "animation",
+    thumbnail: "https://assets.tokokino.com/templates/animated-browser.jpg",
+    preview: "https://assets.tokokino.com/templates/animated-browser.webm",
+  },
 ]
 
 export const templateMeta: Record<string, TemplateMeta> = Object.fromEntries(
