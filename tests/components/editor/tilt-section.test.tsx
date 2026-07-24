@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 /**
  * `TiltSection` — store-connected 3D tilt + scale controls. Note the axis
  * mapping: the "Rotate X" row drives `tilt.ry` and "Rotate Y" drives
- * `tilt.rx`. Edits route through `applyStyle`, except Z-rotation on the whole
- * canvas which goes through `setScreenshotRotation`.
+ * `tilt.rx`. Every edit — tilt, scale, and Z-rotation, for the main, all, or a
+ * slot — routes through a single `applyStyle(patch)`; the store resolves the
+ * target in `applyScreenshotStyle`.
  */
 
 type Tilt = { rx: number; ry: number; rz: number }
@@ -133,7 +134,7 @@ describe("TiltSection", () => {
     ).toEqual({ scale: 150 })
   })
 
-  it("routes whole-canvas Z-rotation through setScreenshotRotation", async () => {
+  it("routes whole-canvas Z-rotation through applyStyle as a rotation patch", async () => {
     const user = userEvent.setup()
     render(<TiltSection />)
 
@@ -142,7 +143,10 @@ describe("TiltSection", () => {
     // Controlled mock value stays at 15; Shift+Arrow nudges by 10.
     await user.keyboard("{Shift>}{ArrowRight}{/Shift}")
 
-    expect(store.setters.setScreenshotRotation).toHaveBeenCalledWith(25)
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ rotation: 25 })
   })
 
   it("uses the selected slot's tilt, scale and rotation when a slot is active", () => {
@@ -174,7 +178,7 @@ describe("TiltSection", () => {
     )
   })
 
-  it("commits slot Z-rotation through updateScreenshotSlot", async () => {
+  it("commits slot Z-rotation through applyStyle as a rotation patch", async () => {
     store.selectedSlot = {
       id: "slot-1",
       tilt: { rx: 1, ry: 2, rz: 3 },
@@ -190,8 +194,9 @@ describe("TiltSection", () => {
     // Controlled mock value stays at 42; Shift+ArrowLeft nudges by −10.
     await user.keyboard("{Shift>}{ArrowLeft}{/Shift}")
 
-    expect(store.setters.updateScreenshotSlot).toHaveBeenCalledWith("slot-1", {
-      rotation: 32,
-    })
+    expect(store.applyStyle).toHaveBeenCalled()
+    expect(
+      store.applyStyle.mock.calls[store.applyStyle.mock.calls.length - 1][0]
+    ).toEqual({ rotation: 32 })
   })
 })

@@ -366,6 +366,8 @@ export type ScreenshotSlot = {
   padding?: number
   shadow?: Shadow
   lighting?: BackdropLighting
+  /** Per-slot device frame override. Falls back to the canvas frame when unset. */
+  frame?: DeviceFrame
 }
 
 export type CanvasPosition = { x: number; y: number }

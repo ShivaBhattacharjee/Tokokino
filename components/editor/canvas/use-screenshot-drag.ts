@@ -33,6 +33,7 @@ type ScreenshotDragState = {
   stageH: number
   imgW: number
   imgH: number
+  moved: boolean
 }
 
 type MockupDragState = {
@@ -41,7 +42,16 @@ type MockupDragState = {
   startClientY: number
   startOffsetX: number
   startOffsetY: number
+  moved: boolean
 }
+
+/**
+ * A press must travel this many CSS px before it counts as a drag. Below it, a
+ * click never touches the live-preview vars — otherwise a plain select fires a
+ * 1px "drag" that sets then clears the main vars, briefly easing the mockup out
+ * of sync with its (transition-less) selection border.
+ */
+const DRAG_START_THRESHOLD_PX = 3
 
 export function useScreenshotDrag({
   activeTool,
@@ -51,6 +61,7 @@ export function useScreenshotDrag({
   placementDims,
   positionedStyle,
   screenshotOffset,
+  mockupCenterOffset,
   setScreenshotOffset,
   setScreenshotPlacement,
   setIsScreenshotSelected,
@@ -67,6 +78,13 @@ export function useScreenshotDrag({
   placementDims: PlacementDims | null
   positionedStyle: React.CSSProperties | null
   screenshotOffset: Offset
+  /**
+   * The offset at which the (framed/row) mockup sits at the canvas centre. It's
+   * `{0,0}` for a single screenshot (its natural spot IS the centre), but for a
+   * main screenshot sharing a row it's the offset that moves the box from its
+   * left cell to the middle — so the centre snap + guide fire at the real centre.
+   */
+  mockupCenterOffset?: Offset
   setScreenshotOffset: (offset: Offset) => void
   setScreenshotPlacement: (position: ScreenshotPosition, offset: Offset) => void
   setIsScreenshotSelected: (selected: boolean) => void
@@ -220,6 +238,7 @@ export function useScreenshotDrag({
       stageH: placementDims.stageH,
       imgW: placementDims.imgW,
       imgH: placementDims.imgH,
+      moved: false,
     }
   }
 
@@ -228,6 +247,14 @@ export function useScreenshotDrag({
     if (!drag || drag.pointerId !== e.pointerId) return
 
     e.preventDefault()
+    if (
+      !drag.moved &&
+      Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY) <
+        DRAG_START_THRESHOLD_PX
+    ) {
+      return
+    }
+    drag.moved = true
     let nextX =
       drag.startOffsetX + (e.clientX - drag.startClientX) / effectiveScale
     let nextY =
@@ -271,6 +298,7 @@ export function useScreenshotDrag({
       startClientY: e.clientY,
       startOffsetX: screenshotOffset.x,
       startOffsetY: screenshotOffset.y,
+      moved: false,
     }
   }
 
@@ -279,15 +307,25 @@ export function useScreenshotDrag({
     if (!drag || drag.pointerId !== e.pointerId) return
 
     e.preventDefault()
+    if (
+      !drag.moved &&
+      Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY) <
+        DRAG_START_THRESHOLD_PX
+    ) {
+      return
+    }
+    drag.moved = true
     let nextX =
       drag.startOffsetX + (e.clientX - drag.startClientX) / effectiveScale
     let nextY =
       drag.startOffsetY + (e.clientY - drag.startClientY) / effectiveScale
+    // Snap the box to the canvas centre, which for a row-mode main is a non-zero
+    // offset (its natural spot is the left cell, not the middle).
     const snap = snapCenterToTarget({
       centerX: nextX,
       centerY: nextY,
-      targetX: 0,
-      targetY: 0,
+      targetX: mockupCenterOffset?.x ?? 0,
+      targetY: mockupCenterOffset?.y ?? 0,
     })
 
     nextX += snap.deltaX

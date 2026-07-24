@@ -27,6 +27,7 @@ import {
 import { computeRowLayout } from "./screenshot-layout"
 import { computeNextLayerZ, moveLayerInStack } from "./store/layer-stack"
 import {
+  applyScreenshotStyle,
   applySharedFrameToCanvas,
   aspectRatioFromState,
   CANVAS_BASE_W,
@@ -38,11 +39,16 @@ import {
   duplicateLayerItem,
   layoutSlotsInRow,
   makeId,
-  mirrorToSlots,
   placeNewSlotInRow,
   placementAfterCanvas,
   removeSlotFromRow,
   resolveActiveLayoutGeometry,
+  resolveMainScreenshotStyle,
+  resolveSlotScreenshotStyle,
+  screenshotStyleEffects,
+  screenshotStyleGroup,
+  type ScreenshotStylePatch,
+  type ScreenshotStyleTarget,
   scaleAnnotationStrokesForAspectChange,
   scaleScreenshotOffsetForAspectChange,
   stateCanvasAspect,
@@ -125,45 +131,54 @@ const getCanvasAnimation = (canvas: CanvasState): CanvasAnimation =>
   canvas.animation ?? { durationMs: 5000, clips: [] }
 
 /** Snapshot the canvas's animatable state as a clip's target keyframe (pose). */
-export const captureClipPose = (canvas: CanvasState): ClipBaseline => ({
-  tilt: canvas.tilt,
-  scale: canvas.scale,
-  screenshotPosition: canvas.screenshotPosition,
-  screenshotOffset: canvas.screenshotOffset,
-  padding: canvas.padding,
-  canvasBorderRadius: canvas.canvasBorderRadius,
-  shadow: canvas.shadow,
-  backdropEffects: canvas.backdrop.effects,
-  lighting: canvas.backdrop.lighting,
-  background: canvas.background,
-  filter: canvas.backdrop.filter,
-  portrait: canvas.portrait,
-  pattern: canvas.backdrop.pattern,
-  overlay: canvas.overlay,
-  border: canvas.border,
-  borderRadius: canvas.borderRadius,
-  // null (not undefined) so a clip with no crop stays distinguishable from a
-  // pose captured before crop animated — see poseCrop.
-  crop: canvas.lastCropRegion,
-  slots: Object.fromEntries(
-    canvas.screenshotSlots.map((s) => [
-      s.id,
-      {
-        tilt: s.tilt,
-        scale: s.scale,
-        rotation: s.rotation,
-        // Slots fall back to the canvas value when they have none of their own.
-        shadow: s.shadow ?? canvas.shadow,
-        xPct: s.xPct,
-        yPct: s.yPct,
-        border: s.border ?? canvas.border,
-        borderRadius: s.borderRadius ?? canvas.borderRadius,
-        padding: s.padding ?? canvas.padding,
-        lighting: s.lighting ?? canvas.backdrop.lighting,
-      },
-    ])
-  ),
-})
+export const captureClipPose = (canvas: CanvasState): ClipBaseline => {
+  // Main and slot style are projected through the same resolver pair so the two
+  // branches of the pose stay structurally identical.
+  const main = resolveMainScreenshotStyle(canvas)
+  return {
+    tilt: main.tilt,
+    scale: main.scale,
+    screenshotPosition: canvas.screenshotPosition,
+    screenshotOffset: canvas.screenshotOffset,
+    padding: main.padding,
+    canvasBorderRadius: canvas.canvasBorderRadius,
+    shadow: main.shadow,
+    backdropEffects: canvas.backdrop.effects,
+    lighting: main.lighting,
+    background: canvas.background,
+    filter: canvas.backdrop.filter,
+    portrait: canvas.portrait,
+    pattern: canvas.backdrop.pattern,
+    overlay: canvas.overlay,
+    border: main.border,
+    borderRadius: main.borderRadius,
+    // null (not undefined) so a clip with no crop stays distinguishable from a
+    // pose captured before crop animated — see poseCrop.
+    crop: canvas.lastCropRegion,
+    slots: Object.fromEntries(
+      canvas.screenshotSlots.map((s) => {
+        // resolveSlotScreenshotStyle is the single owner of the slot→canvas
+        // inheritance rule (a slot with no shadow/border/… borrows the canvas's).
+        const style = resolveSlotScreenshotStyle(s, canvas)
+        return [
+          s.id,
+          {
+            tilt: style.tilt,
+            scale: style.scale,
+            rotation: s.rotation,
+            shadow: style.shadow,
+            xPct: s.xPct,
+            yPct: s.yPct,
+            border: style.border,
+            borderRadius: style.borderRadius,
+            padding: style.padding,
+            lighting: style.lighting,
+          },
+        ]
+      })
+    ),
+  }
+}
 
 /**
  * Resolve a pose's crop against the live one. Poses captured before crop
@@ -359,7 +374,10 @@ const mainPositionBase = (
   // cells still anchor to the grid (matches mainScreenshotPositionPct).
   if (slots.length > 0 && position === "center") {
     const rowLayout = computeRowLayout(
-      [{ id: "__main__", frame }, ...slots.map((s) => ({ id: s.id, frame }))],
+      [
+        { id: "__main__", frame },
+        ...slots.map((s) => ({ id: s.id, frame: s.frame ?? frame })),
+      ],
       aw / ah
     )
     const mainLayout = rowLayout[0]
@@ -768,6 +786,12 @@ export type EditorActions = {
     draft: CurrentDraftInfo,
     ui?: DraftLoadUi
   ) => void
+  /**
+   * Apply a bundled template's full composition as a brand-new, unsaved
+   * project. Same restore path as {@link loadDraftState} but never links to a
+   * saved draft, so the next Save creates a fresh draft.
+   */
+  loadTemplateState: (state: Partial<EditorState>, ui?: DraftLoadUi) => void
   applyPresetSnapshot: (
     snapshot: CustomPresetGeometry,
     canvasId?: string
@@ -848,9 +872,20 @@ export type EditorActions = {
   ) => void
   setShadow: (s: Shadow, canvasId?: string) => void
   setMainScreenshotShadow: (s: Shadow, canvasId?: string) => void
+  /**
+   * Single entry point for screenshot style edits. `target` decides whether the
+   * patch lands on the main screenshot, a specific slot, or all of them; the
+   * inspector uses this instead of picking between main/all/slot setters.
+   */
+  applyScreenshotStyle: (
+    target: ScreenshotStyleTarget,
+    patch: ScreenshotStylePatch,
+    canvasId?: string
+  ) => void
   setOverlay: (o: Overlay, canvasId?: string) => void
   setFrame: (f: DeviceFrame, canvasId?: string) => void
   setFrameForMatchingScreenshots: (f: DeviceFrame, canvasId?: string) => void
+  setMainScreenshotFrame: (f: DeviceFrame, canvasId?: string) => void
   setFrameAddress: (address: string, canvasId?: string) => void
   setTweet: (card: TweetCard, canvasId?: string) => void
   updateTweet: (patch: Partial<TweetCard>, canvasId?: string) => void
@@ -1516,6 +1551,83 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         ...CLEAR_SELECTION,
       })
     },
+    loadTemplateState: (state, ui) => {
+      const incoming = normalizeEditorState(state)
+      // A template ships a screenshot only so it can render a thumbnail — the
+      // composition (background, frame, shadow, layout…) is what we apply. Drop
+      // every media field and carry over whatever the user already had on their
+      // active canvas, so applying a template restyles their screenshot (or
+      // leaves the canvas empty when they have none).
+      const prev = get().present
+      const prevActive = prev.canvases.find((c) => c.id === prev.activeCanvasId)
+      const present: EditorState = {
+        ...incoming,
+        canvases: incoming.canvases.map((canvas) => {
+          const cleared: CanvasState = {
+            ...canvas,
+            screenshot: null,
+            originalScreenshot: null,
+            lastCropRegion: null,
+            videoClips: null,
+            tweet: null,
+            fullPageCapture: { scrollPosition: 0 },
+            screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+              ...slot,
+              src: null,
+            })),
+          }
+          if (canvas.id === incoming.activeCanvasId && prevActive) {
+            return {
+              ...cleared,
+              screenshot: prevActive.screenshot,
+              originalScreenshot: prevActive.originalScreenshot,
+              lastCropRegion: prevActive.lastCropRegion,
+              videoClips: prevActive.videoClips ?? null,
+              fullPageCapture: prevActive.fullPageCapture ?? {
+                scrollPosition: 0,
+              },
+            }
+          }
+          return cleared
+        }),
+      }
+      const defaultBulk = present.canvases.length > 1
+      const restoreAnimate = Boolean(ui?.isAnimateMode)
+      let selectedClipId: string | null = null
+      if (restoreAnimate) {
+        const active = present.canvases.find(
+          (c) => c.id === present.activeCanvasId
+        )
+        const clips = active?.animation?.clips ?? []
+        if (clips.length > 0) {
+          const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+          selectedClipId = sorted[sorted.length - 1]?.id ?? null
+        }
+      }
+      set({
+        past: [],
+        present,
+        future: [],
+        _lastGroup: null,
+        _lastTs: 0,
+        // Templates are a starting point, not a saved project: keep the draft
+        // pointer empty so the first Save writes a new draft.
+        currentDraft: null,
+        presetTab: ui?.presetTab ?? "single",
+        activeLayoutPresetId: ui?.activeLayoutPresetId ?? null,
+        activeCustomPresetId: ui?.activeCustomPresetId ?? null,
+        activeSinglePresetId: ui?.activeSinglePresetId ?? null,
+        bulkEditMode: ui?.bulkEditMode ?? defaultBulk,
+        bulkViewportZoom: ui?.bulkViewportZoom ?? 1,
+        bulkScale: ui?.bulkScale ?? 65,
+        previewAutoScrollDelay: ui?.previewAutoScrollDelay ?? 3000,
+        previewAnimation: ui?.previewAnimation ?? "slide",
+        isAnimateMode: restoreAnimate,
+        selectedAnimationClipId: selectedClipId,
+        selectedAnimationClipIds: selectedClipId ? [selectedClipId] : [],
+        ...CLEAR_SELECTION,
+      })
+    },
     applyPresetSnapshot: (snapshot, canvasId) => {
       commit((state) => {
         const targetId = canvasId ?? state.activeCanvasId
@@ -1527,9 +1639,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             ? []
             : snapshot.slots.map((config, index) => {
                 const previous = existingSlots[index]
+                // Preset geometry drives pose; live media + per-slot overrides
+                // that presets don't capture (frame, border, padding, …) stay
+                // on the matching index so mixed-frame layouts survive apply.
                 return {
                   id: previous?.id ?? makeId(),
                   src: previous?.src ?? null,
+                  originalSrc: previous?.originalSrc ?? null,
+                  lastCropRegion: previous?.lastCropRegion ?? null,
                   fullPageCapture: previous?.fullPageCapture ?? null,
                   xPct: config.xPct,
                   yPct: config.yPct,
@@ -1546,6 +1663,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                   hidden: config.hidden ?? previous?.hidden,
                   objectFit: config.objectFit ?? previous?.objectFit,
                   shadow: config.shadow ?? previous?.shadow,
+                  border: previous?.border,
+                  borderRadius: previous?.borderRadius,
+                  padding: previous?.padding,
+                  lighting: previous?.lighting,
+                  frame: previous?.frame,
                 }
               })
 
@@ -2090,24 +2212,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setPadding: (n, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          padding: n,
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, {
-            padding: n,
-          }),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { padding: n }),
         "padding",
         "padding"
       ),
     setBorderRadius: (n, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          borderRadius: n,
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, {
-            borderRadius: n,
-          }),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { borderRadius: n }),
         "borderRadius",
         "borderRadius"
       ),
@@ -2121,26 +2233,31 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setBorder: (b, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          border: b,
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, () => ({
-            border: cloneBorder(b),
-          })),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { border: b }),
         "border",
         "border"
       ),
     setMainScreenshotPadding: (n, canvasId) =>
-      commitCanvasEffect(canvasId, { padding: n }, "padding", "padding"),
+      commitCanvasEffect(
+        canvasId,
+        (canvas) => applyScreenshotStyle(canvas, "main", { padding: n }),
+        "padding",
+        "padding"
+      ),
     setMainScreenshotBorderRadius: (n, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        { borderRadius: n },
+        (canvas) => applyScreenshotStyle(canvas, "main", { borderRadius: n }),
         "borderRadius",
         "borderRadius"
       ),
     setMainScreenshotBorder: (b, canvasId) =>
-      commitCanvas(canvasId, { border: b }, "border"),
+      commitCanvasEffect(
+        canvasId,
+        (canvas) => applyScreenshotStyle(canvas, "main", { border: b }),
+        "border",
+        "border"
+      ),
     setBackdropEffects: (e, canvasId) =>
       commitCanvasEffect(
         canvasId,
@@ -2158,19 +2275,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setBackdropLighting: (l, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          backdrop: { ...canvas.backdrop, lighting: l },
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, () => ({
-            lighting: cloneLighting(l),
-          })),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { lighting: l }),
         "backdrop-lighting",
         "lighting"
       ),
     setMainScreenshotBackdropLighting: (l, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({ backdrop: { ...canvas.backdrop, lighting: l } }),
+        (canvas) => applyScreenshotStyle(canvas, "main", { lighting: l }),
         "backdrop-lighting",
         "lighting"
       ),
@@ -2182,9 +2294,19 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         "filter"
       ),
     setTilt: (t, canvasId) =>
-      commitCanvasEffect(canvasId, { tilt: t }, "tilt", "tilt"),
+      commitCanvasEffect(
+        canvasId,
+        (canvas) => applyScreenshotStyle(canvas, "main", { tilt: t }),
+        "tilt",
+        "tilt"
+      ),
     setScale: (n, canvasId) =>
-      commitCanvasEffect(canvasId, { scale: n }, "scale", "zoom"),
+      commitCanvasEffect(
+        canvasId,
+        (canvas) => applyScreenshotStyle(canvas, "main", { scale: n }),
+        "scale",
+        "zoom"
+      ),
     setTiltAndScale: (t, scale, canvasId) =>
       commitCanvasEffect(canvasId, { tilt: t, scale }, "tilt-scale", [
         "tilt",
@@ -2193,34 +2315,21 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setScreenshotTilt: (t, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          tilt: t,
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, () => ({
-            tilt: { ...t },
-          })),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { tilt: t }),
         "tilt",
         "tilt"
       ),
     setScreenshotScale: (n, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          scale: n,
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, { scale: n }),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { scale: n }),
         "scale",
         "zoom"
       ),
     setScreenshotRotation: (n, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          tilt: { ...canvas.tilt, rz: n },
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, {
-            rotation: n,
-          }),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { rotation: n }),
         "tilt",
         "tilt"
       ),
@@ -2254,20 +2363,30 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }),
         "screenshotLayer"
       ),
+    applyScreenshotStyle: (target, patch, canvasId) => {
+      const scope =
+        target === "main" || target === "all" ? target : `slot-${target.slotId}`
+      commitCanvasEffect(
+        canvasId,
+        (canvas) => applyScreenshotStyle(canvas, target, patch),
+        `${screenshotStyleGroup(patch)}:${scope}`,
+        screenshotStyleEffects(patch)
+      )
+    },
     setShadow: (s, canvasId) =>
       commitCanvasEffect(
         canvasId,
-        (canvas) => ({
-          shadow: s,
-          screenshotSlots: mirrorToSlots(canvas.screenshotSlots, () => ({
-            shadow: cloneShadow(s),
-          })),
-        }),
+        (canvas) => applyScreenshotStyle(canvas, "all", { shadow: s }),
         "shadow",
         "shadow"
       ),
     setMainScreenshotShadow: (s, canvasId) =>
-      commitCanvasEffect(canvasId, { shadow: s }, "shadow", "shadow"),
+      commitCanvasEffect(
+        canvasId,
+        (canvas) => applyScreenshotStyle(canvas, "main", { shadow: s }),
+        "shadow",
+        "shadow"
+      ),
     setOverlay: (o, canvasId) =>
       commitCanvasEffect(canvasId, { overlay: o }, "overlay", "overlay"),
     setFrame: (f, canvasId) =>
@@ -2299,12 +2418,43 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               frameAddress: "",
             }
           }
+          // Strip overrides *before* reflow so row math packs everyone as the
+          // shared frame (not the pre-apply mixed-frame widths).
+          const withoutSlotFrames: CanvasState = {
+            ...canvas,
+            screenshotSlots: canvas.screenshotSlots.map((slot) =>
+              slot.frame ? { ...slot, frame: undefined } : slot
+            ),
+          }
           return applySharedFrameToCanvas(
-            canvas,
+            withoutSlotFrames,
             state,
             f,
             get().activeLayoutPresetId
           )
+        },
+        "frame"
+      ),
+    setMainScreenshotFrame: (f, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => {
+          if (canvas.tweet) {
+            return {
+              frame: { id: "none", color: "black", orientation: "vertical" },
+              frameAddress: "",
+            }
+          }
+          // The main has no frame of its own — it uses the canvas frame, which
+          // every un-overridden slot inherits. To change ONLY the main, pin each
+          // inheriting slot to the previous frame so it stays put.
+          const previousFrame = canvas.frame
+          return {
+            frame: { ...f },
+            screenshotSlots: canvas.screenshotSlots.map((slot) =>
+              slot.frame ? slot : { ...slot, frame: { ...previousFrame } }
+            ),
+          }
         },
         "frame"
       ),
@@ -3535,7 +3685,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               { id: "__main__", frame: canvas.frame },
               ...updatedSlots.map((slot) => ({
                 id: slot.id,
-                frame: canvas.frame,
+                frame: slot.frame ?? canvas.frame,
               })),
             ],
             stateCanvasAspect(state)

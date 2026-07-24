@@ -59,7 +59,7 @@ export function planSinglePresetSlotRow(
       { id: "__main__", frame: canvas.frame },
       ...canvas.screenshotSlots.map((slot) => ({
         id: slot.id,
-        frame: canvas.frame,
+        frame: slot.frame ?? canvas.frame,
       })),
     ],
     aspectRatio(aspect)
@@ -106,13 +106,19 @@ export function planLayoutPreset(
   aspect: AspectState
 ): PresetPlan {
   const geometry = resolveLayoutPresetGeometry(preset, canvas.frame)
+  // Prefer each existing slot's frame override so relative xPct offsets land
+  // on the same natural centers the live row uses after apply. New slots past
+  // the current count inherit the canvas frame.
   const naturalLayout = computeRowLayout(
     [
       { id: "__main__", frame: canvas.frame },
-      ...geometry.slots.map((_, i) => ({
-        id: `_layout_${i}`,
-        frame: canvas.frame,
-      })),
+      ...geometry.slots.map((_, i) => {
+        const existing = canvas.screenshotSlots[i]
+        return {
+          id: existing?.id ?? `_layout_${i}`,
+          frame: existing?.frame ?? canvas.frame,
+        }
+      }),
     ],
     aspectRatio(aspect)
   )

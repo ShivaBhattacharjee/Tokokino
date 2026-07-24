@@ -72,6 +72,9 @@ type ScreenshotMockupProps = {
   showHoverActions?: boolean
   /** Cap the frame to min(cqw, cqh) so it doesn't fill tall canvases. */
   scopeToMinSide?: boolean
+  /** False for slots so the mockup ignores the main screenshot's live-drag vars
+   * (it sits in its own positioned container). */
+  readMainPreviewVars?: boolean
   innerLightingStyle?: React.CSSProperties | null
   /** Register the framed <video> with the docked control bar. */
   onMediaElement?: (el: HTMLVideoElement | null) => void
@@ -113,6 +116,7 @@ export function ScreenshotMockup({
   captureStateKey,
   showHoverActions = true,
   scopeToMinSide = false,
+  readMainPreviewVars = true,
   innerLightingStyle,
   onMediaElement,
   mediaStyle,
@@ -195,6 +199,7 @@ export function ScreenshotMockup({
           shadowFilter,
           enhanceFilter,
           layer: screenshotLayer,
+          readPreviewVars: readMainPreviewVars,
         })}
         onClick={onSelect}
         onPointerDown={onPointerDown}

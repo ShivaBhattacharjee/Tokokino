@@ -49,10 +49,6 @@ export function BackdropSection({
   const activeCanvasId = useActiveCanvasId()
   const setBackdropEffects = useEditorStore((s) => s.setBackdropEffects)
   const setBackdropPattern = useEditorStore((s) => s.setBackdropPattern)
-  const setBackdropLighting = useEditorStore((s) => s.setBackdropLighting)
-  const setMainScreenshotBackdropLighting = useEditorStore(
-    (s) => s.setMainScreenshotBackdropLighting
-  )
   const setBackdropFilter = useEditorStore((s) => s.setBackdropFilter)
   const setOverlay = useEditorStore((s) => s.setOverlay)
   const setPortrait = useEditorStore((s) => s.setPortrait)
@@ -141,13 +137,9 @@ export function BackdropSection({
   )
   const applyLighting = React.useCallback(
     (nextLighting: typeof lighting) => {
-      applyStyle(
-        { lighting: nextLighting },
-        () => setMainScreenshotBackdropLighting(nextLighting),
-        () => setBackdropLighting(nextLighting)
-      )
+      applyStyle({ lighting: nextLighting })
     },
-    [applyStyle, setBackdropLighting, setMainScreenshotBackdropLighting]
+    [applyStyle]
   )
   const setLighting = React.useCallback(
     (patch: Partial<typeof lighting>) =>

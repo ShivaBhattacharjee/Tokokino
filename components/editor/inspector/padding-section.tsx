@@ -3,16 +3,13 @@
 import * as React from "react"
 
 import { ElasticSlider } from "@/components/elastic-slider"
-import {
-  useActiveCanvasField,
-  useActiveCanvasId,
-  useEditorStore,
-} from "@/lib/editor/store"
+import { useActiveCanvasField, useActiveCanvasId } from "@/lib/editor/store"
 import {
   livePreviewRoots,
   setLivePreviewVar,
 } from "@/lib/editor/live-preview-vars"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
+import { editorValueSchemas } from "@/lib/editor/value-schemas"
 import { cn } from "@/lib/utils"
 
 const PADDING_PREVIEW_VAR = "--editor-padding-preview"
@@ -22,10 +19,6 @@ export function PaddingSection() {
   const activeCanvasId = useActiveCanvasId()
   const { applyStyle, selectedSlot, target } = useScreenshotStyleTarget()
   const padding = selectedSlot?.padding ?? canvasPadding
-  const setPadding = useEditorStore((s) => s.setPadding)
-  const setMainScreenshotPadding = useEditorStore(
-    (s) => s.setMainScreenshotPadding
-  )
   const [draftPadding, setDraftPadding] = React.useState<number | null>(null)
   const displayedPadding = draftPadding ?? padding
   const getPreviewScopeEls = React.useCallback((): HTMLElement[] => {
@@ -57,20 +50,13 @@ export function PaddingSection() {
   }, [setPreviewPadding])
   const applyPadding = React.useCallback(
     (value: number) => {
-      applyStyle(
-        { padding: value },
-        () => setMainScreenshotPadding(value),
-        () => setPadding(value)
-      )
+      applyStyle({
+        padding: editorValueSchemas.padding.catch(0).parse(value),
+      })
       setDraftPadding(null)
       clearPreviewPaddingAfterPaint()
     },
-    [
-      applyStyle,
-      clearPreviewPaddingAfterPaint,
-      setMainScreenshotPadding,
-      setPadding,
-    ]
+    [applyStyle, clearPreviewPaddingAfterPaint]
   )
   const previewPadding = React.useCallback(
     (value: number) => {

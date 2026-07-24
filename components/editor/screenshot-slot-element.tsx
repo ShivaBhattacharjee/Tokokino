@@ -16,6 +16,7 @@ import {
   ScreenshotFrameSettings,
 } from "@/components/editor/canvas/screenshot-edit-menu"
 import { ScreenshotFrameContent } from "@/components/editor/canvas/screenshot-frame-content"
+import { ScreenshotStage } from "@/components/editor/canvas/screenshot-stage"
 import type {
   CaptureDevice,
   CaptureSettings,
@@ -35,30 +36,17 @@ import {
   ToolbarSurface,
 } from "@/components/editor/toolbar/primitives"
 import { slotBoxAspectRatio } from "@/lib/editor/screenshot-layout"
+import { resolveSlotScreenshotStyle } from "@/lib/editor/store/canvas-helpers"
+import { buildScreenshotImageStyle } from "@/lib/editor/screenshot-visual"
 import { computeCropTarget, type CropTarget } from "@/lib/editor/crop-utils"
-import {
-  BORDER_OFFSET_PREVIEW_VAR,
-  BORDER_OUTLINE_PREVIEW_VAR,
-  borderOffsetCss,
-  borderOutlineCss,
-  SCREENSHOT_RADIUS_PREVIEW_VAR,
-  shadowBoxShadowCss,
-  shadowCss,
-  shadowDropFilterCss,
-} from "@/lib/editor/css-utils"
 import { clipAffectsSlot, clipOwns } from "@/lib/editor/animation-playback"
 import {
-  assetFilterCss,
   type AssetBlendMode,
-  type BackdropLighting,
-  type Border,
   type DeviceFrame,
   type EditorTool,
   type EnhancePreset,
-  enhanceFilterCss,
   MAX_SCREENSHOT_SLOTS,
   type ScreenshotSlot,
-  type Shadow,
   useActiveCanvasField,
   useEditor,
   useEditorStore,
@@ -125,28 +113,20 @@ type ScreenshotSlotRenderProps = {
 type CanvasSharedStyle = {
   frame: DeviceFrame
   frameAddress: string
-  padding: number
-  borderRadius: number
-  shadow: Shadow
-  border: Border
   enhance: EnhancePreset
   opacity: number
   blendMode: AssetBlendMode
-  lighting: BackdropLighting
 }
 
+// Canvas-level values a slot cannot override (frame, enhance, layer opacity /
+// blend). Per-item style that DOES inherit lives in resolveSlotScreenshotStyle.
 function useCanvasSharedStyle(): CanvasSharedStyle {
   return useActiveCanvasField((canvas) => ({
     frame: canvas.frame,
     frameAddress: canvas.frameAddress,
-    padding: canvas.padding,
-    borderRadius: canvas.borderRadius,
-    shadow: canvas.shadow,
-    border: canvas.border,
     enhance: canvas.enhance,
     opacity: canvas.screenshotLayer.opacity,
     blendMode: canvas.screenshotLayer.blendMode,
-    lighting: canvas.backdrop.lighting,
   }))
 }
 
@@ -185,13 +165,13 @@ export function ScreenshotSlotRender({
   captureStateKey,
 }: ScreenshotSlotRenderProps) {
   const shared = useCanvasSharedStyle()
-  const effectiveShadow = slot.shadow ?? shared.shadow
-  const effectiveBorder = slot.border ?? shared.border
-  const effectiveBorderRadius = slot.borderRadius ?? shared.borderRadius
-  const effectivePadding = slot.padding ?? shared.padding
-  const effectiveLighting = slot.lighting ?? shared.lighting
-  const computedShadowFilter = shadowDropFilterCss(effectiveShadow)
-  const enhanceFilter = enhanceFilterCss(shared.enhance)
+  // The slot→canvas inheritance rule lives once in resolveSlotScreenshotStyle.
+  const resolved = useActiveCanvasField((canvas) =>
+    resolveSlotScreenshotStyle(slot, canvas)
+  )
+  const effectivePadding = resolved.padding
+  const effectiveLighting = resolved.lighting
+  const effectiveBorderRadius = resolved.borderRadius
 
   // Whether an Animate-mode keyframe animates THIS slot's border / lighting.
   // Like the main screenshot (canvas-view), those overlays must always mount
@@ -225,18 +205,33 @@ export function ScreenshotSlotRender({
           forceMount: lightingAnimated,
         })
       : null
-  const filterChain = [enhanceFilter, assetFilterCss(slot.filter)]
-    .filter(Boolean)
-    .join(" ")
-    .trim()
-  const contentTransform = [
-    "perspective(1400px)",
-    `rotateX(var(--slot-ts-rx, ${slot.tilt.rx}deg))`,
-    `rotateY(var(--slot-ts-ry, ${slot.tilt.ry}deg))`,
-    `rotateZ(var(--slot-ts-rz, ${slot.tilt.rz}deg))`,
-    `scale(var(--slot-ts-scale, ${slot.scale / 100}))`,
-  ].join(" ")
-  const boxAspectRatio = slotBoxAspectRatio(shared.frame, canvasAspectRatio)
+
+  const fullPageMediaStyle = fullPageCaptureMediaStyle(slot.fullPageCapture)
+  const effectiveObjectFit = fullPageCaptureObjectFit(
+    slot.fullPageCapture,
+    slot.objectFit ?? "contain"
+  )
+
+  // Shared image-box math — identical to the main screenshot's, only the live
+  // tilt/scale var namespace and the per-item asset filter differ.
+  const {
+    transform: contentTransform,
+    imgStyle: bareImgStyle,
+    shadowFilter: computedShadowFilter,
+    filterChain,
+  } = buildScreenshotImageStyle({
+    style: resolved,
+    enhance: shared.enhance,
+    assetFilter: slot.filter,
+    transformVarPrefix: "slot-ts",
+    borderAnimated,
+    fullPageMediaStyle,
+  })
+
+  // A slot can override the canvas frame; everything geometry/frame-related
+  // reads this, not the canvas frame.
+  const effectiveFrame = slot.frame ?? shared.frame
+  const boxAspectRatio = slotBoxAspectRatio(effectiveFrame, canvasAspectRatio)
   const effectiveWidthPct = rowLayout?.widthPct ?? slot.widthPct
 
   const containerStyle: React.CSSProperties = {
@@ -256,49 +251,51 @@ export function ScreenshotSlotRender({
     containerStyle.mixBlendMode = shared.blendMode
   }
 
-  const contentStyle: React.CSSProperties = {
-    padding: `var(--editor-padding-preview, ${Math.max(0, Math.min(240, effectivePadding)) / 12}%)`,
-  }
-
-  const imageBoxOutline = effectiveBorder
-  const bareBorderRadius = effectiveBorderRadius
   const selectionRadius = frameSelectionRadius(
-    shared.frame.id,
-    bareBorderRadius
+    effectiveFrame.id,
+    effectiveBorderRadius
   )
   const transformedStyle: React.CSSProperties = {
     opacity: shared.opacity / 100,
     borderRadius: selectionRadius,
   }
-  const bareImgStyle: React.CSSProperties = {
-    // Read the radius via a var so an Animate-mode clip can ease it; falls back
-    // to the committed value at rest / outside Animate mode.
-    borderRadius: `var(${SCREENSHOT_RADIUS_PREVIEW_VAR}, ${bareBorderRadius}px)`,
-    boxShadow: shadowBoxShadowCss(shadowCss(effectiveShadow)),
-    filter: filterChain || undefined,
-    transform: contentTransform,
-    transformStyle: "preserve-3d" as const,
-  }
-  const fullPageMediaStyle = fullPageCaptureMediaStyle(slot.fullPageCapture)
-  const effectiveObjectFit = fullPageCaptureObjectFit(
-    slot.fullPageCapture,
-    slot.objectFit ?? "contain"
-  )
-  if (fullPageMediaStyle) Object.assign(bareImgStyle, fullPageMediaStyle)
-  // When a clip animates this slot's border the outline is ALWAYS mounted (even
-  // when the committed border is invisible) so the player can ease it in from 0 /
-  // recolour it via the preview vars. Otherwise it renders only when committed.
-  const borderVisible =
-    Boolean(imageBoxOutline.color) && imageBoxOutline.width > 0
-  if (borderAnimated || borderVisible) {
-    const committedOutline = borderVisible
-      ? borderOutlineCss(imageBoxOutline)
-      : "0px solid transparent"
-    bareImgStyle.outline = `var(${BORDER_OUTLINE_PREVIEW_VAR}, ${committedOutline})`
-    bareImgStyle.outlineOffset = `var(${BORDER_OFFSET_PREVIEW_VAR}, ${borderOffsetCss(imageBoxOutline)})`
-  }
 
   const showEditMenu = !previewMode && Boolean(slot.src)
+  const editMenu = showEditMenu ? (
+    <div
+      className={cn(
+        "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
+        editOpen || isSelected
+          ? "opacity-100"
+          : "opacity-0 group-hover/slot:opacity-100",
+        bulkCanvasDragging && !editOpen && "!opacity-0"
+      )}
+      style={{
+        transform: `translate(-50%, -50%) ${contentTransform}`,
+        transformOrigin: "center",
+        transformStyle: "preserve-3d",
+      }}
+    >
+      <ScreenshotEditMenu
+        open={editOpen}
+        allowVideo={false}
+        onOpenChange={(open) => {
+          if (bulkCanvasDragging) {
+            onEditOpenChange(false)
+            return
+          }
+          onEditOpenChange(open)
+        }}
+        onCrop={onCropClick}
+        onReplaceFile={onReplaceFile}
+        onDelete={onDeleteFromMenu}
+        onCaptureWebsite={onCapture}
+        captureDefaultDevice={captureDefaultDevice}
+        captureDefaultOrientation={effectiveFrame.orientation}
+        captureStateKey={captureStateKey}
+      />
+    </div>
+  ) : null
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events
@@ -353,114 +350,58 @@ export function ScreenshotSlotRender({
             : { type: "spring", stiffness: 420, damping: 28, mass: 0.75 }
         }
       >
-        <div className="absolute inset-0" style={contentStyle}>
-          <div className="relative h-full w-full" style={transformedStyle}>
-            {/* Container selection for framed/empty boxes. Bare images draw
-                their own ring on the image box in ScreenshotBare so contain
-                doesn't leave a ring around letterboxed empty space. */}
-            {isSelected &&
+        <ScreenshotStage
+          padding={effectivePadding}
+          transformedBoxStyle={transformedStyle}
+          selectionRadius={selectionRadius}
+          contentTransform={contentTransform}
+          showSelectionBorder={
+            isSelected &&
             !previewMode &&
-            (shared.frame.id !== "none" || !slot.src) ? (
-              <div
-                aria-hidden
-                data-selection-border="true"
-                className="pointer-events-none absolute inset-0 z-[60] outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
-                style={{
-                  transform: contentTransform,
-                  transformStyle: "preserve-3d",
-                  borderRadius: selectionRadius,
-                }}
-              />
-            ) : null}
-            {/* Animate-mode wrapper. Reads the same CSS vars AnimationLayer sets
-                on the canvas node as the main screenshot, so every image in a
-                multi-screenshot canvas animates together instead of only the
-                main one moving (which made it look like the first image
-                disappeared). Defaults make it a no-op outside animate mode. */}
-            <div
-              className="relative h-full w-full"
-              style={{
-                transform: "var(--anim-transform, none)",
-                opacity: "var(--anim-opacity, 1)" as unknown as number,
-                filter: "var(--anim-filter, none)",
-                transformOrigin: "center",
-              }}
-            >
-              <ScreenshotFrameContent
-                src={slot.src}
-                frame={shared.frame}
-                isDragOver={isDragOver}
-                onBrowse={onBrowse}
-                // Extra slots are never the sole screenshot, so no video here.
-                allowVideo={false}
-                imageFilter={filterChain || undefined}
-                shadowFilter={computedShadowFilter}
-                contentTransform={contentTransform}
-                bareStyle={bareImgStyle}
-                applyTransformWhenEmpty
-                suppressEmptyTransition
-                emptyCompact={Boolean(rowLayout)}
-                objectFit={effectiveObjectFit}
-                mediaStyle={fullPageMediaStyle}
-                isScreenshotSelected={isSelected && !previewMode}
-                activeTool={activeTool}
-                isDragging={false}
-                stageRef={stageRef}
-                imageRef={imageRef}
-                addressValue={shared.frameAddress}
-                onAddressChange={onAddressChange}
-                onSelect={onSelect}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onCrop={onCropClick}
-                onReplaceFile={onReplaceFile}
-                onDelete={onDeleteFromMenu}
-                innerLightingStyle={innerLightingStyle}
-                onCapture={onCapture}
-                onDemo={onDemo}
-                captureDefaultDevice={captureDefaultDevice}
-                captureStateKey={captureStateKey}
-              />
-            </div>
-
-            {showEditMenu ? (
-              <div
-                className={cn(
-                  "pointer-events-none absolute top-1/2 left-1/2 z-20 transition-opacity duration-200",
-                  editOpen || isSelected
-                    ? "opacity-100"
-                    : "opacity-0 group-hover/slot:opacity-100",
-                  bulkCanvasDragging && !editOpen && "!opacity-0"
-                )}
-                style={{
-                  transform: `translate(-50%, -50%) ${contentTransform}`,
-                  transformOrigin: "center",
-                  transformStyle: "preserve-3d",
-                }}
-              >
-                <ScreenshotEditMenu
-                  open={editOpen}
-                  allowVideo={false}
-                  onOpenChange={(open) => {
-                    if (bulkCanvasDragging) {
-                      onEditOpenChange(false)
-                      return
-                    }
-                    onEditOpenChange(open)
-                  }}
-                  onCrop={onCropClick}
-                  onReplaceFile={onReplaceFile}
-                  onDelete={onDeleteFromMenu}
-                  onCaptureWebsite={onCapture}
-                  captureDefaultDevice={captureDefaultDevice}
-                  captureDefaultOrientation={shared.frame.orientation}
-                  captureStateKey={captureStateKey}
-                />
-              </div>
-            ) : null}
-          </div>
-        </div>
+            (effectiveFrame.id !== "none" || !slot.src)
+          }
+          editMenu={editMenu}
+        >
+          <ScreenshotFrameContent
+            src={slot.src}
+            frame={effectiveFrame}
+            isDragOver={isDragOver}
+            onBrowse={onBrowse}
+            // Extra slots are never the sole screenshot, so no video here.
+            allowVideo={false}
+            imageFilter={filterChain || undefined}
+            shadowFilter={computedShadowFilter}
+            contentTransform={contentTransform}
+            bareStyle={bareImgStyle}
+            applyTransformWhenEmpty
+            suppressEmptyTransition
+            // Slots position via their own container; never inherit the main
+            // screenshot's live-drag vars, or dragging the main moves the slot.
+            readMainPreviewVars={false}
+            emptyCompact={Boolean(rowLayout)}
+            objectFit={effectiveObjectFit}
+            mediaStyle={fullPageMediaStyle}
+            isScreenshotSelected={isSelected && !previewMode}
+            activeTool={activeTool}
+            isDragging={false}
+            stageRef={stageRef}
+            imageRef={imageRef}
+            addressValue={shared.frameAddress}
+            onAddressChange={onAddressChange}
+            onSelect={onSelect}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onCrop={onCropClick}
+            onReplaceFile={onReplaceFile}
+            onDelete={onDeleteFromMenu}
+            innerLightingStyle={innerLightingStyle}
+            onCapture={onCapture}
+            onDemo={onDemo}
+            captureDefaultDevice={captureDefaultDevice}
+            captureStateKey={captureStateKey}
+          />
+        </ScreenshotStage>
       </motion.div>
     </div>
   )
@@ -518,7 +459,6 @@ export function ScreenshotSlotView({
     bringScreenshotSlotToFront,
     sendScreenshotSlotToBack,
     setIsScreenshotSelected,
-    setFrame,
     setFrameAddress,
     frame: canvasFrame,
     bulkEditMode,
@@ -619,7 +559,9 @@ export function ScreenshotSlotView({
     [setScreenshotSlotImage, slot.id]
   )
 
-  const captureDefaultDevice = defaultCaptureDeviceForFrame(canvasFrame)
+  const captureDefaultDevice = defaultCaptureDeviceForFrame(
+    slot.frame ?? canvasFrame
+  )
   const captureStateKey = `slot:${slot.id}`
   const handleSlotCapture = React.useCallback(
     async (rawUrl: string, settings: CaptureSettings) => {
@@ -923,8 +865,10 @@ export function ScreenshotSlotView({
                         )}
                       >
                         <ScreenshotFrameSettings
-                          frame={canvasFrame}
-                          onFrameChange={(frame) => setFrame(frame)}
+                          frame={slot.frame ?? canvasFrame}
+                          onFrameChange={(frame) =>
+                            updateScreenshotSlot(slot.id, { frame })
+                          }
                         />
                       </ToolbarPopover>
                       {slot.src && (

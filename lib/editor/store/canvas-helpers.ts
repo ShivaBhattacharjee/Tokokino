@@ -1,6 +1,7 @@
 import { LAYOUT_PRESETS, resolveLayoutPresetGeometry } from "../present-presets"
 import { computeRowLayout } from "../screenshot-layout"
 import type {
+  AnimationEffect,
   AnnotationStroke,
   AspectState,
   BackdropLighting,
@@ -10,6 +11,7 @@ import type {
   EditorState,
   ScreenshotSlot,
   Shadow,
+  Tilt,
 } from "../state-types"
 
 export type PresetTab = "single" | "multi" | "triple" | "custom"
@@ -87,10 +89,16 @@ export const layoutSlotsInRow = (
 ): ScreenshotSlot[] => {
   const n = slots.length
   if (n === 0) return slots
+  // Each slot may override the canvas frame (phone next to laptop, etc.).
+  // Row width/centers must use the *effective* frame per box — treating every
+  // slot as canvasFrame makes mixed-frame rows pack as if they all matched.
   const layout = computeRowLayout(
     [
       { id: "__main__", frame: canvasFrame },
-      ...slots.map((slot) => ({ id: slot.id, frame: canvasFrame })),
+      ...slots.map((slot) => ({
+        id: slot.id,
+        frame: slot.frame ?? canvasFrame,
+      })),
     ],
     canvasAspect
   )
@@ -177,7 +185,10 @@ export function applyLayoutPresetGeometryToCanvas(
   const naturalLayout = computeRowLayout(
     [
       { id: "__main__", frame },
-      ...canvas.screenshotSlots.map((slot) => ({ id: slot.id, frame })),
+      ...canvas.screenshotSlots.map((slot) => ({
+        id: slot.id,
+        frame: slot.frame ?? frame,
+      })),
     ],
     aspect
   )
@@ -299,14 +310,190 @@ export function applySlotStyleDefaults(
   slot: ScreenshotSlot,
   canvas: CanvasState
 ) {
+  const style = resolveSlotScreenshotStyle(slot, canvas)
   return {
     ...slot,
-    border: slot.border ?? cloneBorder(canvas.border),
+    border: cloneBorder(style.border),
+    borderRadius: style.borderRadius,
+    padding: style.padding,
+    shadow: cloneShadow(style.shadow),
+    lighting: cloneLighting(style.lighting),
+  }
+}
+
+/**
+ * The style a screenshot (main or slot) actually renders with, after a slot's
+ * per-item overrides fall back to the canvas-level value. This is the SINGLE
+ * source of the main↔slot inheritance rule — renderers, animation-pose capture,
+ * and export all resolve through it instead of re-deriving `slot.x ?? canvas.x`
+ * inline.
+ */
+export type ResolvedScreenshotStyle = {
+  tilt: Tilt
+  scale: number
+  shadow: Shadow
+  border: Border
+  borderRadius: number
+  padding: number
+  lighting: BackdropLighting
+  objectFit: "contain" | "cover" | "fill"
+}
+
+export function resolveMainScreenshotStyle(
+  canvas: CanvasState
+): ResolvedScreenshotStyle {
+  return {
+    tilt: canvas.tilt,
+    scale: canvas.scale,
+    shadow: canvas.shadow,
+    border: canvas.border,
+    borderRadius: canvas.borderRadius,
+    padding: canvas.padding,
+    lighting: canvas.backdrop.lighting,
+    objectFit: canvas.objectFit ?? "cover",
+  }
+}
+
+export function resolveSlotScreenshotStyle(
+  slot: ScreenshotSlot,
+  canvas: CanvasState
+): ResolvedScreenshotStyle {
+  return {
+    tilt: slot.tilt,
+    scale: slot.scale,
+    shadow: slot.shadow ?? canvas.shadow,
+    border: slot.border ?? canvas.border,
     borderRadius: slot.borderRadius ?? canvas.borderRadius,
     padding: slot.padding ?? canvas.padding,
-    shadow: slot.shadow ?? cloneShadow(canvas.shadow),
-    lighting: slot.lighting ?? cloneLighting(canvas.backdrop.lighting),
+    lighting: slot.lighting ?? canvas.backdrop.lighting,
+    objectFit: slot.objectFit ?? "contain",
   }
+}
+
+/**
+ * A style edit expressed once, target-agnostic. `applyScreenshotStyle` maps each
+ * field onto whichever screenshot the target names, so callers never re-implement
+ * the "main writes canvas.x / slot writes slot.x / all mirrors both" branching.
+ * `rotation` is the shared name for the roll axis — it lands on `tilt.rz` for the
+ * main screenshot and on a slot's dedicated `rotation` field.
+ */
+export type ScreenshotStylePatch = {
+  tilt?: Tilt
+  scale?: number
+  rotation?: number
+  shadow?: Shadow
+  border?: Border
+  borderRadius?: number
+  padding?: number
+  lighting?: BackdropLighting
+  objectFit?: "contain" | "cover" | "fill"
+}
+
+/** Which screenshot(s) a style edit applies to. */
+export type ScreenshotStyleTarget = "main" | "all" | { slotId: string }
+
+const patchMainCanvasStyle = (
+  canvas: CanvasState,
+  patch: ScreenshotStylePatch
+): Partial<CanvasState> => {
+  const next: Partial<CanvasState> = {}
+  if (patch.tilt) next.tilt = patch.tilt
+  if (patch.rotation !== undefined) {
+    next.tilt = { ...(next.tilt ?? canvas.tilt), rz: patch.rotation }
+  }
+  if (patch.scale !== undefined) next.scale = patch.scale
+  if (patch.shadow) next.shadow = patch.shadow
+  if (patch.border) next.border = patch.border
+  if (patch.borderRadius !== undefined) next.borderRadius = patch.borderRadius
+  if (patch.padding !== undefined) next.padding = patch.padding
+  if (patch.objectFit) next.objectFit = patch.objectFit
+  if (patch.lighting) {
+    next.backdrop = { ...canvas.backdrop, lighting: patch.lighting }
+  }
+  return next
+}
+
+/**
+ * Turn a style patch into a per-slot patch, cloning shared reference values so
+ * mirrored slots never share a `Border`/`Shadow`/`Lighting`/`Tilt` object with
+ * the main screenshot or each other.
+ */
+const patchSlotStyle = (
+  patch: ScreenshotStylePatch
+): Partial<ScreenshotSlot> => {
+  const next: Partial<ScreenshotSlot> = {}
+  if (patch.tilt) next.tilt = { ...patch.tilt }
+  if (patch.rotation !== undefined) next.rotation = patch.rotation
+  if (patch.scale !== undefined) next.scale = patch.scale
+  if (patch.shadow) next.shadow = cloneShadow(patch.shadow)
+  if (patch.border) next.border = cloneBorder(patch.border)
+  if (patch.borderRadius !== undefined) next.borderRadius = patch.borderRadius
+  if (patch.padding !== undefined) next.padding = patch.padding
+  if (patch.objectFit) next.objectFit = patch.objectFit
+  if (patch.lighting) next.lighting = cloneLighting(patch.lighting)
+  return next
+}
+
+/**
+ * The one place that writes screenshot style. Returns a `Partial<CanvasState>`
+ * ready to hand to `commitCanvas`/`commitCanvasEffect`.
+ */
+export function applyScreenshotStyle(
+  canvas: CanvasState,
+  target: ScreenshotStyleTarget,
+  patch: ScreenshotStylePatch
+): Partial<CanvasState> {
+  if (target === "main") {
+    return patchMainCanvasStyle(canvas, patch)
+  }
+  if (target === "all") {
+    return {
+      ...patchMainCanvasStyle(canvas, patch),
+      screenshotSlots: mirrorToSlots(canvas.screenshotSlots, () =>
+        patchSlotStyle(patch)
+      ),
+    }
+  }
+  const slotPatch = patchSlotStyle(patch)
+  return {
+    screenshotSlots: canvas.screenshotSlots.map((slot) =>
+      slot.id === target.slotId ? { ...slot, ...slotPatch } : slot
+    ),
+  }
+}
+
+/** Which animation effect each style field maps to (for Animate-mode keyframes). */
+const SCREENSHOT_STYLE_EFFECT: Partial<
+  Record<keyof ScreenshotStylePatch, AnimationEffect>
+> = {
+  tilt: "tilt",
+  rotation: "tilt",
+  scale: "zoom",
+  shadow: "shadow",
+  border: "border",
+  borderRadius: "borderRadius",
+  padding: "padding",
+  lighting: "lighting",
+}
+
+export function screenshotStyleEffects(
+  patch: ScreenshotStylePatch
+): AnimationEffect[] {
+  const effects = new Set<AnimationEffect>()
+  for (const key of Object.keys(patch) as (keyof ScreenshotStylePatch)[]) {
+    const effect = SCREENSHOT_STYLE_EFFECT[key]
+    if (effect) effects.add(effect)
+  }
+  return [...effects]
+}
+
+/**
+ * History-merge group for a style edit: edits touching the same field set merge
+ * (a padding drag stays one entry) but a padding change and a border change do
+ * not collapse together.
+ */
+export function screenshotStyleGroup(patch: ScreenshotStylePatch): string {
+  return `screenshot-style:${Object.keys(patch).sort().join(",")}`
 }
 
 export function migrateLegacySlot(raw: unknown): ScreenshotSlot {
@@ -352,6 +539,9 @@ export function migrateLegacySlot(raw: unknown): ScreenshotSlot {
   if (typeof slot.padding === "number") base.padding = slot.padding
   if (slot.shadow) base.shadow = cloneShadow(slot.shadow)
   if (slot.lighting) base.lighting = cloneLighting(slot.lighting)
+  if (slot.frame && typeof slot.frame.id === "string") {
+    base.frame = { ...slot.frame }
+  }
   return createScreenshotSlot(base, slot.zIndex ?? 1)
 }
 

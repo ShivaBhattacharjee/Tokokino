@@ -9,6 +9,7 @@ import {
   RiFileCopyLine,
   RiLayoutGridLine,
   RiRefreshLine,
+  RiSparkling2Line,
 } from "@remixicon/react"
 import { AnimatePresence, motion } from "motion/react"
 import { toast } from "sonner"
@@ -91,6 +92,12 @@ import {
   unwrapDraftState,
 } from "@/lib/schemas/draft"
 import { randomDisplayName } from "@/lib/random-name"
+import { TemplatesDialog } from "@/components/editor/templates/templates-dialog"
+import type { Template } from "@/lib/editor/templates"
+import { captureCurrentAsTemplate } from "@/lib/editor/templates/capture"
+import { env } from "@/lib/env"
+
+const ENABLE_TEMPLATE_COPY = env.NEXT_PUBLIC_ENABLE_TEMPLATE_COPY
 
 import { ExportControls } from "./export-controls"
 import { MobileOverflowMenu } from "./mobile-overflow-menu"
@@ -266,6 +273,7 @@ export function TopBar() {
   const setScreenshotSlotImage = useEditorStore((s) => s.setScreenshotSlotImage)
 
   const [showNewAlert, setShowNewAlert] = React.useState(false)
+  const [templatesOpen, setTemplatesOpen] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [feedbackOpen, setFeedbackOpen] = React.useState(false)
   const [saveOpen, setSaveOpen] = React.useState(false)
@@ -289,6 +297,7 @@ export function TopBar() {
     canUndo || canRedo || Boolean(currentDraft) || hasEditorContent
   const setCurrentDraft = useEditorStore((s) => s.setCurrentDraft)
   const loadDraftState = useEditorStore((s) => s.loadDraftState)
+  const loadTemplateState = useEditorStore((s) => s.loadTemplateState)
   const addCustomPreset = useEditorStore((s) => s.addCustomPreset)
   const updateCustomPresetInStore = useEditorStore((s) => s.updateCustomPreset)
   const setPresetTab = useEditorStore((s) => s.setPresetTab)
@@ -1048,6 +1057,48 @@ export function TopBar() {
     [loadDraftState]
   )
 
+  const handleApplyTemplate = React.useCallback(
+    (template: Template) => {
+      try {
+        const { present, ui } = unwrapDraftState(template.state)
+        // Templates apply composition only — their screenshot media is stripped
+        // in loadTemplateState — so there are no server videos to hydrate.
+        loadTemplateState(present, ui)
+        toast.success(`Applied "${template.name}"`)
+      } catch (err) {
+        console.error(err)
+        toast.error("Could not apply template")
+      }
+    },
+    [loadTemplateState]
+  )
+
+  const handleCopyTemplateJson = React.useCallback(async () => {
+    const slugInput =
+      window.prompt("Template slug (kebab-case)", "") ?? undefined
+    if (slugInput === undefined) return
+    const toastId = toast.loading("Capturing template…")
+    try {
+      const { category, slug, thumbnailUrl } =
+        await captureCurrentAsTemplate(slugInput)
+      if (thumbnailUrl) {
+        console.log(`[template] ${slug} (${category}) poster → ${thumbnailUrl}`)
+        toast.success(
+          `Template JSON copied (${category}). Poster: ${thumbnailUrl}`,
+          { id: toastId, duration: 12000 }
+        )
+      } else {
+        toast.success(
+          `Template JSON copied (${category}). Poster upload skipped — check console.`,
+          { id: toastId }
+        )
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Could not capture template", { id: toastId })
+    }
+  }, [])
+
   const handleCopyPng = React.useCallback(async () => {
     if (isCopyingPng) return
     setIsCopyingPng(true)
@@ -1104,6 +1155,20 @@ export function TopBar() {
             tooltip="New project"
             onClick={() => setShowNewAlert(true)}
           />
+          <TopBarButton
+            label="Templates"
+            icon={RiSparkling2Line}
+            tooltip="Pre-made templates"
+            onClick={() => setTemplatesOpen(true)}
+          />
+          {ENABLE_TEMPLATE_COPY && (
+            <TopBarButton
+              label="Copy template"
+              icon={RiFileCopyLine}
+              tooltip="Dev: copy current composition as template JSON"
+              onClick={() => void handleCopyTemplateJson()}
+            />
+          )}
           <OpenControls
             currentDraftName={currentDraft?.name ?? null}
             onOpenImage={() => fileInputRef.current?.click()}
@@ -1441,6 +1506,12 @@ export function TopBar() {
         />
 
         <DraftDownloadProgress download={draftDownload} />
+
+        <TemplatesDialog
+          open={templatesOpen}
+          onOpenChange={setTemplatesOpen}
+          onApply={handleApplyTemplate}
+        />
 
         <MobileSaveDialog
           open={mobileSaveOpen}

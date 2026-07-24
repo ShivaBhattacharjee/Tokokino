@@ -60,7 +60,7 @@ function mainScreenshotRowPositionPct({
   const rowLayout = computeRowLayout(
     [
       { id: "__main__", frame },
-      ...slots.map((slot) => ({ id: slot.id, frame })),
+      ...slots.map((slot) => ({ id: slot.id, frame: slot.frame ?? frame })),
     ],
     dims.ratio
   )
@@ -128,7 +128,7 @@ export function mainScreenshotOffsetForPoint({
     const rowLayout = computeRowLayout(
       [
         { id: "__main__", frame },
-        ...slots.map((slot) => ({ id: slot.id, frame })),
+        ...slots.map((slot) => ({ id: slot.id, frame: slot.frame ?? frame })),
       ],
       dims.ratio
     )
@@ -207,7 +207,10 @@ export function allScreenshotGroupCenter({
         ? computeRowLayout(
             [
               { id: "__main__", frame },
-              ...slots.map((slot) => ({ id: slot.id, frame })),
+              ...slots.map((slot) => ({
+                id: slot.id,
+                frame: slot.frame ?? frame,
+              })),
             ],
             dims.ratio
           )

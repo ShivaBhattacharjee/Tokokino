@@ -12,15 +12,11 @@ import { bulkToolbarScale } from "@/components/editor/toolbar/primitives"
 import { cn } from "@/lib/utils"
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
 import {
-  BORDER_OFFSET_PREVIEW_VAR,
-  BORDER_OUTLINE_PREVIEW_VAR,
-  borderOffsetCss,
-  borderOutlineCss,
   SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowBoxShadowCss,
   shadowCss,
-  shadowDropFilterCss,
 } from "@/lib/editor/css-utils"
+import { buildScreenshotImageStyle } from "@/lib/editor/screenshot-visual"
 import {
   CanvasPreviewScope,
   CanvasScope,
@@ -149,7 +145,7 @@ function CanvasViewInner({
     shadow,
     overlay,
     frame,
-    setFrame,
+    setMainScreenshotFrame,
     frameAddress,
     setFrameAddress,
     tweet,
@@ -434,7 +430,7 @@ function CanvasViewInner({
               { id: "__main__", frame },
               ...screenshotSlots.map((slot) => ({
                 id: slot.id,
-                frame,
+                frame: slot.frame ?? frame,
               })),
             ],
             canvasAspectRatio
@@ -474,16 +470,7 @@ function CanvasViewInner({
       }
     : null
 
-  const transform = [
-    `perspective(1400px)`,
-    `rotateX(var(--canvas-ts-rx, ${tilt.rx}deg))`,
-    `rotateY(var(--canvas-ts-ry, ${tilt.ry}deg))`,
-    `rotateZ(var(--canvas-ts-rz, ${tilt.rz}deg))`,
-    `scale(var(--canvas-ts-scale, ${scale / 100}))`,
-  ].join(" ")
-
   const computedShadow = shadowCss(shadow)
-  const computedShadowFilter = shadowDropFilterCss(shadow)
   const scaleFactor = scale / 100
   const positionX = screenshotAnchor.x / 100
   const positionY = screenshotAnchor.y / 100
@@ -494,23 +481,44 @@ function CanvasViewInner({
   // Read the animated radius via a var so an Animate-mode clip can ease it,
   // falling back to the committed value at rest / outside Animate mode.
   const screenshotRadiusCss = `var(${SCREENSHOT_RADIUS_PREVIEW_VAR}, ${borderRadius}px)`
-  const imgStyle: React.CSSProperties = {
-    borderRadius: screenshotRadiusCss,
+  // When a clip animates the border, the outline is ALWAYS mounted (even when
+  // the committed border is invisible) so the player can ease it in from 0 /
+  // recolour it via the preview vars.
+  const borderAnimated =
+    isAnimateMode && !!canvasAnimation?.clips.some((c) => clipOwns(c, "border"))
+  // The image-box CSS (transform, shadow, filter, radius var, border outline) is
+  // shared with every screenshot slot via buildScreenshotImageStyle, so a slot
+  // can never drift from the main screenshot's look.
+  const fullPageMediaStyle = fullPageCaptureMediaStyle(fullPageCapture)
+  const {
     transform,
-    transformStyle: "preserve-3d",
-    boxShadow: shadowBoxShadowCss(computedShadow),
-    filter: enhanceFilter,
-    opacity: screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100,
-  }
+    imgStyle,
+    shadowFilter: computedShadowFilter,
+  } = buildScreenshotImageStyle({
+    style: {
+      tilt,
+      scale,
+      shadow,
+      border,
+      borderRadius,
+      padding,
+      lighting: backdrop.lighting,
+      objectFit: objectFit ?? "cover",
+    },
+    enhance,
+    assetFilter: null,
+    transformVarPrefix: "canvas-ts",
+    borderAnimated,
+    fullPageMediaStyle,
+  })
+  imgStyle.opacity = screenshotLayer.hidden ? 0 : screenshotLayer.opacity / 100
   if (screenshotLayer.blendMode && screenshotLayer.blendMode !== "normal") {
     imgStyle.mixBlendMode = screenshotLayer.blendMode
   }
-  const fullPageMediaStyle = fullPageCaptureMediaStyle(fullPageCapture)
   const effectiveObjectFit = fullPageCaptureObjectFit(
     fullPageCapture,
     objectFit ?? "cover"
   )
-  if (fullPageMediaStyle) Object.assign(imgStyle, fullPageMediaStyle)
   const handleFullPageWheel = React.useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
       if (!fullPageCapture || isCanvasPreview) return
@@ -558,23 +566,12 @@ function CanvasViewInner({
         ? `${cropShellDims.w} / ${cropShellDims.h}`
         : undefined
       : undefined
-  // When a clip animates the border, the outline is ALWAYS mounted (even when
-  // the committed border is invisible) so the player can ease it in from 0 /
-  // recolour it via the preview vars. Otherwise it renders only when committed.
-  const borderAnimated =
-    isAnimateMode && !!canvasAnimation?.clips.some((c) => clipOwns(c, "border"))
-  const borderVisible = Boolean(border.color) && border.width > 0
-  if (borderAnimated || borderVisible) {
-    const committedOutline = borderVisible
-      ? borderOutlineCss(border)
-      : "0px solid transparent"
-    imgStyle.outline = `var(${BORDER_OUTLINE_PREVIEW_VAR}, ${committedOutline})`
-    imgStyle.outlineOffset = `var(${BORDER_OFFSET_PREVIEW_VAR}, ${borderOffsetCss(border)})`
-  }
+  // buildScreenshotImageStyle mounted the outline on imgStyle when the border is
+  // visible or animated; mirror it onto the empty-state box the same way.
   const emptyStateBoxStyle: React.CSSProperties = {
     borderRadius: screenshotRadiusCss,
   }
-  if (borderAnimated || borderVisible) {
+  if (imgStyle.outline) {
     emptyStateBoxStyle.outline = imgStyle.outline
     emptyStateBoxStyle.outlineOffset = imgStyle.outlineOffset
   }
@@ -702,6 +699,11 @@ function CanvasViewInner({
     placementDims,
     positionedStyle,
     screenshotOffset,
+    // In a row, the main's natural spot is its left cell; the offset that centres
+    // it in the canvas is (50% − its row xPct) of the canvas width.
+    mockupCenterOffset: mainRowLayout
+      ? { x: ((50 - mainRowLayout.xPct) / 100) * widthPx, y: 0 }
+      : { x: 0, y: 0 },
     setScreenshotOffset,
     setScreenshotPlacement,
     setIsScreenshotSelected,
@@ -906,7 +908,7 @@ function CanvasViewInner({
               }}
               onBringToFront={() => bringScreenshotToFront()}
               onSendToBack={() => sendScreenshotToBack()}
-              onFrameChange={setFrame}
+              onFrameChange={setMainScreenshotFrame}
               objectFit={effectiveObjectFit}
               onObjectFitChange={setObjectFit}
               stageRef={stageRef}
@@ -1222,6 +1224,12 @@ function CanvasViewInner({
                   transform={transform}
                   shadowFilter={computedShadowFilter}
                   boxStyle={emptyStateBoxStyle}
+                  // Match the canvas box's aspect (which follows the last loaded
+                  // screenshot's natural ratio on an auto canvas) so deleting the
+                  // screenshot doesn't snap the empty box to the default 16:10 and
+                  // make it jump under tilt/scale.
+                  aspectW={aw}
+                  aspectH={ah}
                   compact={
                     tilt.rx !== 0 ||
                     tilt.ry !== 0 ||
