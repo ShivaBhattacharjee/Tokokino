@@ -62,9 +62,25 @@ export function bareScreenshotTargetLeftTop(
   dims: StagePlacementDims,
   point: PercentPoint
 ) {
+  return bareScreenshotTargetLeftTopRaw(dims, {
+    xPct: clampPercent(point.xPct),
+    yPct: clampPercent(point.yPct),
+  })
+}
+
+/**
+ * Like {@link bareScreenshotTargetLeftTop} but WITHOUT clamping the center point
+ * to the stage. Animation uses this so a "move" can travel to the same extremes
+ * the committed placement allows (offsets push the box past the stage edge); the
+ * clamped version stays for the position pad/handle, which must stay in [0,100].
+ */
+export function bareScreenshotTargetLeftTopRaw(
+  dims: StagePlacementDims,
+  point: PercentPoint
+) {
   return {
-    left: (clampPercent(point.xPct) / 100) * dims.stageW - dims.imgW / 2,
-    top: (clampPercent(point.yPct) / 100) * dims.stageH - dims.imgH / 2,
+    left: (point.xPct / 100) * dims.stageW - dims.imgW / 2,
+    top: (point.yPct / 100) * dims.stageH - dims.imgH / 2,
   }
 }
 
@@ -125,10 +141,36 @@ export function bareScreenshotPositionPct({
   position: ScreenshotPosition
   offset: { x: number; y: number }
 }): PercentPoint {
+  const raw = bareScreenshotPositionPctRaw({
+    dims,
+    scaleFactor,
+    position,
+    offset,
+  })
+  return { xPct: clampPercent(raw.xPct), yPct: clampPercent(raw.yPct) }
+}
+
+/**
+ * Like {@link bareScreenshotPositionPct} but WITHOUT clamping to [0,100], so the
+ * animation keyframe keeps the true authored extent (its exact inverse is
+ * {@link bareScreenshotTargetLeftTopRaw}, so the animation endpoint equals the
+ * committed placement).
+ */
+export function bareScreenshotPositionPctRaw({
+  dims,
+  scaleFactor,
+  position,
+  offset,
+}: {
+  dims: StagePlacementDims
+  scaleFactor: number
+  position: ScreenshotPosition
+  offset: { x: number; y: number }
+}): PercentPoint {
   const { left, top } = placementLeftTop(dims, scaleFactor, position)
   return {
-    xPct: clampPercent(((left + offset.x + dims.imgW / 2) / dims.stageW) * 100),
-    yPct: clampPercent(((top + offset.y + dims.imgH / 2) / dims.stageH) * 100),
+    xPct: ((left + offset.x + dims.imgW / 2) / dims.stageW) * 100,
+    yPct: ((top + offset.y + dims.imgH / 2) / dims.stageH) * 100,
   }
 }
 

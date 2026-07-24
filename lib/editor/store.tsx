@@ -252,6 +252,67 @@ const applyPoseToCanvas = (
   }),
 })
 
+/** Overlay only the xPct/yPct of `from` onto each matching slot in `slots`,
+ * keeping every other slot field. Lets a slot rest at one point while carrying
+ * another pose's tilt/scale/shadow. */
+const overlaySlotPositions = (
+  slots: Record<string, ClipSlotPose>,
+  from: Record<string, ClipSlotPose>
+): Record<string, ClipSlotPose> =>
+  Object.fromEntries(
+    Object.entries(slots).map(([id, sp]) => {
+      const p = from[id]
+      return [
+        id,
+        p && p.xPct != null && p.yPct != null
+          ? { ...sp, xPct: p.xPct, yPct: p.yPct }
+          : sp,
+      ]
+    })
+  )
+
+/**
+ * The pose the static/committed canvas holds while it carries an animation.
+ * Every effect rests at the animation's FINAL frame (the last clip's pose) so
+ * reveals settle into their end look — EXCEPT position, which is a "move", not an
+ * entrance: a screenshot that animates center → bottom must sit at its START
+ * (center) statically and in PNG export, then travel away on play. So position
+ * resolves to the first position clip's baseline while every other field keeps
+ * the end frame.
+ */
+const buildRestingPose = (
+  clips: readonly AnimationClip[]
+): ClipBaseline | null => {
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const last = sorted[sorted.length - 1]
+  if (!last) return null
+  const end = clipPose(last)
+  const posClips = sorted.filter((c) => (c.effects ?? []).includes("position"))
+  if (posClips.length === 0) return end
+
+  const firstMainPos = posClips.find((c) => clipAffectsMain(c))
+  const mainStart = firstMainPos ? clipBaseline(firstMainPos) : null
+
+  const startSlots: Record<string, ClipSlotPose> = {}
+  for (const id of Object.keys(end.slots)) {
+    const first = posClips.find(
+      (c) => clipAffectsSlot(c, id) && clipBaseline(c).slots[id]
+    )
+    if (first) startSlots[id] = clipBaseline(first).slots[id]
+  }
+
+  return {
+    ...end,
+    ...(mainStart
+      ? {
+          screenshotPosition: mainStart.screenshotPosition,
+          screenshotOffset: mainStart.screenshotOffset,
+        }
+      : {}),
+    slots: overlaySlotPositions(end.slots, startSlots),
+  }
+}
+
 /** Main-pose fields each animation effect owns. Used to copy just the edited
  * property into every clip of a multi-selection (leaving the rest intact). */
 const EFFECT_MAIN_POSE_FIELDS: Record<
@@ -1745,15 +1806,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 ),
               }
             }
-            const posePatch = last
-              ? applyPoseToCanvas(
-                  next,
-                  clipPose(
-                    repairedAnimation.clips.find(
-                      (clip) => clip.id === last.id
-                    ) ?? last
-                  )
-                )
+            // Rest at the animation's final frame, but position sits at its START
+            // (see buildRestingPose) so a "move" preset shows where it begins.
+            const restingPose = buildRestingPose(repairedAnimation.clips)
+            const posePatch = restingPose
+              ? applyPoseToCanvas(next, restingPose)
               : {}
             next = {
               ...next,
@@ -2825,9 +2882,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const sorted = [...animation.clips].sort((x, y) => x.startMs - y.startMs)
       const last = sorted[sorted.length - 1]
       if (a) {
-        // Entering: the committed canvas IS the final frame, so fold any edits
-        // made outside Animate mode into the last clip's pose and open it for
-        // editing. (No pose is loaded — the canvas already shows the end state.)
+        // Entering: the committed canvas is the final frame for every effect
+        // except position (which rests at its START). Fold any edits made outside
+        // Animate mode into the last clip's pose and open it for editing.
         if (!last) {
           set({
             isAnimateMode: true,
@@ -2837,12 +2894,54 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           return
         }
         const pose = captureClipPose(canvas)
-        const nextClips = animation.clips.map((c) =>
-          c.id === last.id ? { ...c, pose } : c
+        const posClips = sorted.filter((c) =>
+          (c.effects ?? []).includes("position")
         )
+        const hasPosition = posClips.length > 0
+        // The committed canvas shows the position START, so folding it wholesale
+        // would flatten the move. Keep the last clip's stored position pose (its
+        // END) and route the outside resting-position edit to the first position
+        // clip's baseline (the animation's start) instead.
+        const lastPose = clipPose(last)
+        const foldedPose: ClipBaseline =
+          hasPosition && (last.effects ?? []).includes("position")
+            ? {
+                ...pose,
+                screenshotPosition: lastPose.screenshotPosition,
+                screenshotOffset: lastPose.screenshotOffset,
+                slots: overlaySlotPositions(pose.slots, lastPose.slots),
+              }
+            : pose
+        let nextClips = animation.clips.map((c) =>
+          c.id === last.id ? { ...c, pose: foldedPose } : c
+        )
+        const firstMainPos = posClips.find((c) => clipAffectsMain(c))
+        if (firstMainPos) {
+          nextClips = nextClips.map((c) =>
+            c.id === firstMainPos.id
+              ? {
+                  ...c,
+                  baseline: {
+                    ...clipBaseline(c),
+                    screenshotPosition: pose.screenshotPosition,
+                    screenshotOffset: pose.screenshotOffset,
+                  },
+                }
+              : c
+          )
+        }
+        // When position animates, the committed canvas holds the START; load the
+        // open (last) keyframe's END pose so editing that keyframe works as before.
+        const canvasPatch = hasPosition
+          ? applyPoseToCanvas(canvas, foldedPose)
+          : {}
         const canvases = state.present.canvases.map((c) =>
           c.id === canvas.id
-            ? { ...c, animation: { ...animation, clips: nextClips } }
+            ? {
+                ...c,
+                ...canvasPatch,
+                animation: { ...animation, clips: nextClips },
+              }
             : c
         )
         set({
@@ -2854,18 +2953,19 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         return
       }
       // Exiting: persist the open clip's edits, then restore the committed canvas
-      // to the last clip's pose (the animation's final frame) so the static
-      // editor and exports show the end state. Clear the clip selection.
+      // to the resting pose — the animation's final frame for every effect except
+      // position, which rests at its START (see buildRestingPose) — so the static
+      // editor and exports show the end look but a "move" sits where it begins.
+      // Clear the clip selection.
       const openId = state.selectedAnimationClipId
       let nextClips = animation.clips
       if (openId && nextClips.some((c) => c.id === openId)) {
         const pose = captureClipPose(canvas)
         nextClips = nextClips.map((c) => (c.id === openId ? { ...c, pose } : c))
       }
-      const nextSorted = [...nextClips].sort((x, y) => x.startMs - y.startMs)
-      const nextLast = nextSorted[nextSorted.length - 1]
-      const canvasPatch = nextLast
-        ? applyPoseToCanvas(canvas, clipPose(nextLast))
+      const restingPose = buildRestingPose(nextClips)
+      const canvasPatch = restingPose
+        ? applyPoseToCanvas(canvas, restingPose)
         : {}
       const canvases = state.present.canvases.map((c) =>
         c.id === canvas.id

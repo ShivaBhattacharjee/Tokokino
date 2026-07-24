@@ -163,6 +163,10 @@ export function CanvasEmptyState({
           data-active={isActive}
           data-editor-shadow-filter-target
           data-editor-shadow-filter-base={shadowFilter || ""}
+          // Same measurement target as the bare screenshot so a position
+          // animation can preview center → target on the empty placeholder
+          // (measureBareStageDims finds this box + its parent stage).
+          data-editor-shadow-box-target=""
           className={interactionClass}
           style={bareFreePlacementStyle({
             freePlacement,
