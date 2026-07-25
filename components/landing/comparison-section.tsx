@@ -10,23 +10,23 @@ const COMPETITOR_COMPARISONS = [
   {
     competitor: "PostSpark",
     contrast:
-      "The closest match for screenshots plus X and Bluesky post mockups. Strong tool, but deeper animation workflows, no-limits usage, and cloud storage are pushed behind paid upgrades.",
+      "Closest match for screenshots, X/Bluesky posts, and video mockups. Strong template library plus animation/zoom — but video mockups, deeper timeline motion, no-limits usage, and cloud storage sit behind PostSpark Pro.",
     tokokino:
-      "Tokokino keeps the workflow lean: local editing, free high-res exports, an editable keyframe timeline with GIF/WebM export, free cloud drafts, and reusable presets without a subscription meter.",
+      "Tokokino keeps the workflow lean: starter image + animation templates, local editing, free high-res stills, an editable keyframe timeline with GIF/WebM/MP4 export, free cloud drafts, and reusable presets without a subscription meter.",
   },
   {
     competitor: "Pika",
     contrast:
-      "A polished browser editor with URL capture, tweet shots, and templates. The catch: it is built around static assets rather than a keyframe timeline, and 4K export, presets, annotations, WebP/SVG, and no watermark are Pro features.",
+      "A polished browser editor with URL capture, tweet shots, and dozens of static mockup templates. It stays image-first — no keyframe timeline or GIF/WebM product demos — and 4K export, presets, annotations, WebP/SVG, and no watermark are Pro.",
     tokokino:
-      "Tokokino gives the daily launch workflow room to breathe: 4K/8K export, timeline animation, annotations, custom presets, and Bluesky post mockups are part of the free product.",
+      "Tokokino covers the launch loop end-to-end: free starter templates (including animated reveals), 4K/8K stills, timeline animation, GIF/WebM/MP4 export, annotations, custom presets, and Bluesky post mockups in the free product.",
   },
   {
     competitor: "Shots.so",
     contrast:
-      "Beautiful for animated device mockups and zoom videos, with the serious motion export workflow on paid tiers. It is more about polished mockup motion than an editable multi-effect timeline, and it does not cover social-post mockups.",
+      "Strong for device frames, magic backgrounds, and preset-based animated mockups / video zoom. Serious motion export (WebM, animation presets) is on paid tiers, templates are lighter, and there are no social-post mockups.",
     tokokino:
-      "Tokokino is the lighter, faster lane for product motion and static shots: device frames, browser frames, multi-shot layouts, X/Bluesky posts, local-first editing, and timeline-driven scene changes in one editor.",
+      "Tokokino is the editable-timeline lane: device + browser frames, multi-shot layouts, X/Bluesky posts, free animation templates, local-first editing, and timeline-driven scene changes you can export as GIF/WebM/MP4.",
   },
 ] as const
 
@@ -46,7 +46,42 @@ const FEATURE_MATRIX = [
     shots: "paid",
   },
   {
+    feature: "Starter mockup templates",
+    tokokino: true,
+    postspark: true,
+    pika: "limited",
+    shots: "limited",
+  },
+  {
+    feature: "Animation / video templates",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
+    shots: "paid",
+  },
+  {
     feature: "Editable motion timeline",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
+    shots: "presets",
+  },
+  {
+    feature: "GIF / WebM / MP4 export",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
+    shots: "paid",
+  },
+  {
+    feature: "Video mockups (drop recording)",
+    tokokino: true,
+    postspark: "paid",
+    pika: false,
+    shots: "paid",
+  },
+  {
+    feature: "Zoom / animation presets",
     tokokino: true,
     postspark: "paid",
     pika: false,
@@ -113,7 +148,7 @@ const FEATURE_MATRIX = [
     tokokino: true,
     postspark: "paid",
     pika: false,
-    shots: false,
+    shots: "magic",
   },
   {
     feature: "Multi-screenshot layouts",
@@ -145,8 +180,10 @@ type MatrixValue =
   | "browser"
   | "cloud"
   | "limited"
+  | "magic"
   | "not listed"
   | "paid"
+  | "presets"
 
 function MatrixCell({
   value,
@@ -207,10 +244,11 @@ export function ComparisonSection() {
         </h2>
         <p className="max-w-2xl text-sm leading-7 text-foreground/58">
           PostSpark, Pika, and Shots all make good-looking mockups. Tokokino is
-          built for the part that should stay effortless: drag a huge capture,
-          tune the layout, animate the key moments, save the project, reuse the
-          preset, and export clean 4K/8K images or GIF/WebM motion without a
-          watermark or subscription.
+          built for the part that should stay effortless: start from a template,
+          drop a huge capture or screen recording, tune the layout, animate key
+          moments on a timeline, save the project, reuse the preset, and export
+          clean 4K/8K stills or GIF/WebM/MP4 motion without a watermark or
+          subscription.
         </p>
       </motion.div>
 

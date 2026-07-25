@@ -33,16 +33,22 @@ Tokokino is useful for founders, designers, developers, product marketers, techn
 
 ## How Tokokino Compares
 
-Tokokino's closest tools are screenshot, social-post, and animated mockup editors: PostSpark, Pika (pika.style), and Shots.so. Tokokino matches their core editing while emphasizing a free, open-source, local-first workflow with high-resolution exports, GIF/WebM timeline exports, free cloud project drafts, and unlimited custom presets.
+Tokokino's closest tools are screenshot, social-post, and animated mockup editors: PostSpark, Pika (pika.style), and Shots.so. Tokokino matches their core editing while emphasizing a free, open-source, local-first workflow with starter image/animation templates, high-resolution stills, GIF/WebM/MP4 timeline exports, free cloud project drafts, and unlimited custom presets.
 
-- Versus PostSpark: the closest match (screenshots plus X and Bluesky posts), with video and animation extras. PostSpark positions cloud storage and no-limits usage as Pro features; Tokokino keeps local editing, high-resolution static exports, timeline animation, free cloud drafts, and reusable custom presets available without a subscription.
-- Versus Pika: a polished browser editor with URL capture, tweet shots, and templates. Pika Pro unlocks 4K export, presets, annotation tools, WebP/SVG export, and no Pika watermark; Tokokino includes 4K/8K static export, timeline animation, annotations, custom presets, and Bluesky post mockups in the free product.
-- Versus Shots.so: beautiful device mockups, layouts, video, and animation tools, but no social-post mockups. Tokokino is a lighter lane for product motion and static shots with local-first editing, timeline-driven scene changes, and optional sharing.
+- Versus PostSpark: closest match (screenshots, X/Bluesky posts, video mockups, template library). PostSpark Pro unlocks video mockups, animations/zoom, no-limits usage, and cloud storage; Tokokino keeps local editing, free starter templates, high-res stills, editable timeline animation, GIF/WebM/MP4 export, free cloud drafts, and reusable presets without a subscription.
+- Versus Pika: polished browser editor with URL capture, tweet shots, and static mockup templates. Image-first — no keyframe timeline or GIF/WebM product demos. Pika Pro unlocks 4K export, presets, annotation tools, WebP/SVG export, and no Pika watermark; Tokokino includes free animation templates, 4K/8K stills, timeline animation, GIF/WebM/MP4 export, annotations, custom presets, and Bluesky post mockups in the free product.
+- Versus Shots.so: strong device frames, magic backgrounds, and preset-based animated mockups / video zoom on paid tiers. Lighter template library and no social-post mockups. Tokokino is the editable-timeline lane for product motion and static shots with free animation templates, local-first editing, and optional sharing.
 
 Feature comparison (Tokokino vs PostSpark vs Pika vs Shots.so):
 
-- Free, no-watermark export: Tokokino yes; PostSpark paid; Pika paid; Shots.so limited.
+- Free, no-watermark export: Tokokino yes; PostSpark paid; Pika paid; Shots.so limited (free PNG, no watermark).
 - 4K / 8K static export: Tokokino yes; PostSpark paid; Pika paid; Shots.so paid.
+- Starter mockup templates: Tokokino yes; PostSpark yes (public template library); Pika limited (some templates Pro); Shots.so limited.
+- Animation / video templates: Tokokino yes; PostSpark paid (Pro for video/animation workflows); Pika no; Shots.so paid.
+- Editable motion timeline: Tokokino yes; PostSpark paid/deeper workflows; Pika no; Shots.so animation presets (not a multi-effect keyframe timeline).
+- GIF / WebM / MP4 export: Tokokino yes; PostSpark paid (incl. GIF); Pika no; Shots.so paid (WebM / animated mockups).
+- Video mockups (drop screen recording): Tokokino yes; PostSpark paid; Pika no; Shots.so paid.
+- Zoom / animation presets: Tokokino yes; PostSpark paid; Pika no; Shots.so paid.
 - Heavy screenshot workflow: Tokokino supports 100MB+ screenshots; competitors do not publicly position this as a core workflow.
 - Open source: Tokokino yes (AGPL-3.0); PostSpark no; Pika yes; Shots.so no.
 - Edits stay in the browser (local-first): Tokokino yes; Pika yes for its browser editor; PostSpark and Shots.so are cloud/storage-backed.
@@ -53,14 +59,11 @@ Feature comparison (Tokokino vs PostSpark vs Pika vs Shots.so):
 - Bluesky post mockups: Tokokino yes; PostSpark yes; Pika no; Shots.so no.
 - Quoted-post mockups: Tokokino yes; PostSpark yes; Pika no; Shots.so no.
 - Capture from URL: Tokokino yes; PostSpark yes; Pika yes; Shots.so no.
-- Auto-sampled backgrounds (sampled from the screenshot): Tokokino yes; PostSpark paid; Pika no; Shots.so no.
-- 4K / 8K export: Tokokino yes; PostSpark, Pika, and Shots.so paid.
-- Editable motion timeline: Tokokino yes; PostSpark paid/deeper workflows; Pika no; Shots.so paid tiers.
-- GIF / WebM animation export: Tokokino yes; competitors vary by paid tier and workflow.
+- Auto-sampled backgrounds: Tokokino yes; PostSpark paid; Pika no; Shots.so magic backgrounds (media-based).
 - Multi-shot layouts: Tokokino yes; PostSpark yes; Pika no; Shots.so yes.
 - Annotations and arrows: Tokokino yes; PostSpark yes; Pika limited; Shots.so limited.
 
-This comparison reflects publicly listed competitor features and may change as those tools update.
+This comparison reflects publicly listed competitor features (as of research date) and may change as those tools update. Audit before treating any cell as definitive.
 
 ## Technical Context
 
