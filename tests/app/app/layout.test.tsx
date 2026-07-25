@@ -40,8 +40,27 @@ describe("app/app/layout", () => {
     )
 
     const shell = screen.getByTestId("a").parentElement as HTMLElement
-    expect(shell.children).toHaveLength(2)
-    expect(shell.children[0]).toHaveAttribute("data-testid", "a")
-    expect(shell.children[1]).toHaveAttribute("data-testid", "b")
+    // The shell also renders the resource-timing script, so compare only the
+    // children it was handed.
+    const rendered = [...shell.children].filter(
+      (child) => child.tagName !== "SCRIPT"
+    )
+    expect(rendered).toHaveLength(2)
+    expect(rendered[0]).toHaveAttribute("data-testid", "a")
+    expect(rendered[1]).toHaveAttribute("data-testid", "b")
+  })
+
+  it("raises the resource-timing buffer before the page scripts load", () => {
+    const { container } = render(
+      <ScreenshotsLayout>
+        <span>child</span>
+      </ScreenshotsLayout>
+    )
+
+    // Offline shell capture reads performance.getEntriesByType("resource") to
+    // find lazily loaded chunks; the default 250-entry buffer would drop them.
+    const script = container.querySelector("script")
+    expect(script?.innerHTML).toContain("setResourceTimingBufferSize")
+    expect(container.firstElementChild?.firstElementChild).toBe(script)
   })
 })

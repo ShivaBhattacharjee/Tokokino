@@ -51,19 +51,6 @@ const ICONS: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
-  "04": (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className="size-5"
-      stroke="currentColor"
-      strokeWidth={1.4}
-    >
-      <rect x="3" y="6" width="18" height="12" rx="2" />
-      <line x1="3" y1="10" x2="21" y2="10" strokeDasharray="2 2" />
-      <line x1="10" y1="6" x2="10" y2="18" strokeDasharray="2 2" />
-    </svg>
-  ),
   "05": (
     <svg
       viewBox="0 0 24 24"
@@ -208,6 +195,20 @@ const ICONS: Record<string, React.ReactNode> = {
     >
       <path d="M9 13a4 4 0 005.66 0l3-3a4 4 0 00-5.66-5.66l-1.5 1.5" />
       <path d="M15 11a4 4 0 00-5.66 0l-3 3a4 4 0 005.66 5.66l1.5-1.5" />
+    </svg>
+  ),
+  "19": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <path d="M7.5 18.5h9.2a3.8 3.8 0 0 0 1.4-7.3" />
+      <path d="M16.3 9.6A5.2 5.2 0 0 0 8 7.7" />
+      <path d="M6.6 10.9a3.8 3.8 0 0 0 .9 7.6" />
+      <line x1="3.5" y1="3.5" x2="20.5" y2="20.5" />
     </svg>
   ),
 }

@@ -14,6 +14,8 @@
  */
 
 const SHELL_CACHE = "tokokino-offline-shell-v1"
+/** Written by the client once offline mode is on; absent means opted out. */
+const MANIFEST_URL = "/__offline__/manifest"
 
 self.addEventListener("install", () => {
   void self.skipWaiting()
@@ -43,12 +45,20 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  event.respondWith(networkFirst(request, url))
+  event.respondWith(networkFirst(event, request, url))
 })
 
-async function networkFirst(request, url) {
+async function networkFirst(event, request, url) {
   try {
-    return await fetch(request)
+    const response = await fetch(request)
+    // Top up the shell as chunks fly by. A feature the user had not opened when
+    // they switched offline mode on is in neither the performance timeline nor
+    // the /app markup, so the initial capture cannot know about it; storing
+    // every chunk seen since means opening it once online is enough.
+    if (response.ok && isShellAsset(url)) {
+      event.waitUntil(topUpShell(request, response.clone()))
+    }
+    return response
   } catch (error) {
     const cached = await matchShell(request, url)
     if (cached) return cached
@@ -56,15 +66,31 @@ async function networkFirst(request, url) {
   }
 }
 
+function isShellAsset(url) {
+  return (
+    url.pathname.startsWith("/_next/static/") &&
+    !url.pathname.includes("hot-update")
+  )
+}
+
+async function topUpShell(request, response) {
+  const shell = await caches.open(SHELL_CACHE)
+  // Only for users who actually opted in — no manifest, no cache writes.
+  if (!(await shell.match(MANIFEST_URL))) return
+  await shell.put(request, response)
+}
+
 async function matchShell(request, url) {
   const shell = await caches.open(SHELL_CACHE)
 
   // Documents are matched on the exact path only. Falling back to the editor
-  // for any navigation would answer /login, /terms, or /share/:id with a page
-  // the user never asked for — better to let the browser show its own offline
-  // page for routes that were never stored.
+  // for any navigation would answer /login, /terms, /share/:id — or /app/shares
+  // — with a page the user never asked for, so routes that were never stored
+  // get the browser's own offline page instead. The trailing slash is the one
+  // rewrite worth doing: offline there is no server left to redirect /app/.
   if (request.mode === "navigate") {
-    return (await shell.match(url.pathname)) ?? null
+    const path = url.pathname.replace(/(.)\/$/, "$1")
+    return (await shell.match(path)) ?? null
   }
 
   return (await shell.match(request)) ?? null

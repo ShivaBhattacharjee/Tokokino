@@ -79,6 +79,15 @@ export function CornerProgressCard({
   /** Null renders the indeterminate bar (no known total). */
   percent: number | null
 }) {
+  // Client components still prerender on the server, where there is no
+  // document.body to portal into. Resolve the target after mount rather than
+  // trusting every caller to hold this back until hydration.
+  const [container, setContainer] = React.useState<HTMLElement | null>(null)
+  /* eslint-disable-next-line react-hooks/set-state-in-effect -- document.body is not readable during render */
+  React.useEffect(() => setContainer(document.body), [])
+
+  if (!container) return null
+
   return createPortal(
     <div className="pointer-events-none fixed right-4 bottom-4 z-60 w-[300px] max-w-[calc(100vw-2rem)]">
       <div
@@ -127,6 +136,6 @@ export function CornerProgressCard({
         }
       `}</style>
     </div>,
-    document.body
+    container
   )
 }
