@@ -107,6 +107,10 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
         <ShimmerImage
           src={template.thumbnail}
           alt={template.name}
+          loading="lazy"
+          decoding="async"
+          width={800}
+          height={500}
           className={cn(
             "size-full object-cover transition-opacity",
             animated && playing ? "opacity-0" : "opacity-100"

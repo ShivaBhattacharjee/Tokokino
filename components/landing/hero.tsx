@@ -10,22 +10,38 @@ function StarCount() {
   const rounded = useTransform(count, (v) => Math.round(v))
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/ShivaBhattacharjee/tokokino")
-      .then((r) => r.json())
-      .then((data) => {
-        const stars =
-          (data as { stargazers_count?: number }).stargazers_count ?? 0
-        const controls = animate(count, stars, {
-          duration: 1,
-          ease: "easeOut",
-          delay: 0.2,
+    let controls: { stop: () => void } | null = null
+    let cancelled = false
+
+    // Decorative, so it waits for the main thread rather than competing with
+    // first paint for connection and CPU.
+    const load = () => {
+      fetch("https://api.github.com/repos/ShivaBhattacharjee/tokokino")
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return
+          const stars =
+            (data as { stargazers_count?: number }).stargazers_count ?? 0
+          controls = animate(count, stars, {
+            duration: 1,
+            ease: "easeOut",
+            delay: 0.2,
+          })
         })
-        return controls.stop
-      })
-      .catch(() => {
-        const controls = animate(count, 0, { duration: 0.5, ease: "easeOut" })
-        return controls.stop
-      })
+        .catch(() => {})
+    }
+
+    const supportsIdle = typeof window.requestIdleCallback === "function"
+    const idle = supportsIdle
+      ? window.requestIdleCallback(load, { timeout: 3000 })
+      : window.setTimeout(load, 1200)
+
+    return () => {
+      cancelled = true
+      controls?.stop()
+      if (supportsIdle) window.cancelIdleCallback(idle)
+      else window.clearTimeout(idle)
+    }
   }, [count])
 
   return (

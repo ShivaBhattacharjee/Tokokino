@@ -116,36 +116,83 @@ export const metadata: Metadata = {
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
 const fontMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
-const fontInter = Inter({ subsets: ["latin"], variable: "--font-inter" })
+
+// Everything below is only ever selected from the editor's text-layer font
+// picker. `preload: false` keeps the @font-face rule (so `var(--font-*)` still
+// resolves) but drops the <link rel=preload>, so a route that never renders the
+// family never downloads it. next/font needs literal option objects, so these
+// cannot share a spread constant.
+const fontInter = Inter({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-inter",
+})
 const fontPoppins = Poppins({
   subsets: ["latin"],
+  preload: false,
   weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-poppins",
 })
 const fontPlayfair = Playfair_Display({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-playfair",
 })
-const fontRoboto = Roboto({ subsets: ["latin"], variable: "--font-roboto" })
+const fontRoboto = Roboto({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-roboto",
+})
 const fontSpaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-space-grotesk",
 })
-const fontOutfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" })
-const fontCaveat = Caveat({ subsets: ["latin"], variable: "--font-caveat" })
+const fontOutfit = Outfit({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-outfit",
+})
+const fontCaveat = Caveat({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-caveat",
+})
 const fontFiraCode = Fira_Code({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-fira-code",
 })
-const fontLora = Lora({ subsets: ["latin"], variable: "--font-lora" })
-const fontNunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" })
-const fontRaleway = Raleway({ subsets: ["latin"], variable: "--font-raleway" })
-const fontOswald = Oswald({ subsets: ["latin"], variable: "--font-oswald" })
+const fontLora = Lora({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-lora",
+})
+const fontNunito = Nunito({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-nunito",
+})
+const fontRaleway = Raleway({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-raleway",
+})
+const fontOswald = Oswald({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-oswald",
+})
 const fontDancingScript = Dancing_Script({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-dancing-script",
 })
-const fontDoto = Doto({ subsets: ["latin"], variable: "--font-doto" })
+const fontDoto = Doto({
+  subsets: ["latin"],
+  preload: false,
+  variable: "--font-doto",
+})
 
 export default function RootLayout({
   children,
@@ -177,6 +224,10 @@ export default function RootLayout({
         "font-sans"
       )}
     >
+      <head>
+        <link rel="preconnect" href="https://assets.tokokino.com" />
+        <link rel="dns-prefetch" href="https://assets.tokokino.com" />
+      </head>
       <body>
         <NextTopLoader
           color="#ff5b6e"

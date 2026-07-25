@@ -48,6 +48,10 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
                 <ShimmerImage
                   src={`https://assets.tokokino.com/screenshot.png`}
                   alt="Tokokino demo preview"
+                  width={3020}
+                  height={1816}
+                  fetchPriority="high"
+                  decoding="async"
                   className="max-h-full max-w-full object-contain"
                 />
               </div>

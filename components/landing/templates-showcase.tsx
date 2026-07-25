@@ -27,6 +27,10 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
         <ShimmerImage
           src={template.thumbnail}
           alt={template.name}
+          loading="lazy"
+          decoding="async"
+          width={800}
+          height={500}
           className="size-full object-cover transition-transform duration-500 group-hover/card:scale-[1.04]"
         />
         {animated && (
@@ -89,7 +93,9 @@ export function TemplatesShowcase() {
           "[mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]"
         )}
       >
-        <Marquee pauseOnHover repeat={4} className="py-0 [--duration:64s]">
+        {/* One copy is already several viewports wide, so two is all the loop
+            needs — four quadrupled the card DOM for no visual gain. */}
+        <Marquee pauseOnHover repeat={2} className="py-0 [--duration:64s]">
           {ROW_ONE.map((template) => (
             <TemplateCard key={template.id} template={template} />
           ))}
@@ -97,7 +103,7 @@ export function TemplatesShowcase() {
         <Marquee
           reverse
           pauseOnHover
-          repeat={4}
+          repeat={2}
           className="py-0 [--duration:72s]"
         >
           {ROW_TWO.map((template) => (

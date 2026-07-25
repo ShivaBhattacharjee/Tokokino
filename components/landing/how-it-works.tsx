@@ -221,6 +221,10 @@ function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
         <ShimmerImage
           src={DEMO_PREVIEW_SRC}
           alt="Tokokino editor demo preview"
+          width={3020}
+          height={1816}
+          loading="lazy"
+          decoding="async"
           className="max-h-full max-w-full object-contain contrast-[1.03] saturate-[1.02] dark:opacity-80 dark:saturate-[0.82]"
         />
       </div>

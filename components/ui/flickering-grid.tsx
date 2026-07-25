@@ -13,6 +13,8 @@ interface FlickeringGridProps extends React.HTMLAttributes<HTMLDivElement> {
   height?: number
   className?: string
   maxOpacity?: number
+  /** Repaint cap. The effect is noise, so it reads the same well under 60fps. */
+  fps?: number
 }
 
 export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
@@ -24,6 +26,7 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
   height,
   className,
   maxOpacity = 0.3,
+  fps = 24,
   ...props
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -128,24 +131,33 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
 
       updateCanvasSize()
 
-      let lastTime = 0
-      const animate = (time: number) => {
-        if (!isInView || !gridParams) return
-
-        const deltaTime = (time - lastTime) / 1000
-        lastTime = time
-
-        updateSquares(gridParams.squares, deltaTime)
+      const paint = (params: NonNullable<typeof gridParams>) =>
         drawGrid(
           ctx,
           canvas.width,
           canvas.height,
-          gridParams.cols,
-          gridParams.rows,
-          gridParams.squares,
-          gridParams.dpr
+          params.cols,
+          params.rows,
+          params.squares,
+          params.dpr
         )
+
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches
+      const frameInterval = 1000 / Math.max(1, fps)
+      let lastTime = 0
+
+      const animate = (time: number) => {
+        if (!isInView || !gridParams) return
         animationFrameId = requestAnimationFrame(animate)
+
+        const elapsed = time - lastTime
+        if (elapsed < frameInterval) return
+        lastTime = time
+
+        updateSquares(gridParams.squares, elapsed / 1000)
+        paint(gridParams)
       }
 
       resizeObserver = new ResizeObserver(() => {
@@ -161,7 +173,9 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
       )
       intersectionObserver.observe(canvas)
 
-      if (isInView) {
+      if (reducedMotion) {
+        if (gridParams) paint(gridParams)
+      } else if (isInView) {
         animationFrameId = requestAnimationFrame(animate)
       }
     }
@@ -177,7 +191,7 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
         intersectionObserver.disconnect()
       }
     }
-  }, [setupCanvas, updateSquares, drawGrid, width, height, isInView])
+  }, [setupCanvas, updateSquares, drawGrid, width, height, isInView, fps])
 
   return (
     <div
