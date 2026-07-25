@@ -15,6 +15,8 @@ const SERVICE_WORKER_URL = "/sw.js"
 const EDITOR_PATH = "/app"
 /** Enough parallelism to saturate a connection without stalling the UI thread. */
 const SHELL_CONCURRENCY = 6
+/** Decorative — the editor still boots without them, so they may 404. */
+const OPTIONAL_SHELL_URLS = ["/favicon.ico", "/logo.png"]
 
 export type OfflineShellRecord = {
   savedAt: string
@@ -93,10 +95,19 @@ export async function cacheEditorShell(
 
   let stored = 0
   let bytes = 0
+  // A chunk that never landed means the next offline boot fails on it, so the
+  // manifest must not claim success — the caller drops the whole cache instead
+  // of leaving a shell that only looks ready.
+  const missing: string[] = []
   onProgress({ label: "Saving the editor…", current: 0, total: urls.length })
   await mapWithConcurrency(urls, SHELL_CONCURRENCY, async (url) => {
-    bytes += await cacheUrl(shell, url)
-    stored += 1
+    const size = await cacheUrl(shell, url)
+    if (size === null) {
+      if (!OPTIONAL_SHELL_URLS.includes(url)) missing.push(url)
+    } else {
+      bytes += size
+      stored += 1
+    }
     onProgress({
       label: "Saving the editor…",
       current: stored,
@@ -104,9 +115,16 @@ export async function cacheEditorShell(
     })
   })
 
+  if (missing.length > 0) {
+    console.error("[offline] Could not store shell files", missing)
+    throw new Error(
+      `Could not store ${missing.length} of ${urls.length} editor files`
+    )
+  }
+
   const record: OfflineShellRecord = {
     savedAt: new Date().toISOString(),
-    files: urls.length,
+    files: stored,
     bytes,
   }
   await shell.put(
@@ -126,7 +144,7 @@ export async function cacheEditorShell(
  * that code runs.
  */
 async function collectShellUrls(shell: Cache) {
-  const urls = new Set<string>(["/favicon.ico", "/logo.png"])
+  const urls = new Set<string>(OPTIONAL_SHELL_URLS)
 
   for (const entry of performance.getEntriesByType("resource")) {
     if (!entry.name.startsWith(`${location.origin}/`)) continue
@@ -155,11 +173,11 @@ async function collectShellUrls(shell: Cache) {
   return [...urls]
 }
 
-/** Best-effort cache of one URL. Returns the bytes stored, 0 on any failure. */
+/** Caches one URL. Returns the bytes stored, or null if it did not land. */
 async function cacheUrl(cache: Cache, url: string) {
   try {
     const response = await fetch(url, { credentials: "include" })
-    if (!response.ok) return 0
+    if (!response.ok) return null
     const body = await response.blob()
     const contentType = response.headers.get("Content-Type")
     await cache.put(
@@ -170,7 +188,7 @@ async function cacheUrl(cache: Cache, url: string) {
     )
     return body.size
   } catch {
-    return 0
+    return null
   }
 }
 

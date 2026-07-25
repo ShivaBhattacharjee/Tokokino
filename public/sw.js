@@ -14,7 +14,6 @@
  */
 
 const SHELL_CACHE = "tokokino-offline-shell-v1"
-const EDITOR_PATH = "/app"
 
 self.addEventListener("install", () => {
   void self.skipWaiting()
@@ -60,10 +59,12 @@ async function networkFirst(request, url) {
 async function matchShell(request, url) {
   const shell = await caches.open(SHELL_CACHE)
 
-  // A document request is the offline entry point: whatever page was asked for,
-  // the editor shell is the only thing we can meaningfully serve.
+  // Documents are matched on the exact path only. Falling back to the editor
+  // for any navigation would answer /login, /terms, or /share/:id with a page
+  // the user never asked for — better to let the browser show its own offline
+  // page for routes that were never stored.
   if (request.mode === "navigate") {
-    return (await shell.match(url.pathname)) ?? (await shell.match(EDITOR_PATH))
+    return (await shell.match(url.pathname)) ?? null
   }
 
   return (await shell.match(request)) ?? null
