@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "motion/react"
 import { useTheme } from "next-themes"
 import { ArrowRight } from "@/components/landing/landing-svgs"
@@ -28,11 +29,134 @@ export function Nav() {
   const pathname = usePathname()
   const showRails = pathname === "/"
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark")
   }
+
+  // Portal out of the landing page's filtered motion wrapper — `filter` makes
+  // position:fixed relative to that tall container, so CTAs sat below the fold.
+  const mobileMenu =
+    mounted &&
+    createPortal(
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.28, ease }}
+            className="fixed inset-x-0 top-12 bottom-0 z-[60] flex flex-col bg-background xl:hidden"
+          >
+            <div
+              className="mx-auto flex h-full min-h-0 w-full max-w-[76rem] flex-col px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-8 lg:px-12"
+              style={showRails ? RAIL_V_STYLE : undefined}
+            >
+              <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <div className="flex flex-col gap-0.5 pb-3">
+                  {links.map((link, i) => (
+                    <motion.div
+                      key={link.href}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.25, delay: i * 0.06, ease }}
+                    >
+                      {link.href.startsWith("#") ? (
+                        <Link
+                          href={landingSectionHref(link.href, pathname)}
+                          onClick={(e) => {
+                            setOpen(false)
+                            if (pathname !== "/") return
+                            e.preventDefault()
+                            setTimeout(() => scrollToHash(link.href), 50)
+                          }}
+                          className="block py-1.5 font-mono text-[1.65rem] leading-tight font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-4xl"
+                        >
+                          {link.label}
+                        </Link>
+                      ) : (
+                        <Link
+                          href={link.href}
+                          onClick={() => setOpen(false)}
+                          className="block py-1.5 font-mono text-[1.65rem] leading-tight font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-4xl"
+                        >
+                          {link.label}
+                        </Link>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </nav>
+
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 16 }}
+                transition={{
+                  duration: 0.3,
+                  delay: links.length * 0.06 + 0.05,
+                  ease,
+                }}
+                className="flex shrink-0 flex-col gap-2.5 border-t border-border/40 pt-4"
+              >
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={toggleTheme}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      toggleTheme()
+                    }
+                  }}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition hover:border-foreground/40"
+                >
+                  <span className="font-mono text-sm font-bold text-foreground/70 uppercase">
+                    Theme
+                  </span>
+                  <span className="pointer-events-none">
+                    <ThemeToggle />
+                  </span>
+                </div>
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="group flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 py-3.5 font-mono text-base font-bold text-foreground/70 uppercase transition hover:border-foreground/40 hover:text-foreground"
+                >
+                  Sign in
+                  <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <Link
+                  href="/app"
+                  onClick={() => setOpen(false)}
+                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-mono text-base font-bold text-primary-foreground uppercase transition hover:opacity-90"
+                >
+                  Start editing
+                  <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    )
 
   return (
     <>
@@ -95,7 +219,8 @@ export function Nav() {
         <button
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
-          className="relative flex size-9 flex-col items-center justify-center gap-[5px] xl:hidden"
+          aria-expanded={open}
+          className="relative z-[70] flex size-9 flex-col items-center justify-center gap-[5px] xl:hidden"
         >
           <span className="block h-[1.5px] w-5 rounded-full bg-foreground" />
           <span className="block h-[1.5px] w-5 rounded-full bg-foreground" />
@@ -103,107 +228,7 @@ export function Nav() {
         </button>
       </motion.nav>
 
-      {/* Mobile fullscreen menu */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.28, ease }}
-            className="fixed inset-x-0 top-[calc(3rem+1px)] bottom-0 z-40 overflow-y-auto bg-background xl:hidden"
-          >
-            <div
-              className="mx-auto flex min-h-full w-[calc(100%-1rem)] max-w-[76rem] flex-col px-5 pt-8 pb-12 sm:w-[calc(100%-2rem)] sm:px-8 md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] lg:px-12"
-              style={showRails ? RAIL_V_STYLE : undefined}
-            >
-              <nav className="flex flex-col gap-1">
-                {links.map((link, i) => (
-                  <motion.div
-                    key={link.href}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.25, delay: i * 0.06, ease }}
-                  >
-                    {link.href.startsWith("#") ? (
-                      <Link
-                        href={landingSectionHref(link.href, pathname)}
-                        onClick={(e) => {
-                          setOpen(false)
-                          if (pathname !== "/") return
-                          e.preventDefault()
-                          setTimeout(() => scrollToHash(link.href), 50)
-                        }}
-                        className="block py-1 font-mono text-4xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-5xl"
-                      >
-                        {link.label}
-                      </Link>
-                    ) : (
-                      <Link
-                        href={link.href}
-                        onClick={() => setOpen(false)}
-                        className="block py-1 font-mono text-4xl font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-5xl"
-                      >
-                        {link.label}
-                      </Link>
-                    )}
-                  </motion.div>
-                ))}
-              </nav>
-
-              {/* Bottom CTAs */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 16 }}
-                transition={{
-                  duration: 0.3,
-                  delay: links.length * 0.06 + 0.05,
-                  ease,
-                }}
-                className="mt-auto flex flex-col gap-3"
-              >
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={toggleTheme}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault()
-                      toggleTheme()
-                    }
-                  }}
-                  className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition hover:border-foreground/40"
-                >
-                  <span className="font-mono text-sm font-bold text-foreground/70 uppercase">
-                    Theme
-                  </span>
-                  <span className="pointer-events-none">
-                    <ThemeToggle />
-                  </span>
-                </div>
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 py-4 font-mono text-lg font-bold text-foreground/70 uppercase transition hover:border-foreground/40 hover:text-foreground"
-                >
-                  Sign in
-                  <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-                <Link
-                  href="/app"
-                  onClick={() => setOpen(false)}
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-mono text-lg font-bold text-primary-foreground uppercase transition hover:opacity-90"
-                >
-                  Start editing
-                  <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {mobileMenu}
     </>
   )
 }
