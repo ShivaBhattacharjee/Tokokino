@@ -5,6 +5,8 @@
 
 Turns a canvas whose main screenshot is a **video** into a downloadable MP4 / WebM / GIF with full styling (background, shadow, frame, tilt, crop, overlays, etc.).
 
+**Product surface** (how video gets on the canvas, GIF transcode, trim vs keyframes, control bar): [video-canvas.md](./video-canvas.md). **Frames around media:** [device-frames.md](./device-frames.md).
+
 This is **not** keyframe sampling. The styled scene is rasterized once (video hidden); decoded frames are composited into the media slot. Prefer this when:
 
 ```ts

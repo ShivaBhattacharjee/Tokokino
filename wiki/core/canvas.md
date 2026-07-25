@@ -332,6 +332,8 @@ Problems this solves (from `image-resize.ts` header):
 | Asset layers | file → data URL | `ShimmerImage` |
 | Videos | object URL / draft media URL | `<video>` (metadata-only until play); GIF may transcode to WebM |
 
+Video product surface (control bar, trim, export gate, device frames): **[video-canvas.md](./video-canvas.md)**.
+
 `ShimmerImage` / `ShimmerBox` are CSS load placeholders — not pixel LQIP.
 
 ---

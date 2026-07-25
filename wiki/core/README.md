@@ -2,6 +2,8 @@
 
 Tokokino is a client-heavy editor. Styling, capture, and encode run in the browser. The server holds auth, metadata (D1), and blobs (R2) for drafts, presets, and shares.
 
+**Full module map:** [architecture.md](./architecture.md) — every feature and directory responsibility.
+
 ## Product flows at a glance
 
 ```mermaid
@@ -49,14 +51,45 @@ flowchart TB
 
 ## Docs index
 
+### Architecture & editor
+
 | Doc | Flow |
 |---|---|
-| [canvas.md](./canvas.md) | Drop/upload, URL→screenshot, X/Bluesky post cards, WebP thumb→optimized |
+| [architecture.md](./architecture.md) | Full app / module map |
+| [editor-store.md](./editor-store.md) | Zustand store, history, commits |
+| [canvas.md](./canvas.md) | Drop/upload, URL→screenshot, X/Bluesky, WebP thumbs |
+| [video-canvas.md](./video-canvas.md) | Video/GIF → control bar → trim → export gate |
+| [device-frames.md](./device-frames.md) | Device mockups, browser chrome, export re-project |
+| [styling-canvas.md](./styling-canvas.md) | Inspector → CSS → canvas paint |
+| [live-preview.md](./live-preview.md) | Live CSS vars during slider/drag |
+| [layers.md](./layers.md) | Text, assets, annotations, multi-screenshot slots |
+| [animate-mode.md](./animate-mode.md) | Timeline, playback, effect ownership |
+| [bulk-preview.md](./bulk-preview.md) | Multi-canvas bulk edit + full-screen preview |
+| [shortcuts.md](./shortcuts.md) | Keyboard shortcuts catalog + handlers |
+
+### Save / share / export
+
+| Doc | Flow |
+|---|---|
 | [drafts.md](./drafts.md) | Save as draft, open project, local autosave, draft media |
 | [presets.md](./presets.md) | Save as preset / animate preset, Custom tab apply |
+| [templates.md](./templates.md) | Curated in-repo templates gallery |
 | [share.md](./share.md) | Share image / animation / video, resumable upload, public player |
+| [shares-gallery.md](./shares-gallery.md) | User library `/app/shares` + stats |
+| [still-export.md](./still-export.md) | Still PNG/JPEG/WebP capture & download |
 | [animation-export.md](./animation-export.md) | Keyframe timeline → GIF/WebM/MP4 |
-| [video-export.md](./video-export.md) | Styled video canvas → GIF/WebM/MP4 |
+| [video-export.md](./video-export.md) | Styled video canvas → GIF/WebM/MP4 (+ dav1d) |
+
+### Platform, site & integrations
+
+| Doc | Flow |
+|---|---|
+| [platform.md](./platform.md) | OpenNext/Workers, D1, R2, rate limits, env |
+| [auth-account.md](./auth-account.md) | Auth, sessions, preferences, account deletion |
+| [integrations.md](./integrations.md) | Unsplash, screenshot, tweet, image proxy, feedback |
+| [offline.md](./offline.md) | Offline editor shell (service worker) |
+| [web-mcp.md](./web-mcp.md) | Browser agent tools (`modelContext`) |
+| [marketing-site.md](./marketing-site.md) | Landing, compare, showcase, legal, SEO |
 
 ## Save-as UX
 
@@ -158,6 +191,7 @@ Details: [canvas.md](./canvas.md).
 Still / animation / video encode internals:
 
 - Shared capture prep: `lib/editor/export.ts` (`AnimationCapture`, asset rewrite, portrait DoF)
+- Stills: [still-export.md](./still-export.md)
 - Keyframes: [animation-export.md](./animation-export.md) (WebKit uses layered underlay/shell/warp when tilt flattens in FO)
 - Styled video: [video-export.md](./video-export.md)
 
@@ -181,4 +215,9 @@ flowchart LR
 | Open project | `components/editor/top-bar/open-project-dialog.tsx` |
 | Custom presets UI | `components/editor/present-presets-section.tsx` |
 | Public share page | `app/share/[id]/` |
-| User share gallery | `app/app/shares/` |
+| User share gallery | `app/app/shares/` — [shares-gallery.md](./shares-gallery.md) |
+| Editor store provider | `lib/editor/store/provider.tsx` |
+| Animate timeline | `components/editor/animate/` |
+| Bulk flow | `components/editor/bulk-canvas-flow.tsx` — [bulk-preview.md](./bulk-preview.md) |
+| Web MCP | `components/web-mcp-provider.tsx` — [web-mcp.md](./web-mcp.md) |
+| Landing | `components/landing/*` — [marketing-site.md](./marketing-site.md) |

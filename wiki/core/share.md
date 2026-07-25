@@ -44,7 +44,7 @@ Server mapping (`shareTypeForContentType`): png/jpeg → `"style"`; gif/mp4/webm
 | Share button / dialog | `ShareControls` / `MobileShareDialog` |
 | Animate/video configure | Format (mp4/webm/gif) + resolution (hd/fullhd/4k) before encode |
 | Orchestration | `handleShare`, `handleConfirmAnimateShare` in `top-bar/index.tsx` |
-| History gallery | `app/app/shares/shares-gallery.tsx` |
+| History gallery | `app/app/shares/*` — [shares-gallery.md](./shares-gallery.md) |
 | Public page | `app/share/[id]/page.tsx` → `ShareView` |
 
 ---
