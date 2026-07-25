@@ -15,6 +15,7 @@ const routes = [
   { path: "/showcase", changeFrequency: "weekly", priority: 0.8 },
   { path: "/app", changeFrequency: "monthly", priority: 0.9 },
   { path: "/glossary", changeFrequency: "monthly", priority: 0.5 },
+  { path: "/changelog", changeFrequency: "weekly", priority: 0.6 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.4 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.4 },
   { path: "/dpa", changeFrequency: "yearly", priority: 0.4 },

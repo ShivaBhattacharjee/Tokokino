@@ -1,5 +1,5 @@
 const SITE_URL = "https://tokokino.com"
-const UPDATED_AT = "2026-07-24"
+const UPDATED_AT = "2026-07-25"
 
 const content = `# Tokokino
 
@@ -12,6 +12,7 @@ Tokokino helps users create beautiful still compositions and timeline-based demo
 - Website: ${SITE_URL}
 - Editor: ${SITE_URL}/app
 - Templates showcase: ${SITE_URL}/showcase
+- Changelog: ${SITE_URL}/changelog
 - Privacy Policy: ${SITE_URL}/privacy
 - Terms: ${SITE_URL}/terms
 - Sitemap: ${SITE_URL}/sitemap.xml
