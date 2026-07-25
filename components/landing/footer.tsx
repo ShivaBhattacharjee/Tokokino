@@ -43,6 +43,16 @@ const FOOTER_COLUMNS = [
     ],
   },
   {
+    title: "Compare",
+    links: [
+      { label: "vs PostSpark", href: "/compare/tokokino-vs-postspark" },
+      { label: "vs Pika", href: "/compare/tokokino-vs-pika" },
+      { label: "vs Shots.so", href: "/compare/tokokino-vs-shots-so" },
+      { label: "vs Canva", href: "/compare/tokokino-vs-canva" },
+      { label: "All comparisons", href: "/compare" },
+    ],
+  },
+  {
     title: "Legal",
     links: [
       { label: "Privacy", href: "/privacy" },
@@ -148,7 +158,7 @@ export function Footer({ showRail = true }: { showRail?: boolean }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 sm:gap-10 lg:max-w-md lg:justify-self-end lg:border-l lg:border-border/70 lg:pl-8 xl:pl-10">
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 sm:gap-10 lg:max-w-xl lg:justify-self-end lg:border-l lg:border-border/70 lg:pl-8 xl:pl-10">
           {FOOTER_COLUMNS.map((column, columnIndex) => (
             <motion.div
               key={column.title}

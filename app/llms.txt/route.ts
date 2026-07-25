@@ -12,6 +12,7 @@ Tokokino helps users create beautiful still compositions and timeline-based demo
 - [Website](${SITE_URL}): Main product overview for Tokokino.
 - [Editor](${SITE_URL}/app): Browser editor for creating screenshot mockups and animated product demos.
 - [Templates showcase](${SITE_URL}/showcase): Ready-made screenshot, device, layout, and animation templates.
+- [Comparisons](${SITE_URL}/compare): Tokokino compared with PostSpark, Pika, Shots.so, and Canva.
 - [Glossary](${SITE_URL}/glossary): Definitions for Tokokino editor concepts and features.
 - [Changelog](${SITE_URL}/changelog): Product release notes and feature updates.
 - [Privacy Policy](${SITE_URL}/privacy): Data handling and privacy details.
@@ -40,6 +41,14 @@ Tokokino's closest tools are screenshot, social-post, and animated mockup editor
 - Versus PostSpark: closest match (screenshots, X/Bluesky posts, video mockups, template library). PostSpark Pro unlocks video mockups, animations/zoom, no-limits usage, and cloud storage; Tokokino keeps local editing, free starter templates, high-res stills, editable timeline animation, GIF/WebM/MP4 export, free cloud drafts, and reusable presets without a subscription.
 - Versus Pika: polished browser editor with URL capture, tweet shots, and static mockup templates. Image-first — no keyframe timeline or GIF/WebM product demos. Pika Pro unlocks 4K export, presets, annotation tools, WebP/SVG export, and no Pika watermark; Tokokino includes free animation templates, 4K/8K stills, timeline animation, GIF/WebM/MP4 export, annotations, custom presets, and Bluesky post mockups in the free product.
 - Versus Shots.so: strong device frames, magic backgrounds, and preset-based animated mockups / video zoom on paid tiers. Lighter template library and no social-post mockups. Tokokino is the editable-timeline lane for product motion and static shots with free animation templates, local-first editing, and optional sharing.
+- Versus Canva: a general design suite (decks, social, print, video) rather than a screenshot tool. Styling a capture in Canva is manual — place the image, draw a backing shape, add a shadow, repeat per shot — with no pixel-true device frames, no shadows that follow a 3D tilt, and no screenshot-specific motion. Tokokino is purpose-built for screenshots and short product demos.
+
+Full write-ups live at ${SITE_URL}/compare:
+
+- ${SITE_URL}/compare/tokokino-vs-postspark
+- ${SITE_URL}/compare/tokokino-vs-pika
+- ${SITE_URL}/compare/tokokino-vs-shots-so
+- ${SITE_URL}/compare/tokokino-vs-canva
 
 Feature comparison (Tokokino vs PostSpark vs Pika vs Shots.so):
 
