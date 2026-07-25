@@ -75,13 +75,23 @@ function isShellAsset(url) {
 
 async function topUpShell(request, response) {
   const shell = await caches.open(SHELL_CACHE)
-  // Only for users who actually opted in — no manifest, no cache writes.
+  // The manifest is the single source of truth for "offline is on". No
+  // manifest, no cache writes.
   if (!(await shell.match(MANIFEST_URL))) return
   await shell.put(request, response)
+  // Opt-out drops the manifest before the cache, so a top-up that started
+  // before it can still land after. Undo the write rather than leave an entry
+  // belonging to a shell generation nobody asked for.
+  if (!(await shell.match(MANIFEST_URL))) await shell.delete(request)
 }
 
 async function matchShell(request, url) {
   const shell = await caches.open(SHELL_CACHE)
+
+  // Same gate as the write path: without the manifest the user has opted out
+  // (or a capture never finished), so anything left over is a superseded
+  // generation that must not be served.
+  if (!(await shell.match(MANIFEST_URL))) return null
 
   // Documents are matched on the exact path only. Falling back to the editor
   // for any navigation would answer /login, /terms, /share/:id — or /app/shares

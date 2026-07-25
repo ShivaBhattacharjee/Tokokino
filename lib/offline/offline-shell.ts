@@ -67,6 +67,11 @@ export async function getOfflineShell(): Promise<OfflineShellRecord | null> {
 /** Drops the cache and the worker, so nothing is left serving stale code. */
 export async function clearOfflineShell() {
   if (!isOfflineSupported()) return
+  // Delete the manifest before the cache. The worker gates both reads and
+  // top-up writes on it, so this one statement is what actually ends offline
+  // mode — a top-up already in flight cannot outlive it.
+  const shell = await caches.open(SHELL_CACHE)
+  await shell.delete(MANIFEST_URL)
   await caches.delete(SHELL_CACHE)
   const registrations = await navigator.serviceWorker.getRegistrations()
   await Promise.all(
@@ -137,14 +142,23 @@ export async function cacheEditorShell(
 }
 
 /**
- * The URLs an offline boot of the editor needs. Two sources, because neither
- * is complete on its own: the performance timeline knows every chunk this
- * session actually executed (including lazily imported dialogs), while the
- * document markup lists the chunks the next boot will request before any of
- * that code runs.
+ * The URLs an offline boot of the editor needs. Three sources, because none is
+ * complete on its own: the performance timeline knows every chunk this session
+ * actually executed, the document markup lists the chunks the next boot will
+ * request before any of that code runs, and the lazy AV1 fallback appears in
+ * neither until it is deliberately warmed below.
  */
 async function collectShellUrls(shell: Cache) {
   const urls = new Set<string>(OPTIONAL_SHELL_URLS)
+
+  // The editor's one lazily loaded feature — the AV1 export fallback — is in
+  // neither source below until something has triggered it, so a capture taken
+  // before it was ever used would omit it. Pull its chunk in (without building
+  // a decoder) and name its WASM payload outright.
+  const { dav1dWasmUrl, preloadDav1dChunk } =
+    await import("@/lib/editor/animation-export/video-media/dav1d-preload")
+  await preloadDav1dChunk()
+  urls.add(dav1dWasmUrl)
 
   for (const entry of performance.getEntriesByType("resource")) {
     if (!entry.name.startsWith(`${location.origin}/`)) continue
