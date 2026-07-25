@@ -15,10 +15,7 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
-const dav1dWasmUrl = new URL(
-  "./dav1d-wasm/decoder.wasm",
-  import.meta.url
-).toString()
+import { dav1dWasmUrl } from "./dav1d-preload"
 
 type Dav1dPlane = {
   bytes: Uint8Array

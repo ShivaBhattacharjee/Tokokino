@@ -28,12 +28,6 @@ export const FEATURES = [
     tone: "primary" as const,
   },
   {
-    k: "04",
-    t: "Aspect ratio control",
-    d: "Switch between 16:9, 1:1, 4:3, 9:16 and custom ratios. Zoom is independent of export resolution.",
-    tone: "matcha" as const,
-  },
-  {
     k: "05",
     t: "Layers & assets",
     d: "Stack text, images, and SVGs over your capture. z-index, opacity, blend modes, and filters per layer.",
@@ -62,6 +56,12 @@ export const FEATURES = [
     t: "Local-first",
     d: "Edits stay in your browser. Nothing uploaded until you share. Host where you want.",
     tone: "matcha" as const,
+  },
+  {
+    k: "19",
+    t: "Works offline",
+    d: "Keep the editor on your device in one click. It opens with no connection, and the design you were working on is still there — no account, no sync, no upload.",
+    tone: "primary" as const,
   },
   {
     k: "10",

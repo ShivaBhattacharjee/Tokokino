@@ -541,7 +541,8 @@ export function ElasticSlider({
         aria-disabled={disabled || undefined}
         className={cn(
           "group/elastic-slider absolute inset-0 cursor-pointer touch-none overflow-hidden rounded-(--elastic-slider-radius) bg-(--elastic-slider-bg) outline-none select-none",
-          "data-[focus-visible=true]:ring-2 data-[focus-visible=true]:ring-ring/50 data-[focus-visible=true]:ring-offset-1 data-[focus-visible=true]:ring-offset-background",
+          // Inset ring so keyboard focus isn't clipped by overflow-hidden / flush parents.
+          "data-[focus-visible=true]:shadow-[inset_0_0_0_1.5px_color-mix(in_oklab,var(--ring)_55%,transparent)]",
           disabled && "cursor-not-allowed"
         )}
         style={{ width: rubberWidth, x: rubberX }}
