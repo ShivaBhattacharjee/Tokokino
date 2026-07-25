@@ -10,7 +10,10 @@ import {
   getUnattachedDraftMediaSize,
 } from "@/lib/draft-media-db"
 import { getStoredDraftMediaSize, uploadDraftMedia } from "@/lib/draft-storage"
-import { draftMediaUrl } from "@/lib/schemas/draft"
+import {
+  draftMediaUrl,
+  normalizeDraftMediaContentType,
+} from "@/lib/schemas/draft"
 
 export const runtime = "nodejs"
 
@@ -19,12 +22,12 @@ const MAX_VIDEO_BYTES = 1024 * 1024 * 1024
 export async function POST(request: Request) {
   const auth = await requireSession(request)
   if (!auth.ok) return auth.response
-  const contentType = (request.headers.get("content-type") ?? "")
-    .toLowerCase()
-    .split(";")[0]
-  if (contentType !== "video/mp4" && contentType !== "video/webm")
+  const contentType = normalizeDraftMediaContentType(
+    request.headers.get("content-type")
+  )
+  if (!contentType)
     return NextResponse.json(
-      { error: "Draft videos must be MP4 or WebM" },
+      { error: "Draft media must be a video file" },
       { status: 415 }
     )
   const sizeBytes = Number(request.headers.get("content-length") ?? "0")

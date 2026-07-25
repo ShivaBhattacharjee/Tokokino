@@ -10,6 +10,7 @@ import {
 
 import { requireR2Config } from "@/lib/env"
 import { getR2Client } from "@/lib/r2-client"
+import { draftMediaExtension } from "@/lib/schemas/draft"
 
 /**
  * R2-backed storage for the *thumbnails* that appear in the Open Project
@@ -49,8 +50,7 @@ export function getDraftMediaKey({
   id: string
   contentType: string
 }) {
-  const extension = contentType === "video/webm" ? "webm" : "mp4"
-  return `drafts/${userId}/media/${id}.${extension}`
+  return `drafts/${userId}/media/${id}.${draftMediaExtension(contentType)}`
 }
 
 export async function uploadDraftMedia({

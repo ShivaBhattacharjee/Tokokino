@@ -91,6 +91,10 @@ const releases: Release[] = [
         kind: "fixed",
         text: "Video export on Safari, blur effects with device frames, and template playback glitches.",
       },
+      {
+        kind: "fixed",
+        text: "Saving a project with a .mov or other non-MP4 video no longer fails — any video the editor accepts can now be saved as a draft.",
+      },
     ],
   },
   {

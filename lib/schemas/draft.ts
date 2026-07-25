@@ -277,6 +277,46 @@ function isVideoDraftSource(src: unknown) {
   )
 }
 
+/**
+ * The editor's file picker accepts `video/*`, so draft media has to accept the
+ * same range — a project built from a .mov or .mkv must still be saveable, even
+ * though the export pipeline itself only ever emits MP4/WebM.
+ */
+const DRAFT_MEDIA_TYPE_RE = /^video\/[a-z0-9][a-z0-9.+-]{0,58}$/
+
+const DRAFT_MEDIA_EXTENSIONS: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+  "video/x-m4v": "m4v",
+  "video/m4v": "m4v",
+  "video/ogg": "ogv",
+  "video/x-matroska": "mkv",
+  "video/mpeg": "mpeg",
+  "video/3gpp": "3gp",
+  "video/3gpp2": "3g2",
+  "video/x-msvideo": "avi",
+}
+
+/** Lowercased type without parameters, or null when it isn't a video type. */
+export function normalizeDraftMediaContentType(
+  value: string | null | undefined
+): string | null {
+  const normalized = (value ?? "").toLowerCase().split(";")[0]?.trim() ?? ""
+  return DRAFT_MEDIA_TYPE_RE.test(normalized) ? normalized : null
+}
+
+/** File extension for the R2 object key. Purely cosmetic — reads go by key. */
+export function draftMediaExtension(contentType: string): string {
+  const known = DRAFT_MEDIA_EXTENSIONS[contentType]
+  if (known) return known
+  const subtype = contentType
+    .slice("video/".length)
+    .replace(/^x-/, "")
+    .replace(/[^a-z0-9]/g, "")
+  return subtype.slice(0, 8) || "video"
+}
+
 export function draftMediaUrl(id: string) {
   return `${DRAFT_MEDIA_PATH_PREFIX}${id}`
 }

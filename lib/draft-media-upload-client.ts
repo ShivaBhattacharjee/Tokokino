@@ -1,7 +1,10 @@
 "use client"
 
 import { getBlobForObjectUrl, registerObjectUrl } from "@/lib/editor/media-type"
-import { draftMediaIdFromUrl } from "@/lib/schemas/draft"
+import {
+  draftMediaIdFromUrl,
+  normalizeDraftMediaContentType,
+} from "@/lib/schemas/draft"
 
 type VideoCanvas = {
   screenshot: string | null
@@ -57,7 +60,7 @@ function blobToDataUrl(blob: Blob) {
  * Imported screenshots and backgrounds persist as `data:` URLs, but restoring
  * the IndexedDB autosave re-mints them as `blob:` URLs, which only resolve in
  * the page session that created them. Videos escape this by being uploaded to
- * R2; images cannot, because the draft media endpoint takes MP4/WebM only. So
+ * R2; images cannot, because the draft media endpoint takes video only. So
  * an image blob left in a saved draft is a reference that is already dead by
  * the time the draft is reopened — it loads as a broken image while the
  * thumbnail (a separate R2 upload) still looks correct.
@@ -96,9 +99,9 @@ async function uploadDraftVideo(
   blob: Blob,
   onProgress: (loaded: number) => void
 ) {
-  const contentType = blob.type.toLowerCase()
-  if (contentType !== "video/mp4" && contentType !== "video/webm") {
-    throw new Error("Draft videos must be MP4 or WebM")
+  const contentType = normalizeDraftMediaContentType(blob.type)
+  if (!contentType) {
+    throw new Error("Draft media must be a video file")
   }
   return new Promise<string>((resolve, reject) => {
     const request = new XMLHttpRequest()
