@@ -5,7 +5,6 @@ import {
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
   RiEyeLine,
-  RiFileAddLine,
   RiFileCopyLine,
   RiLayoutGridLine,
   RiRefreshLine,
@@ -21,6 +20,15 @@ import {
   DraftDownloadProgress,
   type DraftDownloadState,
 } from "@/components/editor/draft-download-progress"
+import { OfflineProgressCard } from "@/components/editor/offline-progress"
+import {
+  cacheEditorShell,
+  clearOfflineShell,
+  getOfflineShell,
+  registerOfflineServiceWorker,
+  type OfflineProgress,
+  type OfflineShellRecord,
+} from "@/lib/offline/offline-shell"
 import { FeedbackDialog } from "@/components/editor/top-bar/feedback-dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
@@ -290,6 +298,11 @@ export function TopBar() {
     React.useState(false)
   const [draftDownload, setDraftDownload] =
     React.useState<DraftDownloadState | null>(null)
+  const [offlineShell, setOfflineShell] =
+    React.useState<OfflineShellRecord | null>(null)
+  const [offlineProgress, setOfflineProgress] =
+    React.useState<OfflineProgress | null>(null)
+  const [isStoringOffline, setIsStoringOffline] = React.useState(false)
   const [isDraftSaving, setIsDraftSaving] = React.useState(false)
   const [draftUploadProgress, setDraftUploadProgress] =
     React.useState<DraftVideoUploadProgress | null>(null)
@@ -1101,6 +1114,63 @@ export function TopBar() {
     [loadDraftState]
   )
 
+  // The cache is useless unless the worker that reads it is running, so
+  // re-register on every boot that has one — registration is idempotent and
+  // also picks up a newer sw.js.
+  React.useEffect(() => {
+    let active = true
+    void (async () => {
+      const record = await getOfflineShell()
+      if (!active || !record) return
+      setOfflineShell(record)
+      await registerOfflineServiceWorker().catch((error) => {
+        console.warn("[offline] Could not register service worker", error)
+      })
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  /**
+   * Offline only ever stores the editor's own code. Designs are already on the
+   * device — the store autosaves them to IndexedDB, screenshots and videos as
+   * native Blobs — so no upload, account, or saved draft is involved.
+   */
+  const handleToggleOffline = React.useCallback(async () => {
+    if (isStoringOffline) return
+
+    if (offlineShell) {
+      try {
+        await clearOfflineShell()
+        setOfflineShell(null)
+        toast.success("Offline editor removed")
+      } catch (err) {
+        console.error("[offline]", err)
+        toast.error("Could not turn off offline mode")
+      }
+      return
+    }
+
+    setIsStoringOffline(true)
+    try {
+      const record = await cacheEditorShell(setOfflineProgress)
+      setOfflineShell(record)
+      toast.success("The editor now opens without a connection")
+    } catch (err) {
+      console.error("[offline]", err)
+      // A half-cached shell boots into a broken editor — drop it.
+      await clearOfflineShell().catch(() => {})
+      setOfflineShell(null)
+      toast.error(
+        err instanceof Error ? err.message : "Could not set up offline mode"
+      )
+    } finally {
+      setIsStoringOffline(false)
+      setOfflineProgress(null)
+    }
+  }, [isStoringOffline, offlineShell])
+
   const handleApplyTemplate = React.useCallback(
     (template: Template) => {
       try {
@@ -1200,11 +1270,15 @@ export function TopBar() {
 
       <div className="hidden min-w-0 flex-1 items-center justify-center gap-1.5 md:flex">
         <div className="tool-cluster hidden xl:flex">
-          <TopBarButton
-            label="New"
-            icon={RiFileAddLine}
-            tooltip="New project"
-            onClick={() => setShowNewAlert(true)}
+          <OpenControls
+            currentDraftName={currentDraft?.name ?? null}
+            isOffline={offlineShell !== null}
+            isSavingOffline={isStoringOffline}
+            onNewProject={() => setShowNewAlert(true)}
+            onOpenImage={() => imageInputRef.current?.click()}
+            onOpenVideo={() => videoInputRef.current?.click()}
+            onOpenProject={() => handleProtectedAction("open")}
+            onToggleOffline={() => void handleToggleOffline()}
           />
           <TopBarButton
             label="Templates"
@@ -1220,12 +1294,6 @@ export function TopBar() {
               onClick={() => void handleCopyTemplateJson()}
             />
           )}
-          <OpenControls
-            currentDraftName={currentDraft?.name ?? null}
-            onOpenImage={() => imageInputRef.current?.click()}
-            onOpenVideo={() => videoInputRef.current?.click()}
-            onOpenProject={() => handleProtectedAction("open")}
-          />
         </div>
 
         <div className="tool-cluster hidden xl:flex">
@@ -1565,6 +1633,8 @@ export function TopBar() {
         />
 
         <DraftDownloadProgress download={draftDownload} />
+
+        <OfflineProgressCard progress={offlineProgress} />
 
         <TemplatesDialog
           open={templatesOpen}

@@ -12,7 +12,7 @@ const COMPETITOR_COMPARISONS = [
     contrast:
       "Closest match for screenshots, X/Bluesky posts, and video mockups. Strong template library plus animation/zoom — but video mockups, deeper timeline motion, no-limits usage, and cloud storage sit behind PostSpark Pro.",
     tokokino:
-      "Tokokino keeps the workflow lean: starter image + animation templates, local editing, free high-res stills, an editable keyframe timeline with GIF/WebM/MP4 export, free cloud drafts, and reusable presets without a subscription meter.",
+      "Tokokino keeps the workflow lean: starter image + animation templates, local editing that keeps working with no connection, free high-res stills, an editable keyframe timeline with GIF/WebM/MP4 export, free cloud drafts, and reusable presets without a subscription meter.",
   },
   {
     competitor: "Pika",
@@ -107,6 +107,13 @@ const FEATURE_MATRIX = [
     postspark: "cloud",
     pika: "browser",
     shots: "cloud",
+  },
+  {
+    feature: "Works with no connection",
+    tokokino: true,
+    postspark: "not listed",
+    pika: "not listed",
+    shots: "not listed",
   },
   {
     feature: "Free cloud project drafts",
