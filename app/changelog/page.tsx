@@ -1,12 +1,11 @@
 import type { Metadata } from "next"
-import type { CSSProperties, ReactNode } from "react"
+import type { CSSProperties } from "react"
 
 import { DashedH } from "@/components/landing/dashed-h"
 import { Footer } from "@/components/landing/footer"
 import { Nav } from "@/components/landing/nav"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
 import { ScrollToTop } from "@/components/landing/scroll-to-top"
-import { cn } from "@/lib/utils"
 
 import { ChangelogIndex, type ChangelogIndexItem } from "./changelog-index"
 
@@ -20,11 +19,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/changelog" },
 }
 
-type ChangeKind = "added" | "improved" | "fixed" | "infra"
-
 type ChangeItem = {
-  kind: ChangeKind
-  text: ReactNode
+  title: string
+  text: string
 }
 
 type Release = {
@@ -33,7 +30,6 @@ type Release = {
   date: string
   title: string
   summary: string
-  current?: boolean
   changes: ChangeItem[]
 }
 
@@ -45,55 +41,54 @@ const releases: Release[] = [
     title: "Templates, offline & motion",
     summary:
       "The big jump from v1. Start from ready-made templates, keep editing when you’re offline, and turn still shots into short product videos — with a timeline, GIF/video export, and smoother controls throughout.",
-    current: true,
     changes: [
       {
-        kind: "added",
-        text: "Ready-made templates you can open and drop your capture into.",
+        title: "Ready-made templates",
+        text: "Open a template and drop your capture straight into a finished look.",
       },
       {
-        kind: "added",
-        text: "Animated templates that preview the motion before you apply them.",
+        title: "Animated templates",
+        text: "Preview the motion before you apply it, then bring the same animation into your canvas.",
       },
       {
-        kind: "added",
-        text: "Showcase page and homepage template strip — click one to open it in the editor.",
+        title: "Showcase & homepage strip",
+        text: "Browse templates on the showcase page or homepage strip and open one in the editor with a click.",
       },
       {
-        kind: "added",
-        text: "Offline editing so the app keeps working without a network connection.",
+        title: "Offline editing",
+        text: "Keep working when you’re offline — the app stays usable without a network connection.",
       },
       {
-        kind: "added",
-        text: "Animate mode — a timeline to keyframe tilt, zoom, shadows, backgrounds, and more.",
+        title: "Animate mode",
+        text: "Keyframe tilt, zoom, shadows, backgrounds, and more on a timeline built for product motion.",
       },
       {
-        kind: "added",
-        text: "Video and GIF on the canvas, with crop, mute, and a scrubbable timeline.",
+        title: "Video & GIF on the canvas",
+        text: "Drop video or GIF onto the canvas, then crop, mute, and scrub through a timeline.",
       },
       {
-        kind: "added",
-        text: "Export animations as GIF, WebM, or MP4, including on Safari.",
+        title: "Export as GIF, WebM, or MP4",
+        text: "Export animations in the format you need, including on Safari.",
       },
       {
-        kind: "added",
-        text: "Account settings to manage sessions and delete your account.",
+        title: "Account settings",
+        text: "Manage sessions and delete your account from a dedicated settings screen.",
       },
       {
-        kind: "added",
-        text: "Capture a full webpage from a URL; search drafts; new elastic sliders in the inspector.",
+        title: "Webpage capture & elastic sliders",
+        text: "Capture a full webpage from a URL, search drafts, and use new elastic sliders in the inspector.",
       },
       {
-        kind: "improved",
-        text: "Live preset previews, rename/delete for projects and presets, and cleaner multi-screenshot framing.",
+        title: "Smoother presets & framing",
+        text: "Live preset previews, rename and delete for projects and presets, and cleaner multi-screenshot framing.",
       },
       {
-        kind: "fixed",
-        text: "Video export on Safari, blur effects with device frames, and template playback glitches.",
+        title: "Safari & playback fixes",
+        text: "Video export on Safari, blur effects with device frames, and template playback glitches are fixed.",
       },
       {
-        kind: "fixed",
-        text: "Saving a project with a .mov or other non-MP4 video no longer fails — any video the editor accepts can now be saved as a draft.",
+        title: "Drafts with any video format",
+        text: "Saving a project with a .mov or other non-MP4 video no longer fails — any video the editor accepts can be saved as a draft.",
       },
     ],
   },
@@ -106,24 +101,24 @@ const releases: Release[] = [
       "Paste an X or Bluesky link and get a clean, exportable post card. Better mobile editing and more gradient options.",
     changes: [
       {
-        kind: "added",
-        text: "X (Twitter) post mockups — images, stats, quoted posts, themes, and fonts.",
+        title: "X post mockups",
+        text: "Turn an X (Twitter) link into an exportable post card with images, stats, quoted posts, themes, and fonts.",
       },
       {
-        kind: "added",
-        text: "Bluesky post mockups with the same styling options.",
+        title: "Bluesky post mockups",
+        text: "The same styling options for Bluesky posts — paste a link and export a clean card.",
       },
       {
-        kind: "added",
-        text: "Custom export filenames and new mesh / aurora gradients.",
+        title: "Custom filenames & gradients",
+        text: "Name your exports yourself, and pick from new mesh and aurora gradients.",
       },
       {
-        kind: "added",
-        text: "Flatter layers panel and easier controls on phones.",
+        title: "Easier layers on mobile",
+        text: "A flatter layers panel and controls that are easier to use on phones.",
       },
       {
-        kind: "improved",
-        text: "More automated tests so releases stay stable.",
+        title: "More automated tests",
+        text: "Extra coverage so releases stay stable as the editor grows.",
       },
     ],
   },
@@ -136,36 +131,36 @@ const releases: Release[] = [
       "Tokokino goes live. Sign in, style screenshots with frames and presets, export in high resolution, and share a public link — all from the browser.",
     changes: [
       {
-        kind: "added",
-        text: "Public site and editor online for everyone.",
+        title: "Public site & editor",
+        text: "The site and editor are online for everyone.",
       },
       {
-        kind: "added",
-        text: "Sign in with email or Google.",
+        title: "Sign in with email or Google",
+        text: "Create an account and pick up your work across devices.",
       },
       {
-        kind: "added",
-        text: "Share links so anyone can view your finished image.",
+        title: "Share links",
+        text: "Publish a finished image so anyone can view it from a public link.",
       },
       {
-        kind: "added",
-        text: "Export as PNG, JPEG, or WebP up to 8K, or copy to the clipboard.",
+        title: "High-res export",
+        text: "Export as PNG, JPEG, or WebP up to 8K, or copy straight to the clipboard.",
       },
       {
-        kind: "added",
+        title: "Frames, bulk edit & presets",
         text: "Phone, tablet, and laptop frames; multi-canvas bulk edit; layout and tilt presets.",
       },
       {
-        kind: "added",
+        title: "Cloud projects & presets",
         text: "Save projects to the cloud and reuse your own presets.",
       },
       {
-        kind: "added",
-        text: "Preview mode with slide, fade, zoom, and flip transitions.",
+        title: "Preview mode",
+        text: "Flip through canvases with slide, fade, zoom, and flip transitions.",
       },
       {
-        kind: "added",
-        text: "Capture a website from a URL into the editor.",
+        title: "Capture from a URL",
+        text: "Pull a website into the editor from a link.",
       },
     ],
   },
@@ -178,27 +173,27 @@ const releases: Release[] = [
       "The week before launch: logins, share uploads, cloud presets, a real landing page, and the move to Cloudflare hosting.",
     changes: [
       {
-        kind: "added",
-        text: "Sign-in and account menu in the editor.",
+        title: "Sign-in in the editor",
+        text: "Log in and manage your account from the editor menu.",
       },
       {
-        kind: "added",
-        text: "Share button to upload and link a finished image.",
+        title: "Share a finished image",
+        text: "Upload and link a finished image with the share button.",
       },
       {
-        kind: "added",
+        title: "Custom presets & local drafts",
         text: "Save custom presets and keep drafts on your device before you sign in.",
       },
       {
-        kind: "added",
-        text: "Export with format and resolution choices.",
+        title: "Export choices",
+        text: "Pick format and resolution when you export.",
       },
       {
-        kind: "added",
-        text: "Landing page with hero, features, and footer.",
+        title: "Landing page",
+        text: "A public homepage with hero, features, and footer.",
       },
       {
-        kind: "infra",
+        title: "Cloudflare hosting",
         text: "Moved hosting to Cloudflare and renamed the project to Tokokino.",
       },
     ],
@@ -212,24 +207,24 @@ const releases: Release[] = [
       "Wrap shots in real device frames, work on several canvases at once, and apply layout presets in one click.",
     changes: [
       {
-        kind: "added",
-        text: "Device frames for phones, tablets, desktops, and browsers.",
+        title: "Device frames",
+        text: "Wrap shots in frames for phones, tablets, desktops, and browsers.",
       },
       {
-        kind: "added",
-        text: "Multiple canvases on one board, with zoom and alignment guides.",
+        title: "Multiple canvases",
+        text: "Work on several canvases on one board, with zoom and alignment guides.",
       },
       {
-        kind: "added",
-        text: "Tilt and multi-screenshot layout presets.",
+        title: "Layout & tilt presets",
+        text: "Apply tilt and multi-screenshot layouts in one click.",
       },
       {
-        kind: "added",
+        title: "Layers & portrait blur",
         text: "Layer opacity, blend modes, portrait blur, and backdrop patterns.",
       },
       {
-        kind: "improved",
-        text: "Clearer inspector sections and a tighter top bar.",
+        title: "Clearer inspector",
+        text: "Tighter top bar and clearer sections in the inspector.",
       },
     ],
   },
@@ -242,24 +237,24 @@ const releases: Release[] = [
       "The first real editor: drop in a screenshot, pick a background, add text and marks, crop, and undo mistakes.",
     changes: [
       {
-        kind: "added",
-        text: "Canvas editor with undo and redo.",
+        title: "Canvas with undo & redo",
+        text: "The first real editor canvas, with full undo and redo.",
       },
       {
-        kind: "added",
+        title: "Backgrounds & styling",
         text: "Backgrounds, overlays, shadows, borders, padding, and 3D tilt.",
       },
       {
-        kind: "added",
-        text: "Unsplash images and crop tools.",
+        title: "Unsplash & crop",
+        text: "Pull images from Unsplash and crop what you need.",
       },
       {
-        kind: "added",
-        text: "Text, stickers, arrows, freehand annotations, and enhance filters.",
+        title: "Text, stickers & annotations",
+        text: "Add text, stickers, arrows, freehand marks, and enhance filters.",
       },
       {
-        kind: "added",
-        text: "Color picker and a mobile-friendly layout.",
+        title: "Color picker & mobile layout",
+        text: "Pick colors precisely, with a layout that works on phones.",
       },
     ],
   },
@@ -271,32 +266,12 @@ const releases: Release[] = [
     summary: "First commit. The project begins.",
     changes: [
       {
-        kind: "added",
-        text: "Repository and first editor foundation.",
+        title: "Repository foundation",
+        text: "First commit and the beginnings of the editor.",
       },
     ],
   },
 ]
-
-const KIND_LABEL: Record<ChangeKind, string> = {
-  added: "New",
-  improved: "Improved",
-  fixed: "Fixed",
-  infra: "Setup",
-}
-
-const KIND_CLASS: Record<ChangeKind, string> = {
-  added:
-    "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  improved: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
-  fixed:
-    "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-400",
-  infra:
-    "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400",
-}
-
-const badgeBase =
-  "inline-flex items-center justify-center rounded-md border px-2 py-1 text-[10px] font-medium tracking-wide uppercase"
 
 export default function ChangelogPage() {
   const indexItems: ChangelogIndexItem[] = releases.map((release) => ({
@@ -337,7 +312,7 @@ export default function ChangelogPage() {
               <ChangelogIndex items={indexItems} />
             </aside>
 
-            <div className="min-w-0 space-y-10">
+            <div className="min-w-0 space-y-14">
               <nav
                 aria-label="Release jump list"
                 className="flex flex-wrap gap-2 lg:hidden"
@@ -357,65 +332,39 @@ export default function ChangelogPage() {
                 <section
                   key={release.id}
                   id={release.id}
-                  className="scroll-mt-8 border-t border-border/50 pt-8"
+                  className="scroll-mt-8 border-t border-border/50 pt-10"
                 >
-                  <header className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
-                        {release.date}
-                      </span>
-                      {release.current ? (
-                        <span
-                          className={cn(
-                            badgeBase,
-                            "border-primary/40 bg-primary/10 text-primary"
-                          )}
-                        >
-                          Current
-                        </span>
-                      ) : null}
-                      {release.version === "1.0.0" ? (
-                        <span
-                          className={cn(
-                            badgeBase,
-                            "border-primary/30 bg-primary/5 text-primary/90"
-                          )}
-                        >
-                          Launch
-                        </span>
-                      ) : null}
-                    </div>
-                    <h2 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xl font-medium tracking-tight sm:text-2xl">
-                      <span className="font-mono text-primary tabular-nums">
+                  <header className="max-w-2xl space-y-3">
+                    <span className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
+                      {release.date}
+                    </span>
+                    <h2 className="text-2xl font-medium tracking-tight sm:text-3xl">
+                      {release.title}
+                    </h2>
+                    <p className="text-sm leading-7 text-foreground/58 sm:text-[15px]">
+                      <span className="font-mono text-primary/80 tabular-nums">
                         v{release.version}
                       </span>
-                      <span className="text-base font-medium tracking-tight text-foreground/90 sm:text-lg">
-                        {release.title}
-                      </span>
-                    </h2>
-                    <p className="max-w-2xl text-sm leading-7 text-foreground/58">
+                      <span className="text-foreground/30"> · </span>
                       {release.summary}
                     </p>
                   </header>
 
-                  <ul className="mt-6 space-y-4">
+                  <ul className="mt-10 max-w-2xl space-y-8">
                     {release.changes.map((change, index) => (
-                      <li
-                        key={`${release.id}-${index}`}
-                        className="flex flex-col gap-1.5 text-sm leading-6 sm:flex-row sm:items-start sm:gap-3"
-                      >
+                      <li key={`${release.id}-${index}`} className="flex gap-3">
                         <span
-                          className={cn(
-                            badgeBase,
-                            "w-fit sm:mt-0.5 sm:min-w-[5.25rem]",
-                            KIND_CLASS[change.kind]
-                          )}
-                        >
-                          {KIND_LABEL[change.kind]}
-                        </span>
-                        <span className="min-w-0 text-foreground/58">
-                          {change.text}
-                        </span>
+                          aria-hidden
+                          className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-primary"
+                        />
+                        <div className="min-w-0 space-y-1.5">
+                          <h3 className="text-[15px] font-medium tracking-tight text-foreground sm:text-base">
+                            {change.title}
+                          </h3>
+                          <p className="text-sm leading-7 text-foreground/58">
+                            {change.text}
+                          </p>
+                        </div>
                       </li>
                     ))}
                   </ul>
