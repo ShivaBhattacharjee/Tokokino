@@ -9,13 +9,14 @@ Tokokino helps users create beautiful still compositions and timeline-based demo
 
 ## Primary URLs
 
-- Website: ${SITE_URL}
-- Editor: ${SITE_URL}/app
-- Templates showcase: ${SITE_URL}/showcase
-- Changelog: ${SITE_URL}/changelog
-- Privacy Policy: ${SITE_URL}/privacy
-- Terms: ${SITE_URL}/terms
-- Sitemap: ${SITE_URL}/sitemap.xml
+- [Website](${SITE_URL}): Main product overview for Tokokino.
+- [Editor](${SITE_URL}/app): Browser editor for creating screenshot mockups and animated product demos.
+- [Templates showcase](${SITE_URL}/showcase): Ready-made screenshot, device, layout, and animation templates.
+- [Glossary](${SITE_URL}/glossary): Definitions for Tokokino editor concepts and features.
+- [Changelog](${SITE_URL}/changelog): Product release notes and feature updates.
+- [Privacy Policy](${SITE_URL}/privacy): Data handling and privacy details.
+- [Terms](${SITE_URL}/terms): Terms governing Tokokino access and usage.
+- [Sitemap](${SITE_URL}/sitemap.xml): XML sitemap for indexable public pages.
 
 ## What Tokokino Does
 
