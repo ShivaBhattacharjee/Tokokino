@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "motion/react"
 import { useTheme } from "next-themes"
@@ -25,16 +25,24 @@ const links = [
   { label: "Contact", href: "#contact" },
 ]
 
+/**
+ * False on the server and through hydration, true on the client — the gate the
+ * portal needs, without the extra render a mount effect costs.
+ */
+function useMounted() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
+}
+
 export function Nav() {
   const pathname = usePathname()
   const showRails = pathname === "/"
   const [open, setOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
   const { resolvedTheme, setTheme } = useTheme()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   useEffect(() => {
     if (!open) return
