@@ -1280,12 +1280,6 @@ export function TopBar() {
             onOpenProject={() => handleProtectedAction("open")}
             onToggleOffline={() => void handleToggleOffline()}
           />
-          <TopBarButton
-            label="Templates"
-            icon={RiSparkling2Line}
-            tooltip="Pre-made templates"
-            onClick={() => setTemplatesOpen(true)}
-          />
           {ENABLE_TEMPLATE_COPY && (
             <TopBarButton
               label="Copy template"
@@ -1314,6 +1308,12 @@ export function TopBar() {
         </div>
 
         <div className="tool-cluster">
+          <TopBarButton
+            label="Templates"
+            icon={RiSparkling2Line}
+            tooltip="Pre-made templates"
+            onClick={() => setTemplatesOpen(true)}
+          />
           <TopBarButton
             label="Bulk edit"
             icon={RiLayoutGridLine}
@@ -1751,6 +1751,7 @@ export function TopBar() {
           onOpenImageClick={() => imageInputRef.current?.click()}
           onOpenVideoClick={() => videoInputRef.current?.click()}
           onOpenProjectClick={() => handleProtectedAction("open")}
+          onTemplatesClick={() => setTemplatesOpen(true)}
           onFeedbackClick={() => setFeedbackOpen(true)}
         />
 

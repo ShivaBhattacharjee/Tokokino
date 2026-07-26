@@ -134,6 +134,13 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     thumbnail: "https://assets.tokokino.com/templates/animated-browser.jpg",
     preview: "https://assets.tokokino.com/templates/animated-browser.webm",
   },
+  {
+    id: "zoom-in-reveal",
+    name: "Zoom In Reveal",
+    category: "animation",
+    thumbnail: "https://assets.tokokino.com/templates/zoom-in-reveal.jpg",
+    preview: "https://assets.tokokino.com/templates/zoom-in-reveal.webm",
+  },
 ]
 
 export const templateMeta: Record<string, TemplateMeta> = Object.fromEntries(

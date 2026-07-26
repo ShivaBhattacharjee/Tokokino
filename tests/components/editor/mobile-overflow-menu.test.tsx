@@ -52,6 +52,7 @@ const baseProps = {
   onOpenImageClick: vi.fn(),
   onOpenVideoClick: vi.fn(),
   onOpenProjectClick: vi.fn(),
+  onTemplatesClick: vi.fn(),
   onFeedbackClick: vi.fn(),
 }
 
@@ -135,6 +136,13 @@ describe("MobileOverflowMenu", () => {
     const user = await openMenu()
     await user.click(screen.getByRole("menuitem", { name: "Copy as PNG" }))
     expect(baseProps.onCopyPng).toHaveBeenCalledOnce()
+  })
+
+  it("routes Templates to onTemplatesClick", async () => {
+    render(<MobileOverflowMenu {...baseProps} />)
+    const user = await openMenu()
+    await user.click(screen.getByRole("menuitem", { name: "Templates" }))
+    expect(baseProps.onTemplatesClick).toHaveBeenCalledOnce()
   })
 
   it("routes Send feedback to onFeedbackClick", async () => {

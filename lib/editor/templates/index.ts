@@ -17,6 +17,7 @@ import slideReveal from "./slide-reveal"
 import twinPhoneStage from "./twin-phone-stage"
 import uiCloseupShowcase from "./ui-closeup-showcase"
 import uiShowcaseAnimated from "./ui-showcase-animated"
+import zoomInReveal from "./zoom-in-reveal"
 
 export type { Template, TemplateCategory, TemplateTab } from "./types"
 
@@ -38,6 +39,7 @@ export const TEMPLATES: Template[] = [
   uiShowcaseAnimated,
   threeDTilt,
   animatedBrowser,
+  zoomInReveal,
   // iPad
   ipadShowcase,
   // Responsive / multi-device

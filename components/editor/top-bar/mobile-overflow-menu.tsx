@@ -18,6 +18,7 @@ import {
   RiRefreshLine,
   RiSaveLine,
   RiShareForwardLine,
+  RiSparkling2Line,
   RiSunLine,
 } from "@remixicon/react"
 import { useTheme } from "next-themes"
@@ -57,6 +58,7 @@ export function MobileOverflowMenu({
   onOpenImageClick,
   onOpenVideoClick,
   onOpenProjectClick,
+  onTemplatesClick,
   onFeedbackClick,
 }: {
   bulkEditMode: boolean
@@ -70,6 +72,7 @@ export function MobileOverflowMenu({
   onOpenImageClick: () => void
   onOpenVideoClick: () => void
   onOpenProjectClick: () => void
+  onTemplatesClick: () => void
   onFeedbackClick: () => void
 }) {
   const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
@@ -158,6 +161,15 @@ export function MobileOverflowMenu({
           <DropdownMenuItem onClick={onOpenVideoClick}>
             <RiVideoAddLine />
             Add video
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setMenuOpen(false)
+              onTemplatesClick()
+            }}
+          >
+            <RiSparkling2Line />
+            Templates
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
