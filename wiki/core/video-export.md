@@ -117,6 +117,8 @@ flowchart TB
 
 Export stack visibility is toggled via `data-export-stack` (`export-stack.ts`) so html-to-image can capture underlay and foreground as separate passes without the live video in the way.
 
+The decoded frame is painted into its own buffer before being warped into the scene, and that buffer is sized by `mediaBufferScale` — the export's scale (`exportWidth / cssWidth`), capped where source pixels already land 1:1. Sizing it in CSS px instead caps every export at the editor's layout width, which is what made 4K exports come back with sharp chrome around a soft video. One buffer is allocated for the whole export and reused per frame.
+
 ---
 
 ## Frame renderer paths
@@ -144,6 +146,7 @@ flowchart TD
 | Seamless perspective warp | `warp-gl.ts` (avoids Canvas2D seam lattice) |
 | Untransformed texture + warp | `captureProjectedElementTexture` / `warpProjectedTexture` (exported; Animate reuses) |
 | Local media box paint | `paintFrameToLocalBox` (video or stand-in `<img>`) |
+| Media buffer resolution | `mediaBufferScale` — buffer is sized at the export scale, not the CSS box |
 | Inner lighting on WebKit | `frame-inner-lighting.ts` |
 | Canvas probes / copies | `frame-canvas-utils.ts` |
 | Stack show/hide | `export-stack.ts` |
@@ -180,7 +183,7 @@ flowchart LR
   PLAN["FramePlan<br/>frameCount = duration × fps"] --> GIF["encode-gif.ts<br/>MAX_GIF_TOTAL_PIXELS guard"]
   PLAN --> VID["encode-video.ts<br/>MP4 / WebM Mediabunny"]
   AUD["prepareSourceAudio"] --> VID
-  AUD -->|"remux if possible"| MUX["Mux"]
+  AUD -->|"remux if codec is container-compatible"| MUX["Mux"]
   AUD -->|"else re-encode"| MUX
   AUD -->|"unusable"| SILENT["Silent track"]
 ```
@@ -191,7 +194,10 @@ flowchart LR
 | GIF memory | `MAX_GIF_TOTAL_PIXELS ≈ 350e6` OOM guard |
 | Audio length | `exportAudioDurationSec(plan)` — matches styled frame count, not raw clip length |
 | Audio failure | Silent export; never fail the job |
-| Codecs | Same Mediabunny preferences as keyframe path (avc/hevc/av1, vp9/vp8/av1) |
+| Video codecs | Same Mediabunny preferences as keyframe path (avc/hevc/av1, vp9/vp8/av1) |
+| Audio codecs | `containerAudioCodecs` — AAC/MP3 for MP4, Opus/Vorbis for WebM |
+
+Remux is judged against `containerAudioCodecs`, **not** the muxer's own capability list. Mediabunny's MP4 muxer will write Opus, FLAC and PCM; X, QuickTime and most NLEs reject those, so an Opus source (i.e. any WebM/MKV clip) is re-encoded to AAC rather than copied through. The keyframe path applies the same narrowing via `animation-audio.ts`.
 
 ---
 

@@ -226,12 +226,14 @@ flowchart TD
 ```mermaid
 flowchart TD
   Q{"Timeline vs source?"}
-  Q -->|untouched| PASS["Passthrough remux"]
+  Q -->|untouched| PASS["Passthrough remux<br/>only if container-compatible"]
   Q -->|trimmed / shifted| RETIME["Re-encode / segment-aware retiming"]
   PASS --> MUX["Mux into Mediabunny output"]
   RETIME --> MUX
   MUX -->|audio missing / unusable| SILENT["Silent export — never fail the whole job"]
 ```
+
+Both branches pick codecs through `containerAudioCodecs` (AAC/MP3 for MP4, Opus/Vorbis for WebM) rather than the muxer's own capability list — see [video-export.md](./video-export.md#encode--audio) for why Opus-in-MP4 has to be re-encoded.
 
 MediaRecorder fallback has **no** audio.
 
