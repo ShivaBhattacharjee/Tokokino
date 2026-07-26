@@ -7,6 +7,10 @@ import { copyCanvasAsPng } from "../export"
 import type { CanvasState } from "../state-types"
 import { useEditorStore } from "../store"
 import { TEMPLATES } from "../templates"
+import {
+  ANIMATION_UNSUPPORTED_MESSAGE,
+  isAnimationUnsupportedViewport,
+} from "../templates/catalog"
 import { unwrapDraftState } from "@/lib/schemas/draft"
 
 import {
@@ -37,6 +41,12 @@ function pendingTemplateFromUrl() {
   return TEMPLATES.find((t) => t.id === id) ?? null
 }
 
+function stripTemplateParam() {
+  const url = new URL(window.location.href)
+  url.searchParams.delete("template")
+  window.history.replaceState(null, "", url.pathname + url.search + url.hash)
+}
+
 /**
  * Apply a URL template as a fresh unsaved project and strip the query param so
  * a refresh doesn't re-apply it over the user's subsequent edits. Returns
@@ -45,6 +55,11 @@ function pendingTemplateFromUrl() {
 function applyPendingTemplate(): boolean {
   const template = pendingTemplateFromUrl()
   if (!template) return false
+  if (template.category === "animation" && isAnimationUnsupportedViewport()) {
+    stripTemplateParam()
+    toast.info(ANIMATION_UNSUPPORTED_MESSAGE)
+    return false
+  }
   try {
     const { present, ui } = unwrapDraftState(template.state)
     useEditorStore.getState().loadTemplateState(present, ui)
@@ -52,9 +67,7 @@ function applyPendingTemplate(): boolean {
     console.warn("Unable to apply template from URL", error)
     return false
   }
-  const url = new URL(window.location.href)
-  url.searchParams.delete("template")
-  window.history.replaceState(null, "", url.pathname + url.search + url.hash)
+  stripTemplateParam()
   toast.success(`Applied "${template.name}"`)
   return true
 }

@@ -4,8 +4,11 @@ import * as React from "react"
 import Link from "next/link"
 import { LayoutGroup, motion } from "motion/react"
 import { RiImageLine, RiPlayCircleFill, RiVideoLine } from "@remixicon/react"
+import { toast } from "sonner"
 
 import {
+  ANIMATION_UNSUPPORTED_MESSAGE,
+  ANIMATION_UNSUPPORTED_QUERY,
   TEMPLATE_CATALOG,
   templateEditorHref,
   type TemplateCategory,
@@ -13,6 +16,7 @@ import {
 } from "@/lib/editor/templates/catalog"
 import { ease } from "@/components/landing/constants"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { cn } from "@/lib/utils"
 
 type Tab = "all" | TemplateCategory
@@ -77,6 +81,8 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
   const [playing, setPlaying] = React.useState(false)
   const animated = template.category === "animation"
+  const narrowViewport = useMediaQuery(ANIMATION_UNSUPPORTED_QUERY)
+  const blocked = animated && narrowViewport
 
   const handleEnter = () => {
     const video = videoRef.current
@@ -95,14 +101,8 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
     setPlaying(false)
   }
 
-  return (
-    <Link
-      href={templateEditorHref(template.id)}
-      aria-label={`Open ${template.name} in the editor`}
-      onMouseEnter={animated ? handleEnter : undefined}
-      onMouseLeave={animated ? handleLeave : undefined}
-      className="group/card flex flex-col gap-2 text-left"
-    >
+  const body = (
+    <>
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-md bg-secondary/40 ring-1 ring-foreground/10 transition-shadow group-hover/card:shadow-lg group-hover/card:ring-2 group-hover/card:ring-primary">
         <ShimmerImage
           src={template.thumbnail}
@@ -141,6 +141,11 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
             </span>
           </>
         )}
+        {blocked && (
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 grid place-items-center bg-background/85 py-1.5 font-mono text-[9px] tracking-[0.18em] text-foreground/60 uppercase backdrop-blur-sm">
+            Desktop only
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-1.5 px-0.5">
         {animated ? (
@@ -155,6 +160,31 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
           {animated ? "Motion" : "Still"}
         </span>
       </div>
+    </>
+  )
+
+  if (blocked) {
+    return (
+      <button
+        type="button"
+        aria-disabled
+        onClick={() => toast.info(ANIMATION_UNSUPPORTED_MESSAGE)}
+        className="group/card flex w-full cursor-not-allowed flex-col gap-2 text-left opacity-60"
+      >
+        {body}
+      </button>
+    )
+  }
+
+  return (
+    <Link
+      href={templateEditorHref(template.id)}
+      aria-label={`Open ${template.name} in the editor`}
+      onMouseEnter={animated ? handleEnter : undefined}
+      onMouseLeave={animated ? handleLeave : undefined}
+      className="group/card flex flex-col gap-2 text-left"
+    >
+      {body}
     </Link>
   )
 }

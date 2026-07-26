@@ -8,6 +8,7 @@ import {
   RiPlayCircleFill,
   RiVideoLine,
 } from "@remixicon/react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +25,11 @@ import {
   templateTabLabel,
 } from "@/lib/editor/templates"
 import type { Template, TemplateTab } from "@/lib/editor/templates"
+import {
+  ANIMATION_UNSUPPORTED_MESSAGE,
+  ANIMATION_UNSUPPORTED_QUERY,
+} from "@/lib/editor/templates/catalog"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { cn } from "@/lib/utils"
 
 const DIALOG_SHELL =
@@ -90,6 +96,8 @@ function TemplateCard({
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
   const [playing, setPlaying] = React.useState(false)
   const isAnimation = template.category === "animation"
+  const narrowViewport = useMediaQuery(ANIMATION_UNSUPPORTED_QUERY)
+  const blocked = isAnimation && narrowViewport
 
   const handleEnter = () => {
     const video = videoRef.current
@@ -111,12 +119,20 @@ function TemplateCard({
   return (
     <button
       type="button"
+      aria-disabled={blocked || undefined}
       onClick={() => {
+        if (blocked) {
+          toast.info(ANIMATION_UNSUPPORTED_MESSAGE)
+          return
+        }
         void onApply(template)
       }}
       onMouseEnter={isAnimation ? handleEnter : undefined}
       onMouseLeave={isAnimation ? handleLeave : undefined}
-      className="group flex flex-col gap-2 text-left"
+      className={cn(
+        "group flex flex-col gap-2 text-left",
+        blocked && "cursor-not-allowed opacity-60"
+      )}
     >
       {/* Fixed aspect so the shimmer fills the card before the poster paints
           (h-auto collapsed to 0 height and left only the title visible). */}
@@ -153,6 +169,11 @@ function TemplateCard({
               <RiPlayCircleFill className="size-11 text-white/85 drop-shadow-md" />
             </span>
           </>
+        )}
+        {blocked && (
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 grid place-items-center bg-background/85 py-1.5 font-mono text-[9px] tracking-[0.18em] text-muted-foreground uppercase backdrop-blur-sm">
+            Desktop only
+          </span>
         )}
       </div>
       <div className="flex items-center gap-1.5 px-0.5">

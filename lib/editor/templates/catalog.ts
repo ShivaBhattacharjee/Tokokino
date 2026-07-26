@@ -151,3 +151,19 @@ export const templateMeta: Record<string, TemplateMeta> = Object.fromEntries(
 export function templateEditorHref(id: string) {
   return `/app?template=${id}`
 }
+
+/**
+ * Animate mode is hidden below `md` (see `AnimateToggle`), so a phone has no
+ * timeline UI to edit an animation template with — the showcase, the editor's
+ * Templates dialog, and the `?template=` deep link all block them at this width.
+ */
+export const ANIMATION_UNSUPPORTED_QUERY = "(max-width: 767px)"
+
+export const ANIMATION_UNSUPPORTED_MESSAGE =
+  "Animated templates need a bigger screen. Open this on desktop or a tablet."
+
+/** True when the viewport is too narrow to edit animation templates. */
+export function isAnimationUnsupportedViewport() {
+  if (typeof window === "undefined") return false
+  return window.matchMedia(ANIMATION_UNSUPPORTED_QUERY).matches
+}

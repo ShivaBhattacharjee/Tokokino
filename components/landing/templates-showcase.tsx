@@ -1,28 +1,34 @@
 import Link from "next/link"
 import { motion } from "motion/react"
 import { RiImageLine, RiPlayCircleFill, RiVideoLine } from "@remixicon/react"
+import { toast } from "sonner"
 import { ArrowRight } from "@/components/landing/landing-svgs"
 import { ease } from "@/components/landing/constants"
 import {
+  ANIMATION_UNSUPPORTED_MESSAGE,
+  ANIMATION_UNSUPPORTED_QUERY,
   TEMPLATE_CATALOG,
   templateEditorHref,
   type TemplateMeta,
 } from "@/lib/editor/templates/catalog"
 import { Marquee } from "@/components/ui/marquee"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { cn } from "@/lib/utils"
 
 const ROW_ONE = TEMPLATE_CATALOG.filter((_, i) => i % 2 === 0)
 const ROW_TWO = TEMPLATE_CATALOG.filter((_, i) => i % 2 === 1)
 
+const CARD_SHELL =
+  "group/card relative block w-[15rem] shrink-0 overflow-hidden rounded-[14px] border border-border/60 bg-background/40 p-1.5 text-left backdrop-blur-sm transition-colors sm:w-[19rem]"
+
 function TemplateCard({ template }: { template: TemplateMeta }) {
   const animated = template.category === "animation"
-  return (
-    <Link
-      href={templateEditorHref(template.id)}
-      aria-label={`Open ${template.name} in the editor`}
-      className="group/card relative block w-[15rem] shrink-0 overflow-hidden rounded-[14px] border border-border/60 bg-background/40 p-1.5 backdrop-blur-sm transition-colors hover:border-primary/60 sm:w-[19rem]"
-    >
+  const narrowViewport = useMediaQuery(ANIMATION_UNSUPPORTED_QUERY)
+  const blocked = animated && narrowViewport
+
+  const body = (
+    <>
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[9px] ring-1 ring-foreground/10">
         <ShimmerImage
           src={template.thumbnail}
@@ -36,6 +42,11 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
         {animated && (
           <span className="pointer-events-none absolute inset-0 grid place-items-center bg-foreground/0 transition-colors group-hover/card:bg-foreground/10">
             <RiPlayCircleFill className="size-9 text-white/85 opacity-80 drop-shadow-md transition group-hover/card:scale-110" />
+          </span>
+        )}
+        {blocked && (
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 grid place-items-center bg-background/85 py-1.5 font-mono text-[9px] tracking-[0.18em] text-foreground/60 uppercase backdrop-blur-sm">
+            Desktop only
           </span>
         )}
       </div>
@@ -52,6 +63,29 @@ function TemplateCard({ template }: { template: TemplateMeta }) {
           {animated ? "Motion" : "Still"}
         </span>
       </div>
+    </>
+  )
+
+  if (blocked) {
+    return (
+      <button
+        type="button"
+        aria-disabled
+        onClick={() => toast.info(ANIMATION_UNSUPPORTED_MESSAGE)}
+        className={cn(CARD_SHELL, "cursor-not-allowed opacity-60")}
+      >
+        {body}
+      </button>
+    )
+  }
+
+  return (
+    <Link
+      href={templateEditorHref(template.id)}
+      aria-label={`Open ${template.name} in the editor`}
+      className={cn(CARD_SHELL, "hover:border-primary/60")}
+    >
+      {body}
     </Link>
   )
 }
