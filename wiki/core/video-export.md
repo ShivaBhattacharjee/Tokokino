@@ -147,6 +147,7 @@ flowchart TD
 | Untransformed texture + warp | `captureProjectedElementTexture` / `warpProjectedTexture` (exported; Animate reuses) |
 | Local media box paint | `paintFrameToLocalBox` (video or stand-in `<img>`) |
 | Media buffer resolution | `mediaBufferScale` — buffer is sized at the export scale, not the CSS box |
+| Texture margin | `fittedTexturePad` — capped so the padded box fits the capture canvas |
 | Inner lighting on WebKit | `frame-inner-lighting.ts` |
 | Canvas probes / copies | `frame-canvas-utils.ts` |
 | Stack show/hide | `export-stack.ts` |

@@ -20,9 +20,11 @@ import {
 } from "@/lib/editor/animation-export/video-media/encode-gif"
 import {
   chooseQuadSubdivision,
+  fittedTexturePad,
   mediaBufferScale,
   quadAffineError,
 } from "@/lib/editor/animation-export/video-media/frame-renderer"
+import { shadowExtentPx } from "@/lib/editor/animation-export/video-media/frame-canvas-utils"
 import { planFrames } from "@/lib/editor/animation-export/video-media/frames"
 import { measureVideoRegion } from "@/lib/editor/animation-export/video-media/region"
 import {
@@ -818,5 +820,74 @@ describe("drawImageToQuadGL", () => {
   it("rejects a zero-sized destination", () => {
     const img = document.createElement("canvas")
     expect(drawImageToQuadGL(ctx2d(0, 0), img, 64, 64, quad())).toBe(false)
+  })
+})
+
+describe("shadowExtentPx — texture margin around the border box", () => {
+  const measure = (style: string) => {
+    const el = document.createElement("div")
+    el.setAttribute("style", style)
+    document.body.appendChild(el)
+    try {
+      return shadowExtentPx(el)
+    } finally {
+      el.remove()
+    }
+  }
+
+  it("covers an outline sitting clear of the edge", () => {
+    // The screenshot's "border" is an outline, not a CSS border: layout ignores
+    // it, so without this the plate's border was cropped off the texture and the
+    // video ran to the very edge instead of sitting inside it.
+    expect(
+      measure("outline-width: 8px; outline-style: solid; outline-offset: 3px")
+    ).toBe(11)
+  })
+
+  it("ignores an outline that paints inward", () => {
+    expect(
+      measure("outline-width: 4px; outline-style: solid; outline-offset: -10px")
+    ).toBe(4)
+  })
+
+  it("ignores outline-style: none regardless of width", () => {
+    expect(measure("outline-width: 12px; outline-style: none")).toBe(0)
+  })
+
+  it("takes whichever of shadow and outline reaches further", () => {
+    expect(
+      measure(
+        "box-shadow: 0 0 40px rgba(0,0,0,0.5); outline-width: 8px; outline-style: solid"
+      )
+    ).toBe(40)
+    expect(
+      measure(
+        "box-shadow: 0 0 2px #000; outline-width: 8px; outline-style: solid"
+      )
+    ).toBe(8)
+  })
+})
+
+describe("fittedTexturePad — texture margin must fit the capture canvas", () => {
+  // The raster only covers the canvas and the box is parked at (pad, pad), so a
+  // padded box wider than the canvas overruns the far edges. drawImage returns
+  // transparent there, and the border/shadow vanish on the right and bottom
+  // while left and top stay intact.
+  it("caps the margin to the room the canvas actually has", () => {
+    // The real case: a 1026.69x614.69 shell on a 1100x688 canvas wanted 70px of
+    // shadow margin, needing 1166.69px of a 1100px canvas.
+    expect(fittedTexturePad(1100, 688, 1026.69, 614.69)).toBe(36)
+  })
+
+  it("keeps the whole margin when there is room for it", () => {
+    expect(fittedTexturePad(1000, 800, 400, 300)).toBe(250)
+  })
+
+  it("takes the tighter axis, so neither side overruns", () => {
+    expect(fittedTexturePad(1000, 400, 400, 300)).toBe(50)
+  })
+
+  it("never goes negative when the shell already exceeds the canvas", () => {
+    expect(fittedTexturePad(800, 600, 900, 700)).toBe(0)
   })
 })

@@ -12,6 +12,7 @@ import type * as FrameCanvasUtils from "@/lib/editor/animation-export/video-medi
 const mocks = vi.hoisted(() => ({
   supportsObjectViewBox: vi.fn(),
   collectProjectedLayers: vi.fn(),
+  resolveVideoClipRadius: vi.fn(),
   captureProjectedElementTexture: vi.fn(),
   warpProjectedTexture: vi.fn(),
   paintFrameToLocalBox: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("@/lib/editor/crop-utils", () => ({
 }))
 vi.mock("@/lib/editor/animation-export/video-media/frame-geometry", () => ({
   collectProjectedLayers: mocks.collectProjectedLayers,
+  resolveVideoClipRadius: mocks.resolveVideoClipRadius,
 }))
 vi.mock("@/lib/editor/animation-export/video-media/frame-renderer", () => ({
   captureProjectedElementTexture: mocks.captureProjectedElementTexture,
@@ -145,6 +147,7 @@ beforeEach(() => {
   mocks.queryForeground.mockReturnValue([])
   mocks.applyExportStackVisibility.mockReturnValue(mocks.restoreVisibility)
   mocks.collectProjectedLayers.mockReturnValue([shellLayer()])
+  mocks.resolveVideoClipRadius.mockReturnValue(0)
   mocks.captureProjectedElementTexture.mockResolvedValue(makeTexture(77))
   mocks.warpProjectedTexture.mockReturnValue(makeFrame(88))
   mocks.paintFrameToLocalBox.mockReturnValue(makeFrame(99))
@@ -345,6 +348,33 @@ describe("captureLayeredAnimationFrame — video pixels", () => {
     expect(paintArgs[4]).toBe(1920)
     expect(paintArgs[5]).toBe(1080)
     expect(paintArgs[7]).toMatchObject({ enhance: "vivid" })
+  })
+
+  it("clips the video with the plate's rounding, not the media element's own", () => {
+    // The rounding lives on an ancestor plate; reading only the <img>'s own
+    // border-radius gave 0 and left square corners poking over the border.
+    const layer = shellLayer()
+    mocks.collectProjectedLayers.mockReturnValue([layer])
+    mocks.captureProjectedElementTexture.mockResolvedValue(
+      makeTexture(77, { x: 0, y: 0, w: 800, h: 500 })
+    )
+    const videoLayer = makeVideoLayer(layer.el)
+    mocks.resolveVideoClipRadius.mockReturnValue(12)
+
+    return captureLayeredAnimationFrame(makeCapture([10, 10]), {
+      timelineMs: 0,
+      videoLayer,
+    }).then(() => {
+      // Walked from the media up to the shell, sized against the media box.
+      expect(mocks.resolveVideoClipRadius).toHaveBeenCalledWith(
+        videoLayer.mediaElement,
+        layer.el,
+        800
+      )
+      // Reported in media-box px, so the compositor scales it to texture px.
+      const scale = mocks.paintFrameToLocalBox.mock.calls[0][6] / 12
+      expect(scale).toBeGreaterThan(0)
+    })
   })
 
   it("re-warps the cached texture with fresh video pixels on later frames", async () => {

@@ -44,6 +44,7 @@ import {
 import { copyCanvas, sleep } from "./video-media/frame-canvas-utils"
 import {
   collectProjectedLayers,
+  resolveVideoClipRadius,
   type ProjectedLayer,
 } from "./video-media/frame-geometry"
 import {
@@ -260,7 +261,8 @@ async function composeShellWithVideo(
   videoLayer: CloneVideoLayer,
   timelineMs: number,
   enhance: EnhancePreset | undefined,
-  scale: number
+  scale: number,
+  shell: HTMLElement
 ): Promise<HTMLCanvasElement> {
   if (!tex.mediaBox) return tex.texture
   const frame = await videoLayer.getFrame(timelineMs)
@@ -270,7 +272,11 @@ async function composeShellWithVideo(
   if (!fw || !fh) return tex.texture
 
   const media = videoLayer.mediaElement
-  const radius = (parseFloat(getComputedStyle(media).borderRadius) || 0) * scale
+  // The rounding that clips the media usually lives on an ancestor plate, not on
+  // the media element itself — reading only the element's own radius left the
+  // video with square corners poking past the rounded border. Same walk the
+  // video-media compositor uses, normalized to the media box then to texture px.
+  const radius = resolveVideoClipRadius(media, shell, tex.mediaBox.w) * scale
   const local = paintFrameToLocalBox(
     frame,
     tex.mediaBox.w * scale,
@@ -408,7 +414,8 @@ export async function captureLayeredAnimationFrame(
             videoLayer,
             timelineMs,
             enhance,
-            scale
+            scale,
+            layer.el
           )
         : entry.tex.texture
     const projected = warpProjectedTexture(
