@@ -2,7 +2,8 @@
  * Source-clip audio for the video-media export.
  *
  * MP4/WebM carry the source clip's audio when present: remux (passthrough) when
- * the codec fits the container, otherwise re-encode to AAC (MP4) or Opus (WebM).
+ * the codec is one the container is expected to carry (see
+ * `containerAudioCodecs`), otherwise re-encode to AAC (MP4) or Opus (WebM).
  * GIF has no audio track by nature.
  */
 
@@ -34,6 +35,26 @@ export function preferredAudioCodecs(format: "mp4" | "webm"): AudioCodec[] {
     : (["opus", "vorbis"] as AudioCodec[])
 }
 
+/**
+ * The codecs this export will actually put in `format` — deliberately narrower
+ * than what the muxer accepts.
+ *
+ * Mediabunny's MP4 muxer can write Opus, FLAC and PCM. Players and uploaders
+ * don't follow: X/Twitter rejects an MP4 with Opus audio as "incompatible audio
+ * codecs", as do QuickTime and most NLEs. Any WebM/MKV source clip carries Opus,
+ * so without this narrowing the common "record in the browser → export MP4"
+ * path produces a file no one will take. (WebM's own list is already spec-tight;
+ * routing it through here keeps remux and re-encode judged against one list.)
+ */
+export function containerAudioCodecs(
+  format: "mp4" | "webm",
+  supported: readonly AudioCodec[]
+): AudioCodec[] {
+  return preferredAudioCodecs(format).filter((codec) =>
+    supported.includes(codec)
+  )
+}
+
 /** True when `codec` can be copied into the container without re-encoding. */
 export function canRemuxAudioCodec(
   codec: AudioCodec,
@@ -61,13 +82,11 @@ export function resolveAudioMuxStrategy(
   canDecode: boolean
 ): AudioMuxStrategy {
   if (!sourceCodec) return { kind: "skip" }
-  if (canRemuxAudioCodec(sourceCodec, supported)) {
+  const candidates = containerAudioCodecs(format, supported)
+  if (canRemuxAudioCodec(sourceCodec, candidates)) {
     return { kind: "remux", codec: sourceCodec }
   }
   if (!canDecode) return { kind: "skip" }
-  const candidates = preferredAudioCodecs(format).filter((c) =>
-    supported.includes(c)
-  )
   if (candidates.length === 0) return { kind: "skip" }
   return { kind: "reencode", candidates }
 }
@@ -136,7 +155,10 @@ export async function prepareSourceAudio(
       return null
     }
 
-    const supported = outputFormat.getSupportedAudioCodecs()
+    const supported = containerAudioCodecs(
+      format,
+      outputFormat.getSupportedAudioCodecs()
+    )
     const endSec = Math.max(0, durationSec)
     const boundInput = input
 
