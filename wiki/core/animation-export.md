@@ -97,7 +97,7 @@ flowchart TD
 | Mode | Strategy | When |
 |---|---|---|
 | `fast` | Clone once; bake computed styles; serialize foreignObject each frame | Default via `auto` |
-| `legacy` / Precise | html-to-image `toCanvas` every frame | Fallback or explicit |
+| `legacy` / Precise | html-to-image `toSvg` + `rasterizeNodeToCanvas` every frame | Fallback or explicit |
 | `auto` | fast → legacy if setup throws | Default |
 
 Video-media export always uses legacy `prepareAnimationCapture` — see [video-export.md](./video-export.md).

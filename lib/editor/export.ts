@@ -1,4 +1,4 @@
-import { toJpeg, toBlob, toCanvas, getFontEmbedCSS } from "html-to-image"
+import { toSvg, getFontEmbedCSS } from "html-to-image"
 
 import { triggerAnchorDownload } from "@/lib/download"
 import { supportsObjectViewBox } from "./crop-utils"
@@ -480,19 +480,18 @@ function getNodeBorderRadius(node: HTMLElement): number {
   return parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0
 }
 
-async function clipBlobToRoundedRect(
-  blob: Blob,
-  width: number,
-  height: number,
+async function clipCanvasToRoundedRect(
+  source: HTMLCanvasElement,
   radius: number
 ): Promise<Blob> {
-  if (radius <= 0) return blob
-  const bitmap = await createImageBitmap(blob)
+  const width = source.width
+  const height = source.height
+  if (radius <= 0) return canvasToBlob(source, "image/png")
   const canvas = document.createElement("canvas")
   canvas.width = width
   canvas.height = height
   const ctx = canvas.getContext("2d")
-  if (!ctx) return blob
+  if (!ctx) return canvasToBlob(source, "image/png")
   const r = Math.min(radius, width / 2, height / 2)
   ctx.beginPath()
   if (typeof ctx.roundRect === "function") {
@@ -510,13 +509,8 @@ async function clipBlobToRoundedRect(
     ctx.closePath()
   }
   ctx.clip()
-  ctx.drawImage(bitmap, 0, 0)
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("clip failed"))),
-      "image/png"
-    )
-  })
+  ctx.drawImage(source, 0, 0)
+  return canvasToBlob(canvas, "image/png")
 }
 
 function filterExportHidden(node: Node) {
@@ -524,6 +518,106 @@ function filterExportHidden(node: Node) {
     if (node.getAttribute("data-export-hidden") === "true") return false
   }
   return true
+}
+
+type RasterOptions = {
+  cacheBust?: boolean
+  filter?: (node: Node) => boolean
+}
+
+/**
+ * The `<foreignObject>` scaling contract, shared by both capture paths.
+ *
+ * WebKit rasterizes foreignObject content at the size the content itself claims
+ * and applies neither `drawImage`'s destination rect nor the SVG's `viewBox`
+ * transform to the result. Both are how you would normally scale an export up,
+ * and both left the whole scene at 1× in the top-left of an otherwise correctly
+ * sized raster — while anything composited in 2D afterwards (the video quad,
+ * whose scale is derived from the raster's width) came out oversized by exactly
+ * the pixel ratio.
+ *
+ * So the SVG stays 1:1 with the output and the *content* is scaled by an
+ * ordinary CSS transform, which every engine rasterizes correctly. The box keeps
+ * its layout size so `cqw`/`cqh` and percentage geometry still resolve against
+ * the dimensions the editor laid out.
+ */
+export function exportScaleStyle(
+  renderedWidth: number,
+  renderedHeight: number,
+  scale: number
+) {
+  return {
+    width: `${renderedWidth}px`,
+    height: `${renderedHeight}px`,
+    transform: `scale(${scale})`,
+    transformOrigin: "0 0",
+  }
+}
+
+/**
+ * Rasterize an export clone at `outputWidth`×`outputHeight`.
+ *
+ * Replaces html-to-image's `toCanvas`/`toBlob`/`toJpeg` — they all scale through
+ * `drawImage`, which WebKit ignores here (see {@link exportScaleStyle}). The
+ * `width`/`height`/`style` options make html-to-image emit an output-sized SVG
+ * whose content carries the scale as a transform. A fresh canvas per call,
+ * matching what those returned — callers hold frames across captures.
+ */
+async function rasterizeNodeToCanvas(
+  node: HTMLElement,
+  options: RasterOptions,
+  renderedWidth: number,
+  renderedHeight: number,
+  outputWidth: number,
+  outputHeight: number,
+  backgroundColor?: string
+): Promise<HTMLCanvasElement> {
+  const svgUrl = await toSvg(node, {
+    ...options,
+    width: outputWidth,
+    height: outputHeight,
+    // Applied after html-to-image's own width/height, so this wins.
+    style: exportScaleStyle(
+      renderedWidth,
+      renderedHeight,
+      outputWidth / renderedWidth
+    ),
+  })
+  // `Image.decode()` rejects on SVG-with-<foreignObject> in some Firefox
+  // builds, so wait on load/error events — reliable in every engine.
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error("Export raster failed to load"))
+    image.src = svgUrl
+  })
+
+  const canvas = document.createElement("canvas")
+  canvas.width = outputWidth
+  canvas.height = outputHeight
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("Could not get 2d context for export")
+  if (backgroundColor) {
+    ctx.fillStyle = backgroundColor
+    ctx.fillRect(0, 0, outputWidth, outputHeight)
+  }
+  ctx.drawImage(img, 0, 0, outputWidth, outputHeight)
+  return canvas
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality?: number
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) =>
+        blob ? resolve(blob) : reject(new Error(`Could not encode ${type}`)),
+      type,
+      quality
+    )
+  })
 }
 
 export async function exportCanvas(
@@ -556,8 +650,8 @@ export async function exportCanvas(
     ? [...preloadUrls, WATERMARK_LOGO_SRC]
     : preloadUrls
 
+  // No pixelRatio — rasterizeNodeToCanvas owns the scale (see withSvgOutputSize).
   const baseOptions = {
-    pixelRatio,
     cacheBust: false,
     filter: filterExportHidden,
   } as const
@@ -576,12 +670,16 @@ export async function exportCanvas(
     await embedCloneImages(exportTarget.node)
 
     if (format === "png") {
-      const rawBlob = await toBlob(exportTarget.node, baseOptions)
-      if (!rawBlob) throw new Error("Could not capture canvas")
-      const clipped = await clipBlobToRoundedRect(
-        rawBlob,
+      const canvas = await rasterizeNodeToCanvas(
+        exportTarget.node,
+        baseOptions,
+        renderedWidth,
+        renderedHeight,
         outputWidth,
-        outputHeight,
+        outputHeight
+      )
+      const clipped = await clipCanvasToRoundedRect(
+        canvas,
         borderRadius * pixelRatio
       )
       const url = URL.createObjectURL(clipped)
@@ -593,28 +691,28 @@ export async function exportCanvas(
       return filename
     }
     if (format === "jpeg") {
-      const url = await toJpeg(exportTarget.node, {
-        ...baseOptions,
-        backgroundColor: "#ffffff",
-        quality: 0.95,
-      })
+      const canvas = await rasterizeNodeToCanvas(
+        exportTarget.node,
+        baseOptions,
+        renderedWidth,
+        renderedHeight,
+        outputWidth,
+        outputHeight,
+        "#ffffff"
+      )
+      const url = canvas.toDataURL("image/jpeg", 0.95)
       triggerDownload(url, filename)
       return filename
     }
-    // webp — html-to-image doesn't have a direct toWebp, so render to canvas via toBlob (PNG) and re-encode
-    const pngBlob = await toBlob(exportTarget.node, baseOptions)
-    if (!pngBlob) throw new Error("Could not capture canvas")
-    const bitmap = await createImageBitmap(pngBlob)
-    const offscreen = document.createElement("canvas")
-    offscreen.width = bitmap.width
-    offscreen.height = bitmap.height
-    const ctx = offscreen.getContext("2d")
-    if (!ctx) throw new Error("Could not get 2d context")
-    ctx.drawImage(bitmap, 0, 0)
-    const webpBlob: Blob | null = await new Promise((resolve) =>
-      offscreen.toBlob(resolve, "image/webp", 0.95)
+    const canvas = await rasterizeNodeToCanvas(
+      exportTarget.node,
+      baseOptions,
+      renderedWidth,
+      renderedHeight,
+      outputWidth,
+      outputHeight
     )
-    if (!webpBlob) throw new Error("Could not encode WebP")
+    const webpBlob = await canvasToBlob(canvas, "image/webp", 0.95)
     const objectUrl = URL.createObjectURL(webpBlob)
     try {
       triggerDownload(objectUrl, filename)
@@ -757,7 +855,6 @@ export async function prepareAnimationCapture(
   await embedCloneBackgroundImages(exportTarget.node)
 
   const captureOptions = {
-    pixelRatio,
     cacheBust: false,
     filter: filterExportHidden,
   } as const
@@ -765,7 +862,14 @@ export async function prepareAnimationCapture(
   const captureFrame = async () => {
     // html-to-image can return a non-canvas / zero-size value on Safari &
     // Firefox. Validate before handing it to drawImage callers.
-    const canvas = await toCanvas(exportTarget.node, captureOptions)
+    const canvas = await rasterizeNodeToCanvas(
+      exportTarget.node,
+      captureOptions,
+      renderedWidth,
+      renderedHeight,
+      outputWidth,
+      outputHeight
+    )
     if (
       !(canvas instanceof HTMLCanvasElement) ||
       canvas.width <= 0 ||
@@ -979,12 +1083,19 @@ export async function prepareFastAnimationCapture(
   const fontCss = await getFontEmbedCSS(exportTarget.node).catch(() => "")
   const css = `${collectDocumentCss()}\n${fontCss}`
 
+  // The SVG stays 1:1 with the output and a CSS transform on a wrapper carries
+  // the scale — WebKit ignores a viewBox transform on foreignObject content and
+  // would paint the whole scene at 1× in the top-left. See exportScaleStyle.
+  const scaleStyle = exportScaleStyle(renderedWidth, renderedHeight, pixelRatio)
   const svgOpen =
     `<svg xmlns="${SVG_NS}" width="${outputWidth}" height="${outputHeight}"` +
-    ` viewBox="0 0 ${renderedWidth} ${renderedHeight}">` +
-    `<foreignObject x="0" y="0" width="${renderedWidth}" height="${renderedHeight}">` +
-    `<style xmlns="${XHTML_NS}"><![CDATA[${css}]]></style>`
-  const svgClose = `</foreignObject></svg>`
+    ` viewBox="0 0 ${outputWidth} ${outputHeight}">` +
+    `<foreignObject x="0" y="0" width="${outputWidth}" height="${outputHeight}">` +
+    `<style xmlns="${XHTML_NS}"><![CDATA[${css}]]></style>` +
+    `<div xmlns="${XHTML_NS}" style="width:${scaleStyle.width};` +
+    `height:${scaleStyle.height};transform:${scaleStyle.transform};` +
+    `transform-origin:${scaleStyle.transformOrigin};">`
+  const svgClose = `</div></foreignObject></svg>`
   // Pre-encode the constant (large) prefix/suffix so only the small per-frame
   // body is URL-encoded each frame.
   const dataUrlHead = `data:image/svg+xml;charset=utf-8,`
@@ -1019,6 +1130,7 @@ export async function prepareFastAnimationCapture(
       image.src = url
     })
     ctx.clearRect(0, 0, outputWidth, outputHeight)
+    // 1:1 — the SVG is already output-sized, nothing left for drawImage to scale.
     ctx.drawImage(img, 0, 0, outputWidth, outputHeight)
     return frameCanvas
   }
@@ -1071,7 +1183,6 @@ export async function captureCanvasAsPngBlob(
     // html-to-image is flaky on the first call (fonts/images not yet embedded
     // in the cloned document). Two attempts is the standard workaround.
     const captureOptions = {
-      pixelRatio,
       cacheBust: false,
       filter: filterExportHidden,
     } as const
@@ -1080,7 +1191,15 @@ export async function captureCanvasAsPngBlob(
     let lastError: unknown
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        blob = await toBlob(exportTarget.node, captureOptions)
+        const canvas = await rasterizeNodeToCanvas(
+          exportTarget.node,
+          captureOptions,
+          renderedWidth,
+          renderedHeight,
+          Math.round(renderedWidth * pixelRatio),
+          Math.round(renderedHeight * pixelRatio)
+        )
+        blob = await canvasToBlob(canvas, "image/png")
         if (blob) break
       } catch (raw) {
         lastError = raw

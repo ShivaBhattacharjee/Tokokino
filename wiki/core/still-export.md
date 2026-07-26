@@ -38,7 +38,7 @@ flowchart TD
   Prep --> Assets["rewriteExportAssets<br/>proxy cross-origin imgs"]
   Assets --> Style["Inject override style<br/>hide export-hidden / selection"]
   Style --> Preload["Preload fonts + images"]
-  Preload --> FO["html-to-image toCanvas / toBlob / toJpeg"]
+  Preload --> FO["html-to-image toSvg<br/>→ rasterizeNodeToCanvas"]
   FO --> Out["Blob → download / clipboard / share"]
 ```
 
@@ -48,7 +48,7 @@ flowchart TD
 2. UI chrome: `data-export-hidden="true"`.
 3. Selection rings: `data-selection-border="true"` (stripped via CSS).
 4. Layout size is **pre-transform** (`offsetWidth`) so device-frame `cqw`/`cqh` stay correct under viewport zoom.
-5. `pixelRatio = targetWidth / layoutWidth` for resolution scaling.
+5. `pixelRatio = targetWidth / layoutWidth` for resolution scaling. Applied as a CSS `transform: scale()` on the captured content (`exportScaleStyle`), **not** via html-to-image's `pixelRatio` nor an SVG `viewBox` — WebKit applies neither to `<foreignObject>` content and paints the scene at 1× in the top-left corner. That broke every capture above 1×: 4K/8K stills, Full HD+ video and animation exports, and 1920px shares. The box keeps its rendered size so `cqw`/`cqh` still resolve correctly; both capture paths share the helper.
 6. Backgrounds may upgrade from edit-time downscaled `value` to full `sourceUrl` via `data-bg-source-url` — see [canvas.md](./canvas.md#edit-vs-export).
 
 ---
@@ -93,7 +93,7 @@ Still export helpers also build an **`AnimationCapture`** used by keyframe/video
 
 | Mode | Function | Notes |
 |---|---|---|
-| Legacy / Precise | `prepareAnimationCapture` | `toCanvas` every frame; video-media always uses this |
+| Legacy / Precise | `prepareAnimationCapture` | `toSvg` + `rasterizeNodeToCanvas` every frame; video-media always uses this |
 | Fast | `prepareFastAnimationCapture` | Bake styles; serialize FO cheaper |
 | Auto | try fast → fall back legacy | animation export default |
 
