@@ -29,7 +29,7 @@ import {
 import { throwIfAborted } from "./utils"
 import type { VideoSegment } from "./video-layer"
 import {
-  preferredAudioCodecs,
+  containerAudioCodecs,
   prepareSourceAudio,
   type SourceAudioFeed,
 } from "./video-media/audio"
@@ -108,9 +108,9 @@ export async function prepareAnimationAudio({
       return null
     }
 
-    const supported = outputFormat.getSupportedAudioCodecs()
-    const candidates = preferredAudioCodecs(format).filter((c) =>
-      supported.includes(c)
+    const candidates = containerAudioCodecs(
+      format,
+      outputFormat.getSupportedAudioCodecs()
     )
     if (candidates.length === 0) {
       input.dispose()

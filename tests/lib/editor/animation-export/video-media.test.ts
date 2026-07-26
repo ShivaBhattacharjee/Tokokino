@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { canvasIsVideoMedia } from "@/lib/editor/animation-export/video-media"
 import {
   canRemuxAudioCodec,
+  containerAudioCodecs,
   exportAudioDurationSec,
   preferredAudioCodecs,
   resolveAudioMuxStrategy,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/editor/animation-export/video-media/encode-gif"
 import {
   chooseQuadSubdivision,
+  mediaBufferScale,
   quadAffineError,
 } from "@/lib/editor/animation-export/video-media/frame-renderer"
 import { planFrames } from "@/lib/editor/animation-export/video-media/frames"
@@ -124,6 +126,17 @@ describe("preferredAudioCodecs / canRemuxAudioCodec — audio mux strategy", () 
       expect(webm).toContain(codec)
     }
   })
+
+  it("narrows the muxer's codec list to what players actually accept", () => {
+    // Mediabunny's MP4 muxer will happily write Opus (and FLAC, and PCM); X and
+    // QuickTime will not. WebM's own list is already spec-tight.
+    const mp4 = new Mp4OutputFormat().getSupportedAudioCodecs()
+    const webm = new WebMOutputFormat().getSupportedAudioCodecs()
+    expect(mp4).toContain("opus")
+    expect(mp4).toContain("flac")
+    expect(containerAudioCodecs("mp4", mp4)).toEqual(["aac", "mp3"])
+    expect(containerAudioCodecs("webm", webm)).toEqual(["opus", "vorbis"])
+  })
 })
 
 describe("resolveAudioMuxStrategy — remux / re-encode / skip", () => {
@@ -147,6 +160,23 @@ describe("resolveAudioMuxStrategy — remux / re-encode / skip", () => {
     expect(
       resolveAudioMuxStrategy("opus", "webm", webmSupported, false)
     ).toEqual({ kind: "remux", codec: "opus" })
+  })
+
+  it("re-encodes Opus → MP4 to AAC even though the muxer would take Opus", () => {
+    // Remuxing here is what makes X reject the upload with "incompatible audio
+    // codecs"; every WebM source clip carries Opus.
+    expect(resolveAudioMuxStrategy("opus", "mp4", mp4Supported, true)).toEqual({
+      kind: "reencode",
+      candidates: ["aac", "mp3"],
+    })
+  })
+
+  it("goes silent rather than writing Opus into MP4 when it can't decode", () => {
+    expect(resolveAudioMuxStrategy("opus", "mp4", mp4Supported, false)).toEqual(
+      {
+        kind: "skip",
+      }
+    )
   })
 
   it("re-encodes AAC → WebM to Opus/Vorbis when decode is available", () => {
@@ -571,6 +601,44 @@ describe("export stack visibility", () => {
       foreground: 1,
       videos: 1,
     })
+  })
+})
+
+describe("mediaBufferScale — decoded frames at export resolution", () => {
+  // A 1080p clip in a 900×506 CSS box, exported at 4K (scale ≈ 4.27).
+  const localW = 900
+  const localH = 506
+  const fw = 1920
+  const fh = 1080
+
+  it("renders at the export scale instead of the editor's layout size", () => {
+    // The bug: the buffer was fixed at 1× (900px wide) whatever the export
+    // resolution, so 4K was a 900px video resampled up.
+    expect(
+      mediaBufferScale("contain", localW, localH, fw, fh, 4.27)
+    ).toBeCloseTo(2.13, 2)
+  })
+
+  it("stops once every source pixel lands 1:1", () => {
+    // Past 2.13× here the source has nothing more to give.
+    expect(mediaBufferScale("contain", localW, localH, fw, fh, 8)).toBeCloseTo(
+      2.13,
+      2
+    )
+  })
+
+  it("takes the looser axis for cover, the tighter one otherwise", () => {
+    // 1:1 box, 2:1 source. cover crops the sides (height binds), contain and
+    // fill letterbox (width binds).
+    expect(mediaBufferScale("cover", 100, 100, 2000, 1000, 100)).toBe(10)
+    expect(mediaBufferScale("contain", 100, 100, 2000, 1000, 100)).toBe(20)
+    expect(mediaBufferScale("fill", 100, 100, 2000, 1000, 100)).toBe(20)
+  })
+
+  it("never shrinks below the CSS box, and survives degenerate input", () => {
+    expect(mediaBufferScale("contain", 900, 506, 320, 180, 4)).toBe(1)
+    expect(mediaBufferScale("contain", 0, 506, 1920, 1080, 4)).toBe(1)
+    expect(mediaBufferScale("contain", 900, 506, 1920, 0, 4)).toBe(1)
   })
 })
 

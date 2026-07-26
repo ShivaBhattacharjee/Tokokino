@@ -61,10 +61,42 @@ export type { UvProjector, UvProjectorH } from "./frame-geometry"
 export type { VideoMediaFx } from "./frame-inner-lighting"
 
 /**
+ * How much bigger than its CSS layout box the decoded-frame buffer should be.
+ *
+ * Sizing that buffer in root CSS px throws the export's resolution away: a 4K
+ * render resamples the video up from the editor's ~900px layout box, so the
+ * chrome around it is sharp and the video itself is HD at best. Render it at the
+ * export's own scale instead — but never past the point where every source pixel
+ * already lands 1:1, beyond which it is memory and encode time for no detail.
+ */
+export function mediaBufferScale(
+  fit: string,
+  localW: number,
+  localH: number,
+  fw: number,
+  fh: number,
+  maxScale: number
+): number {
+  if (localW <= 0 || localH <= 0 || fw <= 0 || fh <= 0) return 1
+  const wRatio = fw / localW
+  const hRatio = fh / localH
+  // The scale at which object-fit maps source pixels 1:1 into the buffer.
+  // `contain` and `fill` are bounded by the tighter axis, `cover` by the looser.
+  const oneToOne =
+    fit === "cover" ? Math.min(wRatio, hRatio) : Math.max(wRatio, hRatio)
+  return Math.min(maxScale, Math.max(1, oneToOne))
+}
+
+/**
  * Paint a decoded frame into a local buffer the size of the shell's layout box,
  * honoring object-fit/object-position and the media's own enhance filter.
  * `media` is the element whose computed styles govern fit/position — the
  * `<video>` here, or the `<img>` standing in for it in the Animate clone.
+ *
+ * `localW`/`localH` and `borderRadius` are buffer pixels, so a caller rendering
+ * above CSS scale must pre-multiply all three. `reuse` lets a per-frame caller
+ * keep one buffer instead of allocating a fresh (at 4K, 8 megapixel) canvas for
+ * every frame.
  */
 export function paintFrameToLocalBox(
   frame: CanvasImageSource,
@@ -74,13 +106,26 @@ export function paintFrameToLocalBox(
   fw: number,
   fh: number,
   borderRadius = 0,
-  mediaFx?: VideoMediaFx | null
+  mediaFx?: VideoMediaFx | null,
+  reuse?: HTMLCanvasElement
 ): HTMLCanvasElement | null {
-  const buf = document.createElement("canvas")
-  buf.width = Math.max(1, Math.round(localW))
-  buf.height = Math.max(1, Math.round(localH))
-  const ctx = buf.getContext("2d", { willReadFrequently: true })
+  const buf = reuse ?? document.createElement("canvas")
+  const width = Math.max(1, Math.round(localW))
+  const height = Math.max(1, Math.round(localH))
+  if (buf.width !== width || buf.height !== height) {
+    buf.width = width
+    buf.height = height
+  }
+  // Draw-only surface — the result is uploaded as a GL texture or blitted, never
+  // read back — so no willReadFrequently, which would force it onto the CPU at
+  // the megapixel counts a 4K export asks for.
+  const ctx = buf.getContext("2d")
   if (!ctx) return null
+  // A reused buffer starts with the previous frame's pixels, and its clip would
+  // otherwise accumulate across frames.
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.clearRect(0, 0, buf.width, buf.height)
+  ctx.save()
 
   const style = getComputedStyle(media)
   const fit = style.objectFit || "contain"
@@ -123,9 +168,10 @@ export function paintFrameToLocalBox(
       : undefined
     if (enhance) ctx.filter = enhance
     ctx.drawImage(frame, 0, 0, fw, fh, dx, dy, dw, dh)
-    ctx.filter = "none"
   } catch {
     return null
+  } finally {
+    ctx.restore()
   }
 
   return buf
@@ -831,6 +877,21 @@ async function createCompositeRenderer(
   // that poke out past the bezel's rounded silhouette (cover/fill especially).
   const shellRadius = resolveVideoClipRadius(video, shell, localW)
 
+  // Render the decoded frames at the export's resolution, not the editor's
+  // layout size — see mediaBufferScale. Both are constant for the whole export,
+  // so the buffer is sized once and reused.
+  const boxW = useQuad ? localW : (region?.destW ?? localW)
+  const boxH = useQuad ? localH : (region?.destH ?? localH)
+  const mediaScale = mediaBufferScale(
+    getComputedStyle(video).objectFit || "contain",
+    boxW,
+    boxH,
+    naturalW,
+    naturalH,
+    scale
+  )
+  const mediaBuffer = document.createElement("canvas")
+
   return async (i: number) => {
     const t = plan.timeForFrame(i)
     const frame = await decoded.getFrameAt(t)
@@ -846,13 +907,14 @@ async function createCompositeRenderer(
           // object-fit but the shell's border-radius.
           const local = paintFrameToLocalBox(
             frame,
-            localW,
-            localH,
+            localW * mediaScale,
+            localH * mediaScale,
             video,
             fw,
             fh,
-            shellRadius,
-            mediaFx
+            shellRadius * mediaScale,
+            mediaFx,
+            mediaBuffer
           )
           if (local) {
             drawImageToQuadWarp(
@@ -868,13 +930,14 @@ async function createCompositeRenderer(
           // AABB path: paint into a local box (with fx) then drawImage that.
           const local = paintFrameToLocalBox(
             frame,
-            region.destW,
-            region.destH,
+            region.destW * mediaScale,
+            region.destH * mediaScale,
             video,
             fw,
             fh,
-            shellRadius,
-            mediaFx
+            shellRadius * mediaScale,
+            mediaFx,
+            mediaBuffer
           )
           const dx = region.destX * scale
           const dy = region.destY * scale
