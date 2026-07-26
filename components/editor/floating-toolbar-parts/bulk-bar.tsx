@@ -31,6 +31,7 @@ export function useBulkBarState() {
     useShallow((s) => s.present.canvases.map((canvas) => canvas.id))
   )
   const aspect = useEditorStore((s) => s.present.aspect)
+  const isPreviewMode = useEditorStore((s) => s.isPreviewMode)
   const setCanvasPositions = useEditorStore((s) => s.setCanvasPositions)
   const requestBulkFitView = useEditorStore((s) => s.requestBulkFitView)
   const isAnnotateMode = activeTool === "arrow"
@@ -62,6 +63,7 @@ export function useBulkBarState() {
     addCanvas,
     bulkEditMode,
     isAnnotateMode,
+    isPreviewMode,
     applyLayout,
     resetPositions,
   }
@@ -161,10 +163,13 @@ export function BulkBar() {
     addCanvas,
     bulkEditMode,
     isAnnotateMode,
+    isPreviewMode,
     applyLayout,
     resetPositions,
   } = useBulkBarState()
-  const showBulkBar = bulkEditMode && !isAnnotateMode
+  // Preview keeps bulk edit on underneath, but its chrome must go — the bar
+  // otherwise sits behind the Exit Preview pill.
+  const showBulkBar = bulkEditMode && !isAnnotateMode && !isPreviewMode
 
   return (
     <div className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2">

@@ -4,13 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 /**
  * `BulkBar` — bulk-edit arrange toolbar (grid/row/column/reset/add). Visible
- * only in bulk-edit mode and not while annotating. The arrange geometry, store
- * and toast are stubbed.
+ * only in bulk-edit mode, not while annotating, and not in preview. The arrange
+ * geometry, store and toast are stubbed.
  */
 const store = vi.hoisted(() => ({
   addCanvas: vi.fn(() => "c3"),
   bulkEditMode: true,
   activeTool: "pointer",
+  isPreviewMode: false,
   canvases: [{ id: "c1" }, { id: "c2" }] as { id: string }[],
   aspect: { w: 16, h: 10 },
   setCanvasPositions: vi.fn(),
@@ -64,6 +65,7 @@ vi.mock("@/lib/editor/store", () => ({
     selector({
       present: { canvases: store.canvases, aspect: store.aspect },
       aspect: store.aspect,
+      isPreviewMode: store.isPreviewMode,
       setCanvasPositions: store.setCanvasPositions,
       requestBulkFitView: store.requestBulkFitView,
     }),
@@ -82,6 +84,7 @@ const renderBar = () =>
 beforeEach(() => {
   store.bulkEditMode = true
   store.activeTool = "pointer"
+  store.isPreviewMode = false
   store.canvases = [{ id: "c1" }, { id: "c2" }]
 })
 afterEach(() => vi.clearAllMocks())
@@ -102,6 +105,12 @@ describe("BulkBar", () => {
 
   it("is hidden while annotating", () => {
     store.activeTool = "arrow"
+    renderBar()
+    expect(screen.queryByText("Add canvas")).not.toBeInTheDocument()
+  })
+
+  it("is hidden in preview even though bulk edit stays on", () => {
+    store.isPreviewMode = true
     renderBar()
     expect(screen.queryByText("Add canvas")).not.toBeInTheDocument()
   })
