@@ -74,10 +74,20 @@ export function nonBlackPct(canvas: HTMLCanvasElement): number {
 }
 
 /**
- * How far this element's shadows reach beyond its border box, in CSS px.
+ * How far this element's decoration reaches beyond its border box, in CSS px.
  *
- * Colour functions are stripped first so their commas don't break the
+ * This is the margin a projected texture has to bake around the box, so it must
+ * cover everything that paints outside it and is therefore invisible to
+ * `getBoundingClientRect()`.
+ *
+ * Shadows: colour functions are stripped first so their commas don't break the
  * per-shadow split and their numbers aren't mistaken for lengths.
+ *
+ * Outline: the screenshot's "border" is an `outline` sitting `outline-offset`
+ * clear of the edge (see `buildScreenshotImageStyle`), not a CSS border. Layout
+ * ignores it entirely, so leaving it out of the padding cropped the border off
+ * the texture — the video then ran to the very edge of the plate instead of
+ * sitting inside it.
  */
 export function shadowExtentPx(el: HTMLElement): number {
   const cs = getComputedStyle(el)
@@ -95,5 +105,13 @@ export function shadowExtentPx(el: HTMLElement): number {
       )
     }
   }
+
+  const outlineWidth = parseFloat(cs.outlineWidth) || 0
+  if (cs.outlineStyle && cs.outlineStyle !== "none" && outlineWidth > 0) {
+    // A negative offset pulls the outline inward, where it needs no margin.
+    const outlineOffset = Math.max(0, parseFloat(cs.outlineOffset) || 0)
+    max = Math.max(max, outlineWidth + outlineOffset)
+  }
+
   return Math.ceil(max)
 }

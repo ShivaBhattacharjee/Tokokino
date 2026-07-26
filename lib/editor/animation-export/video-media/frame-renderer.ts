@@ -335,6 +335,21 @@ function overlayVideoFrameImage(
   }
 }
 
+/**
+ * The largest margin a projected texture can carry on each side and still fit
+ * inside the capture canvas. See {@link captureProjectedElementTexture}.
+ */
+export function fittedTexturePad(
+  rootW: number,
+  rootH: number,
+  localW: number,
+  localH: number
+): number {
+  return Math.floor(
+    Math.max(0, Math.min((rootW - localW) / 2, (rootH - localH) / 2))
+  )
+}
+
 /** Untransformed padded raster of a projected element, plus its geometry. */
 export type ProjectedElementTexture = {
   texture: HTMLCanvasElement
@@ -370,10 +385,24 @@ export async function captureProjectedElementTexture(
 ): Promise<ProjectedElementTexture | null> {
   const { el, carrier, quad } = layer
 
-  // box-shadow / drop-shadow paint outside the border box and are transformed
-  // with the element, so the texture has to include them or a tilted shadow gets
-  // sheared off at the box edge.
-  const pad = shadowExtentPx(el)
+  const rootRect = capture.node.getBoundingClientRect()
+
+  // box-shadow / drop-shadow and the border outline paint outside the border box
+  // and are transformed with the element, so the texture has to include them or
+  // a tilted shadow gets sheared off at the box edge.
+  //
+  // The margin is capped to what the canvas can actually supply. The raster only
+  // covers the canvas, and the box is parked at (pad, pad) before it is cropped:
+  // a padded box larger than the canvas runs off the far edges, and drawImage
+  // returns transparent for the out-of-bounds part rather than failing. Left and
+  // top start at 0 and survive; right and bottom silently lose the whole margin
+  // — which is where the border and shadow live — so the plate came back missing
+  // its border on exactly those two sides. Anything past the canvas edge is
+  // clipped in the real render too, so capping costs nothing that was visible.
+  const pad = Math.min(
+    shadowExtentPx(el),
+    fittedTexturePad(rootRect.width, rootRect.height, quad.localW, quad.localH)
+  )
 
   const restoreVisibility = applyExportStackVisibility(
     capture.node,
@@ -403,7 +432,6 @@ export async function captureProjectedElementTexture(
   // survives only as its top-left corner. So place the box at a known spot and
   // crop where it actually lands, rather than trusting it to stay put.
   carrier.style.transform = IDENTITY_TRANSFORM
-  const rootRect = capture.node.getBoundingClientRect()
   const loose = el.getBoundingClientRect()
   const dx = -(loose.left - rootRect.left) + pad
   const dy = -(loose.top - rootRect.top) + pad
@@ -436,8 +464,16 @@ export async function captureProjectedElementTexture(
   // Lift the placed box (plus the shadow margin) out as the quad texture.
   const boxW = quad.localW + pad * 2
   const boxH = quad.localH + pad * 2
-  const cropW = Math.max(1, Math.round(boxW * scale))
-  const cropH = Math.max(1, Math.round(boxH * scale))
+  // Never read past the raster: an overhanging source rect comes back
+  // transparent on that side rather than erroring.
+  const cropW = Math.max(
+    1,
+    Math.min(Math.round(boxW * scale), raster.width - cropX)
+  )
+  const cropH = Math.max(
+    1,
+    Math.min(Math.round(boxH * scale), raster.height - cropY)
+  )
   const local = document.createElement("canvas")
   local.width = cropW
   local.height = cropH

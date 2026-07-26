@@ -650,7 +650,7 @@ export async function exportCanvas(
     ? [...preloadUrls, WATERMARK_LOGO_SRC]
     : preloadUrls
 
-  // No pixelRatio — rasterizeNodeToCanvas owns the scale (see withSvgOutputSize).
+  // No pixelRatio — rasterizeNodeToCanvas owns the scale (see exportScaleStyle).
   const baseOptions = {
     cacheBust: false,
     filter: filterExportHidden,
