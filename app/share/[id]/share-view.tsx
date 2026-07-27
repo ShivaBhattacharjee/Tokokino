@@ -1,12 +1,22 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { RiCheckLine, RiDownloadLine, RiImageLine } from "@remixicon/react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
-import { SharePlyrPlayer } from "@/components/share/share-plyr-player"
+// plyr is a DOM-only player, so its server render is dead weight — and it is
+// weight the Cloudflare Worker pays for, since OpenNext bundles every server
+// chunk. Client-only keeps it out.
+const SharePlyrPlayer = dynamic(
+  () =>
+    import("@/components/share/share-plyr-player").then(
+      (m) => m.SharePlyrPlayer
+    ),
+  { ssr: false }
+)
 import { triggerAnchorDownload } from "@/lib/download"
 import { isVideoShareContentType } from "@/lib/share"
 

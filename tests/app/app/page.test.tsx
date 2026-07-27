@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 /**
- * Tests for `app/app/page.tsx` — the editor page shell (`EditorLayout` +
- * `ScreenshotsPage`). All the heavy editor children (Canvas, sidebars,
+ * Tests for `components/editor/editor-app.tsx` — the editor page shell
+ * (`EditorLayout` + `EditorApp`, which `app/app/page.tsx` mounts client-side).
+ * All the heavy editor children (Canvas, sidebars,
  * toolbars, the Zustand store and `motion`) are mocked so these tests exercise
  * only the page's own logic: preview-mode gating, the slideshow settings
  * panel, the delay/animation option buttons, the Esc keybinding and which
@@ -135,13 +136,15 @@ vi.mock("@/components/editor/error-boundary", () => ({
   EditorErrorBoundary: ({ children }: { children: React.ReactNode }) =>
     children,
 }))
-vi.mock("@/components/editor/editor-skeletons", () => ({
+vi.mock("@/components/editor/canvas-skeleton", () => ({
   CanvasSkeleton: stub("canvas-skeleton"),
+}))
+vi.mock("@/components/editor/editor-skeletons", () => ({
   EffectsSidebarSkeleton: stub("effects-sidebar-skeleton"),
   InspectorSkeleton: stub("inspector-skeleton"),
 }))
 
-import ScreenshotsPage from "@/app/app/page"
+import ScreenshotsPage from "@/components/editor/editor-app"
 
 function setState(overrides: Partial<typeof storeMock.defaults>) {
   storeMock.holder.current = {

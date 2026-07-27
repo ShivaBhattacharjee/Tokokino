@@ -16,8 +16,8 @@ vi.mock("@/lib/editor/store", () => ({
     selector({ isPreviewMode: store.isPreviewMode }),
 }))
 
+import { CanvasSkeleton } from "@/components/editor/canvas-skeleton"
 import {
-  CanvasSkeleton,
   EffectsSidebarSkeleton,
   InspectorSkeleton,
 } from "@/components/editor/editor-skeletons"

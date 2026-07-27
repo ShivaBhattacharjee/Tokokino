@@ -1,12 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { Geist, Geist_Mono } from "next/font/google"
-import { useEffect } from "react"
 import { RiArrowLeftLine, RiHome5Line, RiRefreshLine } from "@remixicon/react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+
+const SentryReport = dynamic(() => import("./sentry-report"), { ssr: false })
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
 const fontMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
@@ -16,14 +18,6 @@ export default function GlobalError({
 }: {
   error: Error & { digest?: string }
 }) {
-  useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_SENTRY_DSN) return
-
-    void import("@sentry/browser").then((Sentry) => {
-      Sentry.captureException(error)
-    })
-  }, [error])
-
   return (
     <html
       lang="en"
@@ -35,6 +29,9 @@ export default function GlobalError({
       )}
     >
       <body>
+        {process.env.NEXT_PUBLIC_SENTRY_DSN ? (
+          <SentryReport error={error} />
+        ) : null}
         <main className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-5 py-10 text-foreground">
           <div
             aria-hidden="true"
