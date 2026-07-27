@@ -1,7 +1,6 @@
 import { defineConfig, globalIgnores } from "eslint/config"
 import jsxA11y from "eslint-plugin-jsx-a11y"
 import reactHooks from "eslint-plugin-react-hooks"
-import tailwind from "eslint-plugin-tailwindcss"
 import nextVitals from "eslint-config-next/core-web-vitals"
 import nextTs from "eslint-config-next/typescript"
 import tseslint from "typescript-eslint"
@@ -18,16 +17,6 @@ delete reactHooksRecommended.plugins
 
 const jsxA11yRecommended = { ...jsxA11y.flatConfigs.recommended }
 delete jsxA11yRecommended.plugins
-
-const tailwindRecommended = {
-  ...tailwind.configs.recommended,
-  settings: {
-    tailwindcss: {
-      ...tailwind.configs.recommended.settings?.tailwindcss,
-      cssConfigPath: `${import.meta.dirname}/app/globals.css`,
-    },
-  },
-}
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -87,7 +76,6 @@ const eslintConfig = defineConfig([
     ...jsxA11yRecommended,
     files: ["**/*.tsx"],
   },
-  tailwindRecommended,
   {
     // Mocks stand in for async signatures, so `vi.fn(async () => x)` is the
     // point rather than a missing await.
@@ -119,7 +107,6 @@ const eslintConfig = defineConfig([
       "react-hooks/unsupported-syntax": "warn",
       "react-hooks/use-memo": "warn",
       "react-hooks/void-use-memo": "warn",
-      "tailwindcss/no-custom-classname": "off",
     },
   },
   // Override default ignores of eslint-config-next.

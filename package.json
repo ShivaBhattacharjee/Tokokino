@@ -19,8 +19,8 @@
     "lint:fix": "eslint --fix",
     "lint:strict": "eslint --max-warnings=0",
     "lint:fix:strict": "eslint --fix --max-warnings=0",
-    "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx}\"",
+    "format": "oxfmt \"**/*.{ts,tsx}\"",
+    "format:check": "oxfmt --check \"**/*.{ts,tsx}\"",
     "test": "vitest run tests",
     "test:watch": "vitest tests",
     "typecheck": "tsc --noEmit",
@@ -30,7 +30,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "prettier --write",
+      "oxfmt",
       "eslint --fix"
     ]
   },
@@ -100,13 +100,11 @@
     "eslint-config-next": "16.1.7",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-tailwindcss": "4.0.0-alpha.2",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^17.0.5",
+    "oxfmt": "^0.60.0",
     "postcss": "^8",
-    "prettier": "^3.8.1",
-    "prettier-plugin-tailwindcss": "^0.7.2",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
