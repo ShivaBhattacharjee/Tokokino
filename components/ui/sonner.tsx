@@ -12,7 +12,11 @@ import {
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
-      className="toaster group"
+      // Below 600px sonner sizes the toaster `width: 100%` while also setting
+      // left/right offsets, so the container overhangs the right edge and
+      // anything centred inside it lands off-centre. `w-auto` lets the offsets
+      // define the box.
+      className="toaster group max-[600px]:!w-auto"
       icons={{
         success: <RiCheckboxCircleLine className="size-4" />,
         info: <RiInformationLine className="size-4" />,
@@ -31,7 +35,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "cn-toast group !flex !items-center gap-3 !py-3 !px-4 !min-h-0 !w-fit !max-w-[min(22rem,calc(100vw-2rem))] mx-auto",
+            "cn-toast group !flex !items-center gap-3 !py-3 !px-4 !min-h-0 !w-fit !max-w-[min(22rem,calc(100vw-2rem))] !left-0 !right-0 mx-auto",
           title: "text-[13px] font-medium text-left leading-snug text-pretty",
           content: "flex flex-col items-start justify-center min-w-0",
           icon: "m-0 shrink-0",
