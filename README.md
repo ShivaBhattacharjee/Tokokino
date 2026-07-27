@@ -92,7 +92,7 @@ pnpm exec wrangler d1 migrations apply tokokino-db --remote
 - `pnpm lint:fix` - ESLint autofix
 - `pnpm build` - OpenNext Cloudflare build
 - `pnpm build:next` - Next.js production build
-- `pnpm format:check` - Prettier check for TypeScript files
+- `pnpm format:check` - oxfmt check for TypeScript files
 - `pnpm preview` - OpenNext Cloudflare preview
 - `pnpm deploy` - OpenNext Cloudflare deploy
 - `pnpm cf-typegen` - regenerate `cloudflare-env.d.ts` from Wrangler bindings

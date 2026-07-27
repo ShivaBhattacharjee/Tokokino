@@ -15,7 +15,7 @@ Tokokino is a client-heavy Next.js app for creating screenshot compositions. Mos
 - Auth: better-auth
 - Data: Cloudflare D1 (`TOKOKINO_DB`)
 - Object storage: Cloudflare R2 (AWS S3 SDK)
-- Tooling: ESLint, Prettier, Husky, lint-staged, pnpm, Wrangler
+- Tooling: ESLint, oxfmt, Husky, lint-staged, pnpm, Wrangler
 
 ## Local setup
 

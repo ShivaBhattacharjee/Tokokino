@@ -27,7 +27,7 @@ pnpm preview      # OpenNext Cloudflare build + local preview
 pnpm deploy       # OpenNext Cloudflare build + deploy
 pnpm typecheck    # tsc --noEmit (run before committing)
 pnpm lint:fix     # ESLint auto-fix
-pnpm format       # Prettier on all .ts/.tsx
+pnpm format       # oxfmt on all .ts/.tsx
 ```
 
 Asset build scripts (run once after adding overlays/backgrounds):

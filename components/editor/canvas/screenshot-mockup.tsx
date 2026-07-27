@@ -219,20 +219,21 @@ export function ScreenshotMockup({
             }}
           >
             {/* Blurred backdrop — fills letterbox/pillarbox areas in contain mode */}
-            {objectFit === "contain" && !isVideo && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={screenshot}
-                alt=""
-                aria-hidden
-                draggable={false}
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
-                style={{
-                  filter: "blur(18px) brightness(0.55) saturate(1.4)",
-                  transform: "scale(1.12)",
-                }}
-              />
-            )}
+            {objectFit === "contain" &&
+              !isVideo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={screenshot}
+                  alt=""
+                  aria-hidden
+                  draggable={false}
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
+                  style={{
+                    filter: "blur(18px) brightness(0.55) saturate(1.4)",
+                    transform: "scale(1.12)",
+                  }}
+                />
+              )}
             {isVideo ? (
               <div className="absolute inset-0 bg-black">
                 <video
