@@ -31,10 +31,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "cn-toast group !flex !items-center !justify-center gap-3 !py-3 !px-4 !min-h-0 !w-fit mx-auto",
-          title: "text-[13px] font-medium text-center",
-          content: "flex items-center justify-center",
-          icon: "m-0",
+            "cn-toast group !flex !items-center gap-3 !py-3 !px-4 !min-h-0 !w-fit !max-w-[min(22rem,calc(100vw-2rem))] mx-auto",
+          title: "text-[13px] font-medium text-left leading-snug text-pretty",
+          content: "flex flex-col items-start justify-center min-w-0",
+          icon: "m-0 shrink-0",
           error:
             "!bg-destructive !text-white !border-destructive [&_[data-icon]]:!text-white",
         },
