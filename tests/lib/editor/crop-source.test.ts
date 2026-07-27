@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import { __testing } from "@/lib/editor/crop-source"
 
-const { MAX_OUTPUT_PIXELS, outputSize, regionToPixels } = __testing
+const { MAX_OUTPUT_DIMENSION, MAX_OUTPUT_PIXELS, outputSize, regionToPixels } =
+  __testing
 
 describe("regionToPixels", () => {
   it("maps a percent region onto source pixels", () => {
@@ -46,8 +47,21 @@ describe("outputSize", () => {
     const size = outputSize(4000, 30000)
     expect(size.scaled).toBe(true)
     expect(size.width * size.height).toBeLessThanOrEqual(MAX_OUTPUT_PIXELS)
+    expect(size.width).toBeLessThanOrEqual(MAX_OUTPUT_DIMENSION)
+    expect(size.height).toBeLessThanOrEqual(MAX_OUTPUT_DIMENSION)
     // Aspect ratio survives the clamp.
     expect(size.width / size.height).toBeCloseTo(4000 / 30000, 3)
+  })
+
+  it("shrinks a thin crop that fits the area cap but not a side limit", () => {
+    // 1500×30000 → area-only scale lands near 915×18310, which still exceeds
+    // Safari's per-dimension canvas limit.
+    const size = outputSize(1500, 30000)
+    expect(size.scaled).toBe(true)
+    expect(size.width).toBeLessThanOrEqual(MAX_OUTPUT_DIMENSION)
+    expect(size.height).toBeLessThanOrEqual(MAX_OUTPUT_DIMENSION)
+    expect(size.width * size.height).toBeLessThanOrEqual(MAX_OUTPUT_PIXELS)
+    expect(size.width / size.height).toBeCloseTo(1500 / 30000, 3)
   })
 
   it("keeps a crop at the pixel cap at full resolution", () => {

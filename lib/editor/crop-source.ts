@@ -30,6 +30,13 @@ const MAX_PREVIEW_DIMENSION = 2200
  */
 const MAX_OUTPUT_PIXELS = 16_777_216
 
+/**
+ * Ceiling on either canvas side. Area can stay under {@link MAX_OUTPUT_PIXELS}
+ * while one edge of a tall/narrow crop (e.g. ~900×18k) still exceeds Safari's
+ * per-dimension limit and paints blank.
+ */
+const MAX_OUTPUT_DIMENSION = 8192
+
 export type CropSource = {
   /** URL for the <img> the crop handles are drawn over — possibly downscaled. */
   previewUrl: string
@@ -217,12 +224,18 @@ function regionToPixels(
   return { sx, sy, sw: clampedW, sh: clampedH }
 }
 
-/** Output size for a crop rect, shrunk only if it would exceed the pixel cap. */
+/**
+ * Output size for a crop rect. Shrunk when the area or either side would exceed
+ * Safari-safe canvas limits; aspect ratio is preserved.
+ */
 function outputSize(sw: number, sh: number) {
-  const pixels = sw * sh
-  if (pixels <= MAX_OUTPUT_PIXELS)
-    return { width: sw, height: sh, scaled: false }
-  const scale = Math.sqrt(MAX_OUTPUT_PIXELS / pixels)
+  const scale = Math.min(
+    1,
+    Math.sqrt(MAX_OUTPUT_PIXELS / Math.max(1, sw * sh)),
+    MAX_OUTPUT_DIMENSION / Math.max(1, sw),
+    MAX_OUTPUT_DIMENSION / Math.max(1, sh)
+  )
+  if (scale >= 1) return { width: sw, height: sh, scaled: false }
   return {
     width: Math.max(1, Math.floor(sw * scale)),
     height: Math.max(1, Math.floor(sh * scale)),
@@ -302,6 +315,7 @@ export async function renderCroppedImage(
 
 export const __testing = {
   MAX_OUTPUT_PIXELS,
+  MAX_OUTPUT_DIMENSION,
   MAX_PREVIEW_DIMENSION,
   outputSize,
   regionToPixels,
