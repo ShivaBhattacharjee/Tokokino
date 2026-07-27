@@ -15,7 +15,6 @@ import {
   type SyntheticEvent,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
 } from "react"
@@ -26,7 +25,6 @@ import ReactCrop, {
   type PixelCrop,
   type ReactCropProps,
 } from "react-image-crop"
-import { cn } from "@/lib/utils"
 
 import "react-image-crop/dist/ReactCrop.css"
 
@@ -78,67 +76,16 @@ function cropMatchesAspect(
   return Math.abs(cropWidth / cropHeight - aspect) < 0.01
 }
 
-const getCroppedPngImage = async (
-  imageSrc: HTMLImageElement,
-  pixelCrop: PixelCrop
-): Promise<string> => {
-  const canvas = document.createElement("canvas")
-  const ctx = canvas.getContext("2d")
-
-  if (!ctx) {
-    throw new Error("Context is null, this should never happen.")
-  }
-
-  const scaleX = imageSrc.naturalWidth / imageSrc.width
-  const scaleY = imageSrc.naturalHeight / imageSrc.height
-
-  ctx.imageSmoothingEnabled = false
-  canvas.width = Math.round(pixelCrop.width * scaleX)
-  canvas.height = Math.round(pixelCrop.height * scaleY)
-
-  ctx.drawImage(
-    imageSrc,
-    pixelCrop.x * scaleX,
-    pixelCrop.y * scaleY,
-    pixelCrop.width * scaleX,
-    pixelCrop.height * scaleY,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  )
-
-  // Async PNG encode — does not block the main thread like toDataURL.
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-      "image/png"
-    )
-  })
-
-  // Async data URL conversion via FileReader (also non-blocking).
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () =>
-      reject(reader.error ?? new Error("FileReader failed"))
-    reader.readAsDataURL(blob)
-  })
-}
-
 type ImageCropContextType = {
-  file: File
-  maxImageSize: number
   imgSrc: string
   crop: PercentCrop | undefined
-  completedCrop: PixelCrop | null
   imgRef: RefObject<HTMLImageElement | null>
-  onCrop?: (croppedImage: string, region: PercentCrop) => void
+  onCrop?: (region: PercentCrop) => void
   reactCropProps: Omit<ReactCropProps, "onChange" | "onComplete" | "children">
   handleChange: (pixelCrop: PixelCrop, percentCrop: PercentCrop) => void
   handleComplete: (pixelCrop: PixelCrop, percentCrop: PercentCrop) => void
   onImageLoad: (e: SyntheticEvent<HTMLImageElement>) => void
-  applyCrop: () => Promise<void>
+  applyCrop: () => void
   resetCrop: () => void
 }
 
@@ -153,9 +100,14 @@ const useImageCrop = () => {
 }
 
 export type ImageCropProps = {
-  file: File
-  maxImageSize?: number
-  onCrop?: (croppedImage: string, region: PercentCrop) => void
+  /**
+   * Image the crop handles are drawn over. Callers may pass a downscaled
+   * stand-in for a heavy source — the reported region is in percent, so the
+   * applied crop can still be rendered from the original.
+   */
+  src: string
+  /** Fires with the selected region in percent units. Rendering is the caller's job. */
+  onCrop?: (region: PercentCrop) => void
   children: ReactNode
   onChange?: ReactCropProps["onChange"]
   onComplete?: ReactCropProps["onComplete"]
@@ -164,8 +116,7 @@ export type ImageCropProps = {
 } & Omit<ReactCropProps, "onChange" | "onComplete" | "children">
 
 export const ImageCrop = ({
-  file,
-  maxImageSize = 1024 * 1024 * 5,
+  src,
   onCrop,
   children,
   onChange,
@@ -174,18 +125,8 @@ export const ImageCrop = ({
   ...reactCropProps
 }: ImageCropProps) => {
   const imgRef = useRef<HTMLImageElement | null>(null)
-  const [imgSrc, setImgSrc] = useState<string>("")
   const [crop, setCrop] = useState<PercentCrop>()
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null)
   const [initialCrop, setInitialCrop] = useState<PercentCrop>()
-
-  useEffect(() => {
-    const reader = new FileReader()
-    reader.addEventListener("load", () =>
-      setImgSrc(typeof reader.result === "string" ? reader.result : "")
-    )
-    reader.readAsDataURL(file)
-  }, [file])
 
   const onImageLoad = useCallback(
     (e: SyntheticEvent<HTMLImageElement>) => {
@@ -208,52 +149,21 @@ export const ImageCrop = ({
   }
 
   const handleComplete = (pixelCrop: PixelCrop, percentCrop: PercentCrop) => {
-    setCompletedCrop(pixelCrop)
     onComplete?.(pixelCrop, percentCrop)
   }
 
-  const applyCrop = async () => {
-    if (!imgRef.current) {
-      return
-    }
-
-    // Fall back to the current crop if the user hasn't dragged yet
-    // (onComplete only fires after a drag, so completedCrop may be null).
-    let pixelCrop: PixelCrop | null = completedCrop
-    if (!pixelCrop && crop) {
-      const { width, height } = imgRef.current
-      pixelCrop = {
-        unit: "px",
-        x: (crop.x / 100) * width,
-        y: (crop.y / 100) * height,
-        width: (crop.width / 100) * width,
-        height: (crop.height / 100) * height,
-      }
-    }
-    if (!pixelCrop || pixelCrop.width === 0 || pixelCrop.height === 0) {
-      return
-    }
-
-    const croppedImage = await getCroppedPngImage(imgRef.current, pixelCrop)
-
-    if (crop) {
-      onCrop?.(croppedImage, crop)
-    }
+  const applyCrop = () => {
+    if (!crop || crop.width <= 0 || crop.height <= 0) return
+    onCrop?.(crop)
   }
 
   const resetCrop = () => {
-    if (initialCrop) {
-      setCrop(initialCrop)
-      setCompletedCrop(null)
-    }
+    if (initialCrop) setCrop(initialCrop)
   }
 
   const contextValue: ImageCropContextType = {
-    file,
-    maxImageSize,
-    imgSrc,
+    imgSrc: src,
     crop,
-    completedCrop,
     imgRef,
     onCrop,
     reactCropProps,
@@ -274,11 +184,17 @@ export const ImageCrop = ({
 export type ImageCropContentProps = {
   style?: CSSProperties
   className?: string
+  /**
+   * Sizing for the <img> itself. Callers zoom by giving it an explicit size —
+   * the crop stays in percent, so it survives the resize untouched.
+   */
+  imageStyle?: CSSProperties
 }
 
 export const ImageCropContent = ({
   style,
   className,
+  imageStyle,
 }: ImageCropContentProps) => {
   const {
     imgSrc,
@@ -454,8 +370,11 @@ export const ImageCropContent = ({
   } as CSSProperties
 
   return (
+    // No size cap here: `.ReactCrop__child-wrapper` and the <img> inherit the
+    // root's max-height, so a cap on this element silently overrides whatever
+    // size the caller asked for. Sizing is the caller's to set.
     <ReactCrop
-      className={cn("max-h-[277px] max-w-full", className)}
+      className={className}
       crop={crop}
       onChange={handleChange}
       onComplete={handleComplete}
@@ -513,6 +432,7 @@ export const ImageCropContent = ({
           onLoad={onImageLoad}
           ref={imgRef}
           src={imgSrc}
+          style={imageStyle}
         />
       )}
     </ReactCrop>
@@ -532,13 +452,8 @@ export const ImageCropApply = ({
   const { applyCrop } = useImageCrop()
 
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
-    // Fire user's onClick first (e.g. close the dialog) so the UI can
-    // respond instantly; defer the heavy encode by one tick so the
-    // close animation paints before the main thread gets blocked.
+    applyCrop()
     onClick?.(e)
-    setTimeout(() => {
-      void applyCrop()
-    }, 0)
   }
 
   if (asChild) {
@@ -590,9 +505,8 @@ export const ImageCropReset = ({
 
 // Keep the original Cropper component for backward compatibility
 export type CropperProps = Omit<ReactCropProps, "onChange"> & {
-  file: File
-  maxImageSize?: number
-  onCrop?: (croppedImage: string) => void
+  src: string
+  onCrop?: (region: PercentCrop) => void
   onChange?: ReactCropProps["onChange"]
 }
 
@@ -602,13 +516,11 @@ export const Cropper = ({
   onCrop,
   style,
   className,
-  file,
-  maxImageSize,
+  src,
   ...props
 }: CropperProps) => (
   <ImageCrop
-    file={file}
-    maxImageSize={maxImageSize}
+    src={src}
     onChange={onChange}
     onComplete={onComplete}
     onCrop={onCrop}

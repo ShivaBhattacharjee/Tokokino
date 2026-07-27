@@ -94,6 +94,12 @@ export function AnimateToggle() {
         ?.screenshot ?? null
     )
   )
+  const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
+
+  // Animate can't run over a bulk selection, and at iPad widths this floating
+  // pill sits exactly where the bulk arrange bar does — so drop it rather than
+  // stack a dead button on top of the bar.
+  if (bulkEditMode) return null
 
   return (
     <div
