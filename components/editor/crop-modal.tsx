@@ -25,6 +25,7 @@ import {
 import { useCropDragAutoScroll } from "@/hooks/use-crop-drag-autoscroll"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import type { CropRegion } from "@/lib/editor/store"
+import { clampNumber } from "@/lib/editor/value-schemas"
 
 /**
  * Where to seek for the crop dialog's still preview: the playhead the user is
@@ -63,51 +64,58 @@ async function videoPosterBlob(url: string, atSec = 0): Promise<Blob> {
   // element is created off-DOM (setting src alone is not always enough).
   video.load()
 
-  await new Promise<void>((resolve, reject) => {
-    const cleanup = () => {
-      video.onloadeddata = null
-      video.onerror = null
-      video.onseeked = null
-    }
-    const onError = () => {
-      cleanup()
-      reject(new Error("video load failed"))
-    }
-    const onLoaded = () => {
-      const target = posterSeekTime(atSec, video.duration || 0)
-      if (
-        Number.isFinite(target) &&
-        target > 0 &&
-        video.currentTime !== target
-      ) {
-        video.onseeked = () => {
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        video.onloadeddata = null
+        video.onerror = null
+        video.onseeked = null
+      }
+      const onError = () => {
+        cleanup()
+        reject(new Error("video load failed"))
+      }
+      const onLoaded = () => {
+        const target = posterSeekTime(atSec, video.duration || 0)
+        if (
+          Number.isFinite(target) &&
+          target > 0 &&
+          video.currentTime !== target
+        ) {
+          video.onseeked = () => {
+            cleanup()
+            resolve()
+          }
+          video.currentTime = target
+        } else {
           cleanup()
           resolve()
         }
-        video.currentTime = target
-      } else {
-        cleanup()
-        resolve()
       }
-    }
-    video.onloadeddata = onLoaded
-    video.onerror = onError
-  })
+      video.onloadeddata = onLoaded
+      video.onerror = onError
+    })
 
-  const w = video.videoWidth || 1280
-  const h = video.videoHeight || 720
-  const canvas = document.createElement("canvas")
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext("2d")
-  if (!ctx) throw new Error("no 2d context")
-  ctx.drawImage(video, 0, 0, w, h)
+    const w = video.videoWidth || 1280
+    const h = video.videoHeight || 720
+    const canvas = document.createElement("canvas")
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext("2d")
+    if (!ctx) throw new Error("no 2d context")
+    ctx.drawImage(video, 0, 0, w, h)
 
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob((b) => resolve(b), "image/png")
-  )
-  if (!blob) throw new Error("poster encode failed")
-  return blob
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/png")
+    )
+    if (!blob) throw new Error("poster encode failed")
+    return blob
+  } finally {
+    // Drop the decoded media even if encoding failed — an off-DOM video can
+    // otherwise hold a full-frame buffer until GC.
+    video.removeAttribute("src")
+    video.load()
+  }
 }
 
 type Preset = {
@@ -313,7 +321,12 @@ export function CropModal({
     read()
     const observer = new ResizeObserver(read)
     observer.observe(node)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      // React 19 runs this cleanup instead of calling the ref with null; only
+      // clear if nothing newer has already been attached.
+      if (viewportRef.current === node) viewportRef.current = null
+    }
   }, [])
 
   /**
@@ -342,6 +355,11 @@ export function CropModal({
    */
   const scrollAnchor = React.useRef<{ x: number; y: number } | null>(null)
   const zoomTo = (next: number) => {
+    const clamped = clampZoom(next)
+    if (clamped === zoom) {
+      scrollAnchor.current = null
+      return
+    }
     const node = viewportRef.current
     if (node) {
       scrollAnchor.current = {
@@ -353,7 +371,7 @@ export function CropModal({
           Math.max(1, node.scrollHeight),
       }
     }
-    setZoom(clampZoom(next))
+    setZoom(clamped)
   }
 
   const displaySize = React.useMemo(() => {
@@ -388,12 +406,12 @@ export function CropModal({
   const handleApply = React.useCallback(
     (region: PercentCrop) => {
       if (!source) return
-      const cropRegion: CropRegion = {
-        x: region.x,
-        y: region.y,
-        width: region.width,
-        height: region.height,
-      }
+      const x = clampNumber(region.x, 0, 100)
+      const y = clampNumber(region.y, 0, 100)
+      const width = clampNumber(region.width, 0, 100)
+      const height = clampNumber(region.height, 0, 100)
+      if (x === null || y === null || width === null || height === null) return
+      const cropRegion: CropRegion = { x, y, width, height }
       // Close first: the render reads the ORIGINAL bytes, so it can take a
       // moment on a large screenshot and there is nothing left to look at.
       handleOpenChange(false)
@@ -485,6 +503,7 @@ export function CropModal({
           // decoded — a 20 MB screenshot takes a beat, and a modal that only
           // appears after that read as a frozen or dead crop button.
           <div
+            role="status"
             className="flex h-[420px] items-center justify-center"
             style={{
               backgroundImage:
@@ -568,6 +587,7 @@ export function CropModal({
                   <button
                     type="button"
                     onClick={() => zoomTo(MIN_ZOOM)}
+                    aria-label="Fit to view"
                     title="Fit to view"
                     className="min-w-11 cursor-pointer rounded-md px-1 py-1 text-[11px] font-medium text-foreground tabular-nums transition-colors hover:bg-secondary"
                   >

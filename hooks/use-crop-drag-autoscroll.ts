@@ -68,7 +68,12 @@ export function useCropDragAutoScroll(
     const step = () => {
       const state = drag.current
       const node = viewportRef.current
-      if (!state || !node) return
+      // Clear the handle whenever we won't schedule another frame so onMove can
+      // re-arm via `state.frame ??= …` (a spent rAF id is still truthy).
+      if (!state || !node) {
+        if (state) state.frame = null
+        return
+      }
       const rect = node.getBoundingClientRect()
       const dx = axisSpeed(state.clientX, rect.left, rect.right)
       const dy = axisSpeed(state.clientY, rect.top, rect.bottom)

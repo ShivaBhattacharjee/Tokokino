@@ -24,11 +24,11 @@ import { fetchImageBlob } from "./image-resize"
 const MAX_PREVIEW_DIMENSION = 2200
 
 /**
- * Ceiling on the rendered crop, in pixels. Browsers refuse to allocate canvases
- * past their own area limits (Safari is the strictest) and silently hand back a
- * blank bitmap, so clamp rather than produce an empty crop.
+ * Ceiling on the rendered crop, in pixels. Safari rejects canvases past ~2^24
+ * pixels and silently returns a blank bitmap, so clamp to that common floor
+ * rather than Chrome's higher limit.
  */
-const MAX_OUTPUT_PIXELS = 40_000_000
+const MAX_OUTPUT_PIXELS = 16_777_216
 
 export type CropSource = {
   /** URL for the <img> the crop handles are drawn over — possibly downscaled. */
@@ -97,11 +97,14 @@ function loadImageElement(url: string): Promise<HTMLImageElement> {
   })
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string = "image/png"
+): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
-      "image/png"
+      type
     )
   })
 }
@@ -149,7 +152,9 @@ async function buildPreviewUrl(
     }
     ctx.drawImage(bitmap, 0, 0)
     bitmap.close()
-    const previewBlob = await canvasToBlob(canvas)
+    // Preview-only: WebP is much smaller than PNG for the same bitmap and is
+    // never re-encoded into the applied crop.
+    const previewBlob = await canvasToBlob(canvas, "image/webp")
     // Free the backing store now rather than waiting on GC; the preview can be
     // tens of megabytes of decoded pixels.
     canvas.width = 0
@@ -246,6 +251,7 @@ export async function renderCroppedImage(
   // A 1:1 copy wants no resampling at all; a capped crop is being shrunk and
   // needs it.
   ctx.imageSmoothingEnabled = scaled
+  if (scaled) ctx.imageSmoothingQuality = "high"
 
   let drawn = false
   if (typeof createImageBitmap === "function") {

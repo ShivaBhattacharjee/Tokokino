@@ -49,4 +49,13 @@ describe("outputSize", () => {
     // Aspect ratio survives the clamp.
     expect(size.width / size.height).toBeCloseTo(4000 / 30000, 3)
   })
+
+  it("keeps a crop at the pixel cap at full resolution", () => {
+    const side = Math.sqrt(MAX_OUTPUT_PIXELS)
+    expect(outputSize(side, side)).toEqual({
+      width: side,
+      height: side,
+      scaled: false,
+    })
+  })
 })
