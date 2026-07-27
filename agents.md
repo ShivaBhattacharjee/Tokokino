@@ -6,7 +6,7 @@ Reference this alongside CLAUDE.md. CLAUDE.md covers architecture; this file cov
 
 ## App in one paragraph
 
-Tokokino is a client-heavy Next.js 15.5 app deployed to Cloudflare Workers through OpenNext Cloudflare. Almost all editor logic runs in the browser via a Zustand store. The server exists only for auth (`/api/auth`), share/draft/preset metadata in Cloudflare D1, image and draft storage in Cloudflare R2, an image CORS proxy (`/api/export/image`), Unsplash integration, and Cloudflare Browser Rendering screenshots. The canvas, styling, export, and annotation tools are pure client-side React with no server round-trips.
+Tokokino is a client-heavy Next.js 16 app deployed to Cloudflare Workers through OpenNext Cloudflare. Almost all editor logic runs in the browser via a Zustand store. The server exists only for auth (`/api/auth`), share/draft/preset metadata in Cloudflare D1, image and draft storage in Cloudflare R2, an image CORS proxy (`/api/export/image`), Unsplash integration, and Cloudflare Browser Rendering screenshots. The canvas, styling, export, and annotation tools are pure client-side React with no server round-trips.
 
 ---
 
@@ -39,7 +39,7 @@ Tokokino is a client-heavy Next.js 15.5 app deployed to Cloudflare Workers throu
 
 ## Runtime and deploy notes
 
-- Framework/runtime versions are pinned in `package.json`: Next.js `15.5.18`, React `19.2.x`, TypeScript `5.9.x`, `@opennextjs/cloudflare` `1.19.x`, and Wrangler `4.93.x`.
+- Framework/runtime versions are pinned in `package.json`: Next.js `16.2.12`, React `19.2.x`, TypeScript `5.9.x`, `@opennextjs/cloudflare` `1.20.x`, and Wrangler `4.110.x`.
 - `pnpm dev` runs `next dev --turbopack`; `next.config.mjs` initializes OpenNext Cloudflare dev bindings.
 - `pnpm build` runs `opennextjs-cloudflare build`; OpenNext then calls `pnpm run build:next` from `open-next.config.ts`.
 - `pnpm preview` and `pnpm deploy` both build through OpenNext first. Do not swap these to plain `next build` unless you are only debugging framework output.

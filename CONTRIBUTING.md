@@ -8,7 +8,7 @@ Tokokino is a client-heavy Next.js app for creating screenshot compositions. Mos
 
 ## Tech stack
 
-- Framework: Next.js `15.5.18` + React `19.2.x` + TypeScript `5.9.x`
+- Framework: Next.js `16.2.12` + React `19.2.x` + TypeScript `5.9.x`
 - Styling/UI: Tailwind CSS v4, shadcn/ui, Radix UI, motion
 - State: Zustand
 - Validation: Zod v4 (`zod/v4`)

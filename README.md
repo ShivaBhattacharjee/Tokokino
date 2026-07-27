@@ -5,7 +5,7 @@
 <h1 align="center">Tokokino</h1>
 
 <p align="center">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15.5.18-black?logo=next.js" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.2.12-black?logo=next.js" />
   <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white" />
@@ -17,7 +17,7 @@ Tokokino is a client-heavy screenshot composer built with Next.js. It focuses on
 
 ## Stack
 
-- Next.js `15.5.18`, React `19.2.x`, TypeScript `5.9.x`
+- Next.js `16.2.12`, React `19.2.x`, TypeScript `5.9.x`
 - Zustand for editor state
 - Tailwind CSS v4 + shadcn/ui
 - Mediabunny + WebCodecs for local video encoding and audio muxing

@@ -10,7 +10,7 @@ This page is the **module map**. Deep pipelines live in the linked docs.
 
 | Layer | Choice |
 |---|---|
-| Framework | Next.js 15.5 App Router + React 19 |
+| Framework | Next.js 16 App Router + React 19 |
 | Deploy | OpenNext Cloudflare → Workers (`worker.ts` wraps `.open-next/worker.js`) |
 | Editor state | Zustand 5 + temporal undo/redo + IndexedDB autosave |
 | UI | Tailwind v4 + shadcn/Radix + `@remixicon/react` |

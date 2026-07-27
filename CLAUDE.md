@@ -5,8 +5,8 @@
 **Tokokino** is a browser-based screenshot beautifier. Users drop in a screenshot, style it with backgrounds, shadows, device frames, text layers, and annotations, then export as PNG/JPEG/WebP or share a public link. The app is fully client-side for editing; the server handles auth, share/draft uploads to Cloudflare R2, and metadata/view tracking in Cloudflare D1 via OpenNext Cloudflare.
 
 **Stack:**
-- Next.js 15.5.18 (App Router) + React 19.2, Turbopack in dev
-- OpenNext Cloudflare (`@opennextjs/cloudflare` 1.19) + Wrangler 4 for Cloudflare Workers deployment
+- Next.js 16.2.12 (App Router) + React 19.2, Turbopack in dev
+- OpenNext Cloudflare (`@opennextjs/cloudflare` 1.20) + Wrangler 4 for Cloudflare Workers deployment
 - Zustand 5 for all editor state, with undo/redo and IndexedDB persistence
 - Tailwind CSS v4 + shadcn components + Radix UI primitives
 - better-auth (email + Google OAuth), Cloudflare D1 via Drizzle, Cloudflare R2 via AWS S3 SDK
