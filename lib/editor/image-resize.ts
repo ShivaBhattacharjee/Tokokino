@@ -240,7 +240,12 @@ function isSameOrigin(url: string): boolean {
   }
 }
 
-async function fetchBlobForDownscale(url: string): Promise<Blob | null> {
+/**
+ * Fetch image bytes for a URL, routing cross-origin reads through the
+ * same-origin proxy so a host without CORS headers (assets.tokokino.com, most
+ * CDNs) still yields a readable blob.
+ */
+export async function fetchImageBlob(url: string): Promise<Blob | null> {
   // Same-origin requests just hit the URL directly.
   if (isSameOrigin(url)) {
     try {
@@ -278,7 +283,7 @@ export function downscaleImageFromUrl(
   if (cached) return cached
 
   const promise = (async () => {
-    const blob = await fetchBlobForDownscale(url)
+    const blob = await fetchImageBlob(url)
     if (blob) {
       try {
         const source = await decodeBlob(blob)
