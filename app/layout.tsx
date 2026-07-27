@@ -202,6 +202,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // Opts route transitions out of the global `scroll-behavior: smooth`, so
+      // navigations jump to the top instead of animating the whole page there.
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={cn(
         "antialiased",
