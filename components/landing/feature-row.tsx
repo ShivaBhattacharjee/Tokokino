@@ -142,6 +142,32 @@ const ICONS: Record<string, React.ReactNode> = {
       <circle cx="12" cy="14" r="3" />
     </svg>
   ),
+  "14": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </svg>
+  ),
+  "15": (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="size-5"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <rect x="6" y="3" width="15" height="15" rx="2" className="opacity-40" />
+      <rect x="3" y="6" width="15" height="15" rx="2" />
+      <path d="M8.5 10.5v6l5-3-5-3z" fill="currentColor" stroke="none" />
+    </svg>
+  ),
   "16": (
     <svg
       viewBox="0 0 24 24"
