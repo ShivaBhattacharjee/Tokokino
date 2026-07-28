@@ -14,6 +14,7 @@ import {
 } from "@remixicon/react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useAnimationIsPlaying } from "@/hooks/use-animation-player"
 import { useActiveCanvasField } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 
@@ -40,6 +41,9 @@ export function Inspector({
   const screenshotBoxCount = useActiveCanvasField(
     (c) => (c.screenshot ? 1 : 0) + c.screenshotSlots.length
   )
+  // Styling the canvas mid-playback fights the animation (and lands halfway
+  // through a transition), so the whole panel goes inert until playback stops.
+  const isPlaying = useAnimationIsPlaying()
   const hasDeviceFrame = frameId !== "none"
   // A device frame and screenshot padding are screenshot-only concepts; the
   // tweet card is styled through its own section instead.
@@ -54,10 +58,19 @@ export function Inspector({
     >
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-3 xl:px-4">
         <span className="text-[13px] font-medium tracking-tight">Tools</span>
+        {isPlaying ? (
+          <span className="text-[11px] text-muted-foreground">Playing</span>
+        ) : null}
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="px-3 py-3 pb-24 xl:px-4">
+        <div
+          inert={isPlaying}
+          className={cn(
+            "px-3 py-3 pb-24 transition-opacity xl:px-4",
+            isPlaying && "opacity-40"
+          )}
+        >
           {animateMode ? (
             <>
               <Section icon={RiDragMove2Line} title="Position" defaultOpen>

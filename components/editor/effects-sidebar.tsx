@@ -25,6 +25,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { useAnimationIsPlaying } from "@/hooks/use-animation-player"
 import { signOut, useSession } from "@/lib/auth-client"
 import { getFrameAspectCompatibilityWarning } from "@/lib/editor/frame-aspect-compatibility"
 import { cn } from "@/lib/utils"
@@ -46,6 +47,10 @@ export function EffectsSidebar({
   stacked?: boolean
   popoverAlign?: "start" | "end"
 }) {
+  // Aspect / frame / preset changes restyle the canvas the animation is driving,
+  // so the design controls go inert until playback stops. The account tile is
+  // rendered outside this panel and stays usable.
+  const isPlaying = useAnimationIsPlaying()
   const globalAspect = useEditorStore((s) => s.present.aspect)
   const canvasAspect = useActiveCanvasField((c) => c.aspect)
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
@@ -198,8 +203,10 @@ export function EffectsSidebar({
   if (hideAccount) {
     return (
       <aside
+        inert={isPlaying}
         className={cn(
-          "h-full w-full [scrollbar-width:none] overflow-y-auto [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+          "h-full w-full [scrollbar-width:none] overflow-y-auto transition-opacity [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+          isPlaying && "opacity-40",
           className
         )}
       >
@@ -217,9 +224,17 @@ export function EffectsSidebar({
         className
       )}
     >
-      <div className="shrink-0 px-4 pt-5 pb-4">{header}</div>
-      <div className="flex min-h-0 flex-1 flex-col pb-4">
-        <PresentPresetsSection />
+      <div
+        inert={isPlaying}
+        className={cn(
+          "flex min-h-0 flex-1 flex-col transition-opacity",
+          isPlaying && "opacity-40"
+        )}
+      >
+        <div className="shrink-0 px-4 pt-5 pb-4">{header}</div>
+        <div className="flex min-h-0 flex-1 flex-col pb-4">
+          <PresentPresetsSection />
+        </div>
       </div>
       <AccountTile />
     </aside>

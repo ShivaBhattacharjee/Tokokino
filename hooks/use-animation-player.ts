@@ -22,6 +22,11 @@ const AnimationPlayerContext = React.createContext<PlayerContextValue | null>(
   null
 )
 
+/** Split out of the player context: the full value changes every frame while
+ * playing, so components that only care whether playback is running (and would
+ * otherwise re-render at 60fps) read this instead. */
+const AnimationPlayingContext = React.createContext(false)
+
 /**
  * Owns playback state for Animate mode. Playhead + isPlaying live here (not in
  * the Zustand store) so scrubbing at 60fps doesn't flood undo history. The
@@ -205,7 +210,11 @@ export function AnimationPlayerProvider({
   return React.createElement(
     AnimationPlayerContext.Provider,
     { value },
-    children
+    React.createElement(
+      AnimationPlayingContext.Provider,
+      { value: isPlaying },
+      children
+    )
   )
 }
 
@@ -222,4 +231,9 @@ export function useAnimationPlayer(): PlayerContextValue {
 /** Non-throwing variant for components that render both in and out of animate mode. */
 export function useAnimationPlayerOptional(): PlayerContextValue | null {
   return React.useContext(AnimationPlayerContext)
+}
+
+/** Whether animation playback is running. False outside the provider. */
+export function useAnimationIsPlaying(): boolean {
+  return React.useContext(AnimationPlayingContext)
 }
