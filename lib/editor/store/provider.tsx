@@ -33,6 +33,21 @@ import {
  * one dangerous: the user keeps editing, closes the tab, and the work is gone.
  */
 let autosaveFailureReported = false
+let latestAutosaveToken = 0
+
+const beginAutosave = () => ++latestAutosaveToken
+
+/**
+ * Writes are not serialized — the debounce can start a second one while the
+ * first is still in flight, and `pagehide` fires one outright. An older write
+ * settling after a newer one failed says nothing about the state the user is
+ * now in, so only the newest write may re-arm the warning; otherwise a single
+ * broken run would toast on every failure that follows a late success.
+ */
+function reportAutosaveSuccess(token: number) {
+  if (token !== latestAutosaveToken) return
+  autosaveFailureReported = false
+}
 
 function reportAutosaveFailure(error: unknown) {
   console.error("Unable to save editor draft", error)
@@ -126,12 +141,11 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         window.clearTimeout(saveTimer)
         saveTimer = null
       }
+      const token = beginAutosave()
       void writeEditorDraft(
         createEditorDraftSnapshot(useEditorStore.getState())
       )
-        .then(() => {
-          autosaveFailureReported = false
-        })
+        .then(() => reportAutosaveSuccess(token))
         .catch(reportAutosaveFailure)
     }
 

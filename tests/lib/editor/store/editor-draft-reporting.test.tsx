@@ -155,6 +155,31 @@ describe("editor autosave", () => {
     expect(persistence.writeEditorDraft).toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
   })
+
+  it("keeps quiet when a slow earlier save lands after a newer one failed", async () => {
+    await mountWithHealthyAutosave()
+
+    // Writes overlap: the debounce can start a second one while the first is
+    // still in flight. Here the older write is the one that eventually
+    // succeeds, so it must not be read as "saving works again".
+    let settleSlowSave = () => {}
+    persistence.writeEditorDraft.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        settleSlowSave = resolve
+      })
+    )
+    await editUntilSaved()
+
+    persistence.writeEditorDraft.mockRejectedValue(new Error("QuotaExceeded"))
+    await editUntilSaved()
+    expect(toast.error).toHaveBeenCalledTimes(1)
+
+    settleSlowSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    await editUntilSaved()
+    expect(toast.error).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("saveEditorDraftBeforeAuth", () => {
