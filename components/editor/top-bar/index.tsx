@@ -91,7 +91,7 @@ import {
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import {
   captureClipPose,
-  saveCurrentEditorDraft,
+  saveEditorDraftBeforeAuth,
   useEditorStore,
 } from "@/lib/editor/store"
 import type { CurrentDraftInfo, CustomPresetSummary } from "@/lib/editor/store"
@@ -107,6 +107,10 @@ import {
 import { randomDisplayName } from "@/lib/random-name"
 import { TemplatesDialog } from "@/components/editor/templates/templates-dialog"
 import type { Template } from "@/lib/editor/templates"
+import {
+  applyTemplate,
+  templateApplyErrorMessage,
+} from "@/lib/editor/templates/apply"
 import { captureCurrentAsTemplate } from "@/lib/editor/templates/capture"
 import { env } from "@/lib/env"
 
@@ -316,7 +320,6 @@ export function TopBar() {
     canUndo || canRedo || Boolean(currentDraft) || hasEditorContent
   const setCurrentDraft = useEditorStore((s) => s.setCurrentDraft)
   const loadDraftState = useEditorStore((s) => s.loadDraftState)
-  const loadTemplateState = useEditorStore((s) => s.loadTemplateState)
   const addCustomPreset = useEditorStore((s) => s.addCustomPreset)
   const updateCustomPresetInStore = useEditorStore((s) => s.updateCustomPreset)
   const setPresetTab = useEditorStore((s) => s.setPresetTab)
@@ -779,9 +782,7 @@ export function TopBar() {
       if (isAuthPending) return
 
       if (!session) {
-        void saveCurrentEditorDraft().catch((error) => {
-          console.warn("Could not save local editor state before auth", error)
-        })
+        void saveEditorDraftBeforeAuth()
         setShareDialog((current) => ({ ...current, open: false }))
         setAuthDialog({ open: true, action })
         return
@@ -809,9 +810,7 @@ export function TopBar() {
     if (isAuthPending) return
 
     if (!session) {
-      void saveCurrentEditorDraft().catch((error) => {
-        console.warn("Could not save local editor state before auth", error)
-      })
+      void saveEditorDraftBeforeAuth()
       setShareDialog((current) => ({ ...current, open: false }))
       setAuthDialog({ open: true, action: "save" })
       return
@@ -1171,21 +1170,17 @@ export function TopBar() {
     }
   }, [isStoringOffline, offlineShell])
 
-  const handleApplyTemplate = React.useCallback(
-    (template: Template) => {
-      try {
-        const { present, ui } = unwrapDraftState(template.state)
-        // Templates apply composition only — their screenshot media is stripped
-        // in loadTemplateState — so there are no server videos to hydrate.
-        loadTemplateState(present, ui)
-        toast.success(`Applied "${template.name}"`)
-      } catch (err) {
-        console.error(err)
-        toast.error("Could not apply template")
-      }
-    },
-    [loadTemplateState]
-  )
+  const handleApplyTemplate = React.useCallback((template: Template) => {
+    try {
+      // Templates apply composition only — their screenshot media is stripped
+      // in loadTemplateState — so there are no server videos to hydrate.
+      applyTemplate(template)
+      toast.success(`Applied "${template.name}"`)
+    } catch (err) {
+      console.error(err)
+      toast.error(templateApplyErrorMessage(err))
+    }
+  }, [])
 
   const handleCopyTemplateJson = React.useCallback(async () => {
     const slugInput =
@@ -1514,7 +1509,7 @@ export function TopBar() {
             <LoginForm
               callbackURL="/app"
               variant="dialog"
-              onBeforeSignIn={saveCurrentEditorDraft}
+              onBeforeSignIn={saveEditorDraftBeforeAuth}
             />
           </DialogContent>
         </Dialog>

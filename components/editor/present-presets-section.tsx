@@ -38,6 +38,10 @@ import {
   type CustomPresetSummary,
 } from "@/lib/editor/store"
 import { useSession } from "@/lib/auth-client"
+import {
+  liveClipCount,
+  resolvePresetAnimateIntent,
+} from "@/lib/editor/animation-presence"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -155,6 +159,7 @@ export function PresentPresetsSection({
   const customPresetsSort = useEditorStore((s) => s.customPresetsSort)
   const customPresetsLoaded = useEditorStore((s) => s.customPresetsLoaded)
   const customPresetsLoading = useEditorStore((s) => s.customPresetsLoading)
+  const customPresetsError = useEditorStore((s) => s.customPresetsError)
   const setCustomPresets = useEditorStore((s) => s.setCustomPresets)
   const clearCustomPresets = useEditorStore((s) => s.clearCustomPresets)
   const loadCustomPresets = useEditorStore((s) => s.loadCustomPresets)
@@ -265,6 +270,11 @@ export function PresentPresetsSection({
     },
     [customPresetsSort, loadCustomPresets, userId]
   )
+
+  const handleRetryCustomPresets = React.useCallback(() => {
+    if (!userId) return
+    loadCustomPresets(userId)
+  }, [loadCustomPresets, userId])
 
   const handleDeleteCustomPreset = React.useCallback(
     async (id: string) => {
@@ -475,6 +485,11 @@ export function PresentPresetsSection({
         toast.error("Videos can only use a single slot")
         return
       }
+      const intent = resolvePresetAnimateIntent(preset.type, geometry)
+      if (intent === "missing-timeline") {
+        toast.error(`"${preset.name}" has no timeline left to apply`)
+        return
+      }
       // Geometry includes a snapshot of every styling field on the canvas
       // (background, backdrop, border, shadow, overlay, portrait, padding,
       // radius, frame, text/asset/annotation layers, etc.) — not just the
@@ -491,11 +506,13 @@ export function PresentPresetsSection({
         activeSinglePresetId: null,
         activeCustomPresetId: preset.id,
       })
-      const animateClips = geometry.animation?.clips
-      const isAnimatePreset =
-        preset.type === "animate" ||
-        (Array.isArray(animateClips) && animateClips.length > 0)
-      if (isAnimatePreset) {
+      if (intent === "animate") {
+        // The remap onto live slot ids happens inside the store, so confirm the
+        // clips are really on the canvas before showing the user a timeline.
+        if (!liveClipCount(useEditorStore.getState().present)) {
+          toast.error(`Applied "${preset.name}", but its timeline was dropped`)
+          return
+        }
         // Enter Animate so the timeline is visible; store selects the last clip.
         setIsAnimateMode(true)
       }
@@ -657,6 +674,7 @@ export function PresentPresetsSection({
             customPresets={visibleCustomPresets}
             customPresetsLoading={customPresetsLoading}
             customPresetsLoaded={customPresetsLoaded}
+            customPresetsError={customPresetsError}
             isAuthPending={isAuthPending}
             userId={userId}
             isAnimateMode={isAnimateMode}
@@ -667,6 +685,7 @@ export function PresentPresetsSection({
             onApplyCustom={applyCustomPreset}
             onDeleteCustom={handleDeleteCustomPreset}
             onRenameCustom={handleRenameCustomPreset}
+            onRetryCustom={handleRetryCustomPresets}
           />
         )
 

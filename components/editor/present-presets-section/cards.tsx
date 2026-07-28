@@ -98,6 +98,7 @@ export function PresetCardsBody({
   customPresets,
   customPresetsLoading,
   customPresetsLoaded,
+  customPresetsError = false,
   isAuthPending,
   userId,
   isAnimateMode = false,
@@ -108,6 +109,7 @@ export function PresetCardsBody({
   onApplyCustom,
   onDeleteCustom,
   onRenameCustom,
+  onRetryCustom,
 }: {
   displayTab: PresetTab
   horizontal: boolean
@@ -117,6 +119,8 @@ export function PresetCardsBody({
   customPresets: CustomPresetSummary[]
   customPresetsLoading: boolean
   customPresetsLoaded: boolean
+  /** Last load failed — show that instead of an empty account. */
+  customPresetsError?: boolean
   isAuthPending: boolean
   userId: string | null
   /** When true, Custom tab is showing animate presets only. */
@@ -128,6 +132,7 @@ export function PresetCardsBody({
   onApplyCustom: (preset: CustomPresetSummary) => void
   onDeleteCustom: (id: string) => void | Promise<void>
   onRenameCustom: (id: string, name: string) => void | Promise<void>
+  onRetryCustom?: () => void
 }) {
   // Every single preset shares this row math, so run it once for the rail.
   // `null` when there are no extra slots — the common case, and the one where
@@ -188,6 +193,8 @@ export function PresetCardsBody({
             customPresetsLoading ||
             (Boolean(userId) && !customPresetsLoaded)
           }
+          failed={customPresetsError}
+          onRetry={onRetryCustom}
           loggedIn={Boolean(userId)}
           isAnimateMode={isAnimateMode}
           activeCustomPresetId={activeCustomPresetId}
@@ -246,6 +253,7 @@ function PresetCardSlot({
 function CustomPresetList({
   presets,
   loading,
+  failed = false,
   loggedIn,
   isAnimateMode = false,
   activeCustomPresetId,
@@ -255,9 +263,11 @@ function CustomPresetList({
   onApply,
   onDelete,
   onRename,
+  onRetry,
 }: {
   presets: CustomPresetSummary[]
   loading: boolean
+  failed?: boolean
   loggedIn: boolean
   isAnimateMode?: boolean
   activeCustomPresetId: string | null
@@ -267,6 +277,7 @@ function CustomPresetList({
   onApply: (preset: CustomPresetSummary) => void
   onDelete: (id: string) => void | Promise<void>
   onRename: (id: string, name: string) => void | Promise<void>
+  onRetry?: () => void
 }) {
   if (loading) {
     const aw = aspect.w || 16
@@ -299,6 +310,28 @@ function CustomPresetList({
     return (
       <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
         Sign in to save and reuse your own layout presets.
+      </div>
+    )
+  }
+
+  // Ranked above the empty state: "no presets yet" would be a claim about the
+  // account that a failed request can't support.
+  if (failed) {
+    return (
+      <div className="rounded-lg border border-dashed border-destructive/50 bg-destructive/5 p-4 text-center text-[12px] text-muted-foreground">
+        Could not load your presets.
+        {onRetry ? (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={onRetry}
+              className="font-medium text-foreground underline underline-offset-2"
+            >
+              Try again
+            </button>
+          </>
+        ) : null}
       </div>
     )
   }

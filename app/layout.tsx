@@ -230,6 +230,20 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://assets.tokokino.com" />
         <link rel="dns-prefetch" href="https://assets.tokokino.com" />
+        {/*
+          The resource-timing buffer holds 250 entries by default and silently
+          drops everything after that. A chunk-heavy editor boot can fill it,
+          costing `lib/offline/offline-shell.ts` exactly the lazily loaded
+          chunks it reads the timeline for. It lives here rather than in the
+          editor's own layout because React never runs a script it creates
+          during a client render, so a client navigation into /app would skip
+          it — the root layout is only ever rendered into the initial HTML.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "performance.setResourceTimingBufferSize?.(1000)",
+          }}
+        />
       </head>
       <body>
         <NextTopLoader
