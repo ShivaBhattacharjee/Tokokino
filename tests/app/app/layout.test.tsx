@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
@@ -40,27 +43,39 @@ describe("app/app/layout", () => {
     )
 
     const shell = screen.getByTestId("a").parentElement as HTMLElement
-    // The shell also renders the resource-timing script, so compare only the
-    // children it was handed.
-    const rendered = [...shell.children].filter(
-      (child) => child.tagName !== "SCRIPT"
-    )
-    expect(rendered).toHaveLength(2)
-    expect(rendered[0]).toHaveAttribute("data-testid", "a")
-    expect(rendered[1]).toHaveAttribute("data-testid", "b")
+    expect(shell.children).toHaveLength(2)
+    expect(shell.children[0]).toHaveAttribute("data-testid", "a")
+    expect(shell.children[1]).toHaveAttribute("data-testid", "b")
   })
 
-  it("raises the resource-timing buffer before the page scripts load", () => {
+  it("renders no script of its own", () => {
+    // React never executes a script it creates during a client render, so a
+    // route layout — re-created on every client navigation into /app — is the
+    // one place this app's inline setup script must not live. It belongs in the
+    // root layout's <head> (asserted below).
     const { container } = render(
       <ScreenshotsLayout>
         <span>child</span>
       </ScreenshotsLayout>
     )
 
+    expect(container.querySelector("script")).toBeNull()
+  })
+})
+
+describe("app/layout (root)", () => {
+  // The root layout pulls next/font, global CSS and every provider, so it is
+  // read rather than rendered: what matters is only where the tag sits.
+  const source = readFileSync(join(process.cwd(), "app", "layout.tsx"), "utf8")
+
+  it("raises the resource-timing buffer from <head>", () => {
     // Offline shell capture reads performance.getEntriesByType("resource") to
     // find lazily loaded chunks; the default 250-entry buffer would drop them.
-    const script = container.querySelector("script")
-    expect(script?.innerHTML).toContain("setResourceTimingBufferSize")
-    expect(container.firstElementChild?.firstElementChild).toBe(script)
+    const head = source.slice(
+      source.indexOf("<head>"),
+      source.indexOf("</head>")
+    )
+
+    expect(head).toContain("setResourceTimingBufferSize")
   })
 })
