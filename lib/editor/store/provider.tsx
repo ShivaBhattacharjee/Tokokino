@@ -8,10 +8,14 @@ import type { CanvasState } from "../state-types"
 import { useEditorStore } from "../store"
 import { TEMPLATES } from "../templates"
 import {
+  applyTemplate,
+  templateApplyErrorMessage,
+  templateApplyReplacedState,
+} from "../templates/apply"
+import {
   ANIMATION_UNSUPPORTED_MESSAGE,
   isAnimationUnsupportedViewport,
 } from "../templates/catalog"
-import { unwrapDraftState } from "@/lib/schemas/draft"
 
 import {
   applyEditorDraft,
@@ -21,6 +25,24 @@ import {
   readEditorDraft,
   writeEditorDraft,
 } from "./draft-persistence"
+
+/**
+ * Autosave runs on every store change, so a broken IndexedDB (quota, private
+ * mode, corrupt object store) would fire endlessly. Report the first failure of
+ * a run and stay quiet until a save succeeds again — silence is what makes this
+ * one dangerous: the user keeps editing, closes the tab, and the work is gone.
+ */
+let autosaveFailureReported = false
+
+function reportAutosaveFailure(error: unknown) {
+  console.error("Unable to save editor draft", error)
+  if (autosaveFailureReported) return
+  autosaveFailureReported = true
+  toast.error("Couldn't save your work in this browser", {
+    description: "Save the project to your account to keep it.",
+    duration: 10000,
+  })
+}
 
 function isEditableKeyboardTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
@@ -50,7 +72,8 @@ function stripTemplateParam() {
 /**
  * Apply a URL template as a fresh unsaved project and strip the query param so
  * a refresh doesn't re-apply it over the user's subsequent edits. Returns
- * whether a template was applied.
+ * whether the store now holds template state — a failed apply that already
+ * replaced it still counts, so the stored draft isn't restored on top.
  */
 function applyPendingTemplate(): boolean {
   const template = pendingTemplateFromUrl()
@@ -61,11 +84,14 @@ function applyPendingTemplate(): boolean {
     return false
   }
   try {
-    const { present, ui } = unwrapDraftState(template.state)
-    useEditorStore.getState().loadTemplateState(present, ui)
+    applyTemplate(template)
   } catch (error) {
-    console.warn("Unable to apply template from URL", error)
-    return false
+    console.error("Unable to apply template from URL", error)
+    // Strip either way: the same link would fail the same way on reload, and
+    // leaving it in place implies a template the editor isn't actually showing.
+    stripTemplateParam()
+    toast.error(templateApplyErrorMessage(error))
+    return templateApplyReplacedState(error)
   }
   stripTemplateParam()
   toast.success(`Applied "${template.name}"`)
@@ -102,9 +128,11 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       }
       void writeEditorDraft(
         createEditorDraftSnapshot(useEditorStore.getState())
-      ).catch((error) => {
-        console.warn("Unable to save editor draft", error)
-      })
+      )
+        .then(() => {
+          autosaveFailureReported = false
+        })
+        .catch(reportAutosaveFailure)
     }
 
     const scheduleSave = () => {
@@ -131,7 +159,10 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         startAutosave()
       })
       .catch((error) => {
-        console.warn("Unable to restore editor draft", error)
+        console.error("Unable to restore editor draft", error)
+        // An unreadable draft opens what looks like a brand-new project. Left
+        // unsaid, the user assumes their last session was never saved.
+        toast.error("Couldn't restore your last project from this browser")
         startAutosave()
       })
 
@@ -280,4 +311,21 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
 export async function saveCurrentEditorDraft() {
   if (!isBrowserIndexedDbAvailable()) return
   await writeEditorDraft(createEditorDraftSnapshot(useEditorStore.getState()))
+}
+
+/**
+ * Stash the project before an auth flow navigates the tab away. Sign-in is the
+ * one moment the user is promised their work will still be here afterwards, so
+ * a failed stash has to be said out loud — they can still copy or export first.
+ */
+export async function saveEditorDraftBeforeAuth() {
+  try {
+    await saveCurrentEditorDraft()
+  } catch (error) {
+    console.error("Could not save local editor state before auth", error)
+    toast.error("Couldn't save your work before signing in", {
+      description: "Export or copy the canvas first if you need to keep it.",
+      duration: 10000,
+    })
+  }
 }

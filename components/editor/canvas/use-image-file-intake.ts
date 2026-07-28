@@ -46,12 +46,19 @@ export function useImageFileIntake(
   const runGifTranscode = React.useCallback(
     (file: File) => {
       onPreparingChange?.(true)
+      // The user agreed to a conversion in the dialog, so a fallback to the
+      // plain <img> path is a different result than the one they asked for —
+      // no timeline, no video bar. Say so rather than let them hunt for it.
+      const fallBackToImage = () => {
+        toast.error("Could not convert that GIF — added it as an image instead")
+        readRawDataUrl(file, onImage)
+      }
       transcodeGifToVideo(file)
         .then((blob) => {
           if (blob) onImage(registerObjectUrl(blob))
-          else readRawDataUrl(file, onImage)
+          else fallBackToImage()
         })
-        .catch(() => readRawDataUrl(file, onImage))
+        .catch(fallBackToImage)
         .finally(() => onPreparingChange?.(false))
     },
     [onImage, onPreparingChange]

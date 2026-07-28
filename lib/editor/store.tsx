@@ -742,7 +742,11 @@ export {
   useSelectedScreenshotSlot,
   type EditorContext,
 } from "./store/use-editor"
-export { EditorProvider, saveCurrentEditorDraft } from "./store/provider"
+export {
+  EditorProvider,
+  saveCurrentEditorDraft,
+  saveEditorDraftBeforeAuth,
+} from "./store/provider"
 
 type SetPatch =
   | Partial<EditorState>
@@ -1162,6 +1166,12 @@ export type EditorStore = {
   customPresets: CustomPresetSummary[]
   customPresetsLoaded: boolean
   customPresetsLoading: boolean
+  /**
+   * Set when the last load failed. Without it a failed fetch is indistinguishable
+   * from an empty account, and the picker tells the user they have no presets
+   * saved while their presets are sitting on the server.
+   */
+  customPresetsError: boolean
   /** User id the current `customPresets` list was fetched for. */
   customPresetsForUserId: string | null
   /**
@@ -1447,6 +1457,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     customPresets: [],
     customPresetsLoaded: false,
     customPresetsLoading: false,
+    customPresetsError: false,
     customPresetsForUserId: null,
     customPresetsSort: "latest",
     customPresetsListSort: "latest",
@@ -1458,7 +1469,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setActiveCustomPresetId: (id) => set({ activeCustomPresetId: id }),
     setActiveSinglePresetId: (id) => set({ activeSinglePresetId: id }),
     setCustomPresets: (presets) =>
-      set({ customPresets: presets, customPresetsLoaded: true }),
+      set({
+        customPresets: presets,
+        customPresetsLoaded: true,
+        customPresetsError: false,
+      }),
     clearCustomPresets: () => {
       customPresetsRequestToken++
       customPresetsInFlightUserId = null
@@ -1466,6 +1481,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         customPresets: [],
         customPresetsLoaded: false,
         customPresetsLoading: false,
+        customPresetsError: false,
         customPresetsForUserId: null,
       })
     },
@@ -1473,8 +1489,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const state = get()
       const nextSort = sort ?? state.customPresetsSort
       const sortChanged = nextSort !== state.customPresetsSort
+      // A failed load also lands on `customPresetsLoaded` (it stops the
+      // skeleton), so it must not dedupe away the retry.
       if (
         state.customPresetsLoaded &&
+        !state.customPresetsError &&
         state.customPresetsForUserId === userId &&
         !sortChanged
       )
@@ -1493,6 +1512,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       customPresetsInFlightUserId = userId
       set({
         customPresetsLoading: true,
+        customPresetsError: false,
         customPresetsSort: nextSort,
         // Account switch: never show the previous account's presets while the
         // new list loads. A sort change keeps the current list on screen and
@@ -1520,13 +1540,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             customPresets: presets,
             customPresetsLoaded: true,
             customPresetsLoading: false,
+            customPresetsError: false,
             customPresetsForUserId: userId,
             // The displayed list now reflects the requested sort.
             customPresetsListSort: nextSort,
           })
         })
         .catch((err) => {
-          console.warn("Could not load custom presets", err)
+          console.error("Could not load custom presets", err)
           if (token !== customPresetsRequestToken) return
           customPresetsInFlightUserId = null
           // Keep whatever list is on screen: a failed re-sort must not erase
@@ -1541,6 +1562,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               customPresetsListSort: rolledSort,
               customPresetsLoaded: true,
               customPresetsLoading: false,
+              // Only an empty list is a lie about the account. A failed re-sort
+              // still has real presets on screen, so it stays a plain list.
+              customPresetsError: current.customPresets.length === 0,
               customPresetsForUserId: userId,
             }
           })

@@ -832,9 +832,18 @@ export function useAnimateTimeline() {
   const duplicateVideo = React.useCallback(
     (id: string) => {
       const clip = resolvedVideoClips.find((item) => item.id === id)
-      if (!clip) return
+      // A clip whose media hasn't reported a duration yet has nothing to copy,
+      // and the store drops the request — say so rather than no-op the menu.
+      if (!clip || clip.endMs - clip.startMs <= 0) {
+        toast.error("Could not duplicate this video clip")
+        return
+      }
       const newId = duplicateVideoClip(id, clip.endMs - clip.startMs)
-      if (newId) setSelectedVideoClipIds([newId])
+      if (!newId) {
+        toast.error("Could not duplicate this video clip")
+        return
+      }
+      setSelectedVideoClipIds([newId])
     },
     [duplicateVideoClip, resolvedVideoClips, setSelectedVideoClipIds]
   )
@@ -1309,7 +1318,11 @@ export function useAnimateTimeline() {
   const duplicateClip = React.useCallback(
     (id: string) => {
       const newIds = duplicateAnimationClips(resolveTargetIds(id))
-      if (newIds.length) setAnimationClipSelection(newIds)
+      if (!newIds.length) {
+        toast.error("Could not duplicate the keyframe")
+        return
+      }
+      setAnimationClipSelection(newIds)
     },
     [duplicateAnimationClips, resolveTargetIds, setAnimationClipSelection]
   )
@@ -1418,6 +1431,7 @@ export function useAnimateTimeline() {
         e.preventDefault()
         const newIds = duplicateAnimationClips(ids)
         if (newIds.length) setAnimationClipSelection(newIds)
+        else toast.error("Could not duplicate the keyframe")
       } else if (
         (e.key === "a" || e.key === "A") &&
         (e.metaKey || e.ctrlKey) &&

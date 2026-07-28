@@ -32,6 +32,7 @@ function renderCards(
 ) {
   const onRenameCustom = vi.fn()
   const onDeleteCustom = vi.fn()
+  const onRetryCustom = vi.fn()
   render(
     <PresetCardsBody
       displayTab="custom"
@@ -51,10 +52,11 @@ function renderCards(
       onApplyCustom={vi.fn()}
       onDeleteCustom={onDeleteCustom}
       onRenameCustom={onRenameCustom}
+      onRetryCustom={onRetryCustom}
       {...overrides}
     />
   )
-  return { onRenameCustom, onDeleteCustom }
+  return { onRenameCustom, onDeleteCustom, onRetryCustom }
 }
 
 afterEach(() => vi.clearAllMocks())
@@ -127,5 +129,35 @@ describe("CustomPresetCard — options menu", () => {
     await user.click(within(alert).getByRole("button", { name: "Delete" }))
 
     expect(onDeleteCustom).toHaveBeenCalledWith("preset_1")
+  })
+})
+
+describe("CustomPresetList — failed load", () => {
+  it("says the load failed instead of claiming the account is empty", () => {
+    renderCards({ customPresets: [], customPresetsError: true })
+
+    expect(screen.getByText(/Could not load your presets/)).toBeInTheDocument()
+    expect(screen.queryByText(/No custom presets yet/)).not.toBeInTheDocument()
+  })
+
+  it("retries on demand", async () => {
+    const { onRetryCustom } = renderCards({
+      customPresets: [],
+      customPresetsError: true,
+    })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: "Try again" }))
+
+    expect(onRetryCustom).toHaveBeenCalledTimes(1)
+  })
+
+  it("still shows the empty state when the load simply found nothing", () => {
+    renderCards({ customPresets: [], customPresetsError: false })
+
+    expect(screen.getByText(/No custom presets yet/)).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Could not load your presets/)
+    ).not.toBeInTheDocument()
   })
 })

@@ -30,7 +30,9 @@ export function LoginForm({
     try {
       await onBeforeSignIn?.()
     } catch (error) {
-      console.warn("Could not save local editor state before sign-in", error)
+      // The editor's hook reports its own failure; this only guards a caller
+      // that throws, which must not swallow the sign-in itself.
+      console.error("onBeforeSignIn failed", error)
     }
     try {
       const { error } = await authClient.signIn.social({
