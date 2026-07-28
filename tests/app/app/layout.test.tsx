@@ -68,14 +68,20 @@ describe("app/layout (root)", () => {
   // read rather than rendered: what matters is only where the tag sits.
   const source = readFileSync(join(process.cwd(), "app", "layout.tsx"), "utf8")
 
-  it("raises the resource-timing buffer from <head>", () => {
+  it("raises the resource-timing buffer from a script in <head>", () => {
+    const headStart = source.indexOf("<head>")
+    const headEnd = source.indexOf("</head>")
+    expect(headStart).toBeGreaterThan(-1)
+    expect(headEnd).toBeGreaterThan(headStart)
+    const head = source.slice(headStart, headEnd)
+
     // Offline shell capture reads performance.getEntriesByType("resource") to
     // find lazily loaded chunks; the default 250-entry buffer would drop them.
-    const head = source.slice(
-      source.indexOf("<head>"),
-      source.indexOf("</head>")
+    // Pin the whole payload, not a mention of the API: a raised buffer that
+    // isn't inside an executed <script>, or is raised to some smaller number,
+    // loses the same chunks it was added to keep.
+    expect(head).toMatch(
+      /<script\b[^>]*?__html:\s*"performance\.setResourceTimingBufferSize\?\.\(1000\)"[^>]*?\/>/
     )
-
-    expect(head).toContain("setResourceTimingBufferSize")
   })
 })
