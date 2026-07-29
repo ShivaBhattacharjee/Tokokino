@@ -1,5 +1,6 @@
 "use client"
 
+import posthog from "posthog-js"
 import * as React from "react"
 import {
   RiArrowGoBackLine,
@@ -150,6 +151,13 @@ const ANIM_SHARE_WIDTHS: Record<AnimateShareResolution, number> = {
 
 export function TopBar() {
   const { data: session, isPending: isAuthPending } = useSession()
+
+  React.useEffect(() => {
+    if (session?.user?.id) {
+      posthog.identify(session.user.id)
+    }
+  }, [session?.user?.id])
+
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
   const canUndo = useEditorStore((s) => s.past.length > 0)
@@ -404,6 +412,7 @@ export function TopBar() {
   const handleCopyShareLink = React.useCallback(async (url: string) => {
     try {
       await navigator.clipboard.writeText(url)
+      posthog.capture("share_link_copied", { url })
       setIsShareLinkCopied(true)
       toast.success("Share link copied")
       setTimeout(() => setIsShareLinkCopied(false), 1600)
@@ -1223,6 +1232,7 @@ export function TopBar() {
       await copyCanvasAsPng(activeCanvasId, "1080p", {
         watermark: includeExportWatermark,
       })
+      posthog.capture("canvas_copied_to_clipboard", { resolution: "1080p" })
       toast.success("Copied to clipboard", { id: toastId })
       setIsCopiedPng(true)
       setTimeout(() => setIsCopiedPng(false), 1800)

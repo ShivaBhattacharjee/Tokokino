@@ -44,3 +44,4 @@ next-env.d.ts
 pack
 # local export debug dumps
 debug/
+.env.local

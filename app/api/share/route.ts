@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { NextResponse } from "next/server"
 
+import { getPostHogClient } from "@/lib/posthog-server"
 import { getAuth } from "@/lib/auth"
 import {
   createShareRecord,
@@ -73,6 +74,13 @@ export async function DELETE(request: Request) {
       typeParam === "animate" || typeParam === "style" ? typeParam : undefined
     const ids = await deleteAllUserShares(session.user.id, type)
     await deleteShareImages(ids).catch(() => {})
+    const posthog = getPostHogClient()
+    posthog.capture({
+      distinctId: session.user.id,
+      event: "share_deleted",
+      properties: { count: ids.length, type: type ?? "all" },
+    })
+    await posthog.flush()
     return NextResponse.json({ ok: true, deleted: ids.length })
   } catch (error) {
     console.error(error)
@@ -249,6 +257,19 @@ export async function POST(request: Request) {
   }
 
   const url = new URL(`/share/${id}`, request.url)
+
+  const posthog = getPostHogClient()
+  posthog.capture({
+    distinctId: session.user.id,
+    event: "share_created",
+    properties: {
+      share_id: id,
+      content_type: contentType,
+      type,
+      size_bytes: image.byteLength,
+    },
+  })
+  await posthog.flush()
 
   return NextResponse.json({
     id,

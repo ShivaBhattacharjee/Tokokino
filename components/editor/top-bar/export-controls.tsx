@@ -58,6 +58,7 @@ import type { CanvasState } from "@/lib/editor/store"
 import { usePersistentState } from "@/hooks/use-persistent-state"
 import { cn } from "@/lib/utils"
 import { SegmentedRow, SummaryRow, SwitchRow } from "./ui"
+import posthog from "posthog-js"
 
 const EXPORT_FORMATS: ExportFormat[] = ["png", "jpeg", "webp"]
 const EXPORT_RESOLUTIONS: ExportResolution[] = ["hd", "4k", "8k"]
@@ -726,6 +727,12 @@ export function ExportControls({
             setAnimProgress(p)
           },
         })
+        posthog.capture("animation_exported", {
+          format: animFormat,
+          resolution: animResolution,
+          fps: effectiveAnimFps,
+          export_type: "video",
+        })
         toast.success(
           `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
         )
@@ -792,6 +799,12 @@ export function ExportControls({
             setAnimProgress(p)
           },
         })
+        posthog.capture("animation_exported", {
+          format: animFormat,
+          resolution: animResolution,
+          fps: effectiveAnimFps,
+          export_type: "animation",
+        })
         toast.success(
           `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
         )
@@ -821,6 +834,10 @@ export function ExportControls({
     try {
       const filename = await exportCanvas(activeCanvasId, format, resolution, {
         watermark: includeWatermark,
+      })
+      posthog.capture("screenshot_exported", {
+        format,
+        resolution,
       })
       toast.success(`Saved as ${filename}`)
     } catch (err) {

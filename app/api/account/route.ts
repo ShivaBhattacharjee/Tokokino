@@ -9,6 +9,7 @@ import { requireSession } from "@/lib/api-auth"
 import { getAuth } from "@/lib/auth"
 import { getD1Database } from "@/lib/d1"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { getPostHogClient } from "@/lib/posthog-server"
 
 export const runtime = "nodejs"
 
@@ -191,5 +192,12 @@ export async function DELETE(request: Request) {
   // Re-login is blocked by the account-deletion gate in `lib/auth.ts`.
   await getAuth().api.revokeSessions({ headers: request.headers })
   await requestAccountDeletion(current.user.id)
+  const posthog = getPostHogClient()
+  posthog.capture({
+    distinctId: current.user.id,
+    event: "account_deleted",
+    properties: {},
+  })
+  await posthog.flush()
   return NextResponse.json({ ok: true, status: "pending" })
 }
