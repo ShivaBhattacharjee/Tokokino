@@ -2,6 +2,7 @@ packages:
   - .
 
 allowBuilds:
+  core-js: false
   esbuild: false
   msw: false
   sharp: false

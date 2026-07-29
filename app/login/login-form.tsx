@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { toast } from "sonner"
+import posthog from "posthog-js"
 
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
@@ -27,6 +28,7 @@ export function LoginForm({
   const handleGoogle = async () => {
     if (loading) return
     setLoading(true)
+    posthog.capture("sign_in_initiated", { provider: "google" })
     try {
       await onBeforeSignIn?.()
     } catch (error) {

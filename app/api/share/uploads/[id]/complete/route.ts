@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { NextResponse } from "next/server"
 
+import { getPostHogClient } from "@/lib/posthog-server"
 import { getShareImageUrl } from "@/lib/share"
 import { createShareRecord, getShareById } from "@/lib/share-db"
 import {
@@ -123,6 +124,17 @@ export async function POST(
       })
     }
     await markShareUploadComplete(finalizingUpload.id, session.user.id)
+    const posthog = getPostHogClient()
+    posthog.capture({
+      distinctId: session.user.id,
+      event: "animate_share_created",
+      properties: {
+        share_id: finalizingUpload.shareId,
+        content_type: finalizingUpload.contentType,
+        size_bytes: finalizingUpload.sizeBytes,
+      },
+    })
+    await posthog.flush()
     return NextResponse.json({
       id: finalizingUpload.shareId,
       url: new URL(

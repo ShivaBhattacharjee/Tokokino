@@ -66,6 +66,8 @@
     "nextjs-toploader": "^3.9.17",
     "ogl": "^1.0.11",
     "plyr": "^3.8.4",
+    "posthog-js": "^1.407.3",
+    "posthog-node": "^5.46.1",
     "radix-ui": "^1.4.3",
     "react": "^19.2.8",
     "react-day-picker": "^10.0.1",
