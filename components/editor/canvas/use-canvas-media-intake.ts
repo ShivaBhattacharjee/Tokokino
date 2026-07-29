@@ -3,6 +3,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { capture } from "@/lib/analytics"
 import { fetchTweetData } from "@/lib/editor/load-tweet"
 import { revokeObjectUrl } from "@/lib/editor/media-type"
 import { useEditorStore } from "@/lib/editor/store"
@@ -148,9 +149,21 @@ export function useCanvasMediaIntake({
           fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
+        capture("screenshot_added", {
+          source: "url_capture",
+          media_kind: "image",
+          // Hostname only — the full URL of a page someone screenshots is often
+          // an internal tool or a signed link, and does not belong in analytics.
+          capture_hostname: target.hostname,
+          device: settings.device,
+        })
         // API captures are always full-page (screenshotOptions.fullPage).
         setMainScreenshotImage(dataUrl, true)
       } catch (err) {
+        capture("screenshot_added_failed", {
+          source: "url_capture",
+          capture_hostname: target.hostname,
+        })
         toast.error(
           err instanceof Error ? err.message : "Could not capture screenshot"
         )
@@ -162,6 +175,7 @@ export function useCanvasMediaIntake({
   /** Pre-captured R2 demos are full-page PNGs — same path as /api/screenshot. */
   const handleDemoScreenshot = React.useCallback(
     (src: string) => {
+      capture("screenshot_added", { source: "demo", media_kind: "image" })
       setMainScreenshotImage(src, true)
     },
     [setMainScreenshotImage]
@@ -174,6 +188,7 @@ export function useCanvasMediaIntake({
     ) => {
       // fetchTweetData throws a user-facing Error; let the caller surface it.
       const data = await fetchTweetData(url)
+      capture("screenshot_added", { source: "tweet", media_kind: "tweet" })
       setTweet({ data, ...settings })
     },
     [setTweet]

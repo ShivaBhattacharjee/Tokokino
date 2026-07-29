@@ -3,6 +3,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { capture, compositionProperties } from "@/lib/analytics"
 import { copyCanvasAsPng } from "../export"
 import type { CanvasState } from "../state-types"
 import { useEditorStore } from "../store"
@@ -303,9 +304,25 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         isCopyingCanvasRef.current = true
         const toastId = toast.loading("Copying to clipboard…")
         void copyCanvasAsPng(canvasId, "1080p", { watermark: true })
-          .then(() => toast.success("Copied to clipboard", { id: toastId }))
+          .then(() => {
+            capture("canvas_copied_to_clipboard", {
+              resolution: "1080p",
+              surface: "keyboard_shortcut",
+              ...compositionProperties(
+                useEditorStore
+                  .getState()
+                  .present.canvases.find((c) => c.id === canvasId)
+              ),
+            })
+            toast.success("Copied to clipboard", { id: toastId })
+          })
           .catch((error) => {
             console.error(error)
+            capture("export_failed", {
+              export_type: "clipboard",
+              surface: "keyboard_shortcut",
+              reason: error instanceof Error ? error.message : String(error),
+            })
             toast.error("Copy failed. Please try again.", { id: toastId })
           })
           .finally(() => {

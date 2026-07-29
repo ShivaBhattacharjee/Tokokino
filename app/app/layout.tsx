@@ -1,3 +1,5 @@
+import { AnalyticsIdentity } from "@/components/analytics-identity"
+
 export default function ScreenshotsLayout({
   children,
 }: {
@@ -5,6 +7,7 @@ export default function ScreenshotsLayout({
 }) {
   return (
     <div className="h-svh overflow-hidden bg-background text-foreground">
+      <AnalyticsIdentity />
       {children}
     </div>
   )

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { capture } from "@/lib/analytics"
 import { transcodeGifToVideo } from "@/lib/editor/gif-to-video"
 import { readImageFileAsDataUrl } from "@/lib/editor/image-resize"
 import {
@@ -16,6 +17,9 @@ import {
 // Only re-encode screenshots when they're truly oversized — leaves typical
 // 1–5 MB phone screenshots untouched and pixel-perfect.
 const SCREENSHOT_DOWNSCALE_THRESHOLD = 10 * 1024 * 1024
+
+/** How the media reached the editor, for activation analytics. */
+export type MediaIntakeSource = "drop" | "paste" | "browse"
 
 function readRawDataUrl(file: File, onImage: (src: string) => void) {
   const reader = new FileReader()
@@ -41,22 +45,40 @@ export function useImageFileIntake(
   const onPreparingChange = options?.onPreparingChange
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
-  const [pendingGif, setPendingGif] = React.useState<File | null>(null)
+  const [pendingGif, setPendingGif] = React.useState<{
+    file: File
+    source: MediaIntakeSource
+  } | null>(null)
 
   const runGifTranscode = React.useCallback(
-    (file: File) => {
+    (file: File, source: MediaIntakeSource) => {
       onPreparingChange?.(true)
       // The user agreed to a conversion in the dialog, so a fallback to the
       // plain <img> path is a different result than the one they asked for —
       // no timeline, no video bar. Say so rather than let them hunt for it.
       const fallBackToImage = () => {
+        capture("screenshot_added", {
+          source,
+          media_kind: "gif",
+          transcoded: false,
+          size_bytes: file.size,
+        })
         toast.error("Could not convert that GIF — added it as an image instead")
         readRawDataUrl(file, onImage)
       }
       transcodeGifToVideo(file)
         .then((blob) => {
-          if (blob) onImage(registerObjectUrl(blob))
-          else fallBackToImage()
+          if (!blob) {
+            fallBackToImage()
+            return
+          }
+          capture("screenshot_added", {
+            source,
+            media_kind: "gif",
+            transcoded: true,
+            size_bytes: file.size,
+          })
+          onImage(registerObjectUrl(blob))
         })
         .catch(fallBackToImage)
         .finally(() => onPreparingChange?.(false))
@@ -65,7 +87,7 @@ export function useImageFileIntake(
   )
 
   const readFile = React.useCallback(
-    (file: File) => {
+    (file: File, source: MediaIntakeSource = "browse") => {
       if (isVideoFile(file)) {
         if (!allowVideo) {
           toast.error("Videos can only be used as a single screenshot")
@@ -75,6 +97,11 @@ export function useImageFileIntake(
           toast.error("Video is too large (max 1 GB)")
           return
         }
+        capture("screenshot_added", {
+          source,
+          media_kind: "video",
+          size_bytes: file.size,
+        })
         // Play straight from an object URL — no base64, no size blow-up.
         onImage(createVideoObjectUrl(file))
         return
@@ -93,13 +120,24 @@ export function useImageFileIntake(
       // <img> path (transcodeGifToVideo returns null).
       if (isGifFile(file)) {
         if (!allowVideo) {
+          capture("screenshot_added", {
+            source,
+            media_kind: "gif",
+            transcoded: false,
+            size_bytes: file.size,
+          })
           readRawDataUrl(file, onImage)
           return
         }
-        setPendingGif(file)
+        setPendingGif({ file, source })
         return
       }
 
+      capture("screenshot_added", {
+        source,
+        media_kind: "image",
+        size_bytes: file.size,
+      })
       void readImageFileAsDataUrl(file, {
         downscaleAbove: SCREENSHOT_DOWNSCALE_THRESHOLD,
         maxDimension: 2400,
@@ -123,7 +161,7 @@ export function useImageFileIntake(
           continue
         const file = item.getAsFile()
         if (!file) continue
-        readFile(file)
+        readFile(file, "paste")
         e.preventDefault()
         break
       }
@@ -140,7 +178,7 @@ export function useImageFileIntake(
     className: "hidden",
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
-      if (file) readFile(file)
+      if (file) readFile(file, "browse")
       e.target.value = ""
     },
   }
@@ -155,12 +193,12 @@ export function useImageFileIntake(
       e.preventDefault()
       setIsDragOver(false)
       const file = e.dataTransfer.files?.[0]
-      if (file) readFile(file)
+      if (file) readFile(file, "drop")
     },
   }
 
   const confirmGifTranscode = React.useCallback(() => {
-    if (pendingGif) runGifTranscode(pendingGif)
+    if (pendingGif) runGifTranscode(pendingGif.file, pendingGif.source)
     setPendingGif(null)
   }, [pendingGif, runGifTranscode])
 

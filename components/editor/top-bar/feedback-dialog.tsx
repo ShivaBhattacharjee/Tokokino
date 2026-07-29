@@ -4,6 +4,7 @@ import * as React from "react"
 import { RiFeedbackLine } from "@remixicon/react"
 import { toast } from "sonner"
 
+import { capture } from "@/lib/analytics"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -66,6 +67,10 @@ export function FeedbackDialog({
         }),
       })
       if (!res.ok) throw new Error(String(res.status))
+      capture("feedback_submitted", {
+        rating: rating !== null ? rating + 1 : null,
+        has_message: message.trim().length > 0,
+      })
       toast.success("Thanks for the feedback!")
       setOpen(false)
       reset()

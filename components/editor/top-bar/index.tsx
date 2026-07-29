@@ -1,6 +1,5 @@
 "use client"
 
-import posthog from "posthog-js"
 import * as React from "react"
 import {
   RiArrowGoBackLine,
@@ -55,6 +54,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { capture, compositionProperties } from "@/lib/analytics"
 import { useSession } from "@/lib/auth-client"
 import {
   captureCanvasForShare,
@@ -151,12 +151,6 @@ const ANIM_SHARE_WIDTHS: Record<AnimateShareResolution, number> = {
 
 export function TopBar() {
   const { data: session, isPending: isAuthPending } = useSession()
-
-  React.useEffect(() => {
-    if (session?.user?.id) {
-      posthog.identify(session.user.id)
-    }
-  }, [session?.user?.id])
 
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
@@ -361,6 +355,12 @@ export function TopBar() {
           } else {
             setScreenshot(src)
           }
+          capture("screenshot_added", {
+            source: "browse",
+            media_kind: "image",
+            size_bytes: file.size,
+            target: selectedScreenshotSlotId ? "slot" : "main",
+          })
           toast.success("Image added")
         })
         .catch(() => {
@@ -402,6 +402,12 @@ export function TopBar() {
         return
       }
 
+      capture("screenshot_added", {
+        source: "browse",
+        media_kind: "video",
+        size_bytes: file.size,
+        target: "main",
+      })
       setScreenshot(createVideoObjectUrl(file))
       toast.success("Video added")
       e.target.value = ""
@@ -412,7 +418,7 @@ export function TopBar() {
   const handleCopyShareLink = React.useCallback(async (url: string) => {
     try {
       await navigator.clipboard.writeText(url)
-      posthog.capture("share_link_copied", { url })
+      capture("share_link_copied")
       setIsShareLinkCopied(true)
       toast.success("Share link copied")
       setTimeout(() => setIsShareLinkCopied(false), 1600)
@@ -480,6 +486,15 @@ export function TopBar() {
       storage: null,
     })
 
+    capture("share_started", {
+      media_kind: "style",
+      ...compositionProperties(
+        useEditorStore
+          .getState()
+          .present.canvases.find((c) => c.id === activeCanvasId)
+      ),
+    })
+
     try {
       await waitForNextPaint()
       const { blob, contentType } = await captureCanvasForShare(
@@ -522,6 +537,7 @@ export function TopBar() {
             ? err
             : "Could not prepare share link"
       console.error("[share]", err instanceof Error ? err : String(err))
+      capture("share_failed", { media_kind: "style", reason: message })
       await waitForShareSkeleton(skeletonStartedAt)
       setShareDialog({
         open: true,
@@ -568,6 +584,17 @@ export function TopBar() {
       error: null,
       mediaKind: useVideoMediaShareExport ? "video" : "animate",
     }))
+
+    capture("share_started", {
+      media_kind: useVideoMediaShareExport ? "video" : "animate",
+      format: shareAnimFormat,
+      resolution: shareAnimResolution,
+      ...compositionProperties(
+        useEditorStore
+          .getState()
+          .present.canvases.find((c) => c.id === activeCanvasId)
+      ),
+    })
 
     try {
       const isPlainVideoCanvas = useVideoMediaShareExport
@@ -684,6 +711,12 @@ export function TopBar() {
             ? err
             : "Could not prepare share link"
       console.error("[share-animate]", err instanceof Error ? err : String(err))
+      capture("share_failed", {
+        media_kind: useVideoMediaShareExport ? "video" : "animate",
+        format: shareAnimFormat,
+        resolution: shareAnimResolution,
+        reason: message,
+      })
       setShareProgress(null)
       const storage = await fetchShareStorage()
       setShareDialog({
@@ -791,6 +824,7 @@ export function TopBar() {
       if (isAuthPending) return
 
       if (!session) {
+        capture("auth_gate_shown", { action, surface: "desktop" })
         void saveEditorDraftBeforeAuth()
         setShareDialog((current) => ({ ...current, open: false }))
         setAuthDialog({ open: true, action })
@@ -819,6 +853,7 @@ export function TopBar() {
     if (isAuthPending) return
 
     if (!session) {
+      capture("auth_gate_shown", { action: "save", surface: "mobile" })
       void saveEditorDraftBeforeAuth()
       setShareDialog((current) => ({ ...current, open: false }))
       setAuthDialog({ open: true, action: "save" })
@@ -899,6 +934,7 @@ export function TopBar() {
         addCustomPreset(data.preset)
         setPresetTab("custom")
         setActiveCustomPresetId(data.preset.id)
+        capture("preset_saved", { preset_type: type })
         toast.success(
           type === "animate"
             ? `Animate preset "${data.preset.name}" saved`
@@ -959,6 +995,7 @@ export function TopBar() {
           type,
           geometry: data?.preset?.geometry ?? geometry,
         })
+        capture("preset_updated", { preset_type: type })
         toast.success(
           type === "animate"
             ? `Animate preset "${name}" updated`
@@ -1032,6 +1069,11 @@ export function TopBar() {
           updatedAt: data.draft.updatedAt ?? new Date().toISOString(),
         }
         setCurrentDraft(next)
+        capture("draft_saved", {
+          mode: existing ? "update" : "create",
+          canvas_count: state.present.canvases.length,
+          is_animate: state.isAnimateMode,
+        })
         toast.success(existing ? "Draft updated" : `Draft "${next.name}" saved`)
 
         void (async () => {
@@ -1065,6 +1107,7 @@ export function TopBar() {
         console.error(err)
         const message =
           err instanceof Error ? err.message : "Could not save draft"
+        capture("draft_save_failed", { reason: message })
         toast.error(message)
         return false
       } finally {
@@ -1109,12 +1152,14 @@ export function TopBar() {
           },
           ui
         )
+        capture("draft_opened")
         toast.success(`Opened "${data.draft.name}"`)
         return true
       } catch (err) {
         console.error(err)
         const message =
           err instanceof Error ? err.message : "Could not load draft"
+        capture("draft_open_failed", { reason: message })
         toast.error(message)
         return false
       }
@@ -1152,6 +1197,7 @@ export function TopBar() {
       try {
         await clearOfflineShell()
         setOfflineShell(null)
+        capture("offline_install_toggled", { enabled: false })
         toast.success("Offline editor removed")
       } catch (err) {
         console.error("[offline]", err)
@@ -1164,6 +1210,7 @@ export function TopBar() {
     try {
       const record = await cacheEditorShell(setOfflineProgress)
       setOfflineShell(record)
+      capture("offline_install_toggled", { enabled: true })
       toast.success("The editor now opens without a connection")
     } catch (err) {
       console.error("[offline]", err)
@@ -1184,6 +1231,10 @@ export function TopBar() {
       // Templates apply composition only — their screenshot media is stripped
       // in loadTemplateState — so there are no server videos to hydrate.
       applyTemplate(template)
+      capture("template_applied", {
+        template_id: template.id,
+        template_name: template.name,
+      })
       toast.success(`Applied "${template.name}"`)
     } catch (err) {
       console.error(err)
@@ -1232,7 +1283,14 @@ export function TopBar() {
       await copyCanvasAsPng(activeCanvasId, "1080p", {
         watermark: includeExportWatermark,
       })
-      posthog.capture("canvas_copied_to_clipboard", { resolution: "1080p" })
+      capture("canvas_copied_to_clipboard", {
+        resolution: "1080p",
+        ...compositionProperties(
+          useEditorStore
+            .getState()
+            .present.canvases.find((c) => c.id === activeCanvasId)
+        ),
+      })
       toast.success("Copied to clipboard", { id: toastId })
       setIsCopiedPng(true)
       setTimeout(() => setIsCopiedPng(false), 1800)
@@ -1246,6 +1304,7 @@ export function TopBar() {
 
   const handleBulkEditClick = () => {
     if (!bulkEditMode) {
+      capture("bulk_edit_entered", { canvas_count: canvasCount })
       setBulkEditMode(true)
     } else {
       if (canvasCount > 1) {

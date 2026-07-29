@@ -22,6 +22,7 @@ import type {
   CaptureDevice,
   CaptureSettings,
 } from "@/components/editor/canvas/upload-card"
+import { capture } from "@/lib/analytics"
 import { defaultCaptureDeviceForFrame } from "@/lib/mockups"
 import { ImageFitPicker } from "@/components/editor/toolbar/image-fit-picker"
 import {
@@ -555,6 +556,12 @@ export function ScreenshotSlotView({
       try {
         const src = await readFileAsDataUrl(imageFile)
         setScreenshotSlotImage(slot.id, src)
+        capture("screenshot_added", {
+          source: "drop",
+          media_kind: "image",
+          size_bytes: imageFile.size,
+          target: "slot",
+        })
       } catch {
         toast.error("Could not read image")
       }
@@ -601,9 +608,21 @@ export function ScreenshotSlotView({
           fr.onerror = () => reject(fr.error ?? new Error("FileReader error"))
           fr.readAsDataURL(blob)
         })
+        capture("screenshot_added", {
+          source: "url_capture",
+          media_kind: "image",
+          capture_hostname: target.hostname,
+          device: settings.device,
+          target: "slot",
+        })
         // API captures are always full-page (screenshotOptions.fullPage).
         setFullPageScreenshotSlot(slot.id, dataUrl)
       } catch (err) {
+        capture("screenshot_added_failed", {
+          source: "url_capture",
+          capture_hostname: target.hostname,
+          target: "slot",
+        })
         toast.error(
           err instanceof Error ? err.message : "Could not capture screenshot"
         )

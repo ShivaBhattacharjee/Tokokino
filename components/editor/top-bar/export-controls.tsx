@@ -51,6 +51,7 @@ import {
   type ExportResolution,
 } from "@/lib/editor/export"
 import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
+import { capture, compositionProperties } from "@/lib/analytics"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { shouldUseVideoMediaShareExport } from "@/lib/editor/share-export-choice"
 import { useEditorStore } from "@/lib/editor/store"
@@ -58,7 +59,6 @@ import type { CanvasState } from "@/lib/editor/store"
 import { usePersistentState } from "@/hooks/use-persistent-state"
 import { cn } from "@/lib/utils"
 import { SegmentedRow, SummaryRow, SwitchRow } from "./ui"
-import posthog from "posthog-js"
 
 const EXPORT_FORMATS: ExportFormat[] = ["png", "jpeg", "webp"]
 const EXPORT_RESOLUTIONS: ExportResolution[] = ["hd", "4k", "8k"]
@@ -453,12 +453,25 @@ function BulkExportDialog({
         succeeded++
       } catch (err) {
         console.error(err)
+        capture("export_failed", {
+          export_type: "bulk",
+          format,
+          resolution,
+          reason: err instanceof Error ? err.message : String(err),
+          error_name: err instanceof Error ? err.name : null,
+        })
         toast.error(`Canvas ${i + 1} export failed`)
       }
       setProgress({ done: i + 1, total: toExport.length })
     }
     setIsExporting(false)
     if (succeeded > 0) {
+      capture("screenshot_exported", {
+        format,
+        resolution,
+        export_type: "bulk",
+        canvas_count: succeeded,
+      })
       toast.success(
         succeeded === 1 ? "1 canvas exported" : `${succeeded} canvases exported`
       )
@@ -727,7 +740,7 @@ export function ExportControls({
             setAnimProgress(p)
           },
         })
-        posthog.capture("animation_exported", {
+        capture("animation_exported", {
           format: animFormat,
           resolution: animResolution,
           fps: effectiveAnimFps,
@@ -742,9 +755,23 @@ export function ExportControls({
           (err instanceof DOMException && err.name === "AbortError") ||
           (err instanceof Error && err.name === "AnimationExportAbortedError")
         ) {
+          capture("export_failed", {
+            export_type: "video",
+            format: animFormat,
+            resolution: animResolution,
+            reason: "cancelled",
+          })
           toast.message("Export cancelled")
         } else {
           console.error(err)
+          capture("export_failed", {
+            export_type: "video",
+            format: animFormat,
+            resolution: animResolution,
+            fps: effectiveAnimFps,
+            reason: err instanceof Error ? err.message : String(err),
+            error_name: err instanceof Error ? err.name : null,
+          })
           toast.error(
             animationExportErrorMessage(
               err,
@@ -799,11 +826,12 @@ export function ExportControls({
             setAnimProgress(p)
           },
         })
-        posthog.capture("animation_exported", {
+        capture("animation_exported", {
           format: animFormat,
           resolution: animResolution,
           fps: effectiveAnimFps,
           export_type: "animation",
+          capture_mode: animCapture,
         })
         toast.success(
           `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
@@ -814,9 +842,24 @@ export function ExportControls({
           (err instanceof DOMException && err.name === "AbortError") ||
           (err instanceof Error && err.name === "AnimationExportAbortedError")
         ) {
+          capture("export_failed", {
+            export_type: "animation",
+            format: animFormat,
+            resolution: animResolution,
+            reason: "cancelled",
+          })
           toast.message("Export cancelled")
         } else {
           console.error(err)
+          capture("export_failed", {
+            export_type: "animation",
+            format: animFormat,
+            resolution: animResolution,
+            fps: effectiveAnimFps,
+            capture_mode: animCapture,
+            reason: err instanceof Error ? err.message : String(err),
+            error_name: err instanceof Error ? err.name : null,
+          })
           toast.error(animationExportErrorMessage(err))
         }
       } finally {
@@ -835,13 +878,25 @@ export function ExportControls({
       const filename = await exportCanvas(activeCanvasId, format, resolution, {
         watermark: includeWatermark,
       })
-      posthog.capture("screenshot_exported", {
+      capture("screenshot_exported", {
         format,
         resolution,
+        ...compositionProperties(
+          useEditorStore
+            .getState()
+            .present.canvases.find((c) => c.id === activeCanvasId)
+        ),
       })
       toast.success(`Saved as ${filename}`)
     } catch (err) {
       console.error(err)
+      capture("export_failed", {
+        export_type: "image",
+        format,
+        resolution,
+        reason: err instanceof Error ? err.message : String(err),
+        error_name: err instanceof Error ? err.name : null,
+      })
       toast.error("Export failed. Please try again.")
     } finally {
       setIsExporting(false)

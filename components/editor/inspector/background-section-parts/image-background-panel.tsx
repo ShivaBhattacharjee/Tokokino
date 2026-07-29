@@ -11,6 +11,7 @@ import {
 import InfiniteScroll from "react-infinite-scroll-component"
 
 import { ScrollFadeBody } from "@/components/editor/scroll-fade"
+import { capture } from "@/lib/analytics"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -93,6 +94,10 @@ export function ImageBackgroundPanel({
         setUnsplashHasMore(Boolean(data.hasMore))
         setUnsplashStatus("ready")
         setUnsplashOpen(true)
+        // Only the first page — later pages are pagination, not a new search.
+        if (page === 1) {
+          capture("unsplash_searched", { result_count: results.length })
+        }
       } catch (error) {
         setUnsplashStatus("error")
         setUnsplashHasMore(false)

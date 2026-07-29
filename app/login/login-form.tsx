@@ -3,8 +3,11 @@
 import * as React from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import posthog from "posthog-js"
-
+import {
+  clearSignInPending,
+  markSignInPending,
+} from "@/components/analytics-identity"
+import { capture } from "@/lib/analytics"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
@@ -28,7 +31,8 @@ export function LoginForm({
   const handleGoogle = async () => {
     if (loading) return
     setLoading(true)
-    posthog.capture("sign_in_initiated", { provider: "google" })
+    capture("sign_in_initiated", { provider: "google" })
+    markSignInPending()
     try {
       await onBeforeSignIn?.()
     } catch (error) {
@@ -42,11 +46,13 @@ export function LoginForm({
         callbackURL,
       })
       if (error) {
+        clearSignInPending()
         toast.error(error.message ?? "Google sign-in failed")
         setLoading(false)
       }
       // No error means redirect is in progress — keep loading state
     } catch {
+      clearSignInPending()
       toast.error("Google sign-in failed")
       setLoading(false)
     }

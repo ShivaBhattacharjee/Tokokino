@@ -7,6 +7,12 @@ if (posthogToken) {
     api_host: "/ingest",
     ui_host: "https://us.posthog.com",
     defaults: "2026-01-30",
+    // The editor is fully usable logged out, so exporting — the core action —
+    // happens anonymously. Under the SDK default of `identified_only` those
+    // events get no person profile and are never backfilled onto the user at
+    // sign-in, which breaks exactly the funnel worth measuring: export →
+    // auth gate → signup. `always` costs more per event but keeps that join.
+    person_profiles: "always",
     capture_exceptions: true,
     debug: process.env.NODE_ENV === "development",
   })

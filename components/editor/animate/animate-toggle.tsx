@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { capture } from "@/lib/analytics"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
@@ -32,7 +33,14 @@ export function AnimateTriggerButton({
     <button
       type="button"
       aria-disabled={bulkEditMode || undefined}
-      onClick={bulkEditMode ? undefined : () => setIsAnimateMode(true)}
+      onClick={
+        bulkEditMode
+          ? undefined
+          : () => {
+              capture("animate_mode_entered")
+              setIsAnimateMode(true)
+            }
+      }
       className={cn(
         "group pointer-events-auto relative overflow-hidden rounded-[10px] bg-foreground/15 p-[2px] shadow-lg transition-transform",
         stretch && "h-full",

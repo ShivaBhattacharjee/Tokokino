@@ -17,6 +17,7 @@ const SharePlyrPlayer = dynamic(
     ),
   { ssr: false }
 )
+import { capture } from "@/lib/analytics"
 import { triggerAnchorDownload } from "@/lib/download"
 import { isVideoShareContentType } from "@/lib/share"
 
@@ -41,6 +42,17 @@ export function ShareView({
   const isVideo = isVideoShareContentType(contentType)
   const isGif = contentType.toLowerCase() === "image/gif"
   const isAnimate = shareType === "animate" || isVideo || isGif
+
+  // The public share page is the top of the referral loop: a viewer arriving
+  // here is the only signal that a share reached anyone. Views are counted in
+  // D1, but that number cannot be joined to a funnel, so it is captured here.
+  React.useEffect(() => {
+    capture("share_viewed", {
+      share_id: id,
+      share_type: shareType,
+      is_video: isVideo,
+    })
+  }, [id, shareType, isVideo])
 
   const handleCopyImage = React.useCallback(async () => {
     if (isVideo) {
@@ -77,6 +89,7 @@ export function ShareView({
         new ClipboardItem({ "image/png": pngBlob }),
       ])
       setImageCopied(true)
+      capture("share_image_copied", { share_id: id })
       toast.success("Image copied to clipboard")
       setTimeout(() => setImageCopied(false), 1600)
     } catch (error) {
@@ -92,9 +105,10 @@ export function ShareView({
     // (videos can be ~1GB) into the JS heap and can OOM the tab. The route sets
     // Content-Disposition, so the server supplies the filename.
     setDownloading(true)
+    capture("share_downloaded", { share_id: id, share_type: shareType })
     triggerAnchorDownload(`/api/share/${id}/download`, "")
     setTimeout(() => setDownloading(false), 2000)
-  }, [downloading, id])
+  }, [downloading, id, shareType])
 
   return (
     <main className="min-h-svh bg-background text-foreground">

@@ -36,7 +36,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { authClient, useSession } from "@/lib/auth-client"
+import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import {
   applyExportFilenameFormat,
@@ -488,7 +488,7 @@ function AccountSection() {
     setIsRevokingAll(true)
     try {
       await postSessionAction({ action: "revoke-all" })
-      await authClient.signOut()
+      await signOut()
       toast.success("Logged out of all devices")
     } catch {
       toast.error("Couldn't log out of all devices")
@@ -506,7 +506,7 @@ function AccountSection() {
           sessionId: item.id,
         })
         if (result.current) {
-          await authClient.signOut()
+          await signOut()
           toast.success("Logged out of this device")
           return
         }
@@ -548,7 +548,7 @@ function AccountSection() {
         body: JSON.stringify({ confirmation: deleteConfirmation }),
       })
       if (!response.ok) throw new Error("Could not delete account")
-      await authClient.signOut()
+      await signOut()
       setDeleteOpen(false)
       toast.success("Account deletion started — you've been signed out")
     } catch {
