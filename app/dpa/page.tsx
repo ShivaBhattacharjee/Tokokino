@@ -82,10 +82,10 @@ const subProcessorGroups: SubProcessorGroup[] = [
         location: "United States / Global",
       },
       {
-        name: "Sentry",
+        name: "PostHog",
         purpose:
-          "Optional application error monitoring and exception reporting used to detect, investigate, and remediate service issues.",
-        entity: "Functional Software, Inc. d/b/a Sentry",
+          "Optional product analytics and exception reporting used to understand feature usage and to detect, investigate, and remediate service issues.",
+        entity: "PostHog, Inc.",
         location: "United States / Global",
       },
     ],

@@ -64,6 +64,22 @@ export function capture(
   }
 }
 
+/**
+ * For errors PostHog's autocapture cannot see. `capture_exceptions` hooks
+ * window.onerror/unhandledrejection, but a React error boundary swallows the
+ * throw before it reaches either — those have to be reported by hand.
+ */
+export function captureError(
+  error: unknown,
+  properties?: Record<string, unknown>
+): void {
+  try {
+    posthog.captureException(error, properties)
+  } catch (captureFailure) {
+    console.warn("[analytics] captureException failed", captureFailure)
+  }
+}
+
 export function identifyUser(user: {
   id: string
   email?: string | null

@@ -115,7 +115,7 @@ If webhook unset: accept silently (dev/self-host). Session optional for attribut
 | Google Fonts | `lib/editor/fonts.ts` | Client load in editor |
 | Device mockups CDN | `lib/mockups/index.ts` | `assets.tokokino.com` |
 | Background/overlay packs | `presets.ts`, build scripts | thumbs via `pnpm build:thumbs` / `build:backgrounds` |
-| Sentry | instrumentation files | Optional error reporting |
+| PostHog | `instrumentation-client.ts`, `lib/analytics.ts` | Product analytics + error capture, proxied via `/ingest` |
 | Web MCP | `web-mcp-provider.tsx` | Browser agent tools — [web-mcp.md](./web-mcp.md) |
 | Landing / SEO | `components/landing/*`, llms.txt | [marketing-site.md](./marketing-site.md) |
 
