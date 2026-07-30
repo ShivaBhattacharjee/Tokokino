@@ -20,7 +20,7 @@ import { clearAnimationFrameVars } from "../apply-animation-frame"
 import { isVideoSrc } from "../media-type"
 import { captureClipPose, useEditorStore } from "../store"
 import { acquireAnimationCapture, suppressCloneTransitions } from "./capture"
-import { encodeGif } from "./gif"
+import { encodeGif, MAX_GIF_FPS } from "./gif"
 import { prepareCloneVideoLayer } from "./video-layer"
 import type { CloneVideoLayer } from "./video-layer"
 import {
@@ -105,7 +105,14 @@ async function encodeAnimation(
       : animation.clips
   if (!clips.length) throw new Error("Add at least one keyframe before sharing")
 
-  const fps = Math.max(1, Math.min(60, options.fps ?? 30))
+  // Clamp before frameCount so the plan and the emitted delays agree: a GIF
+  // can't express more than MAX_GIF_FPS, and planning above it would stretch
+  // the clip rather than speed it up.
+  const requestedFps = Math.max(1, Math.min(60, options.fps ?? 30))
+  const fps =
+    options.format === "gif"
+      ? Math.min(requestedFps, MAX_GIF_FPS)
+      : requestedFps
   const frameCount = Math.max(1, Math.round((durationMs / 1000) * fps))
   const frameDurationMs = 1000 / fps
   const targetWidth =

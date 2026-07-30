@@ -217,6 +217,7 @@ flowchart TD
 
 - Bitrate: high quality; keyframe interval ~2s; even dimensions.
 - Safari: WebM disabled in UI (`isWebmExportSupported` false).
+- **GIF fps is clamped to `MAX_GIF_FPS = 50`** in `index.ts`, before `frameCount` is computed. Delays are whole centiseconds with a 2cs floor (viewers clamp anything shorter to ~10cs), so 50fps is the fastest cadence a GIF can express — asking for 60 doesn't play faster, it emits 2cs anyway and runs the clip 20% long. The UI already only offers GIF `[20, 25, 50]`; the clamp makes the encoder correct for direct API callers too.
 
 ### Frame budgets
 
@@ -229,7 +230,7 @@ There is **no global frame cap**. A `MAX_FRAMES = 600` clamp used to live in `in
 | MediaRecorder WebM fallback | **Yes** — every frame as a canvas | `MAX_MEDIARECORDER_TOTAL_PIXELS = 150M` (frames × area) |
 
 - **GIF** used to buffer every frame as raw `ImageData` just to build a shared palette in a second pass (~700 MB at the old cap on 720p). It now mirrors `video-media/encode-gif.ts`: render 16 evenly-spaced frames for the palette, then render each frame once and write it straight into the encoder. Peak memory is flat regardless of length, for 16 extra captures rather than a 2× full pass. The remaining guard exists because **gifenc** accumulates the whole compressed stream in RAM until `finish()` — that ceiling is real and independent of how frames are captured.
-- **MediaRecorder** genuinely cannot stream: capture is slower than real time, so every frame is rasterized up front and held as a canvas before playback drives the recorder. ~150M px ≈ 600 MB of backing store — roughly 2 min at 720p, 40 s at 1080p. Only browsers without WebCodecs reach it.
+- **MediaRecorder** genuinely cannot stream: capture is slower than real time, so every frame is rasterized up front and held as a canvas before playback drives the recorder. Canvas backing stores are raw RGBA, so 150M px is already ~600 MB — buying only ~162 frames at 720p (**5.4 s @ 30fps**) or ~72 at 1080p (**2.4 s**). Deliberately tight: the number is set by memory, not by a target duration. Only browsers without WebCodecs reach it. For reference, the old 600-frame cap at 720p would have been ~2.2 GB.
 
 Both bounds **throw a user-facing error** rather than shortening the output. Either the export is complete or it says why it can't be.
 
@@ -304,7 +305,8 @@ MediaRecorder fallback has **no** audio.
 | `tests/lib/editor/animation-export/capture-engines.test.ts` | auto/fast/legacy selection + fallback |
 | `tests/lib/editor/animation-export/capture-stable-frame.test.ts` | layered preferred; skip JPEG when layered; decline → plain; throw → plain |
 | `tests/lib/editor/animation-export/webkit-layered-frame.test.ts` | gating, compose/warp, video `getFrame`, underlay settle + caches |
-| `tests/lib/editor/animation-export/export-video.integration.test.ts` | video layer → Mediabunny → cleanup; long timelines are not truncated |
+| `tests/lib/editor/animation-export/export-video.integration.test.ts` | video layer → Mediabunny → cleanup; long timelines are not truncated; GIF fps clamp |
+| `tests/lib/editor/animation-export/mediarecorder-budget.test.ts` | fallback pixel budget rejects before any frame is captured |
 | `tests/lib/editor/animation-export/video-layer.test.ts` | segment math; JPEG bridge; hold outside clips |
 | `tests/lib/editor/animation-export/animation-audio.test.ts` | passthrough vs retimed audio |
 | `tests/lib/editor/animation-export/error-message.test.ts` | user-facing errors |

@@ -2,7 +2,7 @@
  * GIF encode (gifenc, pure JS). Builds one shared 256-color palette for the whole
  * clip from sampled frames, then ordered-dithers and writes each frame straight
  * into the encoder with centisecond-accurate delays so playback cadence matches
- * the requested fps.
+ * the requested fps — up to `MAX_GIF_FPS`, which callers must clamp to.
  */
 
 import { GIFEncoder, quantize, applyPalette, type Palette } from "gifenc"
@@ -16,6 +16,14 @@ import { drawWatermark } from "./watermark"
 /** Frames to sample when building the shared palette — enough to cover the
  *  clip's color range without feeding every pixel of every frame to quantize. */
 const GIF_PALETTE_SAMPLE_FRAMES = 16
+
+/**
+ * Fastest cadence a GIF can actually express. Delays are whole centiseconds and
+ * viewers clamp anything under 2cs to ~10cs, so 2cs (50fps) is the floor per
+ * frame. Asking for more doesn't play faster — the encoder still emits 2cs and
+ * the clip runs long (60fps would stretch it by 20%). Callers clamp to this.
+ */
+export const MAX_GIF_FPS = 50
 
 // 8×8 Bayer threshold matrix (values 0–63) for ordered dithering. Ordered
 // dithering is deterministic — the same spatial pattern every frame — so it

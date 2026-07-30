@@ -36,9 +36,11 @@ import { drawWatermark } from "./watermark"
 // Cap on what the MediaRecorder fallback may buffer = frames × pixels-per-frame.
 // Unlike the WebCodecs path it can't stream: capture is slower than real time, so
 // every frame must be rasterized up front and held as a canvas before playback
-// drives the recorder. ~150M pixels keeps the backing stores near ~600 MB, which
-// is roughly 2 min at 720p or 40 s at 1080p. Only browsers without WebCodecs
-// (which are also the memory-poorest) ever reach this path.
+// drives the recorder. Canvas backing stores are raw RGBA, so 150M pixels is
+// already ~600 MB — which buys only ~162 frames at 720p (5.4 s @ 30fps) or ~72 at
+// 1080p (2.4 s). That is deliberately tight: the budget is set by memory, not by
+// a target duration. Only browsers without WebCodecs reach this path, and they
+// are the memory-poorest ones. Everything else streams and has no ceiling.
 export const MAX_MEDIARECORDER_TOTAL_PIXELS = 150_000_000
 
 /**

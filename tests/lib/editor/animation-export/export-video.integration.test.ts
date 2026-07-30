@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   acquireCapture: vi.fn(),
   clearAnimationFrameVars: vi.fn(),
   createVideoLayer: vi.fn(),
+  encodeGif: vi.fn(),
   encodeVideo: vi.fn(),
   getState: vi.fn(),
   isVideoSrc: vi.fn(),
@@ -34,7 +35,8 @@ vi.mock("@/lib/editor/animation-export/video-layer", () => ({
 }))
 
 vi.mock("@/lib/editor/animation-export/gif", () => ({
-  encodeGif: vi.fn(),
+  MAX_GIF_FPS: 50,
+  encodeGif: mocks.encodeGif,
 }))
 
 vi.mock("@/lib/editor/animation-export/video", () => ({
@@ -174,6 +176,44 @@ describe("Animate video export coordinator", () => {
 
     expect(mocks.encodeVideo).toHaveBeenCalledWith(
       expect.objectContaining({ frameCount: 5 * 60 * 30 }),
+      "mp4"
+    )
+  })
+
+  // GIF delays are whole centiseconds with a 2cs floor, so >50fps can't play
+  // faster — it just stretches the clip (60fps ran 20% long). Clamp has to land
+  // before frameCount so the plan and the emitted delays agree.
+  it("clamps GIF exports to MAX_GIF_FPS and plans frames at the clamped rate", async () => {
+    mocks.getState.mockReturnValue(editorState(2000))
+    mocks.isVideoSrc.mockReturnValue(false)
+    mocks.acquireCapture.mockResolvedValue(capture)
+    mocks.encodeGif.mockResolvedValue(new Blob(["gif"], { type: "image/gif" }))
+
+    await exportAnimationBlob("canvas-1", {
+      format: "gif",
+      fps: 60,
+      watermark: false,
+    })
+
+    expect(mocks.encodeGif).toHaveBeenCalledWith(
+      expect.objectContaining({ fps: 50, frameCount: 100 })
+    )
+  })
+
+  it("leaves 60fps alone for video formats", async () => {
+    mocks.getState.mockReturnValue(editorState(2000))
+    mocks.isVideoSrc.mockReturnValue(false)
+    mocks.acquireCapture.mockResolvedValue(capture)
+    mocks.encodeVideo.mockResolvedValue(new Blob(["v"], { type: "video/mp4" }))
+
+    await exportAnimationBlob("canvas-1", {
+      format: "mp4",
+      fps: 60,
+      watermark: false,
+    })
+
+    expect(mocks.encodeVideo).toHaveBeenCalledWith(
+      expect.objectContaining({ fps: 60, frameCount: 120 }),
       "mp4"
     )
   })
