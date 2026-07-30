@@ -77,7 +77,7 @@ sequenceDiagram
 
 1. Validate `canvas.screenshot` is a video URL.
 2. `prepareAnimationCapture` — **legacy/precise only** (not the fast FO path).
-3. `waitForVideoReady`; `planFrames(duration, fps)` — **no 600-frame cap**.
+3. `waitForVideoReady`; `planFrames(duration, fps)` — full clip, no frame cap.
 4. Decode strategy:
    - Chromium (`supportsObjectViewBox`) → DOM seek inside the clone
    - Safari / Firefox → `createDecodedFrameSource`; if native AV1 rejected → register dav1d WASM
@@ -191,7 +191,7 @@ flowchart LR
 
 | Topic | Behavior |
 |---|---|
-| Frame budget | No 600 cap (unlike keyframe export) |
+| Frame budget | None — full clip length |
 | GIF memory | `MAX_GIF_TOTAL_PIXELS ≈ 350e6` OOM guard |
 | Audio length | `exportAudioDurationSec(plan)` — matches styled frame count, not raw clip length |
 | Audio failure | Silent export; never fail the job |
@@ -260,7 +260,7 @@ Remux is judged against `containerAudioCodecs`, **not** the muxer's own capabili
 | Scene motion | Static styling; video pixels change | CSS / timeline changes every frame |
 | Video handling | Composite into fixed slot | Plain: JPEG `<img>` bridge; WebKit layered: `getFrame` into cached shell + warp |
 | WebKit perspective | Once-raster underlay/FG + per-frame media warp | Same primitives via `webkit-layered-frame` (per-frame pose) |
-| Frame cap | None (GIF has pixel budget) | `MAX_FRAMES = 600` |
+| Frame cap | None (GIF has pixel budget) | None; same per-encoder pixel budgets |
 | Audio | `prepareSourceAudio` | `prepareAnimationAudio` (segment-aware) |
 | Entry | `exportVideoMedia` | `exportAnimation*` |
 

@@ -14,7 +14,7 @@ Use this path when the canvas has visual keyframes. For a video canvas with **no
 ```
 lib/editor/animation-export/
 ├── index.ts                 # Orchestrator — exportAnimation*
-├── types.ts                 # Formats, phases, CaptureCtx, MAX_FRAMES
+├── types.ts                 # Formats, phases, CaptureCtx
 ├── capture.ts               # Engine selection + captureStableFrame
 ├── webkit-layered-frame.ts  # WebKit perspective fix — layered underlay/shell/FG
 ├── video.ts                 # Mediabunny encode + MediaRecorder WebM fallback
@@ -50,7 +50,7 @@ sequenceDiagram
   participant Enc as gifenc / Mediabunny / MediaRecorder
 
   UI->>Orch: canvasId + format/fps/width
-  Orch->>Orch: Read clips, duration; frameCount ≤ 600
+  Orch->>Orch: Read clips, duration; frameCount = duration × fps
   Orch->>Cap: auto | fast | legacy
   Cap-->>Orch: AnimationCapture
   opt screenshot is video
@@ -67,12 +67,12 @@ sequenceDiagram
 ### Stages (ordered)
 
 1. Read store: `canvas.animation`, clips, `durationMs`; optionally merge live selected-clip pose via `captureClipPose`.
-2. Compute `frameCount = min(600, duration × fps)`; preload watermark assets.
+2. Compute `frameCount = duration × fps` — the whole timeline, uncapped; preload watermark assets.
 3. `acquireAnimationCapture(mode)` — `auto` tries fast, falls back to legacy.
 4. `suppressCloneTransitions` on the clone.
 5. If main screenshot is video → `prepareCloneVideoLayer` (decode + JPEG bridge).
 6. Encode by format:
-   - **GIF** → `encodeGif` → per-frame `captureStableFrame` → gifenc palette / Bayer dither
+   - **GIF** → `encodeGif` → 16 sampled frames build the shared palette, then per-frame `captureStableFrame` → Bayer dither → straight into gifenc
    - **MP4 / WebM** → `tryEncodeWithMediabunny`; on failure, MediaRecorder WebM (MP4 hard-fails without WebCodecs)
 7. Per frame inside encoders: `captureStableFrame` (WebKit layered when applicable, else videoLayer paint → FO) → portrait DoF → watermark.
 8. Audio (Mediabunny only): `prepareAnimationAudio` — passthrough if timeline untouched, else re-time to segments.
@@ -201,10 +201,10 @@ flowchart LR
 ```mermaid
 flowchart TD
   FMT{"format"}
-  FMT -->|gif| GIF["gifenc<br/>shared 256 palette + Bayer dither"]
+  FMT -->|gif| GIF["gifenc<br/>16 sampled frames → shared 256 palette<br/>then stream + Bayer dither"]
   FMT -->|mp4 / webm| MB{"tryEncodeWithMediabunny"}
-  MB -->|ok| MBENC["CanvasSource + preferred codecs"]
-  MB -->|fail / no VideoEncoder| MR["MediaRecorder WebM<br/>silent — no audio"]
+  MB -->|ok| MBENC["CanvasSource + preferred codecs<br/>streams — no frame budget"]
+  MB -->|fail / no VideoEncoder| MR["MediaRecorder WebM<br/>silent — no audio<br/>buffers — pixel budget"]
   MB -->|mp4 + no WebCodecs| FAIL["Hard fail"]
 ```
 
@@ -217,7 +217,22 @@ flowchart TD
 
 - Bitrate: high quality; keyframe interval ~2s; even dimensions.
 - Safari: WebM disabled in UI (`isWebmExportSupported` false).
-- `MAX_FRAMES = 600` hard cap on the keyframe path.
+- **GIF fps is clamped to `MAX_GIF_FPS = 50`** in `index.ts`, before `frameCount` is computed. Delays are whole centiseconds with a 2cs floor (viewers clamp anything shorter to ~10cs), so 50fps is the fastest cadence a GIF can express — asking for 60 doesn't play faster, it emits 2cs anyway and runs the clip 20% long. The UI already only offers GIF `[20, 25, 50]`; the clamp makes the encoder correct for direct API callers too.
+
+### Frame budgets
+
+There is **no global frame cap**. A `MAX_FRAMES = 600` clamp used to live in `index.ts` and silently truncated any timeline past 20 s @ 30fps (10 s @ 60fps) — the file just ended mid-motion, with the audio window cut to match so it looked deliberate. It was really a blunt guard for the two encoders that buffer; each now carries its own bound, and only where the memory pressure is real.
+
+| Path | Buffers? | Bound |
+|---|---|---|
+| Mediabunny / WebCodecs (MP4, WebM) | No — streams into the muxer | None. Full timeline at any length |
+| GIF (`gif.ts`) | No — samples then streams | `gifExportExceedsMemory` (`MAX_GIF_TOTAL_PIXELS = 350M`, frames × area) |
+| MediaRecorder WebM fallback | **Yes** — every frame as a canvas | `MAX_MEDIARECORDER_TOTAL_PIXELS = 150M` (frames × area) |
+
+- **GIF** used to buffer every frame as raw `ImageData` just to build a shared palette in a second pass (~700 MB at the old cap on 720p). It now mirrors `video-media/encode-gif.ts`: render 16 evenly-spaced frames for the palette, then render each frame once and write it straight into the encoder. Peak memory is flat regardless of length, for 16 extra captures rather than a 2× full pass. The remaining guard exists because **gifenc** accumulates the whole compressed stream in RAM until `finish()` — that ceiling is real and independent of how frames are captured.
+- **MediaRecorder** genuinely cannot stream: capture is slower than real time, so every frame is rasterized up front and held as a canvas before playback drives the recorder. Canvas backing stores are raw RGBA, so 150M px is already ~600 MB — buying only ~162 frames at 720p (**5.4 s @ 30fps**) or ~72 at 1080p (**2.4 s**). Deliberately tight: the number is set by memory, not by a target duration. Only browsers without WebCodecs reach it. For reference, the old 600-frame cap at 720p would have been ~2.2 GB.
+
+Both bounds **throw a user-facing error** rather than shortening the output. Either the export is complete or it says why it can't be.
 
 ---
 
@@ -248,7 +263,7 @@ MediaRecorder fallback has **no** audio.
 | `capture.ts` | Engine acquire; `captureStableFrame`; layered-then-plain; incomplete-frame hold |
 | `webkit-layered-frame.ts` | WebKit Animate capture: underlay/shell caches + projected compose |
 | `video.ts` | Mediabunny encode; MediaRecorder fallback; WebM capability probe |
-| `gif.ts` | GIF encode loop |
+| `gif.ts` | GIF encode: sampled shared palette, then streaming dither/write |
 | `video-layer.ts` | Timeline↔source mapping; JPEG bridge; `getFrame` for layered |
 | `animation-audio.ts` | Segment-aware audio for keyframe export |
 | `watermark.ts` | Per-frame credit overlay |
@@ -278,7 +293,7 @@ MediaRecorder fallback has **no** audio.
 4. **WebKit FO flattens perspective** — Animate uses the layered underlay/shell/warp path; Chromium stays on single-pass FO.
 5. **Layered declines cleanly** — `null` or throw → plain capture; never fail the whole export.
 6. **Audio is best-effort** — missing tracks never fail export.
-7. **600-frame budget** — long timelines are capped (video-media has no such cap; GIF has a pixel-budget guard there instead).
+7. **No silent truncation** — the timeline exports in full, or the export fails with a reason. Memory bounds live on the two encoders that actually buffer (GIF, MediaRecorder), expressed as frames × area; the WebCodecs path streams and is unbounded.
 8. **WebM gated on Safari** — UI + `isWebmExportSupported`.
 
 ---
@@ -290,7 +305,8 @@ MediaRecorder fallback has **no** audio.
 | `tests/lib/editor/animation-export/capture-engines.test.ts` | auto/fast/legacy selection + fallback |
 | `tests/lib/editor/animation-export/capture-stable-frame.test.ts` | layered preferred; skip JPEG when layered; decline → plain; throw → plain |
 | `tests/lib/editor/animation-export/webkit-layered-frame.test.ts` | gating, compose/warp, video `getFrame`, underlay settle + caches |
-| `tests/lib/editor/animation-export/export-video.integration.test.ts` | video layer → Mediabunny → cleanup |
+| `tests/lib/editor/animation-export/export-video.integration.test.ts` | video layer → Mediabunny → cleanup; long timelines are not truncated; GIF fps clamp |
+| `tests/lib/editor/animation-export/mediarecorder-budget.test.ts` | fallback pixel budget rejects before any frame is captured |
 | `tests/lib/editor/animation-export/video-layer.test.ts` | segment math; JPEG bridge; hold outside clips |
 | `tests/lib/editor/animation-export/animation-audio.test.ts` | passthrough vs retimed audio |
 | `tests/lib/editor/animation-export/error-message.test.ts` | user-facing errors |

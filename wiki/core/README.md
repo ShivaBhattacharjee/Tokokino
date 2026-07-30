@@ -175,7 +175,7 @@ flowchart LR
 | Share storage / user | 1 GB |
 | Direct still share body | 40 MB |
 | Resumable share upload | 1 GB |
-| Keyframe export frames | 600 |
+| Keyframe export frames | Uncapped (GIF 350M px, MediaRecorder WebM 150M px — frames × area) |
 
 ## Canvas images (edit performance)
 

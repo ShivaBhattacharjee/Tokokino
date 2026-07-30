@@ -85,5 +85,3 @@ export type CaptureCtx = {
   /** Non-null when the canvas is a video and its frames are decodable here. */
   videoLayer: CloneVideoLayer | null
 }
-
-export const MAX_FRAMES = 600
