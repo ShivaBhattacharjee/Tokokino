@@ -66,8 +66,8 @@ import {
 } from "@/lib/editor/screenshot-layout"
 import { MockupEmptyState } from "./mockup-empty-state"
 import {
+  bareEmptyPlacement,
   deviceMockupSpec,
-  fitContainBox,
   lightingOverlayCss,
   overlayLayerCss,
   screenshotPlacementStyle,
@@ -94,6 +94,7 @@ import {
 } from "@/lib/editor/full-page-capture"
 import { ScreenshotSlotView } from "../screenshot-slot-element"
 import { useAnimateStacks } from "./use-animate-stacks"
+import { useBareStageSize } from "./use-bare-stage-size"
 import { useCanvasMediaIntake } from "./use-canvas-media-intake"
 import { useAnnotationInteractions } from "./use-annotation-interactions"
 import { useBackgroundDownscale } from "./use-background-downscale"
@@ -276,6 +277,7 @@ function CanvasViewInner({
   const [centerGuides, updateCenterGuides] = useCenterGuides()
   const [textCenterGuides, updateTextCenterGuides] = useCenterGuides()
   const stageRef = React.useRef<HTMLDivElement>(null)
+  const paddedStageRef = React.useRef<HTMLDivElement>(null)
   const imageRef = React.useRef<HTMLImageElement>(null)
   const annotationLayerRef = React.useRef<SVGSVGElement>(null)
   const suppressTransitionPadding = useSuppressTransitionOnChange(padding)
@@ -299,6 +301,18 @@ function CanvasViewInner({
   const suppressTransitionPlacement = useSuppressTransitionOnChange(
     placementDims
       ? `${Math.round(placementDims.imgW)}x${Math.round(placementDims.imgH)}:${Math.round(placementDims.stageW)}x${Math.round(placementDims.stageH)}`
+      : "pending"
+  )
+  const bareStageSize = useBareStageSize(
+    paddedStageRef,
+    frame.id === "none" && !inRowMode && !tweet
+  )
+  // The empty box is sized in px from this measurement, so during a padding drag
+  // it gets a new target every frame — easing between them would leave it
+  // trailing the padding the canvas already painted.
+  const suppressTransitionBareStage = useSuppressTransitionOnChange(
+    bareStageSize
+      ? `${Math.round(bareStageSize.w)}x${Math.round(bareStageSize.h)}`
       : "pending"
   )
   const suppressTransition =
@@ -486,36 +500,26 @@ function CanvasViewInner({
   const positionedStyle: React.CSSProperties | null = placementDims
     ? screenshotPlacementStyle(placementDims, scaleFactor, positionX, positionY)
     : null
-  // Bare (no-frame) empty / preparing placeholder: same free-placement math as
-  // ScreenshotBare so templates with corner anchors + offsets (Silent Reveal)
-  // don't jump when a screenshot lands. Assumes the empty box fills the stage
-  // the way cover/contain-matching-aspect will after upload.
   const bareEmptyFreePlacement = React.useMemo(() => {
     if (frame.id !== "none" || inRowMode || tweet) return null
+    // Padding-derived dims are a first-paint fallback only — `bareStageSize` is
+    // what the browser laid out, and `padding` still holds the last committed
+    // value while a slider drag previews through the CSS var.
     // CSS % padding is relative to the containing block's WIDTH on every side.
     const padPx = (Math.max(0, Math.min(240, padding)) / 1200) * widthPx
-    const stageW = Math.max(1, widthPx - 2 * padPx)
-    const stageH = Math.max(1, heightPx - 2 * padPx)
-    // Match ScreenshotBare / buildScreenshotImageStyle: unset objectFit is cover.
-    // Only explicit "contain" uses fitContainBox so the placeholder matches upload.
-    const fit = objectFit ?? "cover"
-    let imgW = stageW
-    let imgH = stageH
-    if (fit === "contain") {
-      const box = fitContainBox(stageW, stageH, canvasAspectRatio)
-      imgW = box.width
-      imgH = box.height
-    }
-    const base = screenshotPlacementStyle(
-      { stageW, stageH, imgW, imgH },
+    return bareEmptyPlacement({
+      stage: bareStageSize ?? {
+        w: widthPx - 2 * padPx,
+        h: heightPx - 2 * padPx,
+      },
+      aspectRatio: canvasAspectRatio,
+      objectFit,
       scaleFactor,
       positionX,
-      positionY
-    )
-    const left = typeof base.left === "number" ? base.left : 0
-    const top = typeof base.top === "number" ? base.top : 0
-    return { left, top, width: imgW, height: imgH }
+      positionY,
+    })
   }, [
+    bareStageSize,
     canvasAspectRatio,
     frame.id,
     heightPx,
@@ -997,6 +1001,7 @@ function CanvasViewInner({
 
           {!mainScreenshotRowStyle ? (
             <div
+              ref={paddedStageRef}
               data-editor-shadow-preview-scope="canvas"
               className="pointer-events-none relative flex h-full w-full items-center justify-center"
               style={{
@@ -1303,6 +1308,7 @@ function CanvasViewInner({
                         }
                       : null
                   }
+                  suppressTransition={suppressTransitionBareStage}
                   transform={transform}
                   shadowFilter={computedShadowFilter}
                   boxStyle={emptyStateBoxStyle}

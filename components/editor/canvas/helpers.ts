@@ -609,6 +609,56 @@ export function screenshotPlacementStyle(
   }
 }
 
+/**
+ * Placement for the bare (no-frame) empty / preparing placeholder — the same
+ * left/top/size math {@link ScreenshotBare} lands on once media arrives, so a
+ * template with corner anchors + offsets doesn't jump on upload.
+ *
+ * `stage` must be the stage the browser actually laid out, NOT one derived from
+ * the committed padding: padding is live-previewed through a CSS var during a
+ * slider drag, and a box sized for the old padding inside the new stage renders
+ * at the padded origin with the unpadded size — overflowing right and bottom.
+ */
+export function bareEmptyPlacement({
+  stage,
+  aspectRatio,
+  objectFit,
+  scaleFactor,
+  positionX,
+  positionY,
+}: {
+  stage: { w: number; h: number }
+  aspectRatio: number
+  objectFit: "contain" | "cover" | "fill" | undefined
+  scaleFactor: number
+  positionX: number
+  positionY: number
+}): BareFreePlacement {
+  const stageW = Math.max(1, stage.w)
+  const stageH = Math.max(1, stage.h)
+  // Match ScreenshotBare / buildScreenshotImageStyle: unset objectFit is cover.
+  // Only explicit "contain" shrink-wraps, so the placeholder matches the upload.
+  let imgW = stageW
+  let imgH = stageH
+  if (objectFit === "contain") {
+    const box = fitContainBox(stageW, stageH, aspectRatio)
+    imgW = box.width
+    imgH = box.height
+  }
+  const base = screenshotPlacementStyle(
+    { stageW, stageH, imgW, imgH },
+    scaleFactor,
+    positionX,
+    positionY
+  )
+  return {
+    left: typeof base.left === "number" ? base.left : 0,
+    top: typeof base.top === "number" ? base.top : 0,
+    width: imgW,
+    height: imgH,
+  }
+}
+
 /** Free-placement box matching bare {@link ScreenshotBare} left/top/size math. */
 export type BareFreePlacement = {
   left: number

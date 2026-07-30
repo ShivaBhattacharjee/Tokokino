@@ -92,4 +92,28 @@ describe("CanvasEmptyState", () => {
     expect(positioned.style.height).toBe("120px")
     expect(positioned.style.transform).toBe("perspective(1400px) scale(1.16)")
   })
+
+  /**
+   * The box is sized in stage pixels from a ResizeObserver, so a padding drag
+   * hands it a new target every frame. Easing between them would leave it
+   * visibly trailing the padding the canvas has already painted.
+   */
+  it("drops the move easing while the measured stage is changing", () => {
+    const freePlacement = { left: 0, top: 0, width: 200, height: 120 }
+    const box = (suppressTransition: boolean) =>
+      render(
+        <CanvasEmptyState
+          isDragOver={false}
+          onBrowse={() => {}}
+          freePlacement={freePlacement}
+          suppressTransition={suppressTransition}
+        />
+      ).container.querySelector(
+        "[data-editor-shadow-filter-target]"
+      ) as HTMLElement
+
+    expect(box(true).className).toContain("transition-none")
+    expect(box(true).className).not.toContain("duration-300")
+    expect(box(false).className).toContain("transition-all")
+  })
 })

@@ -50,6 +50,8 @@ type CanvasEmptyStateProps = {
    * so empty templates land where the screenshot will after upload.
    */
   freePlacement?: EmptyFreePlacement | null
+  /** Drop the box's move/resize easing while its measured stage is changing. */
+  suppressTransition?: boolean
   /** The CSS transform string for tilt/scale (e.g. perspective + rotateX/Y/Z + scale). */
   transform?: string
   /** The shadow drop-filter for the screenshot box. */
@@ -82,6 +84,7 @@ export function CanvasEmptyState({
   screenshotAnchor,
   screenshotOffset,
   freePlacement,
+  suppressTransition = false,
   transform,
   shadowFilter,
   boxStyle,
@@ -120,7 +123,10 @@ export function CanvasEmptyState({
 
   const interactionClass = cn(
     "pointer-events-auto absolute top-0 left-0 select-none",
-    "overflow-hidden rounded-3xl border border-border/30 transition-all duration-300 ease-out dark:border-white/8",
+    "overflow-hidden rounded-3xl border border-border/30 dark:border-white/8",
+    suppressTransition
+      ? "transition-none"
+      : "transition-all duration-300 ease-out",
     "data-[drag-over=true]:border-primary/60 data-[drag-over=true]:ring-2 data-[drag-over=true]:ring-primary/35",
     onPointerDown && activeTool === "pointer"
       ? isBeingDragged
