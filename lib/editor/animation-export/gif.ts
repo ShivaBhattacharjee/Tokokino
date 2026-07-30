@@ -1,7 +1,8 @@
 /**
- * GIF encode (gifenc, pure JS). Buffers every frame, builds one shared 256-color
- * palette for the whole clip, ordered-dithers, then writes centisecond-accurate
- * delays so playback cadence matches the requested fps.
+ * GIF encode (gifenc, pure JS). Builds one shared 256-color palette for the whole
+ * clip from sampled frames, then ordered-dithers and writes each frame straight
+ * into the encoder with centisecond-accurate delays so playback cadence matches
+ * the requested fps.
  */
 
 import { GIFEncoder, quantize, applyPalette, type Palette } from "gifenc"
@@ -9,6 +10,7 @@ import { GIFEncoder, quantize, applyPalette, type Palette } from "gifenc"
 import { captureStableFrame } from "./capture"
 import type { CaptureCtx } from "./types"
 import { throwIfAborted } from "./utils"
+import { gifExportExceedsMemory } from "./video-media/encode-gif"
 import { drawWatermark } from "./watermark"
 
 /** Frames to sample when building the shared palette — enough to cover the
@@ -83,35 +85,6 @@ function orderedDither(img: ImageData, amplitude: number) {
   }
 }
 
-/**
- * Build one 256-color palette for the whole clip from a handful of evenly
- * spaced frames, then re-map every frame onto it. A single shared palette is
- * what stops the frame-to-frame color shimmer you get from quantizing each
- * frame independently — and it moves the expensive `quantize` off the per-frame
- * path (run once instead of N times), which is most of the speedup.
- */
-function buildGifPalette(frames: ImageData[]): Palette {
-  const stride = Math.max(
-    1,
-    Math.floor(frames.length / GIF_PALETTE_SAMPLE_FRAMES)
-  )
-  const samples: Uint8ClampedArray[] = []
-  for (let i = 0; i < frames.length; i += stride) samples.push(frames[i].data)
-  // Always include the last frame so end-state colors are represented.
-  const last = frames[frames.length - 1]?.data
-  if (last && samples[samples.length - 1] !== last) samples.push(last)
-
-  let total = 0
-  for (const s of samples) total += s.length
-  const combined = new Uint8Array(total)
-  let offset = 0
-  for (const s of samples) {
-    combined.set(s, offset)
-    offset += s.length
-  }
-  return quantize(combined, 256)
-}
-
 export async function encodeGif(ctx: CaptureCtx) {
   const {
     capture,
@@ -126,13 +99,16 @@ export async function encodeGif(ctx: CaptureCtx) {
     videoLayer,
   } = ctx
 
-  // Pass 1 — capture every frame's pixels. Buffering the frames lets us build a
-  // single shared palette (pass 2) instead of one per frame; the WebM path
-  // buffers frames the same way, so peak memory is in line with existing exports.
-  progress.report("capturing", 0, frameCount)
-  const frames: ImageData[] = []
-  for (let f = 0; f < frameCount; f++) {
-    throwIfAborted(signal)
+  // gifenc accumulates the whole compressed stream in one in-memory buffer until
+  // finish(), so bound the output by frames × area and fail fast with an
+  // actionable message. MP4/WebM stream through WebCodecs and have no ceiling.
+  if (gifExportExceedsMemory(frameCount, capture.width, capture.height)) {
+    throw new Error(
+      "This animation is too long or too large for GIF export. Shorten the timeline, lower the resolution, or export as MP4/WebM instead."
+    )
+  }
+
+  const renderFrame = async (f: number) => {
     const frameCanvas = await captureStableFrame(
       capture,
       canvas,
@@ -142,50 +118,87 @@ export async function encodeGif(ctx: CaptureCtx) {
       videoLayer
     )
     const gctx = frameCanvas.getContext("2d")
-    if (!gctx) {
-      progress.report("capturing", f + 1, frameCount)
-      continue
-    }
+    if (!gctx) return null
     if (watermark) {
       drawWatermark(gctx, frameCanvas.width, frameCanvas.height, watermark)
     }
-    frames.push(gctx.getImageData(0, 0, frameCanvas.width, frameCanvas.height))
-    progress.report("capturing", f + 1, frameCount)
+    return gctx.getImageData(0, 0, frameCanvas.width, frameCanvas.height)
   }
 
-  if (frames.length === 0) throw new Error("No frames captured for GIF export")
+  // Pass 1 — build ONE shared 256-color palette (a per-frame palette is what
+  // causes frame-to-frame color shimmer) from a handful of evenly spaced frames.
+  // Sampling rather than buffering every frame keeps peak memory flat, so the
+  // timeline can be arbitrarily long.
+  const sampleCount = Math.min(GIF_PALETTE_SAMPLE_FRAMES, frameCount)
+  progress.report("preparing", 0, sampleCount)
+  const sampleData: Uint8ClampedArray[] = []
+  let total = 0
+  for (let s = 0; s < sampleCount; s++) {
+    throwIfAborted(signal)
+    // Bias to frameCount - 1 on the last sample so end-state colors are covered.
+    const f =
+      s === sampleCount - 1
+        ? frameCount - 1
+        : Math.floor((s / sampleCount) * frameCount)
+    const frame = await renderFrame(f)
+    if (frame) {
+      sampleData.push(frame.data)
+      total += frame.data.length
+    }
+    progress.report("preparing", s + 1, sampleCount)
+  }
+  if (total === 0) throw new Error("No frames captured for GIF export")
 
-  // Pass 2 — one palette for the whole clip, then re-map + write each frame.
-  throwIfAborted(signal)
-  progress.report("encoding", 0, frames.length)
-  const gif = GIFEncoder()
-  const palette = buildGifPalette(frames)
+  const combined = new Uint8Array(total)
+  let offset = 0
+  for (const d of sampleData) {
+    combined.set(d, offset)
+    offset += d.length
+  }
+  sampleData.length = 0
+  const palette: Palette = quantize(combined, 256)
   const ditherAmplitude = paletteDitherAmplitude(palette)
 
+  // Pass 2 — render each frame, map onto the shared palette, write it straight
+  // into the encoder. Only the current frame is ever held in memory.
+  //
   // GIF delays are whole centiseconds (1/100 s). Distribute the target frame
   // duration across frames (Bresenham-style) so the average cadence matches the
   // requested fps with no rounding drift — this is what removes the playback
   // stutter versus naively truncating each delay to centiseconds.
+  const gif = GIFEncoder()
   let emittedCs = 0
-  for (let i = 0; i < frames.length; i++) {
+  let written = 0
+  progress.report("capturing", 0, frameCount)
+  for (let f = 0; f < frameCount; f++) {
     throwIfAborted(signal)
-    const frame = frames[i]
-    const { width, height } = frame
+    const frame = await renderFrame(f)
+    if (!frame) {
+      progress.report("capturing", f + 1, frameCount)
+      continue
+    }
     // Ordered-dither before mapping to soften 256-color banding on image
     // backgrounds; deterministic, so it doesn't reintroduce frame-to-frame flicker.
     orderedDither(frame, ditherAmplitude)
     const index = applyPalette(frame.data, palette)
-    const targetCs = Math.round(((i + 1) * frameDurationMs) / 10)
+    const targetCs = Math.round(((f + 1) * frameDurationMs) / 10)
     // Never below 2cs — most viewers clamp shorter delays to ~10cs, which would
     // itself look like a stutter.
     const delayCs = Math.max(2, targetCs - emittedCs)
     emittedCs += delayCs
-    gif.writeFrame(index, width, height, { palette, delay: delayCs * 10 })
-    progress.report("encoding", i + 1, frames.length)
+    gif.writeFrame(index, frame.width, frame.height, {
+      palette,
+      delay: delayCs * 10,
+    })
+    written++
+    progress.report("capturing", f + 1, frameCount)
   }
 
+  if (written === 0) throw new Error("No frames captured for GIF export")
+
   throwIfAborted(signal)
+  progress.report("encoding", 0, 1)
   gif.finish()
-  progress.report("encoding", frames.length, frames.length)
+  progress.report("encoding", 1, 1)
   return new Blob([new Uint8Array(gif.bytesView())], { type: "image/gif" })
 }

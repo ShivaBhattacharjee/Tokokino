@@ -24,7 +24,6 @@ import { encodeGif } from "./gif"
 import { prepareCloneVideoLayer } from "./video-layer"
 import type { CloneVideoLayer } from "./video-layer"
 import {
-  MAX_FRAMES,
   type AnimationExportBlobResult,
   type AnimationExportOptions,
   type CaptureCtx,
@@ -107,10 +106,7 @@ async function encodeAnimation(
   if (!clips.length) throw new Error("Add at least one keyframe before sharing")
 
   const fps = Math.max(1, Math.min(60, options.fps ?? 30))
-  const frameCount = Math.min(
-    MAX_FRAMES,
-    Math.max(1, Math.round((durationMs / 1000) * fps))
-  )
+  const frameCount = Math.max(1, Math.round((durationMs / 1000) * fps))
   const frameDurationMs = 1000 / fps
   const targetWidth =
     options.targetWidth ??

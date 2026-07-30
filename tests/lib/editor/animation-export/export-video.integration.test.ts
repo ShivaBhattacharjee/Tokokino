@@ -76,7 +76,7 @@ const videoLayer = {
   cleanup: vi.fn(),
 }
 
-function editorState() {
+function editorState(durationMs = 1000) {
   return {
     isAnimateMode: false,
     selectedAnimationClipId: null,
@@ -88,8 +88,8 @@ function editorState() {
           screenshot: "blob:source-video",
           videoClips: [],
           animation: {
-            durationMs: 1000,
-            clips: [{ id: "keyframe-1", startMs: 0, durationMs: 1000 }],
+            durationMs,
+            clips: [{ id: "keyframe-1", startMs: 0, durationMs }],
           },
         },
       ],
@@ -153,4 +153,28 @@ describe("Animate video export coordinator", () => {
       )
     }
   )
+
+  // Regression: the frame count used to be clamped to 600, so anything past 20 s
+  // at 30 fps was silently cut off mid-animation with no error.
+  it("covers the whole timeline instead of truncating long animations", async () => {
+    mocks.getState.mockReturnValue(editorState(5 * 60 * 1000))
+    mocks.isVideoSrc.mockReturnValue(false)
+    mocks.acquireCapture.mockResolvedValue(capture)
+    mocks.encodeVideo.mockResolvedValue(
+      new Blob(["video"], {
+        type: "video/mp4",
+      })
+    )
+
+    await exportAnimationBlob("canvas-1", {
+      format: "mp4",
+      fps: 30,
+      watermark: false,
+    })
+
+    expect(mocks.encodeVideo).toHaveBeenCalledWith(
+      expect.objectContaining({ frameCount: 5 * 60 * 30 }),
+      "mp4"
+    )
+  })
 })

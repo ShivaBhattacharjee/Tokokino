@@ -33,6 +33,14 @@ import {
 } from "./utils"
 import { drawWatermark } from "./watermark"
 
+// Cap on what the MediaRecorder fallback may buffer = frames × pixels-per-frame.
+// Unlike the WebCodecs path it can't stream: capture is slower than real time, so
+// every frame must be rasterized up front and held as a canvas before playback
+// drives the recorder. ~150M pixels keeps the backing stores near ~600 MB, which
+// is roughly 2 min at 720p or 40 s at 1080p. Only browsers without WebCodecs
+// (which are also the memory-poorest) ever reach this path.
+export const MAX_MEDIARECORDER_TOTAL_PIXELS = 150_000_000
+
 /**
  * Whether this browser can actually produce a WebM file — true when WebCodecs can
  * encode a WebM codec (VP9/VP8/AV1) OR MediaRecorder records WebM. Safari does
@@ -228,6 +236,15 @@ export async function encodeWebmMediaRecorder({
   if (!mimeType) {
     throw new Error(
       "WebM export isn't supported in this browser (e.g. Safari). Try MP4 or GIF instead."
+    )
+  }
+
+  if (
+    frameCount * capture.width * capture.height >
+    MAX_MEDIARECORDER_TOTAL_PIXELS
+  ) {
+    throw new Error(
+      "This animation is too long for your browser to export — it lacks WebCodecs, so every frame must be held in memory. Shorten the timeline, lower the resolution, or use Chrome or Edge."
     )
   }
 
