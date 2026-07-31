@@ -66,17 +66,24 @@ export class EditorErrorBoundary extends React.Component<
           className
         )}
       >
-        <div className="flex max-w-sm flex-col items-center gap-3 text-center">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {label} crashed
-            </p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              The rest of the editor is still running.
-            </p>
-          </div>
-          <Button type="button" size="sm" onClick={this.reset}>
-            <RiRefreshLine className="mr-2 size-4" />
+        <div className="flex max-w-sm flex-col items-center text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/50 px-3 py-1 font-mono text-[10px] tracking-widest uppercase">
+            <span className="text-primary">500</span>
+            <span className="text-foreground/45">Surface stopped</span>
+          </span>
+          <p className="mt-3 text-sm font-medium tracking-[-0.02em] text-foreground">
+            {label} crashed
+          </p>
+          <p className="mt-1.5 text-xs leading-relaxed text-foreground/55">
+            The rest of the editor is still running.
+          </p>
+          <Button
+            type="button"
+            size="lg"
+            className="mt-4 gap-2 px-3"
+            onClick={this.reset}
+          >
+            <RiRefreshLine className="size-3.5" />
             Retry
           </Button>
         </div>
