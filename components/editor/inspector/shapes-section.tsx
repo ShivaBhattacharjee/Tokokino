@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 
 const shapeLoadedCache = new Set<string>()
 
-export function ShapesSection() {
+export function ShapesSection({ flat = false }: { flat?: boolean } = {}) {
   const {
     addAsset,
     setSelectedAssetId,
@@ -39,7 +39,9 @@ export function ShapesSection() {
           }
         }
       },
-      { root: scrollRef.current, rootMargin: "200px" }
+      // Flat mode scrolls in an ancestor panel rather than here, so the
+      // viewport is the only root that tracks what the user can actually see.
+      { root: flat ? null : scrollRef.current, rootMargin: "200px" }
     )
     setObserver(obs)
     const callbacks = callbacksRef.current
@@ -47,7 +49,7 @@ export function ShapesSection() {
       obs.disconnect()
       callbacks.clear()
     }
-  }, [])
+  }, [flat])
 
   const observe = React.useCallback(
     (el: Element, cb: () => void) => {
@@ -96,9 +98,17 @@ export function ShapesSection() {
       </p>
       <div
         ref={scrollRef}
-        className="max-h-[268px] overflow-y-auto overscroll-contain [contain:layout_paint]"
+        className={cn(
+          "[contain:layout_paint]",
+          !flat && "max-h-[268px] overflow-y-auto overscroll-contain"
+        )}
       >
-        <div className="grid grid-cols-3 gap-2 px-1 py-1">
+        <div
+          className={cn(
+            "grid gap-2 px-1 py-1",
+            flat ? "grid-cols-4" : "grid-cols-3"
+          )}
+        >
           {SHAPE_LIBRARY.map((shape) => (
             <ShapeThumb
               key={shape.id}

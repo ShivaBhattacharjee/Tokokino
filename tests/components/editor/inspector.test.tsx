@@ -61,6 +61,9 @@ vi.mock("@/components/editor/inspector/padding-section", () => ({
 vi.mock("@/components/editor/inspector/shadow-section", () => ({
   ShadowSection: () => <div data-testid="shadow" />,
 }))
+vi.mock("@/components/editor/inspector/shapes-section", () => ({
+  ShapesSection: () => <div data-testid="shapes" />,
+}))
 vi.mock("@/components/editor/inspector/tilt-section", () => ({
   TiltSection: () => <div data-testid="tilt" />,
 }))
@@ -88,16 +91,23 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks())
 
 describe("Inspector", () => {
-  it("always renders Background, Backdrop, Tilt & Scale and Shadow", () => {
+  it("always renders Background, Backdrop, Shapes, Tilt & Scale and Shadow", () => {
     render(<Inspector />)
     expect(sectionTitles()).toEqual(
       expect.arrayContaining([
         "Background",
         "Backdrop",
+        "Shapes",
         "Tilt & Scale",
         "Shadow",
       ])
     )
+  })
+
+  it("keeps Shapes directly after Backdrop", () => {
+    render(<Inspector />)
+    const titles = sectionTitles()
+    expect(titles.indexOf("Shapes")).toBe(titles.indexOf("Backdrop") + 1)
   })
 
   it("shows Border and Padding for a plain single screenshot with no frame", () => {

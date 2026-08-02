@@ -11,6 +11,7 @@ import {
   RiPaletteLine,
   RiRotateLockLine,
   RiSettingsLine,
+  RiShapesLine,
   RiSmartphoneLine,
   RiSparkling2Line,
   RiStackLine,
@@ -35,6 +36,7 @@ export type CategoryId =
   | "annotate"
   | "background"
   | "backdrop"
+  | "shapes"
   | "border"
   | "padding"
   | "shadow"
@@ -72,6 +74,7 @@ export const TOOLS_CATEGORIES: Category[] = [
   { id: "tweet", label: "Post", icon: RiTwitterXLine },
   { id: "background", label: "Background", icon: RiPaletteLine },
   { id: "backdrop", label: "Backdrop", icon: RiSunLine },
+  { id: "shapes", label: "Shapes", icon: RiShapesLine },
   { id: "border", label: "Border", icon: RiBrushLine },
   { id: "padding", label: "Padding", icon: RiLayoutGrid2Line },
   { id: "shadow", label: "Shadow", icon: RiMoonClearLine },
@@ -82,7 +85,7 @@ export const ALL_CATEGORIES = [...DESIGN_CATEGORIES, ...TOOLS_CATEGORIES]
 
 // Layout sizes to preset-card content (aspect-ratio driven) with a viewport
 // max-h cap in mobile-controls/index.tsx. Layers keeps a fixed scroll height.
-export const TALL_CATEGORIES = new Set<CategoryId>(["layers"])
+export const TALL_CATEGORIES = new Set<CategoryId>(["layers", "shapes"])
 
 export const ENHANCE_PRESETS: {
   id: EnhancePreset

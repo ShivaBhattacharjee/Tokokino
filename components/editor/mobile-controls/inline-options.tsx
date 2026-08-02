@@ -8,6 +8,7 @@ import { BackgroundSection } from "@/components/editor/inspector/background-sect
 import { BorderSection } from "@/components/editor/inspector/border-section"
 import { PaddingSection } from "@/components/editor/inspector/padding-section"
 import { ShadowSection } from "@/components/editor/inspector/shadow-section"
+import { ShapesSection } from "@/components/editor/inspector/shapes-section"
 import { TiltSection } from "@/components/editor/inspector/tilt-section"
 import { TweetSection } from "@/components/editor/inspector/tweet-section"
 import type { AspectState } from "@/lib/editor/store"
@@ -69,6 +70,7 @@ export function InlineOptions({
         {id === "backdrop" ? (
           <BackdropSection controlsVariant="inline" popoverSide="top" />
         ) : null}
+        {id === "shapes" ? <ShapesSection flat /> : null}
         {id === "border" ? <BorderSection /> : null}
         {id === "padding" ? <PaddingSection /> : null}
         {id === "shadow" ? <ShadowSection /> : null}
