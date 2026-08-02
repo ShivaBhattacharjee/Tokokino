@@ -9,6 +9,7 @@ import {
   RiMoonClearLine,
   RiPaletteLine,
   RiRotateLockLine,
+  RiShapesLine,
   RiSunLine,
   RiTwitterXLine,
 } from "@remixicon/react"
@@ -25,6 +26,7 @@ import { PaddingSection } from "./inspector/padding-section"
 import { PositionSection } from "./inspector/position-section"
 import { Section } from "./inspector/primitives"
 import { ShadowSection } from "./inspector/shadow-section"
+import { ShapesSection } from "./inspector/shapes-section"
 import { TiltSection } from "./inspector/tilt-section"
 import { TweetSection } from "./inspector/tweet-section"
 
@@ -102,6 +104,11 @@ export function Inspector({
 
           <Section icon={RiSunLine} title="Backdrop">
             <BackdropSection />
+          </Section>
+          <div className="my-3 h-px bg-border/50" />
+
+          <Section icon={RiShapesLine} title="Shapes">
+            <ShapesSection />
           </Section>
           <div className="my-3 h-px bg-border/50" />
 
