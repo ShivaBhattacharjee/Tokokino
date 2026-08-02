@@ -338,6 +338,15 @@ export type BackgroundCategory = {
   items: BackgroundEntry[]
 }
 
+export type ShapeEntry = {
+  id: string
+  name: string
+  full: string
+  thumb: string
+  width: number
+  height: number
+}
+
 export type GradientCategory = {
   key: string
   label: string
