@@ -3,7 +3,9 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import {
+  RiAnticlockwiseLine,
   RiBlurOffLine,
+  RiClockwiseLine,
   RiContrastDropLine,
   RiFlipHorizontalLine,
   RiFlipVerticalLine,
@@ -63,6 +65,14 @@ type AssetResizePatch = Pick<
   "xPct" | "yPct" | "widthPct" | "heightPct"
 >
 
+type RotateState = {
+  pointerId: number
+  centerX: number
+  centerY: number
+  startAngle: number
+  startRotation: number
+}
+
 type ResizeState = {
   pointerId: number
   handle: ResizeHandleId
@@ -77,6 +87,8 @@ type ResizeState = {
   canvasH: number
   lastPatch: AssetResizePatch | null
 }
+
+const normalizeRotation = (deg: number) => ((deg % 360) + 360) % 360
 
 export function AssetElementView({
   asset,
@@ -108,8 +120,10 @@ export function AssetElementView({
   const dragRef = React.useRef<DragState | null>(null)
   const dragSession = useDragSession()
   const resizeRef = React.useRef<ResizeState | null>(null)
+  const rotateRef = React.useRef<RotateState | null>(null)
   const [isDragging, setIsDragging] = React.useState(false)
   const [isResizing, setIsResizing] = React.useState(false)
+  const [isRotateSnapped, setIsRotateSnapped] = React.useState(false)
 
   const {
     toolbarRect,
@@ -359,6 +373,54 @@ export function AssetElementView({
     setIsResizing(false)
   }
 
+  const startRotate = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = elRef.current
+    if (!el) return
+    e.stopPropagation()
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    rotateRef.current = {
+      pointerId: e.pointerId,
+      centerX: cx,
+      centerY: cy,
+      startAngle: Math.atan2(e.clientY - cy, e.clientX - cx),
+      startRotation: asset.rotation,
+    }
+  }
+
+  const moveRotate = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const rot = rotateRef.current
+    if (!rot || rot.pointerId !== e.pointerId) return
+    const angle = Math.atan2(e.clientY - rot.centerY, e.clientX - rot.centerX)
+    const delta = ((angle - rot.startAngle) * 180) / Math.PI
+    let next = normalizeRotation(rot.startRotation + delta)
+    let snapped = false
+
+    if (e.shiftKey) {
+      next = normalizeRotation(Math.round(next / 15) * 15)
+      if (next % 90 === 0) snapped = true
+    } else {
+      const nearest90 = Math.round(next / 90) * 90
+      if (Math.abs(next - nearest90) < 4) {
+        next = normalizeRotation(nearest90)
+        snapped = true
+      }
+    }
+
+    setIsRotateSnapped(snapped)
+    updateAsset(asset.id, { rotation: next })
+  }
+
+  const endRotate = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const rot = rotateRef.current
+    if (!rot || rot.pointerId !== e.pointerId) return
+    rotateRef.current = null
+    setIsRotateSnapped(false)
+  }
+
   const heightStyle = asset.heightPct != null ? `${asset.heightPct}%` : "auto"
 
   return (
@@ -382,7 +444,7 @@ export function AssetElementView({
           top: `var(${positionVars.y}, var(--editor-position-y, ${asset.yPct}%))`,
           width: `${asset.widthPct}%`,
           height: heightStyle,
-          transform: `translate(-50%, -50%) rotate(${asset.rotation}deg) scaleX(${asset.flipX ? -1 : 1}) scaleY(${asset.flipY ? -1 : 1})`,
+          transform: `translate(-50%, -50%) rotate(${asset.rotation}deg)`,
           transition:
             !isDragging && !isResizing && shouldAnimatePositionMove
               ? "left 300ms ease-out, top 300ms ease-out"
@@ -403,6 +465,9 @@ export function AssetElementView({
           style={{
             filter: assetFilterCss(asset.filter),
             opacity: asset.opacity / 100,
+            // Flips live on the image, not the wrapper, so the rotate handle and
+            // resize handles keep their real orientation while flipped.
+            transform: `scaleX(${asset.flipX ? -1 : 1}) scaleY(${asset.flipY ? -1 : 1})`,
           }}
           className={cn(
             "block h-full w-full select-none",
@@ -418,6 +483,31 @@ export function AssetElementView({
               data-selection-border="true"
               className="pointer-events-none absolute inset-0 outline-2 outline-offset-2 outline-[#9BCD64]/95 outline-dashed"
             />
+            {isRotateSnapped ? (
+              <div
+                data-export-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-1/2 z-[-1] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+              >
+                <div className="absolute w-[4000px] border-t border-dashed border-[#9BCD64]/95" />
+                <div className="absolute h-[4000px] border-l border-dashed border-[#9BCD64]/95" />
+              </div>
+            ) : null}
+            <button
+              aria-label="Rotate asset"
+              data-export-hidden="true"
+              onPointerDown={startRotate}
+              onPointerMove={moveRotate}
+              onPointerUp={endRotate}
+              onPointerCancel={endRotate}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute -bottom-9 left-1/2 z-10 flex size-7 cursor-grab items-center justify-center rounded-full border border-[#92b97a]/80 bg-background/95 text-[#92b97a] shadow-md backdrop-blur-md"
+              style={{
+                transform: `translate(-50%, 0) rotate(${-asset.rotation}deg)`,
+                transformOrigin: "top center",
+              }}
+            >
+              <RiClockwiseLine className="size-3.5" />
+            </button>
             {/* Resize handles - 4 edges + 4 corners */}
             {(
               [
@@ -644,6 +734,21 @@ function AssetToolbar({
         <RiFlipVerticalLine className="size-4" />
       </ToolbarButton>
 
+      <ToolbarPopover
+        tooltip="Rotate"
+        contentClassName="w-64 p-3"
+        trigger={({ open }) => (
+          <ToolbarButton
+            aria-label="Rotate"
+            active={open || normalizeRotation(asset.rotation) !== 0}
+          >
+            <RiClockwiseLine className="size-4" />
+          </ToolbarButton>
+        )}
+      >
+        <AssetRotateControls asset={asset} />
+      </ToolbarPopover>
+
       <ToolbarDivider />
 
       <ToolbarPopover
@@ -826,6 +931,52 @@ function AssetBlendGrid({ asset }: { asset: AssetElement }) {
             </button>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+function AssetRotateControls({ asset }: { asset: AssetElement }) {
+  const { updateAsset } = useEditor()
+  const rotation = normalizeRotation(asset.rotation)
+  const rotateBy = (delta: number) =>
+    updateAsset(asset.id, { rotation: normalizeRotation(rotation + delta) })
+
+  return (
+    <div className="flex flex-col gap-3">
+      <ElasticSlider
+        label="Rotate"
+        min={0}
+        max={360}
+        step={1}
+        value={rotation}
+        formatValue={(v) => `${Math.round(v)}°`}
+        onValueChange={(v) =>
+          updateAsset(asset.id, { rotation: normalizeRotation(v) })
+        }
+      />
+      <div className="grid grid-cols-3 gap-1.5">
+        <button
+          onClick={() => rotateBy(-90)}
+          className="flex cursor-pointer items-center justify-center gap-1 rounded-md border border-border/60 bg-secondary/20 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+        >
+          <RiAnticlockwiseLine className="size-3.5" />
+          90°
+        </button>
+        <button
+          onClick={() => rotateBy(90)}
+          className="flex cursor-pointer items-center justify-center gap-1 rounded-md border border-border/60 bg-secondary/20 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+        >
+          <RiClockwiseLine className="size-3.5" />
+          90°
+        </button>
+        <button
+          onClick={() => updateAsset(asset.id, { rotation: 0 })}
+          disabled={rotation === 0}
+          className="cursor-pointer rounded-md border border-border/60 bg-secondary/20 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:cursor-default disabled:opacity-40 disabled:hover:border-border/60 disabled:hover:text-muted-foreground"
+        >
+          Reset
+        </button>
       </div>
     </div>
   )

@@ -11,6 +11,7 @@ import pastleUiShowcase from "./pastle-ui-showcase"
 import productReveal from "./product-reveal"
 import responsiveLayout from "./responsive-layout"
 import screenshotGlow from "./screenshot-glow"
+import shapeReveal from "./shape-reveal"
 import silentReveal from "./silent-reveal"
 import slideUpReveal from "./slide-up-reveal"
 import slideReveal from "./slide-reveal"
@@ -40,6 +41,7 @@ export const TEMPLATES: Template[] = [
   threeDTilt,
   animatedBrowser,
   zoomInReveal,
+  shapeReveal,
   // iPad
   ipadShowcase,
   // Responsive / multi-device

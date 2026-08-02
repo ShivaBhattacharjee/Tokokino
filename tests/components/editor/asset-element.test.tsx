@@ -104,6 +104,23 @@ describe("AssetElementView", () => {
     ).toBeInTheDocument()
   })
 
+  it("shows the rotate handle and toolbar control when selected", () => {
+    editor.selectedAssetId = "a1"
+    renderAsset()
+    expect(
+      screen.getByRole("button", { name: "Rotate asset" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Rotate" })).toBeInTheDocument()
+  })
+
+  it("hides the rotate handle in preview mode", () => {
+    editor.selectedAssetId = "a1"
+    renderAsset(true)
+    expect(
+      screen.queryByRole("button", { name: "Rotate asset" })
+    ).not.toBeInTheDocument()
+  })
+
   it("hides the toolbar in preview mode even when selected", () => {
     editor.selectedAssetId = "a1"
     renderAsset(true)
