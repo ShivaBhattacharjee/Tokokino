@@ -26,7 +26,8 @@
     "typecheck": "tsc --noEmit",
     "prepare": "husky",
     "build:thumbs": "node scripts/build-overlay-thumbs.mjs",
-    "build:backgrounds": "node scripts/build-background-thumbs.mjs"
+    "build:backgrounds": "node scripts/build-background-thumbs.mjs",
+    "build:shapes": "node --env-file-if-exists=.env.local scripts/build-shapes.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

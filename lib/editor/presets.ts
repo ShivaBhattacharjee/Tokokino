@@ -1,8 +1,10 @@
 import BACKGROUND_DATA from "./backgrounds-data.json"
+import SHAPE_DATA from "./shapes-data.json"
 import type {
   BackgroundCategory,
   GradientCategory,
   ScreenshotPosition,
+  ShapeEntry,
 } from "./state-types"
 
 export const ANNOTATION_COLORS = [
@@ -421,6 +423,8 @@ export const SOLID_PRESETS = [
 ]
 
 export const BACKGROUND_LIBRARY: BackgroundCategory[] = BACKGROUND_DATA
+
+export const SHAPE_LIBRARY: ShapeEntry[] = SHAPE_DATA
 
 export const DEFAULT_IMAGE_BACKGROUND_ENTRY =
   BACKGROUND_LIBRARY[0]?.items[0] ?? null

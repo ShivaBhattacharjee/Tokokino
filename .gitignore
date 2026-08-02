@@ -45,3 +45,4 @@ pack
 # local export debug dumps
 debug/
 .env.local
+shapes/
