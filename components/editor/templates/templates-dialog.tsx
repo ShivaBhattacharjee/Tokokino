@@ -15,6 +15,7 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -245,6 +246,9 @@ export function TemplatesDialog({
           <DialogTitle className="text-lg font-semibold tracking-tight sm:text-xl">
             Templates
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Browse and apply screenshot templates to your canvas.
+          </DialogDescription>
           <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-auto px-4 sm:mx-0 sm:w-auto sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
             <SegmentedTabs tab={tab} onChange={setTab} />
           </div>
