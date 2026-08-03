@@ -16,6 +16,7 @@ import {
   DEFAULT_CLIP_EASING,
   DEFAULT_CLIP_SPEED,
   DEFAULT_CUSTOM_BEZIER,
+  NEW_CLIP_EASING,
   easingDotAt,
   easingFn,
   easingSvgPath,
@@ -38,9 +39,14 @@ const clip = (over: Partial<AnimationClip> = {}): AnimationClip => ({
 })
 
 describe("clipEasingKind", () => {
-  it("defaults to linear when unset", () => {
+  it("defaults to historic ease-out when unset (legacy drafts/templates)", () => {
     expect(clipEasingKind(clip())).toBe(DEFAULT_CLIP_EASING)
-    expect(DEFAULT_CLIP_EASING).toBe("linear")
+    expect(DEFAULT_CLIP_EASING).toBe("out")
+  })
+
+  it("new clips use an explicit linear default separate from the fallback", () => {
+    expect(NEW_CLIP_EASING).toBe("linear")
+    expect(NEW_CLIP_EASING).not.toBe(DEFAULT_CLIP_EASING)
   })
 
   it("passes an explicit kind through", () => {
@@ -98,10 +104,10 @@ describe("easingFn", () => {
 })
 
 describe("clipProgressEase", () => {
-  it("an unset clip eases linearly over the full window", () => {
+  it("an unset clip eases as ease-out over the full window (legacy fallback)", () => {
     const p = clipProgressEase(clip())
     expect(p(0)).toBeCloseTo(0, 6)
-    expect(p(0.5)).toBeCloseTo(0.5, 6)
+    expect(p(0.5)).toBeCloseTo(0.875, 6)
     expect(p(1)).toBeCloseTo(1, 6)
   })
 

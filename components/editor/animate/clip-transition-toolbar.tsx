@@ -17,9 +17,9 @@ import {
   clipEasingKind,
   clipReturnsToDefault,
   clipSpeed,
-  DEFAULT_CLIP_EASING,
   DEFAULT_CLIP_SPEED,
   DEFAULT_CUSTOM_BEZIER,
+  NEW_CLIP_EASING,
   effectiveActiveMs,
   MAX_CLIP_SPEED,
   MIN_CLIP_SPEED,
@@ -115,10 +115,12 @@ function TransitionPanel({
 
   const reset = () =>
     onUpdate({
-      easing: DEFAULT_CLIP_EASING,
+      easing: NEW_CLIP_EASING,
       speed: DEFAULT_CLIP_SPEED,
       returnToDefault: true,
-      ...(clip.easingBezier ? {} : { easingBezier: undefined }),
+      // Always clear stored handles so Custom after reset starts from default,
+      // not the pre-reset curve (shallow merge would otherwise leave it on).
+      easingBezier: undefined,
     })
 
   // The slider is driven by the effective transition duration in ms, not the raw

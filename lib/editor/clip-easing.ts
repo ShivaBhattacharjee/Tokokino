@@ -18,11 +18,17 @@ import type {
 export type { ClipEasingBezier, ClipEasingKind }
 
 /**
- * The curve a clip uses when it hasn't picked one. Linear is the default for
- * new animation layers so motion maps 1:1 to the clip window; pick Out / Cubic /
- * etc. in the Transition popover when you want eased motion.
+ * Fallback when a clip has no `easing` field. Ease-out cubic is the historic
+ * default from before per-clip easing existed, so undefined keeps old drafts
+ * and templates animating identically.
  */
-export const DEFAULT_CLIP_EASING: ClipEasingKind = "linear"
+export const DEFAULT_CLIP_EASING: ClipEasingKind = "out"
+
+/**
+ * Easing written onto newly created clips (and used by Transition reset).
+ * Explicit so the shared fallback above can stay legacy-safe.
+ */
+export const NEW_CLIP_EASING: ClipEasingKind = "linear"
 
 /** Default custom cubic-bezier — soft ease-in-out (matches CSS `ease-in-out`). */
 export const DEFAULT_CUSTOM_BEZIER: ClipEasingBezier = {

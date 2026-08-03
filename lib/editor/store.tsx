@@ -3,6 +3,7 @@
 import { create } from "zustand"
 
 import { DEFAULT_CLIP_DURATION_MS } from "./animation-motion"
+import { NEW_CLIP_EASING } from "./clip-easing"
 import {
   clipAffectsMain,
   clipAffectsSlot,
@@ -3148,6 +3149,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             baseline: snapshot,
             // A fresh keyframe owns nothing until you edit an effect on it.
             effects: [],
+            // Explicit linear so undefined easing can keep meaning historic
+            // ease-out for drafts/templates saved before per-clip easing.
+            easing: NEW_CLIP_EASING,
           }
           return {
             animation: { ...animation, clips: [...animation.clips, clip] },

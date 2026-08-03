@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { clipReturnsToDefault } from "@/lib/editor/clip-easing"
+import {
+  clipEasingKind,
+  clipReturnsToDefault,
+  NEW_CLIP_EASING,
+} from "@/lib/editor/clip-easing"
 import { useEditorStore } from "@/lib/editor/store"
 
 const store = useEditorStore
@@ -18,6 +22,36 @@ describe("addAnimationClip returnToDefault", () => {
   it("returns new clips to default without needing a stored flag", () => {
     const id = store.getState().addAnimationClip()
     expect(clipReturnsToDefault(clipById(id))).toBe(true)
+  })
+
+  it("stores an explicit linear easing so legacy unset still means ease-out", () => {
+    const id = store.getState().addAnimationClip()
+    const c = clipById(id)
+    expect(c.easing).toBe(NEW_CLIP_EASING)
+    expect(c.easing).toBe("linear")
+    // Unset easing (legacy shape) still resolves to historic ease-out.
+    expect(clipEasingKind({})).toBe("out")
+  })
+
+  it("clears easingBezier when the transition is patched with undefined", () => {
+    const id = store.getState().addAnimationClip()
+    store.getState().updateAnimationClip(id, {
+      easing: "custom",
+      easingBezier: { x1: 0.2, y1: 0.1, x2: 0.8, y2: 0.9 },
+    })
+    expect(clipById(id).easingBezier).toEqual({
+      x1: 0.2,
+      y1: 0.1,
+      x2: 0.8,
+      y2: 0.9,
+    })
+    // Same shape as Transition reset — shallow merge must drop the handles.
+    store.getState().updateAnimationClip(id, {
+      easing: NEW_CLIP_EASING,
+      easingBezier: undefined,
+    })
+    expect(clipById(id).easing).toBe("linear")
+    expect(clipById(id).easingBezier).toBeUndefined()
   })
 
   it("lets a clip be switched back to holding its pose", () => {
