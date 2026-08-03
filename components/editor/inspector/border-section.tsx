@@ -25,49 +25,49 @@ const DEFAULT_BORDER_COLOR = BORDER_PRESETS[0]
 type FramePreset = {
   id: string
   label: string
-  // null color = no frame; otherwise the border fields this preset applies
-  frame: { color: string; width: number; padding: number } | null
+  // null color = no frame. `width` is only a fallback for when the border is
+  // currently 0px wide — picking a preset otherwise leaves the Width and Inner
+  // Padding sliders alone, so a preset is purely a colour/finish choice.
+  frame: { color: string; width: number } | null
 }
 
-// Curated frame looks — each just sets the existing border color/width/padding
-// (rendered as a rounded `outline` around the screenshot). "Glass" variants use
-// a translucent tint so the background shows through; "Mat" variants are solid.
+// Curated frame looks — each sets the border colour (rendered as a rounded
+// `outline` around the screenshot). "Frost" variants use a translucent tint so
+// the background shows through; "Mat" variants are solid.
 const FRAME_PRESETS: FramePreset[] = [
   { id: "none", label: "None", frame: null },
   {
     id: "frost",
     label: "Frost",
-    frame: { color: "rgba(255,255,255,0.5)", width: 8, padding: 3 },
+    frame: { color: "rgba(255,255,255,0.5)", width: 8 },
   },
   {
     id: "frost-dark",
     label: "Frost Dark",
-    frame: { color: "rgba(15,15,20,0.55)", width: 8, padding: 3 },
+    frame: { color: "rgba(15,15,20,0.55)", width: 8 },
   },
   {
     id: "hairline",
     label: "Hairline",
-    frame: { color: "rgba(255,255,255,0.75)", width: 2, padding: 6 },
+    frame: { color: "rgba(255,255,255,0.75)", width: 2 },
   },
   {
     id: "mat",
     label: "Mat",
-    frame: { color: "#ffffff", width: 10, padding: 0 },
+    frame: { color: "#ffffff", width: 10 },
   },
   {
     id: "mat-dark",
     label: "Mat Dark",
-    frame: { color: "#0f172a", width: 10, padding: 0 },
+    frame: { color: "#0f172a", width: 10 },
   },
 ]
 
+// Colour alone identifies the preset — width/padding are user-owned, so they
+// must not decide which tile reads as active.
 function framePresetMatches(preset: FramePreset, border: Border): boolean {
   if (!preset.frame) return border.color === null
-  return (
-    border.color?.toLowerCase() === preset.frame.color.toLowerCase() &&
-    border.width === preset.frame.width &&
-    border.padding === preset.frame.padding
-  )
+  return border.color?.toLowerCase() === preset.frame.color.toLowerCase()
 }
 
 function FrameThumb({ preset }: { preset: FramePreset }) {
@@ -201,6 +201,7 @@ export function BorderSection() {
         max={12}
         step={1}
         formatValue={(v) => `${Math.round(v)}px`}
+        disabled={!enabled}
       />
 
       <ElasticSlider
@@ -211,6 +212,7 @@ export function BorderSection() {
         max={80}
         step={1}
         formatValue={(v) => `${Math.round(v)}px`}
+        disabled={!enabled}
       />
 
       <div>
@@ -226,12 +228,15 @@ export function BorderSection() {
                     applyBorder({ ...border, color: null })
                     return
                   }
+                  // Switching between frames keeps the width the user dialled
+                  // in; the preset only seeds one when turning a border on,
+                  // where the default 1px would look like nothing happened.
+                  const seedWidth = !enabled || border.width === 0
                   applyBorder({
                     ...border,
                     style: "solid",
                     color: preset.frame.color,
-                    width: preset.frame.width,
-                    padding: preset.frame.padding,
+                    width: seedWidth ? preset.frame.width : border.width,
                   })
                 }}
                 className={cn(

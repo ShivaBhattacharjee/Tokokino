@@ -279,7 +279,7 @@ function ColorRail({
             className={cn(
               "size-6 rounded-md border border-white/10 transition hover:scale-105 xl:size-7",
               active
-                ? "ring-2 ring-[#f65d72] ring-offset-2 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
+                ? "ring-1 ring-[#f65d72] ring-offset-1 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
                 : "ring-1 ring-black/30"
             )}
             style={{ backgroundColor: preset }}
@@ -298,7 +298,7 @@ function ColorRail({
           className={cn(
             "relative size-7 rounded-md border border-white/15 transition hover:scale-105 xl:size-8",
             isCustomColor
-              ? "ring-2 ring-[#f65d72] ring-offset-2 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
+              ? "ring-1 ring-[#f65d72] ring-offset-1 ring-offset-[#f7f2ea] dark:ring-offset-[#151515]"
               : "ring-1 ring-black/30"
           )}
           style={{

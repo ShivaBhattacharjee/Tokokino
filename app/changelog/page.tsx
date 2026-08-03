@@ -38,21 +38,25 @@ const releases: Release[] = [
     id: "v2-1-0",
     version: "2.1.0",
     date: "August 2, 2026",
-    title: "3D shapes",
+    title: "3D shapes & new backgrounds",
     summary:
-      "A library of 3D shapes you can drop straight onto your canvas — glass, chrome, holographic and more — and style them like any other layer.",
+      "A library of 3D shapes you can drop straight onto your canvas — glass, chrome, holographic and more — and style them like any other layer. Plus three new background packs.",
     changes: [
       {
         title: "3D shapes library",
         text: "Browse 106 ready-made 3D shapes in the inspector and drop one onto the canvas with a click.",
       },
       {
+        title: "Wood, Fluid & Minimal backgrounds",
+        text: "Three new background packs in the inspector: warm wood grain, flowing colour, and clean minimal surfaces.",
+      },
+      {
         title: "Shapes behave like any other layer",
         text: "Move, resize, rotate, recolour, and reorder a shape exactly like an image you added yourself.",
       },
       {
-        title: "Shapes on phone and iPad",
-        text: "The shape picker sits in the Tools tab on phones and in the sidebar on iPad.",
+        title: "Border styles keep your settings",
+        text: "Switching between border styles no longer resets the width and inner padding you set — a style now only changes the colour.",
       },
     ],
   },

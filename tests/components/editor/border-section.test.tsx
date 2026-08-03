@@ -167,7 +167,7 @@ describe("BorderSection", () => {
     expect(patch.border.color).toBeNull()
   })
 
-  it("applies the solid Mat frame's color, width and padding", async () => {
+  it("applies a frame's color without touching the user's width or padding", async () => {
     const user = userEvent.setup()
     render(<BorderSection />)
 
@@ -177,13 +177,28 @@ describe("BorderSection", () => {
     expect(patch.border).toMatchObject({
       style: "solid",
       color: "#ffffff",
-      width: 10,
-      padding: 0,
+      width: 4,
+      padding: 8,
     })
   })
 
-  it("applies the translucent Frost frame tint even from a disabled border", async () => {
-    store.canvas.border = { color: null, width: 4, padding: 8 }
+  it("keeps the dialled-in width when switching between frames", async () => {
+    store.canvas.border = { color: "#ffffff", width: 2, padding: 24 }
+    const user = userEvent.setup()
+    render(<BorderSection />)
+
+    await user.click(screen.getByRole("button", { name: "Mat Dark" }))
+
+    const patch = store.applyStyle.mock.calls[0][0] as { border: BorderState }
+    expect(patch.border).toMatchObject({
+      color: "#0f172a",
+      width: 2,
+      padding: 24,
+    })
+  })
+
+  it("seeds the frame's width when turning a disabled border on", async () => {
+    store.canvas.border = { color: null, width: 1, padding: 8 }
     const user = userEvent.setup()
     render(<BorderSection />)
 
@@ -194,7 +209,7 @@ describe("BorderSection", () => {
       style: "solid",
       color: "rgba(255,255,255,0.5)",
       width: 8,
-      padding: 3,
+      padding: 8,
     })
   })
 
