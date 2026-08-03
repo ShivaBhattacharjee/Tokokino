@@ -143,6 +143,39 @@ export function BezierCurveEditor({
     [beginDrag]
   )
 
+  /** Arrow-key nudge for keyboard users — same normalize + onChange path as drag. */
+  const nudgeHandle = React.useCallback(
+    (target: DragTarget, dx: number, dy: number) => {
+      const base = bezierRef.current
+      const next =
+        target === "p1"
+          ? normalizeBezier({
+              ...base,
+              x1: base.x1 + dx,
+              y1: base.y1 + dy,
+            })
+          : normalizeBezier({
+              ...base,
+              x2: base.x2 + dx,
+              y2: base.y2 + dy,
+            })
+      bezierRef.current = next
+      onChangeRef.current(next)
+    },
+    []
+  )
+
+  const onP1KeyDown = React.useCallback(
+    (e: React.KeyboardEvent<SVGElement>) =>
+      handleNudgeKey(e, "p1", nudgeHandle),
+    [nudgeHandle]
+  )
+  const onP2KeyDown = React.useCallback(
+    (e: React.KeyboardEvent<SVGElement>) =>
+      handleNudgeKey(e, "p2", nudgeHandle),
+    [nudgeHandle]
+  )
+
   const gridLines = [0.25, 0.5, 0.75]
 
   const isDefault =
@@ -270,14 +303,18 @@ export function BezierCurveEditor({
             cy={p1.y}
             r={HANDLE_R}
             onPointerDown={onP1Down}
+            onKeyDown={onP1KeyDown}
             label="First control point"
+            valueText={`${bezier.x1.toFixed(2)}, ${bezier.y1.toFixed(2)}`}
           />
           <Handle
             cx={p2.x}
             cy={p2.y}
             r={HANDLE_R}
             onPointerDown={onP2Down}
+            onKeyDown={onP2KeyDown}
             label="Second control point"
+            valueText={`${bezier.x2.toFixed(2)}, ${bezier.y2.toFixed(2)}`}
           />
         </svg>
       </div>
@@ -293,18 +330,54 @@ export function BezierCurveEditor({
   )
 }
 
+/** Unit-space step for arrow-key nudges on control points. */
+const KEY_NUDGE = 0.02
+
+function handleNudgeKey(
+  e: React.KeyboardEvent<SVGElement>,
+  target: DragTarget,
+  nudge: (target: DragTarget, dx: number, dy: number) => void
+) {
+  let dx = 0
+  let dy = 0
+  switch (e.key) {
+    case "ArrowLeft":
+      dx = -KEY_NUDGE
+      break
+    case "ArrowRight":
+      dx = KEY_NUDGE
+      break
+    // Unit y is up; SVG y is down — arrows follow the value, not the screen.
+    case "ArrowUp":
+      dy = KEY_NUDGE
+      break
+    case "ArrowDown":
+      dy = -KEY_NUDGE
+      break
+    default:
+      return
+  }
+  e.preventDefault()
+  e.stopPropagation()
+  nudge(target, dx, dy)
+}
+
 function Handle({
   cx,
   cy,
   r,
   onPointerDown,
+  onKeyDown,
   label,
+  valueText,
 }: {
   cx: number
   cy: number
   r: number
   onPointerDown: (e: React.PointerEvent<SVGElement>) => void
+  onKeyDown: (e: React.KeyboardEvent<SVGElement>) => void
   label: string
+  valueText: string
 }) {
   // Invisible hit area slightly larger than the drawn square for easier grab.
   const hit = r + 2.5
@@ -316,8 +389,14 @@ function Handle({
         width={hit * 2}
         height={hit * 2}
         fill="transparent"
-        className="cursor-grab active:cursor-grabbing"
+        className="cursor-grab outline-none focus-visible:stroke-primary active:cursor-grabbing"
+        strokeWidth={1.2}
+        tabIndex={0}
+        role="slider"
+        aria-label={label}
+        aria-valuetext={valueText}
         onPointerDown={onPointerDown}
+        onKeyDown={onKeyDown}
       />
       <rect
         x={cx - r}

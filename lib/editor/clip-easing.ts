@@ -52,6 +52,10 @@ function clamp01(n: number): number {
   return n < 0 ? 0 : n > 1 ? 1 : n
 }
 
+function clamp(n: number, min: number, max: number): number {
+  return n < min ? min : n > max ? max : n
+}
+
 /** Named preset easing functions on t ∈ [0,1] → [0,1]. */
 const PRESET_EASING_FNS: Record<
   Exclude<ClipEasingKind, "custom">,
@@ -118,15 +122,19 @@ export function clipEasingKind(clip: {
   return clip.easing ?? DEFAULT_CLIP_EASING
 }
 
-/** Clamp / fill a bezier so both axes stay inside the unit plot [0,1]. */
+/** Clamp / fill a bezier; x stays in [0,1], y uses BEZIER_Y_MIN/MAX. */
 export function normalizeBezier(
   raw?: Partial<ClipEasingBezier> | null
 ): ClipEasingBezier {
   const base = DEFAULT_CUSTOM_BEZIER
   const x1 = Number.isFinite(raw?.x1) ? clamp01(raw!.x1!) : base.x1
   const x2 = Number.isFinite(raw?.x2) ? clamp01(raw!.x2!) : base.x2
-  const y1 = Number.isFinite(raw?.y1) ? clamp01(raw!.y1!) : base.y1
-  const y2 = Number.isFinite(raw?.y2) ? clamp01(raw!.y2!) : base.y2
+  const y1 = Number.isFinite(raw?.y1)
+    ? clamp(raw!.y1!, BEZIER_Y_MIN, BEZIER_Y_MAX)
+    : base.y1
+  const y2 = Number.isFinite(raw?.y2)
+    ? clamp(raw!.y2!, BEZIER_Y_MIN, BEZIER_Y_MAX)
+    : base.y2
   return { x1, y1, x2, y2 }
 }
 
@@ -301,8 +309,8 @@ export function easingSvgPathFromFn(
   for (let i = 0; i <= samples; i++) {
     const t = i / samples
     const x = pad + t * span
-    // Don't clamp y for display — custom curves can overshoot the pad box
-    // slightly; the editor shows that intentionally. Thumbnails still look fine.
+    // y is already clamped via normalizeBezier (BEZIER_Y_MIN/MAX); map into
+    // the padded box (SVG y-down).
     const y = pad + (1 - fn(t)) * span
     pts.push(`${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`)
   }
@@ -339,8 +347,8 @@ export function unitToSvg(
   const span = size - pad * 2
   return {
     x: pad + x * span,
-    // y can sit outside [0,1] for overshoot — map linearly so handles leave the
-    // pad when the user drags past the endpoints.
+    // Unit y is clamped to BEZIER_Y_MIN/MAX; map linearly into the padded box
+    // (SVG y-down, 0 at bottom → 1 at top).
     y: pad + (1 - y) * span,
   }
 }
