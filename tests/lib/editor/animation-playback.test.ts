@@ -121,7 +121,8 @@ describe("clipsProgressAt", () => {
   })
 
   it("eases inside the clip", () => {
-    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(EASED_HALF, 5)
+    // Default clip easing is linear → midpoint of the window is 0.5.
+    expect(clipsProgressAt(clips, 1500)).toBeCloseTo(0.5, 5)
   })
 
   it("holds the pose (1) after the clip when it opts out of releasing", () => {
@@ -170,7 +171,7 @@ describe("activeClipAt", () => {
   it("inside a clip returns its eased progress and neighbours", () => {
     const r = activeClipAt([a, b], 1500)!
     expect(r.clip.id).toBe("a")
-    expect(r.progress).toBeCloseTo(EASED_HALF, 5)
+    expect(r.progress).toBeCloseTo(0.5, 5)
     expect(r.next?.id).toBe("b")
   })
 
@@ -236,9 +237,22 @@ describe("per-clip easing & speed", () => {
     expect(clipsProgressAt(linear, 500)).toBeCloseTo(0.5, 5)
   })
 
-  it("clipsProgressAt still defaults to ease-out with no easing set", () => {
+  it("clipsProgressAt defaults to linear with no easing set", () => {
     const dflt = [clip({ id: "a", startMs: 0, durationMs: 1000 })]
-    expect(clipsProgressAt(dflt, 500)).toBeCloseTo(EASED_HALF, 5)
+    expect(clipsProgressAt(dflt, 500)).toBeCloseTo(0.5, 5)
+  })
+
+  it("clipsProgressAt applies a custom cubic-bezier", () => {
+    const custom = [
+      clip({
+        id: "a",
+        startMs: 0,
+        durationMs: 1000,
+        easing: "custom",
+        easingBezier: { x1: 0, y1: 0, x2: 1, y2: 1 },
+      }),
+    ]
+    expect(clipsProgressAt(custom, 500)).toBeCloseTo(0.5, 4)
   })
 
   it("clipsProgressAt completes early then holds when speed > 1", () => {

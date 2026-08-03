@@ -1,22 +1,32 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  BEZIER_Y_MAX,
+  BEZIER_Y_MIN,
   CLIP_EASING_KINDS,
   CLIP_EASING_LABELS,
+  clipEasingBezier,
   clipEasingKind,
   clipProgressEase,
   clipReleaseEase,
   clipReleaseMs,
   clipReturnsToDefault,
   clipSpeed,
+  cubicBezierEase,
   DEFAULT_CLIP_EASING,
   DEFAULT_CLIP_SPEED,
+  DEFAULT_CUSTOM_BEZIER,
   easingDotAt,
   easingFn,
   easingSvgPath,
   effectiveActiveMs,
   MAX_CLIP_SPEED,
   MIN_CLIP_SPEED,
+  normalizeBezier,
+  PRESET_BEZIER_SEEDS,
+  resolveEasingFn,
+  svgToUnit,
+  unitToSvg,
 } from "@/lib/editor/clip-easing"
 import type { AnimationClip } from "@/lib/editor/state-types"
 
@@ -28,9 +38,9 @@ const clip = (over: Partial<AnimationClip> = {}): AnimationClip => ({
 })
 
 describe("clipEasingKind", () => {
-  it("defaults to the historic ease-out when unset", () => {
+  it("defaults to linear when unset", () => {
     expect(clipEasingKind(clip())).toBe(DEFAULT_CLIP_EASING)
-    expect(DEFAULT_CLIP_EASING).toBe("out")
+    expect(DEFAULT_CLIP_EASING).toBe("linear")
   })
 
   it("passes an explicit kind through", () => {
@@ -88,16 +98,16 @@ describe("easingFn", () => {
 })
 
 describe("clipProgressEase", () => {
-  it("an unset clip eases as ease-out over the full window", () => {
+  it("an unset clip eases linearly over the full window", () => {
     const p = clipProgressEase(clip())
     expect(p(0)).toBeCloseTo(0, 6)
-    expect(p(0.5)).toBeCloseTo(0.875, 6)
+    expect(p(0.5)).toBeCloseTo(0.5, 6)
     expect(p(1)).toBeCloseTo(1, 6)
   })
 
   it("applies the chosen curve", () => {
-    const p = clipProgressEase(clip({ easing: "linear" }))
-    expect(p(0.5)).toBeCloseTo(0.5, 6)
+    const p = clipProgressEase(clip({ easing: "out" }))
+    expect(p(0.5)).toBeCloseTo(0.875, 6)
   })
 
   it("speed compresses the ramp so it completes early then holds at 1", () => {
@@ -129,11 +139,166 @@ describe("effectiveActiveMs", () => {
 })
 
 describe("labels & kinds", () => {
-  it("exposes exactly six kinds each with a label", () => {
-    expect(CLIP_EASING_KINDS).toHaveLength(6)
+  it("exposes five grid presets each with a label, plus Custom", () => {
+    expect(CLIP_EASING_KINDS).toHaveLength(5)
     for (const kind of CLIP_EASING_KINDS) {
       expect(CLIP_EASING_LABELS[kind]).toBeTruthy()
     }
+    expect(CLIP_EASING_LABELS.custom).toBe("Custom")
+    // outCirc remains a valid kind (drafts/templates) but is not a grid tile.
+    expect(CLIP_EASING_LABELS.outCirc).toBe("Out Circ")
+  })
+})
+
+describe("custom cubic-bezier", () => {
+  it("normalizeBezier fills defaults and clamps both axes to [0,1]", () => {
+    expect(normalizeBezier(undefined)).toEqual(DEFAULT_CUSTOM_BEZIER)
+    expect(normalizeBezier({ x1: -1, y1: 0.5, x2: 2, y2: 0.5 })).toEqual({
+      x1: 0,
+      y1: 0.5,
+      x2: 1,
+      y2: 0.5,
+    })
+    expect(normalizeBezier({ x1: 0.2, y1: -0.5, x2: 0.8, y2: 1.5 })).toEqual({
+      x1: 0.2,
+      y1: 0,
+      x2: 0.8,
+      y2: 1,
+    })
+  })
+
+  it("linear bezier maps t → t", () => {
+    const fn = cubicBezierEase({ x1: 0, y1: 0, x2: 1, y2: 1 })
+    expect(fn(0)).toBeCloseTo(0, 5)
+    expect(fn(0.5)).toBeCloseTo(0.5, 5)
+    expect(fn(1)).toBeCloseTo(1, 5)
+  })
+
+  it("pins endpoints for any control points", () => {
+    const fn = cubicBezierEase({ x1: 0.2, y1: 0.9, x2: 0.8, y2: 0.1 })
+    expect(fn(0)).toBeCloseTo(0, 5)
+    expect(fn(1)).toBeCloseTo(1, 5)
+  })
+
+  it("clipProgressEase uses the clip's custom bezier", () => {
+    const p = clipProgressEase(
+      clip({
+        easing: "custom",
+        easingBezier: { x1: 0, y1: 0, x2: 1, y2: 1 },
+      })
+    )
+    expect(p(0.25)).toBeCloseTo(0.25, 4)
+    expect(p(0.75)).toBeCloseTo(0.75, 4)
+  })
+
+  it("resolveEasingFn falls back to default custom bezier when unset", () => {
+    const a = resolveEasingFn({ easing: "custom" })
+    const b = cubicBezierEase(DEFAULT_CUSTOM_BEZIER)
+    expect(a(0.4)).toBeCloseTo(b(0.4), 5)
+  })
+
+  it("clipEasingBezier returns the stored handles", () => {
+    const bezier = { x1: 0.1, y1: 0.2, x2: 0.8, y2: 0.9 }
+    expect(clipEasingBezier(clip({ easingBezier: bezier }))).toEqual(bezier)
+  })
+
+  it("easingSvgPath draws a custom curve", () => {
+    const path = easingSvgPath("custom", 100, 10, 4, {
+      x1: 0,
+      y1: 0,
+      x2: 1,
+      y2: 1,
+    })
+    expect(path.startsWith("M")).toBe(true)
+    expect((path.match(/L/g) ?? []).length).toBe(4)
+  })
+
+  it("clipProgressEase applies speed with a custom bezier", () => {
+    const p = clipProgressEase(
+      clip({
+        easing: "custom",
+        easingBezier: { x1: 0, y1: 0, x2: 1, y2: 1 },
+        speed: 2,
+      })
+    )
+    // Linear bezier + speed 2 → pose at half the window.
+    expect(p(0.25)).toBeCloseTo(0.5, 4)
+    expect(p(0.5)).toBeCloseTo(1, 4)
+  })
+
+  it("clipReleaseEase uses the custom bezier without speed remap", () => {
+    const c = clip({
+      easing: "custom",
+      easingBezier: { x1: 0, y1: 0, x2: 1, y2: 1 },
+      speed: 4,
+    })
+    expect(clipProgressEase(c)(0.5)).toBeCloseTo(1, 4)
+    expect(clipReleaseEase(c)(0.5)).toBeCloseTo(0.5, 4)
+  })
+
+  it("easingFn('custom') matches DEFAULT_CUSTOM_BEZIER", () => {
+    const a = easingFn("custom")
+    const b = cubicBezierEase(DEFAULT_CUSTOM_BEZIER)
+    expect(a(0.3)).toBeCloseTo(b(0.3), 5)
+    expect(a(0.7)).toBeCloseTo(b(0.7), 5)
+  })
+
+  it("easingDotAt tracks a custom curve", () => {
+    const pad = 10
+    const size = 100
+    const start = easingDotAt("custom", 0, size, pad, {
+      x1: 0,
+      y1: 0,
+      x2: 1,
+      y2: 1,
+    })
+    expect(start.x).toBeCloseTo(pad, 5)
+    expect(start.y).toBeCloseTo(size - pad, 5)
+  })
+
+  it("PRESET_BEZIER_SEEDS cover every named kind including outCirc", () => {
+    for (const kind of [...CLIP_EASING_KINDS, "outCirc" as const]) {
+      const seed = PRESET_BEZIER_SEEDS[kind]
+      expect(seed).toBeDefined()
+      const n = normalizeBezier(seed)
+      expect(n.x1).toBeGreaterThanOrEqual(0)
+      expect(n.x1).toBeLessThanOrEqual(1)
+      expect(n.y1).toBeGreaterThanOrEqual(BEZIER_Y_MIN)
+      expect(n.y1).toBeLessThanOrEqual(BEZIER_Y_MAX)
+    }
+  })
+
+  it("ease-in-out default custom is between linear midpoints at 0.25 and 0.75", () => {
+    // DEFAULT_CUSTOM_BEZIER ≈ CSS ease-in-out: slow start & finish, faster middle.
+    const fn = cubicBezierEase(DEFAULT_CUSTOM_BEZIER)
+    expect(fn(0.25)).toBeLessThan(0.25)
+    expect(fn(0.75)).toBeGreaterThan(0.75)
+  })
+})
+
+describe("unitToSvg / svgToUnit", () => {
+  it("round-trips corners of the unit square", () => {
+    const size = 100
+    const pad = 12
+    for (const [ux, uy] of [
+      [0, 0],
+      [1, 1],
+      [0.5, 0.5],
+    ] as const) {
+      const s = unitToSvg(ux, uy, size, pad)
+      const back = svgToUnit(s.x, s.y, size, pad)
+      expect(back.x).toBeCloseTo(ux, 6)
+      expect(back.y).toBeCloseTo(uy, 6)
+    }
+  })
+
+  it("maps (0,0) to bottom-left and (1,1) to top-right", () => {
+    const s0 = unitToSvg(0, 0, 100, 10)
+    expect(s0.x).toBeCloseTo(10, 6)
+    expect(s0.y).toBeCloseTo(90, 6)
+    const s1 = unitToSvg(1, 1, 100, 10)
+    expect(s1.x).toBeCloseTo(90, 6)
+    expect(s1.y).toBeCloseTo(10, 6)
   })
 })
 

@@ -153,6 +153,40 @@ describe("custom preset snapshot", () => {
     expect(remapped.clips[0]?.speed).toBe(2.5)
   })
 
+  it("preserves custom easingBezier through capture and apply", () => {
+    const bezier = { x1: 0.2, y1: 0.1, x2: 0.7, y2: 0.9 }
+    const source = canvasWithClips(["old-slot"])
+    source.animation = {
+      ...source.animation!,
+      clips: [
+        {
+          ...source.animation!.clips[0],
+          easing: "custom",
+          easingBezier: bezier,
+          speed: 1.5,
+        },
+      ],
+    }
+    const geometry = captureCustomPresetGeometry(
+      source,
+      { id: "16-10", w: 16, h: 10 },
+      { includeAnimation: true }
+    )
+    const saved = geometry.animation!.clips[0]
+    expect(saved?.easing).toBe("custom")
+    expect(saved?.easingBezier).toEqual(bezier)
+    expect(saved?.speed).toBe(1.5)
+
+    const remapped = remapAnimationForApply(
+      geometry.animation!,
+      ["new-slot"],
+      source.background
+    )
+    expect(remapped.clips[0]?.easing).toBe("custom")
+    expect(remapped.clips[0]?.easingBezier).toEqual(bezier)
+    expect(remapped.clips[0]?.speed).toBe(1.5)
+  })
+
   it("builds slot remap by index from sourceSlotIds", () => {
     const map = buildSlotIdRemap(["live-a", "live-b"], ["src-a", "src-b"], [])
     expect(map.get("src-a")).toBe("live-a")

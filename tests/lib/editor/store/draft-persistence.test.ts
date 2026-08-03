@@ -234,6 +234,15 @@ describe("draft persistence", () => {
           easing: "linear",
           speed: 3,
         },
+        {
+          id: "clip-custom",
+          startMs: 1000,
+          durationMs: 1000,
+          effects: ["zoom"],
+          easing: "custom",
+          easingBezier: { x1: 0.2, y1: 0.1, x2: 0.7, y2: 0.95 },
+          speed: 1,
+        },
       ],
     }
 
@@ -272,8 +281,17 @@ describe("draft persistence", () => {
     }
 
     const applied = applyEditorDraft(draft)
-    const clip = applied.present?.canvases[0]?.animation?.clips[0]
+    const clips = applied.present?.canvases[0]?.animation?.clips ?? []
+    const clip = clips[0]
     expect(clip?.easing).toBe("linear")
     expect(clip?.speed).toBe(3)
+    const custom = clips.find((c) => c.id === "clip-custom")
+    expect(custom?.easing).toBe("custom")
+    expect(custom?.easingBezier).toEqual({
+      x1: 0.2,
+      y1: 0.1,
+      x2: 0.7,
+      y2: 0.95,
+    })
   })
 })
