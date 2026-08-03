@@ -84,6 +84,9 @@ const CATEGORIES = [
   // 16:9 to match the dominant source ratio for Mac wallpapers.
   { dir: "Mac", key: "mac", label: "Mac", aspectRatio: 16 / 9 },
   { dir: "Cloud", key: "cloud", label: "Cloud" },
+  { dir: "Wood", key: "wood", label: "Wood" },
+  { dir: "Fluid", key: "fluid", label: "Fluid" },
+  { dir: "Minimal", key: "minimal", label: "Minimal" },
 ]
 
 const SUPPORTED = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif"])
@@ -308,9 +311,7 @@ if (args.length) {
   }
 }
 
-const manifestDir = resolve(projectRoot, "lib/editor")
-mkdirSync(manifestDir, { recursive: true })
-const manifestPath = resolve(manifestDir, "backgrounds-data.json")
+mkdirSync(dirname(manifestPath), { recursive: true })
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n")
 console.log(`\nwrote manifest → ${manifestPath}`)
 

@@ -13,8 +13,11 @@ import {
   RiImageLine,
   RiMacLine,
   RiMoonClearLine,
+  RiOilLine,
   RiRhythmLine,
+  RiSquareLine,
   RiSunLine,
+  RiTreeLine,
 } from "@remixicon/react"
 
 export const BACKGROUND_PREVIEW_COUNT = 8
@@ -208,6 +211,12 @@ export function backgroundCategoryIcon(key: string) {
       return RiMacLine
     case "cloud":
       return RiCloudLine
+    case "wood":
+      return RiTreeLine
+    case "fluid":
+      return RiOilLine
+    case "minimal":
+      return RiSquareLine
     default:
       return RiImageLine
   }
