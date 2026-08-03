@@ -13,19 +13,24 @@ import { Switch } from "@/components/ui/switch"
 import {
   CLIP_EASING_KINDS,
   CLIP_EASING_LABELS,
+  clipEasingBezier,
   clipEasingKind,
   clipReturnsToDefault,
   clipSpeed,
-  DEFAULT_CLIP_EASING,
   DEFAULT_CLIP_SPEED,
+  DEFAULT_CUSTOM_BEZIER,
+  NEW_CLIP_EASING,
   effectiveActiveMs,
   MAX_CLIP_SPEED,
   MIN_CLIP_SPEED,
+  PRESET_BEZIER_SEEDS,
+  type ClipEasingBezier,
   type ClipEasingKind,
 } from "@/lib/editor/clip-easing"
 import type { AnimationClip } from "@/lib/editor/state-types"
 import { cn } from "@/lib/utils"
 
+import { BezierCurveEditor } from "./bezier-curve-editor"
 import { EasingCurve } from "./easing-curve"
 
 type ClipTransitionButtonProps = {
@@ -48,6 +53,7 @@ export function ClipTransitionButton({
   className,
 }: ClipTransitionButtonProps) {
   const kind = clipEasingKind(clip)
+  const bezier = kind === "custom" ? clipEasingBezier(clip) : undefined
   const [open, setOpen] = React.useState(false)
 
   return (
@@ -70,7 +76,11 @@ export function ClipTransitionButton({
           )}
         >
           <span className="flex size-4 items-center justify-center">
-            <EasingCurve kind={kind} strokeClassName="stroke-foreground/70" />
+            <EasingCurve
+              kind={kind}
+              bezier={bezier}
+              strokeClassName="stroke-foreground/70"
+            />
           </span>
           <span className="tabular-nums">{effectiveActiveMs(clip)}ms</span>
         </button>
@@ -79,6 +89,8 @@ export function ClipTransitionButton({
         side="top"
         align="center"
         sideOffset={10}
+        // Same width always — custom curve editor is compact so the popover
+        // doesn't jump wider when Custom is selected.
         className="w-60 rounded-md p-2.5 pb-3"
       >
         <TransitionPanel clip={clip} onUpdate={onUpdate} />
@@ -96,15 +108,19 @@ function TransitionPanel({
 }) {
   const kind = clipEasingKind(clip)
   const speed = clipSpeed(clip)
+  const bezier = clipEasingBezier(clip)
   const [hovered, setHovered] = React.useState<ClipEasingKind | null>(null)
 
   const returns = clipReturnsToDefault(clip)
 
   const reset = () =>
     onUpdate({
-      easing: DEFAULT_CLIP_EASING,
+      easing: NEW_CLIP_EASING,
       speed: DEFAULT_CLIP_SPEED,
       returnToDefault: true,
+      // Always clear stored handles so Custom after reset starts from default,
+      // not the pre-reset curve (shallow merge would otherwise leave it on).
+      easingBezier: undefined,
     })
 
   // The slider is driven by the effective transition duration in ms, not the raw
@@ -120,6 +136,40 @@ function TransitionPanel({
       speed: Math.min(MAX_CLIP_SPEED, Math.max(MIN_CLIP_SPEED, next)),
     })
   }
+
+  const selectPreset = (k: (typeof CLIP_EASING_KINDS)[number]) => {
+    onUpdate({ easing: k })
+  }
+
+  const selectCustom = () => {
+    // Seed from the last custom edit, else from the active preset so the graph
+    // starts near whatever tile they just had selected.
+    let seed: ClipEasingBezier = DEFAULT_CUSTOM_BEZIER
+    if (clip.easingBezier) {
+      seed = clip.easingBezier
+    } else if (kind !== "custom" && Object.hasOwn(PRESET_BEZIER_SEEDS, kind)) {
+      seed = PRESET_BEZIER_SEEDS[kind]
+    }
+    onUpdate({ easing: "custom", easingBezier: seed })
+  }
+
+  const onBezierChange = (next: ClipEasingBezier) => {
+    onUpdate({ easing: "custom", easingBezier: next })
+  }
+
+  const tileClass = (active: boolean) =>
+    cn(
+      "flex aspect-square w-full items-center justify-center rounded-md border p-2 transition-colors",
+      active
+        ? "border-primary bg-primary text-primary-foreground"
+        : "border-border/60 bg-muted/40 group-hover:border-border group-focus-visible:border-ring"
+    )
+
+  const labelClass = (active: boolean) =>
+    cn(
+      "text-[11px] transition-colors",
+      active ? "font-medium text-foreground" : "text-muted-foreground"
+    )
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -137,6 +187,7 @@ function TransitionPanel({
         </button>
       </div>
 
+      {/* 5 presets + Custom in a 3×2 grid (Out Circ removed) */}
       <div className="grid grid-cols-3 gap-1.5">
         {CLIP_EASING_KINDS.map((k) => {
           const active = k === kind
@@ -144,21 +195,14 @@ function TransitionPanel({
             <button
               key={k}
               type="button"
-              onClick={() => onUpdate({ easing: k })}
+              onClick={() => selectPreset(k)}
               onPointerEnter={() => setHovered(k)}
               onPointerLeave={() => setHovered((h) => (h === k ? null : h))}
               onFocus={() => setHovered(k)}
               onBlur={() => setHovered((h) => (h === k ? null : h))}
               className="group flex flex-col items-center gap-1 outline-none"
             >
-              <span
-                className={cn(
-                  "flex aspect-square w-full items-center justify-center rounded-md border p-2 transition-colors",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border/60 bg-muted/40 group-hover:border-border group-focus-visible:border-ring"
-                )}
-              >
+              <span className={tileClass(active)}>
                 <EasingCurve
                   kind={k}
                   animate={hovered === k}
@@ -173,20 +217,47 @@ function TransitionPanel({
                   }
                 />
               </span>
-              <span
-                className={cn(
-                  "text-[11px] transition-colors",
-                  active
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
+              <span className={labelClass(active)}>
                 {CLIP_EASING_LABELS[k]}
               </span>
             </button>
           )
         })}
+
+        <button
+          type="button"
+          onClick={selectCustom}
+          onPointerEnter={() => setHovered("custom")}
+          onPointerLeave={() => setHovered((h) => (h === "custom" ? null : h))}
+          onFocus={() => setHovered("custom")}
+          onBlur={() => setHovered((h) => (h === "custom" ? null : h))}
+          className="group flex flex-col items-center gap-1 outline-none"
+        >
+          <span className={tileClass(kind === "custom")}>
+            <EasingCurve
+              kind="custom"
+              bezier={bezier}
+              animate={hovered === "custom"}
+              speed={speed}
+              strokeClassName={
+                kind === "custom"
+                  ? "stroke-primary-foreground"
+                  : "stroke-foreground/45"
+              }
+              dotClassName={
+                kind === "custom" ? "fill-primary-foreground" : "fill-primary"
+              }
+            />
+          </span>
+          <span className={labelClass(kind === "custom")}>
+            {CLIP_EASING_LABELS.custom}
+          </span>
+        </button>
       </div>
+
+      {kind === "custom" && (
+        <BezierCurveEditor value={bezier} onChange={onBezierChange} />
+      )}
 
       <ElasticSlider
         label="Speed"

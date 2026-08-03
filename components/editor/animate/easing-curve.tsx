@@ -5,6 +5,7 @@ import * as React from "react"
 import {
   easingDotAt,
   easingSvgPath,
+  type ClipEasingBezier,
   type ClipEasingKind,
 } from "@/lib/editor/clip-easing"
 import { cn } from "@/lib/utils"
@@ -19,6 +20,8 @@ const LOOP_MS = 1650
 
 type EasingCurveProps = {
   kind: ClipEasingKind
+  /** Cubic-bezier handles when `kind` is `"custom"`. */
+  bezier?: ClipEasingBezier
   /** Run the moving-dot preview (true while the tile is hovered/focused). */
   animate?: boolean
   /** Clip speed (1..5): compresses the sweep so a faster clip zips to the end
@@ -37,13 +40,17 @@ type EasingCurveProps = {
  */
 export function EasingCurve({
   kind,
+  bezier,
   animate = false,
   speed = 1,
   className,
   strokeClassName,
   dotClassName,
 }: EasingCurveProps) {
-  const path = React.useMemo(() => easingSvgPath(kind, 100, PAD), [kind])
+  const path = React.useMemo(
+    () => easingSvgPath(kind, 100, PAD, 32, bezier),
+    [kind, bezier]
+  )
   const [t, setT] = React.useState(0)
 
   const sweep = FULL_SWEEP_MS / Math.max(1, speed)
@@ -62,7 +69,7 @@ export function EasingCurve({
 
   // The dot only shows while animating; `t` holds its last value between hovers
   // (harmless — a fresh hover restarts the sweep from its own timestamp).
-  const dot = animate ? easingDotAt(kind, t, 100, PAD) : null
+  const dot = animate ? easingDotAt(kind, t, 100, PAD, bezier) : null
 
   return (
     <svg

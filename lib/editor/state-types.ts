@@ -419,6 +419,18 @@ export type ClipEasingKind =
   | "out"
   | "inOut"
   | "outCirc"
+  | "custom"
+
+/**
+ * CSS-style cubic-bezier control points for `easing: "custom"`.
+ * Anchors are always (0,0) → (1,1); all four values live in [0,1].
+ */
+export type ClipEasingBezier = {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
 
 export type ClipSlotPose = {
   tilt: Tilt
@@ -469,6 +481,8 @@ export type AnimationClip = {
   effects?: AnimationEffect[]
   baseline?: ClipBaseline
   easing?: ClipEasingKind
+  /** Cubic-bezier handles used when `easing` is `"custom"`. */
+  easingBezier?: ClipEasingBezier
   speed?: number
   /**
    * Ease every owned effect back to the pre-clip state once the clip's window
