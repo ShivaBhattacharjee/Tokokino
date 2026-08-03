@@ -39,8 +39,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
           title: "text-[13px] font-medium text-left leading-snug text-pretty",
           content: "flex flex-col items-start justify-center min-w-0",
           icon: "m-0 shrink-0",
+          // Sonner colours `[data-description]` from its own gray scale, which
+          // stays dark on the destructive fill, so it needs overriding too.
           error:
-            "!bg-destructive !text-white !border-destructive [&_[data-icon]]:!text-white",
+            "!bg-destructive !text-white !border-destructive [&_[data-icon]]:!text-white [&_[data-description]]:!text-white/85",
         },
       }}
       {...props}
