@@ -55,6 +55,10 @@ const releases: Release[] = [
         text: "Move, resize, rotate, recolour, and reorder a shape exactly like an image you added yourself.",
       },
       {
+        title: "Custom transition curves",
+        text: "Pick Custom in the Animate transition menu and drag the two handles on the curve to shape exactly how a clip eases in and out, then set its speed in milliseconds.",
+      },
+      {
         title: "Border styles keep your settings",
         text: "Switching between border styles no longer resets the width and inner padding you set — a style now only changes the colour.",
       },
@@ -333,32 +337,17 @@ export default function ChangelogPage() {
             </p>
           </div>
 
-          <div className="mt-8 grid gap-10 sm:mt-10 lg:grid-cols-[13rem_1fr] lg:gap-12 xl:grid-cols-[14rem_1fr]">
-            <aside className="hidden lg:block">
+          <div className="mt-8 grid gap-10 sm:mt-10 md:grid-cols-[11rem_1fr] md:gap-8 lg:grid-cols-[13rem_1fr] lg:gap-12 xl:grid-cols-[14rem_1fr]">
+            <aside className="hidden md:block">
               <ChangelogIndex items={indexItems} />
             </aside>
 
             <div className="min-w-0 space-y-14">
-              <nav
-                aria-label="Release jump list"
-                className="flex flex-wrap gap-2 lg:hidden"
-              >
-                {indexItems.map((item) => (
-                  <a
-                    key={item.id}
-                    href={`#${item.id}`}
-                    className="rounded-md border border-primary/25 px-2.5 py-1 font-mono text-[11px] text-primary/70 transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </nav>
-
               {releases.map((release) => (
                 <section
                   key={release.id}
                   id={release.id}
-                  className="scroll-mt-8 border-t border-border/50 pt-10"
+                  className="scroll-mt-8 border-t border-border/50 pt-10 max-sm:first:border-t-0 max-sm:first:pt-0"
                 >
                   <header className="max-w-2xl space-y-3">
                     <span className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
