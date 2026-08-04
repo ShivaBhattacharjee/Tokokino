@@ -8,18 +8,19 @@ import {
   BEZIER_Y_MIN,
   cubicBezierEase,
   DEFAULT_CUSTOM_BEZIER,
-  easingSvgPathFromFn,
   normalizeBezier,
-  unitToSvg,
   type ClipEasingBezier,
 } from "@/lib/editor/clip-easing"
 import { cn } from "@/lib/utils"
 
-const VIEW = 100
-const PAD = 10
+const VIEW_H = 100
+/** Just enough room for the corner endpoint squares — the plot is full-bleed. */
+const PAD = 4
 /** Compact handles — viewBox units, not CSS px. */
 const HANDLE_R = 2.8
 const ENDPOINT_R = 2.4
+/** Fallback aspect for the first paint, before the box is measured. */
+const INITIAL_ASPECT = 1.6
 
 type BezierCurveEditorProps = {
   value: ClipEasingBezier
@@ -35,16 +36,14 @@ function clientToUnit(
   clientY: number
 ): { x: number; y: number } {
   const rect = el.getBoundingClientRect()
-  // Map pointer into viewBox coords (preserveAspectRatio = meet, centered)
-  const scale = Math.min(rect.width / VIEW, rect.height / VIEW)
-  const ox = rect.left + (rect.width - VIEW * scale) / 2
-  const oy = rect.top + (rect.height - VIEW * scale) / 2
-  const sx = (clientX - ox) / scale
-  const sy = (clientY - oy) / scale
-  const span = VIEW - PAD * 2
+  // The viewBox tracks the box aspect, so one uniform scale maps px → units.
+  const scale = rect.height / VIEW_H
+  const padPx = PAD * scale
+  const spanX = rect.width - padPx * 2
+  const spanY = rect.height - padPx * 2
   return {
-    x: (sx - PAD) / span,
-    y: 1 - (sy - PAD) / span,
+    x: (clientX - rect.left - padPx) / spanX,
+    y: 1 - (clientY - rect.top - padPx) / spanY,
   }
 }
 
@@ -75,6 +74,7 @@ export function BezierCurveEditor({
 }: BezierCurveEditorProps) {
   const bezier = normalizeBezier(value)
   const svgRef = React.useRef<SVGSVGElement>(null)
+  const [aspect, setAspect] = React.useState(INITIAL_ASPECT)
   const dragRef = React.useRef<{
     target: DragTarget
     base: ClipEasingBezier
@@ -87,15 +87,48 @@ export function BezierCurveEditor({
     bezierRef.current = bezier
   })
 
-  const path = React.useMemo(
-    () => easingSvgPathFromFn(cubicBezierEase(bezier), VIEW, PAD, 40),
-    [bezier]
+  React.useLayoutEffect(() => {
+    const el = svgRef.current
+    if (!el) return
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) setAspect(rect.width / rect.height)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const viewW = VIEW_H * aspect
+  const spanX = viewW - PAD * 2
+  const spanY = VIEW_H - PAD * 2
+  const toSvg = React.useCallback(
+    (x: number, y: number) => ({
+      x: PAD + x * spanX,
+      y: PAD + (1 - y) * spanY,
+    }),
+    [spanX, spanY]
   )
 
-  const p0 = unitToSvg(0, 0, VIEW, PAD)
-  const p3 = unitToSvg(1, 1, VIEW, PAD)
-  const p1 = unitToSvg(bezier.x1, bezier.y1, VIEW, PAD)
-  const p2 = unitToSvg(bezier.x2, bezier.y2, VIEW, PAD)
+  const path = React.useMemo(() => {
+    const ease = cubicBezierEase(bezier)
+    const samples = 40
+    const points: string[] = []
+    for (let i = 0; i <= samples; i++) {
+      const t = i / samples
+      const point = toSvg(t, ease(t))
+      points.push(
+        `${i === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+      )
+    }
+    return points.join(" ")
+  }, [bezier, toSvg])
+
+  const p0 = toSvg(0, 0)
+  const p3 = toSvg(1, 1)
+  const p1 = toSvg(bezier.x1, bezier.y1)
+  const p2 = toSvg(bezier.x2, bezier.y2)
 
   React.useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -192,43 +225,32 @@ export function BezierCurveEditor({
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="relative overflow-hidden rounded-md border border-border/60 bg-muted/25">
-        {/* Reset sits over the plot so it stays visible without growing the panel */}
-        <button
-          type="button"
-          title="Reset curve"
-          aria-label="Reset curve to default"
-          disabled={isDefault}
-          onClick={resetCurve}
-          className={cn(
-            "absolute top-1 right-1 z-10 flex size-6 items-center justify-center rounded-md bg-background/80 text-muted-foreground shadow-sm ring-1 ring-border/50 backdrop-blur-sm transition-colors",
-            isDefault
-              ? "pointer-events-none opacity-40"
-              : "hover:bg-background hover:text-foreground"
-          )}
-        >
-          <RiArrowGoBackLine className="size-3" />
-        </button>
+        {/* Reset sits over the plot so it stays visible without growing the panel.
+            Top-left is the corner the curve and its endpoints never occupy. */}
+        {isDefault ? null : (
+          <button
+            type="button"
+            title="Reset curve"
+            aria-label="Reset curve to default"
+            onClick={resetCurve}
+            className="absolute top-1 left-1 z-10 flex size-6 items-center justify-center rounded-md bg-background/80 text-muted-foreground shadow-sm ring-1 ring-border/50 backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+          >
+            <RiArrowGoBackLine className="size-3" />
+          </button>
+        )}
         <svg
           ref={svgRef}
-          viewBox={`0 0 ${VIEW} ${VIEW}`}
-          className="h-[132px] w-full touch-none select-none"
+          viewBox={`0 0 ${viewW} ${VIEW_H}`}
+          preserveAspectRatio="none"
+          className="h-33 w-full touch-none select-none"
           role="img"
           aria-label="Custom easing curve"
         >
-          <rect
-            x={PAD}
-            y={PAD}
-            width={VIEW - PAD * 2}
-            height={VIEW - PAD * 2}
-            fill="none"
-            className="stroke-border/40"
-            strokeWidth={0.5}
-          />
           {gridLines.map((g) => {
-            const a = unitToSvg(g, 0, VIEW, PAD)
-            const b = unitToSvg(g, 1, VIEW, PAD)
-            const c = unitToSvg(0, g, VIEW, PAD)
-            const d = unitToSvg(1, g, VIEW, PAD)
+            const a = toSvg(g, 0)
+            const b = toSvg(g, 1)
+            const c = toSvg(0, g)
+            const d = toSvg(1, g)
             return (
               <g key={g}>
                 <line

@@ -1,6 +1,5 @@
 "use client"
 
-import { RiArrowRightLine } from "@remixicon/react"
 import { AnimatePresence, motion } from "motion/react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -8,13 +7,15 @@ import type { Background } from "@/lib/editor/state-types"
 import { cn } from "@/lib/utils"
 
 import {
+  EXPAND_EASE,
   gradientCategoryIcon,
   GRADIENT_PREVIEW_COUNT,
-  POP_EASE,
+  TILE_FADE_VARIANTS,
   TILE_GRID_VARIANTS,
   TILE_ITEM_VARIANTS,
   type GradientOption,
 } from "./constants"
+import { ExpandToggleTile } from "./expand-toggle-tile"
 import { GradientCustomizerPopover } from "./gradient-customizer-popover"
 
 type GradientCategoryOptions = {
@@ -60,12 +61,27 @@ export function GradientPanel({
     gradientCategoryOptions[0]
   if (!activeCategory) return null
   const items = activeCategory.options
-  const visible = gradientExpanded
-    ? items
-    : items.slice(0, GRADIENT_PREVIEW_COUNT)
+  const head = items.slice(0, GRADIENT_PREVIEW_COUNT)
   const hidden = items.slice(GRADIENT_PREVIEW_COUNT)
   const peek = hidden[0] ?? null
-  const showExpandTile = !gradientExpanded && hidden.length > 0
+
+  const renderTile = (option: GradientOption, fade = false) => (
+    <GradientTile
+      key={option.id}
+      option={option}
+      activeCategoryKey={activeCategory.key}
+      fade={fade}
+      active={
+        background.type === "gradient" && background.value === option.value
+      }
+      gradientConfig={gradientConfig}
+      canResetGradient={canResetGradient}
+      onSelect={() => setBackground({ type: "gradient", value: option.value })}
+      setGradientAngle={setGradientAngle}
+      setGradientColor={setGradientColor}
+      resetGradientEdits={resetGradientEdits}
+    />
+  )
 
   return (
     <div className="space-y-3">
@@ -107,116 +123,50 @@ export function GradientPanel({
 
       <motion.div
         layout
-        transition={{ layout: { duration: 0.3, ease: POP_EASE } }}
+        transition={{ layout: { duration: 0.26, ease: EXPAND_EASE } }}
         className="relative w-full"
       >
-        {gradientExpanded ? (
-          <ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[280px]">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={`grad-expanded-${activeCategory.key}`}
-                variants={TILE_GRID_VARIANTS}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="grid grid-cols-3 gap-2 px-1 py-1 pr-2"
-              >
-                {visible.map((option) => (
-                  <GradientTile
-                    key={option.id}
-                    option={option}
-                    activeCategoryKey={activeCategory.key}
-                    active={
-                      background.type === "gradient" &&
-                      background.value === option.value
-                    }
-                    gradientConfig={gradientConfig}
-                    canResetGradient={canResetGradient}
-                    onSelect={() =>
-                      setBackground({
-                        type: "gradient",
-                        value: option.value,
-                      })
-                    }
-                    setGradientAngle={setGradientAngle}
-                    setGradientColor={setGradientColor}
-                    resetGradientEdits={resetGradientEdits}
-                  />
-                ))}
-              </motion.div>
-            </AnimatePresence>
-          </ScrollArea>
-        ) : (
+        {/* Keep the ScrollArea mounted in both states — remounting it on expand
+            would restart the whole grid's entrance animation instead of just
+            animating in the newly revealed tiles. */}
+        <ScrollArea
+          className={cn(
+            gradientExpanded && "*:data-[slot=scroll-area-viewport]:max-h-70"
+          )}
+        >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={`grad-collapsed-${activeCategory.key}`}
+              key={`grad-${activeCategory.key}`}
               variants={TILE_GRID_VARIANTS}
               initial="initial"
               animate="animate"
               exit="exit"
-              className="grid grid-cols-3 gap-2 px-1 py-1"
+              className="grid grid-cols-3 gap-2 px-1 py-1 pr-2"
             >
-              {visible.map((option) => (
-                <GradientTile
-                  key={option.id}
-                  option={option}
-                  activeCategoryKey={activeCategory.key}
-                  active={
-                    background.type === "gradient" &&
-                    background.value === option.value
+              {head.map((option) => renderTile(option))}
+              {/* The toggle keeps its slot in the grid in both states, so
+                  expanding reveals the rest after it instead of moving the
+                  control. */}
+              {hidden.length > 0 ? (
+                <ExpandToggleTile
+                  expanded={gradientExpanded}
+                  onToggle={() => setGradientExpanded(!gradientExpanded)}
+                  hiddenCount={hidden.length}
+                  peekStyle={peek ? { background: peek.value } : undefined}
+                  title={
+                    gradientExpanded
+                      ? `Show fewer ${activeCategory.label.toLowerCase()} gradients`
+                      : `Show all ${items.length} ${activeCategory.label.toLowerCase()} gradients`
                   }
-                  gradientConfig={gradientConfig}
-                  canResetGradient={canResetGradient}
-                  onSelect={() =>
-                    setBackground({
-                      type: "gradient",
-                      value: option.value,
-                    })
-                  }
-                  setGradientAngle={setGradientAngle}
-                  setGradientColor={setGradientColor}
-                  resetGradientEdits={resetGradientEdits}
                 />
-              ))}
-              {showExpandTile ? (
-                <motion.button
-                  variants={TILE_ITEM_VARIANTS}
-                  onClick={() => setGradientExpanded(true)}
-                  title={`Show all ${items.length} ${activeCategory.label.toLowerCase()} gradients`}
-                  className="group relative aspect-video w-full cursor-pointer overflow-hidden rounded-lg border border-border/60 transition-colors hover:border-foreground/30"
-                >
-                  {peek ? (
-                    <span
-                      className="block size-full scale-110 blur-sm"
-                      style={{ background: peek.value }}
-                    />
-                  ) : (
-                    <span className="block size-full bg-secondary/40" />
-                  )}
-                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/45 text-white">
-                    <RiArrowRightLine className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                    <span className="text-[9px] font-semibold">
-                      +{hidden.length}
-                    </span>
-                  </span>
-                </motion.button>
               ) : null}
+              {gradientExpanded
+                ? hidden.map((option) => renderTile(option, true))
+                : null}
             </motion.div>
           </AnimatePresence>
-        )}
+        </ScrollArea>
       </motion.div>
-
-      {gradientExpanded ? (
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.15 }}
-          onClick={() => setGradientExpanded(false)}
-          className="mt-2 cursor-pointer text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Show less
-        </motion.button>
-      ) : null}
     </div>
   )
 }
@@ -225,6 +175,7 @@ function GradientTile({
   option,
   activeCategoryKey,
   active,
+  fade = false,
   gradientConfig,
   canResetGradient,
   onSelect,
@@ -235,6 +186,7 @@ function GradientTile({
   option: GradientOption
   activeCategoryKey: string
   active: boolean
+  fade?: boolean
   gradientConfig: { angle: number; colors: string[] } | null
   canResetGradient: boolean
   onSelect: () => void
@@ -243,7 +195,10 @@ function GradientTile({
   resetGradientEdits: () => void
 }) {
   return (
-    <motion.div variants={TILE_ITEM_VARIANTS} className="relative">
+    <motion.div
+      variants={fade ? TILE_FADE_VARIANTS : TILE_ITEM_VARIANTS}
+      className="relative"
+    >
       <button
         onClick={onSelect}
         className={cn(
@@ -297,7 +252,7 @@ export function AutoGradientPanel({
   setBackground: SetBackground
 }) {
   return (
-    <ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[280px]">
+    <ScrollArea className="*:data-[slot=scroll-area-viewport]:max-h-70">
       <div className="grid grid-cols-3 gap-2 px-1 py-1 pr-2">
         {autoGradientOptions.map((option) => {
           const active =

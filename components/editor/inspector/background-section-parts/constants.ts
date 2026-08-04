@@ -26,6 +26,17 @@ export const BACKGROUND_MAX_DIMENSION = 1600
 
 export const POP_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
+export const EXPAND_EASE: [number, number, number, number] = [0.4, 0, 0.2, 1]
+
+// Tiles revealed by expanding a category fade straight in — the y/scale
+// entrance used for a fresh grid reads as a bounce when it runs on half the
+// tiles while the container height is already animating.
+export const TILE_FADE_VARIANTS = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.18, ease: EXPAND_EASE } },
+  exit: { opacity: 0, transition: { duration: 0.12, ease: EXPAND_EASE } },
+}
+
 export const TILE_GRID_VARIANTS = {
   initial: { opacity: 0 },
   animate: {

@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { RiArrowRightLine } from "@remixicon/react"
 import { AnimatePresence, motion } from "motion/react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -11,10 +10,12 @@ import { cn } from "@/lib/utils"
 import {
   backgroundCategoryIcon,
   BACKGROUND_PREVIEW_COUNT,
-  POP_EASE,
+  EXPAND_EASE,
+  TILE_FADE_VARIANTS,
   TILE_GRID_VARIANTS,
   TILE_ITEM_VARIANTS,
 } from "./constants"
+import { ExpandToggleTile } from "./expand-toggle-tile"
 
 function BackgroundTile({
   item,
@@ -22,12 +23,14 @@ function BackgroundTile({
   onClick,
   layoutId,
   animate = true,
+  fade = false,
 }: {
   item: BackgroundEntry
   active: boolean
   onClick: () => void
   layoutId: string
   animate?: boolean
+  fade?: boolean
 }) {
   const tile = (
     <>
@@ -65,7 +68,10 @@ function BackgroundTile({
   // animation) to avoid jank on expand.
   if (!animate) return <div className="relative">{tile}</div>
   return (
-    <motion.div variants={TILE_ITEM_VARIANTS} className="relative">
+    <motion.div
+      variants={fade ? TILE_FADE_VARIANTS : TILE_ITEM_VARIANTS}
+      className="relative"
+    >
       {tile}
     </motion.div>
   )
@@ -100,10 +106,9 @@ export function BackgroundLibrary({
   }
 
   const items = category.items
-  const visible = expanded ? items : items.slice(0, BACKGROUND_PREVIEW_COUNT)
+  const head = items.slice(0, BACKGROUND_PREVIEW_COUNT)
   const hidden = items.slice(BACKGROUND_PREVIEW_COUNT)
   const peek = hidden[0] ?? null
-  const showExpandTile = !expanded && hidden.length > 0
 
   return (
     <div className="space-y-3">
@@ -144,11 +149,11 @@ export function BackgroundLibrary({
         // height makes the box grow before the tiles fill it, flashing white.
         // Skip the height animation there and let the grid swap in instantly.
         layout={!flat}
-        transition={{ layout: { duration: 0.3, ease: POP_EASE } }}
+        transition={{ layout: { duration: 0.26, ease: EXPAND_EASE } }}
         className="relative w-full"
       >
         {(() => {
-          const tiles = visible.map((item) => (
+          const renderTile = (item: BackgroundEntry, fade = false) => (
             <BackgroundTile
               key={item.id}
               item={item}
@@ -156,91 +161,68 @@ export function BackgroundLibrary({
               onClick={() => onSelect(item.full, item.thumb, item.preview)}
               layoutId={`bg-tile-ring-${category.key}`}
               animate={!flat}
+              fade={fade}
             />
-          ))
-          const expandTile =
-            !expanded && showExpandTile ? (
-              <motion.button
-                variants={flat ? undefined : TILE_ITEM_VARIANTS}
-                onClick={() => setExpanded(true)}
-                title={`Show all ${items.length} ${category.label.toLowerCase()} backgrounds`}
-                className="group relative aspect-video cursor-pointer overflow-hidden rounded-lg border border-border/60 transition-colors hover:border-foreground/30"
-              >
-                {peek ? (
-                  <span
-                    aria-hidden
-                    className="block size-full scale-110 bg-cover bg-center blur-sm"
-                    style={{ backgroundImage: `url("${peek.thumb}")` }}
-                  />
-                ) : (
-                  <div className="h-full w-full bg-secondary/40" />
-                )}
-                <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/45 text-white">
-                  <RiArrowRightLine className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                  <span className="text-[9px] font-semibold">
-                    +{hidden.length}
-                  </span>
-                </span>
-              </motion.button>
-            ) : null
+          )
+
+          // The toggle keeps its slot in the grid in both states, so expanding
+          // reveals the rest after it instead of moving the control.
+          const tiles = [
+            ...head.map((item) => renderTile(item)),
+            hidden.length > 0 ? (
+              <ExpandToggleTile
+                key="bg-expand-toggle"
+                expanded={expanded}
+                onToggle={() => setExpanded(!expanded)}
+                hiddenCount={hidden.length}
+                peekStyle={
+                  peek ? { backgroundImage: `url("${peek.thumb}")` } : undefined
+                }
+                title={
+                  expanded
+                    ? `Show fewer ${category.label.toLowerCase()} backgrounds`
+                    : `Show all ${items.length} ${category.label.toLowerCase()} backgrounds`
+                }
+                animate={!flat}
+              />
+            ) : null,
+            ...(expanded ? hidden.map((item) => renderTile(item, true)) : []),
+          ]
 
           // Mobile: render the grid statically — no entrance/exit animation,
           // no inner ScrollArea (the panel scrolls). Desktop keeps the animated
           // grid and the capped inner scroll.
           if (flat) {
             return (
-              <div className="grid grid-cols-3 gap-2 px-1 py-1">
-                {tiles}
-                {expandTile}
-              </div>
+              <div className="grid grid-cols-3 gap-2 px-1 py-1">{tiles}</div>
             )
           }
 
-          const animatedGrid = (
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.div
-                key={`bg-${expanded ? "expanded" : "collapsed"}-${category.key}`}
-                variants={TILE_GRID_VARIANTS}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="grid grid-cols-3 gap-2 px-1 py-1 pr-2"
-              >
-                {tiles}
-                {expandTile}
-              </motion.div>
-            </AnimatePresence>
-          )
-
-          return expanded ? (
-            <ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[280px]">
-              {animatedGrid}
+          // Keep the ScrollArea mounted in both states — remounting it on
+          // expand would restart the whole grid's entrance animation instead of
+          // just animating in the newly revealed tiles.
+          return (
+            <ScrollArea
+              className={cn(
+                expanded && "*:data-[slot=scroll-area-viewport]:max-h-70"
+              )}
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={`bg-${category.key}`}
+                  variants={TILE_GRID_VARIANTS}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="grid grid-cols-3 gap-2 px-1 py-1 pr-2"
+                >
+                  {tiles}
+                </motion.div>
+              </AnimatePresence>
             </ScrollArea>
-          ) : (
-            animatedGrid
           )
         })()}
       </motion.div>
-
-      {expanded && flat ? (
-        <button
-          onClick={() => setExpanded(false)}
-          className="mt-2 cursor-pointer text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Show less
-        </button>
-      ) : null}
-      {expanded && !flat ? (
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.15 }}
-          onClick={() => setExpanded(false)}
-          className="mt-2 cursor-pointer text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Show less
-        </motion.button>
-      ) : null}
     </div>
   )
 }
