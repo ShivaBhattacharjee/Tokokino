@@ -13,7 +13,7 @@
   <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white" />
 </p>
 
-Tokokino is a client-heavy screenshot composer built with Next.js. It focuses on fast, in-browser editing with backgrounds, overlays, frames, and export/share flows backed by Cloudflare services.
+Tokokino is a client-heavy screenshot and video composer built with Next.js. It focuses on fast, in-browser editing — backgrounds, overlays, device frames, 3D shapes, text and annotation layers, templates, and a per-canvas animation timeline — exporting stills (PNG/JPEG/WebP) or animations (WebM/MP4/GIF) entirely on-device, with share flows backed by Cloudflare services.
 
 ## Stack
 
@@ -88,16 +88,20 @@ pnpm exec wrangler d1 migrations apply tokokino-db --remote
 
 - `pnpm dev` - Next.js dev with Turbopack
 - `pnpm typecheck` - TypeScript check (`tsc --noEmit`)
+- `pnpm test` - Vitest suites in `tests/`
 - `pnpm lint` - ESLint
 - `pnpm lint:fix` - ESLint autofix
+- `pnpm lint:strict` - ESLint with `--max-warnings=0`
 - `pnpm build` - OpenNext Cloudflare build
 - `pnpm build:next` - Next.js production build
+- `pnpm format` - oxfmt on all TypeScript files
 - `pnpm format:check` - oxfmt check for TypeScript files
 - `pnpm preview` - OpenNext Cloudflare preview
 - `pnpm deploy` - OpenNext Cloudflare deploy
 - `pnpm cf-typegen` - regenerate `cloudflare-env.d.ts` from Wrangler bindings
 - `pnpm build:thumbs` - build overlay thumbs
 - `pnpm build:backgrounds` - build background thumbs/manifest
+- `pnpm build:shapes` - build 3D shape thumbs/manifest
 
 ## Assets
 

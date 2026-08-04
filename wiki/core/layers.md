@@ -62,6 +62,18 @@ Image/SVG layers (stickers, logos).
 
 Filters: `assetFilterCss` in `css-utils.ts` (`none`, `bw`, `sepia`, `vintage`, …).
 
+### 3D shapes
+
+The shapes library is an asset source, not a layer kind — picking one calls `addAsset`, so a shape moves, scales, rotates, filters, and reorders exactly like any other image layer.
+
+| Piece | Path |
+|---|---|
+| Manifest (106 entries: `id`, `name`, `full`, `thumb`, `width`, `height`, `bytes`) | `lib/editor/shapes-data.json` |
+| Picker UI | `components/editor/inspector/shapes-section.tsx` |
+| Manifest/thumb build | `scripts/build-shapes.mjs` → `pnpm build:shapes` |
+
+Assets are served from the CDN (`assets.tokokino.com/Shapes/…`), so they go through the export image proxy like any other remote image.
+
 ---
 
 ## Annotations

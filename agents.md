@@ -6,7 +6,7 @@ Reference this alongside CLAUDE.md. CLAUDE.md covers architecture; this file cov
 
 ## App in one paragraph
 
-Tokokino is a client-heavy Next.js 16 app deployed to Cloudflare Workers through OpenNext Cloudflare. Almost all editor logic runs in the browser via a Zustand store. The server exists only for auth (`/api/auth`), share/draft/preset metadata in Cloudflare D1, image and draft storage in Cloudflare R2, an image CORS proxy (`/api/export/image`), Unsplash integration, and Cloudflare Browser Rendering screenshots. The canvas, styling, export, and annotation tools are pure client-side React with no server round-trips.
+Tokokino is a client-heavy Next.js 16 app deployed to Cloudflare Workers through OpenNext Cloudflare. Almost all editor logic runs in the browser via a Zustand store. The editor lives at `/app` (`app/app/page.tsx`, a client-only dynamic import of `components/editor/editor-app.tsx` — it must never be server-rendered, or the whole mediabunny/@xyflow/dnd-kit graph lands in the Worker bundle); every other route is the marketing site. The server exists only for auth (`/api/auth`), share/draft/preset metadata in Cloudflare D1, image/draft/media storage in Cloudflare R2, an image CORS proxy (`/api/export/image`), Unsplash integration, tweet fetching, and Cloudflare Browser Rendering screenshots. The canvas, styling, annotation tools, still export, and the whole video/GIF encode are pure client-side with no server round-trips.
 
 ---
 
@@ -24,16 +24,26 @@ Tokokino is a client-heavy Next.js 16 app deployed to Cloudflare Workers through
 | Add a layout preset (multi-screenshot) | `lib/editor/present-presets.ts` → `LAYOUT_PRESETS` array |
 | Add a single-screenshot tilt preset | `lib/editor/present-presets.ts` → `PRESENT_PRESETS` array |
 | Add a new overlay texture | Drop PNG in the overlays directory, run `pnpm build:thumbs` |
+| Add a background pack | Add source images, run `pnpm build:backgrounds` (regenerates `lib/editor/backgrounds-data.json`) |
+| Add 3D shapes | Add assets, run `pnpm build:shapes` (regenerates `lib/editor/shapes-data.json`); UI in `inspector/shapes-section.tsx` |
 | Add a Google Font | `lib/editor/fonts.ts` → add to the fonts array |
+| Add/change a template | `lib/editor/templates/` — new file + entry in `catalog.ts`; applied by `apply.ts` |
+| Change easing options / the bezier editor | `lib/editor/clip-easing.ts` + `components/editor/animate/clip-transition-toolbar.tsx` + `bezier-curve-editor.tsx` |
+| Change timeline UI | `components/editor/animate/` (`use-animate-timeline.ts`, `timeline-clip.tsx`, `timeline-ruler.tsx`, `timeline-video-clip.tsx`) |
+| Change video/GIF export | `lib/editor/animation-export/` (`video.ts`, `gif.ts`, `capture.ts`, `animation-audio.ts`, `watermark.ts`) |
+| Change video-on-canvas behavior | `lib/editor/media-type.ts`, `video-registry.ts`, `video-timeline-map.ts`, `gif-to-video.ts`, `components/editor/video-control-bar.tsx` |
+| Change draft save/restore | `lib/editor/store/draft-persistence.ts` (IndexedDB) + `lib/draft-db.ts` / `lib/draft-storage.ts` / `lib/draft-media-db.ts` (server) |
 | Add an API route | `/app/api/<name>/route.ts` |
 | Change auth providers | `lib/auth.ts` |
-| Change share storage behavior | `lib/share-storage.ts` for R2 objects + `lib/share-db.ts` for D1 metadata |
+| Change share storage behavior | `lib/share-storage.ts` for R2 objects + `lib/share-db.ts` for D1 metadata; multipart video path in `lib/share-upload-*.ts` |
 | Change D1 schema | `lib/db/schema.ts` + migration in `migrations/` + relevant `*-db.ts` module |
 | Change environment variables | `lib/env.ts`; change Cloudflare bindings in `wrangler.jsonc` and then run `pnpm cf-typegen` |
-| Change top-bar UI | `components/editor/top-bar.tsx` |
+| Change top-bar UI | `components/editor/top-bar/` |
 | Change right inspector panel | `components/editor/inspector/` |
 | Change canvas rendering | `components/editor/canvas/` |
 | Change annotation tools | `components/editor/annotation-toolbar.tsx` + `annotation-shape/` |
+| Change mobile / iPad controls | `components/editor/mobile-controls/`, `components/editor/ipad-sidebar.tsx` |
+| Change marketing pages | `app/page.tsx`, `app/showcase/`, `app/compare/` (+ `lib/compare/comparisons.ts`), `app/glossary/`, `app/changelog/page.tsx` |
 
 ---
 
@@ -203,6 +213,7 @@ drives the live canvas through CSS variables (no store re-render per frame).
 
 Core files:
 - `lib/editor/animation-playback.ts` — interpolation helpers, stack resolvers, the `AnimationEffect`/`ClipBaseline` plumbing, `DEFAULT_BASELINE`.
+- `lib/editor/clip-easing.ts` — the `ClipEasingKind` union, the cubic-bezier solver, and the SVG path/point helpers the easing UI draws with. A clip with `easing: "custom"` carries its handles in `easingBezier`; every other kind is a named curve. `components/editor/animate/clip-transition-toolbar.tsx` is the picker, `bezier-curve-editor.tsx` the draggable graph, `easing-curve.tsx` the small previews.
 - `components/editor/animate/animation-layer.tsx` — the per-frame player: samples every owned effect at the playhead and writes CSS vars; clears them at rest.
 - `components/editor/canvas/canvas-view.tsx` + `canvas-backdrop.tsx` — read those vars via `var(--…, <committed fallback>)`.
 - `components/editor/animate/timeline-clip.tsx` — the icon shown on a clip per owned effect.
@@ -342,8 +353,11 @@ Access D1 through `lib/d1.ts`, which reads the `TOKOKINO_DB` binding from OpenNe
 Tables:
 - `shares` — share metadata, content hashes, R2 object keys, and view counters
 - `share_views` — per-IP-hash view tracking for public shares
+- `share_uploads` / `share_upload_parts` — in-flight multipart uploads for video shares
 - `drafts` — saved draft metadata; full draft JSON and thumbnails live in R2
+- `draft_media` — video/media objects attached to a draft
 - `custom_presets` — user-created layout/style preset metadata
+- `user_preferences` — per-user editor preferences
 
 better-auth stores its auth tables in D1 through `lib/auth.ts`.
 
@@ -400,9 +414,12 @@ The store uses `motion` for preview slide/fade/zoom/flip transitions between can
 - **Zod import**: always `from "zod/v4"`, not `from "zod"` — this project uses the v4 subpath export.
 - **Canvas not found in export**: make sure the canvas root element has `data-canvas-id={id}` attribute.
 - **History pollution**: setting multiple store values in sequence creates multiple undo steps. Use combined actions like `setTiltAndScale` or `setScreenshotPlacement` when the UI groups changes together.
-- **Bulk edit mode**: when `bulkEditMode` is true, the layout changes — don't assume a single active canvas. Guard with `s.present.bulkEditMode` checks where needed.
+- **Undoable vs session state**: only the six fields inside `present` are undoable. Modes and selection (`isAnimateMode`, `bulkEditMode`, `isPreviewMode`, `selectedTextId`, `selectedAnimationClipId`, …) live on the store root — read `s.bulkEditMode`, never `s.present.bulkEditMode`.
+- **Bulk edit mode**: when `bulkEditMode` is true, the layout changes — don't assume a single active canvas.
 - **Max canvases**: `MAX_CANVASES = 20`. Check before calling `addCanvas()`.
-- **Max screenshot slots**: 3 per canvas. The store enforces this internally.
+- **Max screenshot slots**: `MAX_SCREENSHOT_SLOTS = 3` per canvas. The store enforces this internally.
+- **Video srcs are object URLs**: a canvas `screenshot` may be a `blob:` URL pointing at video bytes. Use `lib/editor/media-type.ts` (`isVideoSrc`, `getBlobForObjectUrl`) instead of sniffing the extension — a bare `blob:` URL carries no MIME hint, and the raw URL is dead after reload.
+- **Animation lives on the canvas**: `canvas.animation` is optional for older drafts. Always read it through a default (`canvas.animation ?? { durationMs: 5000, clips: [] }`).
 - **Share content-type**: server accepts both `image/png` and `image/jpeg`. Always forward the content-type from `captureCanvasForShare`.
 - **External image CORS**: any background or asset image from an external domain must be proxied through `/api/export/image` for export to work. The `rewriteExportAssets` function handles this automatically during capture.
 - **Tailwind v4**: uses the CSS-first config approach, not `tailwind.config.ts`. Theme tokens are in `globals.css`.

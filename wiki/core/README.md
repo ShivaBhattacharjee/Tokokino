@@ -62,7 +62,7 @@ flowchart TB
 | [device-frames.md](./device-frames.md) | Device mockups, browser chrome, export re-project |
 | [styling-canvas.md](./styling-canvas.md) | Inspector → CSS → canvas paint |
 | [live-preview.md](./live-preview.md) | Live CSS vars during slider/drag |
-| [layers.md](./layers.md) | Text, assets, annotations, multi-screenshot slots |
+| [layers.md](./layers.md) | Text, assets, 3D shapes, annotations, multi-screenshot slots |
 | [animate-mode.md](./animate-mode.md) | Timeline, playback, effect ownership |
 | [bulk-preview.md](./bulk-preview.md) | Multi-canvas bulk edit + full-screen preview |
 | [shortcuts.md](./shortcuts.md) | Keyboard shortcuts catalog + handlers |

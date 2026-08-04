@@ -1,5 +1,5 @@
 const SITE_URL = "https://tokokino.com"
-const UPDATED_AT = "2026-07-25"
+const UPDATED_AT = "2026-08-04"
 
 const content = `# Tokokino
 
@@ -24,10 +24,11 @@ Tokokino helps users create beautiful still compositions and timeline-based demo
 - Offers ready-made starter templates (browser, iPhone, iPad, multi-device, and animated reveals) browsable at ${SITE_URL}/showcase; picking one opens it in the editor ready for a capture.
 - Adds browser frames and device mockups for mobile, desktop, and web captures.
 - Creates polished backgrounds with gradients, overlays, shadows, borders, padding, and layout presets.
-- Supports annotations, arrows, labels, multi-shot layouts, presentation-style compositions, and keyframe timeline edits.
+- Includes a library of 3D shapes (glass, chrome, holographic, and more) that drop onto the canvas and style like any other layer.
+- Supports annotations, arrows, labels, multi-shot layouts, presentation-style compositions, and keyframe timeline edits with custom cubic-bezier transition curves.
 - Turns X (Twitter) and Bluesky post links into clean, themeable post mockups with toggles for avatar, images, stats, date, and quoted posts.
 - Exports still visuals as PNG, JPEG, or WebP at HD, 4K, and 8K widths.
-- Exports animated demos as GIF or WebM.
+- Exports animated demos as GIF, WebM, or MP4, encoded on-device.
 - Lets users create public share links for final rendered outputs when they choose to sign in and share.
 
 ## Audience
@@ -57,6 +58,8 @@ Feature comparison (Tokokino vs PostSpark vs Pika vs Shots.so):
 - Starter mockup templates: Tokokino yes; PostSpark yes (public template library); Pika limited (some templates Pro); Shots.so limited.
 - Animation / video templates: Tokokino yes; PostSpark paid (Pro for video/animation workflows); Pika no; Shots.so paid.
 - Editable motion timeline: Tokokino yes; PostSpark paid/deeper workflows; Pika no; Shots.so animation presets (not a multi-effect keyframe timeline).
+- Custom easing curves per keyframe: Tokokino yes (named presets plus a draggable cubic-bezier editor); PostSpark, Pika, and Shots.so do not publicly list a per-keyframe custom curve editor.
+- 3D shape library: Tokokino yes (106 glass/chrome/holographic shapes that style like any other layer); PostSpark, Pika, and Shots.so do not publicly list an equivalent built-in 3D shape library.
 - GIF / WebM / MP4 export: Tokokino yes; PostSpark paid (incl. GIF); Pika no; Shots.so paid (WebM / animated mockups).
 - Video mockups (drop screen recording): Tokokino yes; PostSpark paid; Pika no; Shots.so paid.
 - Zoom / animation presets: Tokokino yes; PostSpark paid; Pika no; Shots.so paid.

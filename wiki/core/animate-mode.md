@@ -40,7 +40,9 @@ AnimationClip {
   baseline?: ClipBaseline   // pose before this clip's edits
   pose?: ClipBaseline       // target pose
   effects?: AnimationEffect[]
-  easing?, speed?
+  easing?: ClipEasingKind   // linear | cubic | in | out | inOut | outCirc | custom
+  easingBezier?            // { x1, y1, x2, y2 } — only when easing === "custom"
+  speed?
   returnToDefault?          // ease back after window (default ON)
 }
 ```
@@ -51,7 +53,18 @@ AnimationClip {
 
 `position` · `zoom` · `tilt` · `padding` · `shadow` · `background` · `backdrop` · `canvasRadius` · `lighting` · `filter` · `portrait` · `pattern` · `overlay` · `border` · `borderRadius` · `crop`
 
-Slot-limited set: tilt / zoom / shadow (and related slot pose fields) — see `SLOT_ANIMATABLE_EFFECTS` in store/playback code.
+Slot-limited set: `tilt` · `zoom` · `shadow` · `position` · `border` · `borderRadius` · `padding` · `lighting` — see `SLOT_ANIMATABLE_EFFECTS` in `store.tsx`. Everything else is main-canvas only.
+
+### Easing
+
+`ClipEasingKind` is one of `linear`, `cubic`, `in`, `out`, `inOut`, `outCirc`, or `custom`. Picking **Custom** in the transition toolbar stores the two control points on the clip as `easingBezier` and opens an interactive graph — drag either handle, or focus one and nudge with the arrow keys (`BEZIER_Y_MIN`/`BEZIER_Y_MAX` clamp the vertical range so overshoot stays bounded). Reset restores `DEFAULT_CUSTOM_BEZIER` and clears the stored handles, so re-selecting Custom starts from the default curve rather than the last edit.
+
+| Piece | Path |
+|---|---|
+| Kinds, solver, SVG helpers | `lib/editor/clip-easing.ts` |
+| Preset picker + Custom entry | `components/editor/animate/clip-transition-toolbar.tsx` |
+| Draggable graph | `components/editor/animate/bezier-curve-editor.tsx` |
+| Small curve previews | `components/editor/animate/easing-curve.tsx` |
 
 ---
 
