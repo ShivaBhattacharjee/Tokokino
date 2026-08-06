@@ -14,6 +14,7 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
+import { ENCODE_KEY_FRAME_INTERVAL_SEC } from "../../encode-settings"
 import type { WatermarkAssets } from "../types"
 import {
   AnimationExportAbortedError,
@@ -70,7 +71,7 @@ export async function encodeMp4OrWebm(
   const videoSource = new CanvasSource(encodeCanvas, {
     codec,
     bitrate: QUALITY_HIGH,
-    keyFrameInterval: 2,
+    keyFrameInterval: ENCODE_KEY_FRAME_INTERVAL_SEC,
   })
   output.addVideoTrack(videoSource, {
     frameRate: Math.round(1 / plan.frameDurationSec),

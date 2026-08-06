@@ -6,6 +6,7 @@ import { useEditorStore } from "@/lib/editor/store"
 import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
 import { sourceTimeAt, videoClipAtTime } from "@/lib/editor/video-timeline-map"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
+import { createVideoSeeker } from "@/lib/editor/video-seek"
 
 type PlayerContextValue = {
   playheadMs: number
@@ -84,6 +85,8 @@ export function AnimationPlayerProvider({
     return id ? (useVideoRegistry.getState().videos[id] ?? null) : null
   }, [])
 
+  const seekerRef = React.useRef(createVideoSeeker())
+
   const syncVideoTo = React.useCallback(
     (ms: number) => {
       const el = getVideo()
@@ -97,7 +100,7 @@ export function AnimationPlayerProvider({
       el.muted = clip.muted ?? getVideoMutedPreferenceSync()
       const seconds = sourceTimeAt(videoClipsRef.current, ms, duration)
       if (seconds == null) return
-      el.currentTime = seconds
+      seekerRef.current.seek(el, seconds)
     },
     [getVideo, videoClipAt]
   )
@@ -191,7 +194,13 @@ export function AnimationPlayerProvider({
     syncVideoTo(0)
   }, [pause, syncVideoTo])
 
-  React.useEffect(() => stopRaf, [stopRaf])
+  React.useEffect(() => {
+    const seeker = seekerRef.current
+    return () => {
+      stopRaf()
+      seeker.dispose()
+    }
+  }, [stopRaf])
 
   const value = React.useMemo<PlayerContextValue>(
     () => ({
