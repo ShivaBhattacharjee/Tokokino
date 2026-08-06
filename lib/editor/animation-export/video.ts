@@ -19,6 +19,7 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
+import { ENCODE_KEY_FRAME_INTERVAL_SEC } from "../encode-settings"
 import { isVideoSrc } from "../media-type"
 import { prepareAnimationAudio } from "./animation-audio"
 import { captureStableFrame } from "./capture"
@@ -114,7 +115,7 @@ export async function tryEncodeWithMediabunny(
   const videoSource = new CanvasSource(encodeCanvas, {
     codec,
     bitrate: QUALITY_HIGH,
-    keyFrameInterval: 2,
+    keyFrameInterval: ENCODE_KEY_FRAME_INTERVAL_SEC,
   })
   output.addVideoTrack(videoSource, { frameRate: fps })
 

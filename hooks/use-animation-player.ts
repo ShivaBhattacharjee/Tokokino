@@ -6,6 +6,7 @@ import { useEditorStore } from "@/lib/editor/store"
 import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
 import { sourceTimeAt, videoClipAtTime } from "@/lib/editor/video-timeline-map"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
+import { createVideoSeeker, type VideoSeeker } from "@/lib/editor/video-seek"
 
 type PlayerContextValue = {
   playheadMs: number
@@ -84,8 +85,22 @@ export function AnimationPlayerProvider({
     return id ? (useVideoRegistry.getState().videos[id] ?? null) : null
   }, [])
 
+  // Lazy: the provider re-renders every frame while playing, and an eager
+  // `useRef(createVideoSeeker())` would build a seeker per frame to discard it.
+  const seekerRef = React.useRef<VideoSeeker | null>(null)
+  const getSeeker = React.useCallback(() => {
+    seekerRef.current ??= createVideoSeeker()
+    return seekerRef.current
+  }, [])
+
+  /**
+   * Park the canvas video on timeline time `ms`. Scrubbing leaves `immediate`
+   * off so a drag can't outrun the decoder; anything that is about to play from
+   * this position needs it on, or playback starts from wherever the last scrub
+   * seek happened to be.
+   */
   const syncVideoTo = React.useCallback(
-    (ms: number) => {
+    (ms: number, immediate = false) => {
       const el = getVideo()
       if (!el) return
       const duration = Number.isFinite(el.duration) ? el.duration : undefined
@@ -97,9 +112,11 @@ export function AnimationPlayerProvider({
       el.muted = clip.muted ?? getVideoMutedPreferenceSync()
       const seconds = sourceTimeAt(videoClipsRef.current, ms, duration)
       if (seconds == null) return
-      el.currentTime = seconds
+      const seeker = getSeeker()
+      if (immediate) seeker.seekNow(el, seconds)
+      else seeker.seek(el, seconds)
     },
-    [getVideo, videoClipAt]
+    [getVideo, videoClipAt, getSeeker]
   )
 
   const stopRaf = React.useCallback(() => {
@@ -124,7 +141,7 @@ export function AnimationPlayerProvider({
 
     const video = getVideo()
     if (video) {
-      syncVideoTo(from)
+      syncVideoTo(from, true)
       if (
         videoClipAt(
           from,
@@ -151,7 +168,7 @@ export function AnimationPlayerProvider({
         if (!activeClip) {
           activeVideo.pause()
         } else if (activeVideo.paused) {
-          syncVideoTo(next)
+          syncVideoTo(next, true)
           void activeVideo.play().catch(() => {})
         } else {
           activeVideo.muted = activeClip.muted ?? getVideoMutedPreferenceSync()
@@ -188,10 +205,15 @@ export function AnimationPlayerProvider({
   const reset = React.useCallback(() => {
     pause()
     setPlayheadMs(0)
-    syncVideoTo(0)
+    syncVideoTo(0, true)
   }, [pause, syncVideoTo])
 
-  React.useEffect(() => stopRaf, [stopRaf])
+  React.useEffect(() => {
+    return () => {
+      stopRaf()
+      seekerRef.current?.dispose()
+    }
+  }, [stopRaf])
 
   const value = React.useMemo<PlayerContextValue>(
     () => ({

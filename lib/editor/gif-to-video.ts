@@ -20,6 +20,8 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
+import { ENCODE_KEY_FRAME_INTERVAL_SEC } from "./encode-settings"
+
 // Clamp very large GIFs before re-encode — keeps the encoder fast and the output
 // a sane size. Most codecs also require even dimensions.
 const MAX_GIF_DIMENSION = 1600
@@ -93,7 +95,7 @@ export async function transcodeGifToVideo(file: File): Promise<Blob | null> {
     const source = new CanvasSource(canvas, {
       codec,
       bitrate: QUALITY_HIGH,
-      keyFrameInterval: 2,
+      keyFrameInterval: ENCODE_KEY_FRAME_INTERVAL_SEC,
     })
     output.addVideoTrack(source, { frameRate: 30 })
     await output.start()
