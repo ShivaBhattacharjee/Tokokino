@@ -7,6 +7,8 @@ type TestVideo = HTMLVideoElement & {
   __seeked: () => void
   /** Every value assigned to `currentTime`, in order. */
   __seeks: number[]
+  /** Live `seeked` listeners — a seeker that abandons cleanly leaves none. */
+  __seekedListeners: () => number
 }
 
 function makeVideo(): TestVideo {
@@ -35,6 +37,7 @@ function makeVideo(): TestVideo {
       }
     },
     __seeks: seeks,
+    __seekedListeners: () => listeners.get("seeked")?.size ?? 0,
   } as unknown as TestVideo
 }
 
@@ -162,6 +165,58 @@ describe("createVideoSeeker", () => {
     expect(second.__seeks).toEqual([3, 4])
   })
 
+  it("seekNow overrides a seek already in flight", () => {
+    const seeker = createVideoSeeker()
+    const video = makeVideo()
+
+    seeker.seek(video, 1)
+    seeker.seekNow(video, 5)
+
+    expect(video.__seeks).toEqual([1, 5])
+  })
+
+  it("seekNow drops what scrubbing had queued", () => {
+    const seeker = createVideoSeeker()
+    const video = makeVideo()
+
+    // Scrub sweeps past 1 and stops at 2, with 1 still decoding.
+    seeker.seek(video, 1)
+    seeker.seek(video, 2)
+    // Play from where the pointer stopped: must land there before playback,
+    // not queue behind the 1 and jump once it settles.
+    seeker.seekNow(video, 2)
+    expect(video.__seeks).toEqual([1, 2])
+
+    video.__seeked()
+    vi.advanceTimersByTime(5000)
+    expect(video.__seeks).toEqual([1, 2])
+  })
+
+  it("seekNow leaves no stale queue behind it", () => {
+    const seeker = createVideoSeeker()
+    const video = makeVideo()
+
+    seeker.seek(video, 1)
+    seeker.seek(video, 9)
+    seeker.seekNow(video, 2)
+    video.__seeked()
+
+    expect(video.__seeks).toEqual([1, 2])
+  })
+
+  it("keeps coalescing after a seekNow", () => {
+    const seeker = createVideoSeeker()
+    const video = makeVideo()
+
+    seeker.seekNow(video, 2)
+    seeker.seek(video, 3)
+    seeker.seek(video, 4)
+    expect(video.__seeks).toEqual([2])
+
+    video.__seeked()
+    expect(video.__seeks).toEqual([2, 4])
+  })
+
   it("stops the settle timer on dispose", () => {
     const seeker = createVideoSeeker()
     const video = makeVideo()
@@ -172,5 +227,70 @@ describe("createVideoSeeker", () => {
     vi.advanceTimersByTime(5000)
 
     expect(video.__seeks).toEqual([1])
+  })
+
+  it("detaches the listener from an element it switches away from", () => {
+    const seeker = createVideoSeeker()
+    const first = makeVideo()
+    const second = makeVideo()
+
+    seeker.seek(first, 1)
+    expect(first.__seekedListeners()).toBe(1)
+
+    seeker.seek(second, 3)
+    expect(first.__seekedListeners()).toBe(0)
+  })
+
+  it("detaches the listener on dispose", () => {
+    const seeker = createVideoSeeker()
+    const video = makeVideo()
+
+    seeker.seek(video, 1)
+    seeker.dispose()
+
+    expect(video.__seekedListeners()).toBe(0)
+  })
+
+  it("re-adopts an abandoned element without a stale listener", () => {
+    const seeker = createVideoSeeker()
+    const first = makeVideo()
+    const second = makeVideo()
+
+    seeker.seek(first, 1)
+    seeker.seek(second, 3)
+    seeker.seek(first, 5)
+    seeker.seek(first, 6)
+    // One live listener, not two — the abandoned seek left nothing behind, so
+    // this `seeked` drains the queue exactly once.
+    expect(first.__seekedListeners()).toBe(1)
+
+    first.__seeked()
+    expect(first.__seeks).toEqual([1, 5, 6])
+    expect(first.__seekedListeners()).toBe(1)
+
+    first.__seeked()
+    vi.advanceTimersByTime(5000)
+    expect(first.__seeks).toEqual([1, 5, 6])
+  })
+
+  it("starts clean when reused after dispose", () => {
+    const seeker = createVideoSeeker()
+    const video = makeVideo()
+
+    seeker.seek(video, 1)
+    seeker.seek(video, 2)
+    seeker.dispose()
+
+    seeker.seek(video, 4)
+    seeker.seek(video, 5)
+    expect(video.__seeks).toEqual([1, 4])
+
+    // The pre-dispose queue is gone: one settle drains only what came after.
+    video.__seeked()
+    expect(video.__seeks).toEqual([1, 4, 5])
+
+    video.__seeked()
+    vi.advanceTimersByTime(5000)
+    expect(video.__seeks).toEqual([1, 4, 5])
   })
 })

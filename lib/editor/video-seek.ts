@@ -6,9 +6,14 @@
  * source with sparse key frames (2s is a common encoder default) that backlog
  * runs seconds deep and the canvas stops tracking the playhead at all.
  *
- * So: keep one seek in flight and remember only the newest target. Intermediate
- * positions the pointer swept past are dropped, and the element always settles
- * on where the pointer actually stopped.
+ * So `seek` keeps one seek in flight and remembers only the newest target:
+ * intermediate positions the pointer swept past are dropped, and the element
+ * settles on where the pointer actually stopped.
+ *
+ * Transport moves use `seekNow` instead. Queuing behind a scrub seek would let
+ * playback start from a position the user already dragged away from, and jump
+ * once the queue drained. The browser aborts a running seek on its own, so
+ * overriding one is safe — it's a burst of them that needs the queue.
  */
 
 // A stalled decode can swallow `seeked` outright; don't wedge the scrubber.
@@ -18,63 +23,77 @@ const SEEK_SETTLE_TIMEOUT_MS = 1500
 const SEEK_EPSILON_SEC = 1e-3
 
 export type VideoSeeker = {
+  /** Scrub: coalesced behind whatever seek is already running. */
   seek: (el: HTMLVideoElement, seconds: number) => void
+  /** Transport: issue now, dropping anything queued. */
+  seekNow: (el: HTMLVideoElement, seconds: number) => void
   dispose: () => void
 }
 
 export function createVideoSeeker(): VideoSeeker {
   let current: HTMLVideoElement | null = null
   let pending: number | null = null
-  let inFlight = false
   let timer: number | null = null
+  // Non-null while a seek is in flight; also the token that tells a superseded
+  // listener it no longer speaks for the seeker.
+  let settle: (() => void) | null = null
 
-  const clearTimer = () => {
+  /** Stop waiting on the running seek and forget what was queued behind it. */
+  const abandon = () => {
     if (timer !== null) window.clearTimeout(timer)
     timer = null
+    if (settle && current) current.removeEventListener("seeked", settle)
+    settle = null
+    pending = null
   }
 
-  const seek = (el: HTMLVideoElement, seconds: number) => {
-    // A different canvas's video: the old element's in-flight seek is no longer
-    // ours to wait on.
-    if (current !== el) {
-      clearTimer()
-      current = el
-      pending = null
-      inFlight = false
-    }
-
-    if (inFlight) {
-      pending = seconds
-      return
-    }
-    if (Math.abs(el.currentTime - seconds) < SEEK_EPSILON_SEC) return
-
-    inFlight = true
-
-    const settle = () => {
-      el.removeEventListener("seeked", settle)
-      // A late answer from an element we've already moved off of — its timer
-      // was dropped at the switch, and the live one isn't ours to clear.
-      if (current !== el) return
-      clearTimer()
-      inFlight = false
+  const issue = (el: HTMLVideoElement, seconds: number) => {
+    const onSettle = () => {
+      if (settle !== onSettle) return
+      el.removeEventListener("seeked", onSettle)
+      if (timer !== null) window.clearTimeout(timer)
+      timer = null
+      settle = null
       const next = pending
       pending = null
       if (next !== null) seek(el, next)
     }
 
-    el.addEventListener("seeked", settle)
-    timer = window.setTimeout(settle, SEEK_SETTLE_TIMEOUT_MS)
+    settle = onSettle
+    el.addEventListener("seeked", onSettle)
+    timer = window.setTimeout(onSettle, SEEK_SETTLE_TIMEOUT_MS)
     el.currentTime = seconds
+  }
+
+  const seek = (el: HTMLVideoElement, seconds: number) => {
+    // A different canvas's video: the old element's seek is no longer ours to
+    // wait on.
+    if (current !== el) {
+      abandon()
+      current = el
+    }
+
+    if (settle) {
+      pending = seconds
+      return
+    }
+    if (Math.abs(el.currentTime - seconds) < SEEK_EPSILON_SEC) return
+    issue(el, seconds)
+  }
+
+  const seekNow = (el: HTMLVideoElement, seconds: number) => {
+    abandon()
+    current = el
+    if (Math.abs(el.currentTime - seconds) < SEEK_EPSILON_SEC) return
+    issue(el, seconds)
   }
 
   return {
     seek,
+    seekNow,
     dispose() {
-      clearTimer()
+      abandon()
       current = null
-      pending = null
-      inFlight = false
     },
   }
 }
