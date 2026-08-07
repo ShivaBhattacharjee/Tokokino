@@ -230,6 +230,45 @@ describe("canvas store helpers", () => {
     expect(own.adjustments).toBe(NEUTRAL_MEDIA_ADJUSTMENTS)
   })
 
+  it("keeps an ungraded slot inheriting after a draft round-trip", () => {
+    const graded: MediaAdjustments = {
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      contrast: 130,
+    }
+    const canvas = { ...createCanvas("c"), mediaAdjustments: graded }
+    const loaded = applySlotStyleDefaults(
+      createScreenshotSlot({ id: "s" }, 1),
+      canvas
+    )
+    // Materializing the *resolved* grade here would freeze the slot on today's
+    // canvas value, so a later main-scoped grade would stop reaching it.
+    expect(loaded.adjustments).toBeUndefined()
+    expect(resolveSlotScreenshotStyle(loaded, canvas).adjustments).toBe(graded)
+
+    const regraded: MediaAdjustments = {
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      contrast: 80,
+    }
+    expect(
+      resolveSlotScreenshotStyle(loaded, {
+        ...canvas,
+        mediaAdjustments: regraded,
+      }).adjustments
+    ).toBe(regraded)
+  })
+
+  it("materializes a grade the slot actually owns", () => {
+    const own: MediaAdjustments = { ...NEUTRAL_MEDIA_ADJUSTMENTS, hue: 40 }
+    const canvas = createCanvas("c")
+    const loaded = applySlotStyleDefaults(
+      createScreenshotSlot({ id: "s", adjustments: own }, 1),
+      canvas
+    )
+    expect(loaded.adjustments).toEqual(own)
+    // Cloned, so editing the slot can never write through to the source object.
+    expect(loaded.adjustments).not.toBe(own)
+  })
+
   describe("applyScreenshotStyle", () => {
     it("target 'main' patches only the canvas, never the slots", () => {
       const canvas = {

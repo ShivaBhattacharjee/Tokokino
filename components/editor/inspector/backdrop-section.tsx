@@ -12,8 +12,11 @@ import {
   useEditorStore,
 } from "@/lib/editor/store"
 import {
+  clearTrackedLivePreviewVars,
+  createLivePreviewVarWrites,
   livePreviewRoots,
   setLivePreviewVar,
+  writeTrackedLivePreviewVars,
 } from "@/lib/editor/live-preview-vars"
 import {
   isNeutralMediaAdjustments,
@@ -173,25 +176,34 @@ export function BackdropSection({
         .map((id) => slotMediaFxPreviewVar(id)),
     ]
   }, [selectedSlot, slotIds, styleTarget])
-  const setMediaFxPreview = React.useCallback(
-    (value: string | null) => {
-      const roots = livePreviewRoots(activeCanvasId)
-      for (const name of mediaFxVars) setLivePreviewVar(roots, name, value)
-    },
-    [activeCanvasId, mediaFxVars]
-  )
+  // Cleanup undoes the writes this drag actually made rather than re-deriving
+  // them: the targets follow the selection, so a canvas/selection change
+  // mid-drag would otherwise strand a preview filter on the boxes it started on.
+  const mediaFxWrites = React.useRef(createLivePreviewVarWrites())
+  const clearMediaFxPreview = React.useCallback(() => {
+    clearTrackedLivePreviewVars(mediaFxWrites.current)
+  }, [])
+  // Unmounting mid-drag (switching inspector tab / mobile category) leaves the
+  // canvas up, so an uncleared var would keep overriding the committed grade.
+  React.useEffect(() => clearMediaFxPreview, [clearMediaFxPreview])
   const commitMediaAdjustments = React.useCallback(
     (patch: Partial<MediaAdjustments>) => {
       applyStyle({ adjustments: { ...mediaStyle.adjustments, ...patch } })
-      if (typeof requestAnimationFrame === "undefined") return
-      requestAnimationFrame(() => setMediaFxPreview(null))
+      if (typeof requestAnimationFrame === "undefined") {
+        clearMediaFxPreview()
+        return
+      }
+      requestAnimationFrame(clearMediaFxPreview)
     },
-    [applyStyle, mediaStyle.adjustments, setMediaFxPreview]
+    [applyStyle, clearMediaFxPreview, mediaStyle.adjustments]
   )
   const previewMediaAdjustments = React.useCallback(
     (patch: Partial<MediaAdjustments>) => {
       const candidate = { ...mediaStyle.adjustments, ...patch }
-      setMediaFxPreview(
+      writeTrackedLivePreviewVars(
+        mediaFxWrites.current,
+        livePreviewRoots(activeCanvasId),
+        mediaFxVars,
         mediaFilterCss({
           enhance,
           filter: mediaStyle.filter,
@@ -199,7 +211,13 @@ export function BackdropSection({
         }) || "brightness(1)"
       )
     },
-    [enhance, mediaStyle.adjustments, mediaStyle.filter, setMediaFxPreview]
+    [
+      activeCanvasId,
+      enhance,
+      mediaFxVars,
+      mediaStyle.adjustments,
+      mediaStyle.filter,
+    ]
   )
   const setMediaFilter = React.useCallback(
     (next: AssetFilter) => applyStyle({ filter: next }),

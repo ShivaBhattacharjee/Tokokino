@@ -22,7 +22,7 @@
  */
 
 import { supportsObjectViewBox } from "../../crop-utils"
-import { mediaFilterCss } from "../../css-utils"
+import { mediaFilterCss, scaleFilterBlur } from "../../css-utils"
 import type { AnimationCapture } from "../../export"
 import { drawPortraitDepthOfField } from "../capture"
 import { waitForPaint } from "../utils"
@@ -164,11 +164,14 @@ export function paintFrameToLocalBox(
 
   try {
     const grade = mediaFx
-      ? mediaFilterCss({
-          enhance: mediaFx.enhance,
-          filter: mediaFx.filter,
-          adjustments: mediaFx.adjustments,
-        })
+      ? scaleFilterBlur(
+          mediaFilterCss({
+            enhance: mediaFx.enhance,
+            filter: mediaFx.filter,
+            adjustments: mediaFx.adjustments,
+          }),
+          mediaFx.pixelScale ?? 1
+        )
       : ""
     if (grade) ctx.filter = grade
     ctx.drawImage(frame, 0, 0, fw, fh, dx, dy, dw, dh)
@@ -953,7 +956,7 @@ async function createCompositeRenderer(
             fw,
             fh,
             shellRadius * mediaScale,
-            mediaFx,
+            { ...mediaFx, pixelScale: mediaScale },
             mediaBuffer
           )
           if (local) {
@@ -976,7 +979,7 @@ async function createCompositeRenderer(
             fw,
             fh,
             shellRadius * mediaScale,
-            mediaFx,
+            { ...mediaFx, pixelScale: mediaScale },
             mediaBuffer
           )
           const dx = region.destX * scale

@@ -7,6 +7,7 @@ import {
   isNeutralMediaAdjustments,
   mediaFilterCss,
   NEUTRAL_MEDIA_ADJUSTMENTS,
+  scaleFilterBlur,
 } from "@/lib/editor/css-utils"
 import type { AssetFilter, BackdropEffects } from "@/lib/editor/state-types"
 
@@ -153,5 +154,37 @@ describe("isNeutralMediaAdjustments", () => {
     expect(
       isNeutralMediaAdjustments({ ...NEUTRAL_MEDIA_ADJUSTMENTS, hue: -10 })
     ).toBe(false)
+  })
+})
+
+describe("scaleFilterBlur", () => {
+  const graded = (blur: number) =>
+    mediaFilterCss({
+      enhance: "vivid",
+      filter: "dream",
+      adjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS, blur, brightness: 120 },
+    })
+
+  it("leaves the chain untouched at 1x", () => {
+    expect(scaleFilterBlur(graded(8), 1)).toBe(graded(8))
+  })
+
+  it("scales every blur leg at 2x and nothing else", () => {
+    const scaled = scaleFilterBlur(graded(8), 2)
+    // The manual grade's blur AND the `dream` preset's own 0.5px blur.
+    expect(scaled).toContain("blur(16px)")
+    expect(scaled).toContain("blur(1px)")
+    expect(scaled).not.toContain("blur(8px)")
+    expect(scaled).not.toContain("blur(0.5px)")
+    // Non-length legs are scale-invariant and must survive verbatim.
+    expect(scaled).toContain("brightness(120%)")
+    expect(scaled).toContain("saturate(1.35)")
+    expect(scaled).toContain("contrast(1.12)")
+  })
+
+  it("is a no-op on a chain with no blur", () => {
+    const chain = mediaFilterCss({ enhance: "vivid" })
+    expect(scaleFilterBlur(chain, 4)).toBe(chain)
+    expect(scaleFilterBlur("", 4)).toBe("")
   })
 })

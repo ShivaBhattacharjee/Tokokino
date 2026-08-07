@@ -8,6 +8,7 @@ import {
   shouldSaveAsAnimatePreset,
 } from "@/lib/editor/custom-preset-snapshot"
 import { createCanvas } from "@/lib/editor/store/defaults"
+import { NEUTRAL_MEDIA_ADJUSTMENTS } from "@/lib/editor/css-utils"
 import type { AnimationClip, CanvasState } from "@/lib/editor/state-types"
 
 function canvasWithClips(slotIds: string[] = []): CanvasState {
@@ -70,6 +71,39 @@ function canvasWithClips(slotIds: string[] = []): CanvasState {
 }
 
 describe("custom preset snapshot", () => {
+  it("carries a slot's own colour grade, like its filter preset", () => {
+    const canvas = canvasWithClips(["slot-a"])
+    const graded = {
+      ...canvas,
+      screenshotSlots: canvas.screenshotSlots.map((slot) => ({
+        ...slot,
+        filter: "noir" as const,
+        adjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS, saturation: 160 },
+      })),
+    }
+    const geometry = captureCustomPresetGeometry(graded, {
+      id: "16-10",
+      w: 16,
+      h: 10,
+    })
+    // Dropping this made a graded slot come back on the canvas grade instead of
+    // its own after a preset round-trip.
+    expect(geometry.slots[0]?.adjustments).toEqual({
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      saturation: 160,
+    })
+    expect(geometry.slots[0]?.filter).toBe("noir")
+  })
+
+  it("leaves an ungraded slot's adjustments absent so it inherits the canvas", () => {
+    const geometry = captureCustomPresetGeometry(canvasWithClips(["slot-a"]), {
+      id: "16-10",
+      w: 16,
+      h: 10,
+    })
+    expect(geometry.slots[0]?.adjustments).toBeUndefined()
+  })
+
   it("saves style presets without animation by default", () => {
     const canvas = canvasWithClips()
     const geometry = captureCustomPresetGeometry(

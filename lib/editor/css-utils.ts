@@ -184,6 +184,22 @@ export function effectsFilterCss(
 }
 
 /**
+ * Rewrite the blur legs of a filter chain into a different pixel scale.
+ *
+ * `blur()` is the only length in the chain, so it is the only leg that does not
+ * survive a change of raster scale. CSS blur is in CSS pixels and scales with
+ * the raster for free; a hand-painted canvas at 2×/4× export scale does not, so
+ * an unscaled `blur(8px)` lands a quarter as strong in a 4K export as on canvas.
+ */
+export function scaleFilterBlur(filter: string, scale: number): string {
+  if (!filter || scale === 1) return filter
+  return filter.replace(
+    /blur\(([\d.]+)px\)/g,
+    (_, px: string) => `blur(${Number(px) * scale}px)`
+  )
+}
+
+/**
  * The full filter chain a screenshot/video renders with: the canvas enhance
  * preset, then the media filter preset, then the manual colour grade. Both the
  * DOM renderers and the export frame renderers (which draw decoded video pixels

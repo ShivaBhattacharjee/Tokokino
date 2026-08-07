@@ -325,7 +325,13 @@ export function applySlotStyleDefaults(
     padding: style.padding,
     shadow: cloneShadow(style.shadow),
     lighting: cloneLighting(style.lighting),
-    adjustments: cloneAdjustments(style.adjustments),
+    // Only materialize a grade the slot actually owns. Baking the *resolved*
+    // value here would turn "inherits the canvas grade" into a hard override the
+    // moment a draft round-trips, so a later main-scoped grade would stop
+    // reaching slots that had never been graded individually.
+    ...(slot.adjustments
+      ? { adjustments: cloneAdjustments(slot.adjustments) }
+      : {}),
   }
 }
 

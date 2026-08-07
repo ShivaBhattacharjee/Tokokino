@@ -285,7 +285,7 @@ async function composeShellWithVideo(
     fw,
     fh,
     radius,
-    { ...mediaFx, innerLighting: null }
+    { ...mediaFx, innerLighting: null, pixelScale: scale }
   )
   if (!local) return tex.texture
 

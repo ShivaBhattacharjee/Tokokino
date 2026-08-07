@@ -549,6 +549,11 @@ export function ElasticSlider({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        // A cancelled gesture (touch interrupted by a system gesture / call)
+        // fires pointercancel INSTEAD of pointerup. Without this the session
+        // never ends, so commit-on-release callers never commit and any live
+        // preview they painted stays on screen for good.
+        onPointerCancel={handlePointerUp}
         onFocus={handleTrackFocus}
         onBlur={handleTrackBlur}
         onKeyDown={handleKeyDown}

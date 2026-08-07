@@ -95,6 +95,7 @@ import type {
   EditorState,
   EditorTool,
   EnhancePreset,
+  MediaAdjustments,
   Overlay,
   Portrait,
   ScreenshotLayer,
@@ -767,6 +768,7 @@ export type CustomPresetSlotConfig = {
   scale: number
   zIndex?: number
   filter?: AssetFilter
+  adjustments?: MediaAdjustments
   hidden?: boolean
   objectFit?: "contain" | "cover" | "fill"
   shadow?: Shadow
@@ -1749,6 +1751,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     previous?.zIndex ??
                     computeNextLayerZ(canvas) + index,
                   filter: config.filter ?? previous?.filter ?? "none",
+                  adjustments: config.adjustments ?? previous?.adjustments,
                   hidden: config.hidden ?? previous?.hidden,
                   objectFit: config.objectFit ?? previous?.objectFit,
                   shadow: config.shadow ?? previous?.shadow,
