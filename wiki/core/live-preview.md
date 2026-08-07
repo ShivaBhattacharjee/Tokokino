@@ -47,6 +47,21 @@ Examples (written by inspector sliders / elastic controls):
 
 Pattern: read in canvas components as `var(--editor-…-preview, <committed>)` or apply only while dragging.
 
+### Media colour grade
+
+| Constant | Purpose |
+|---|---|
+| `MAIN_MEDIA_FX_PREVIEW_VAR` | Filter chain on the main screenshot/video |
+| `slotMediaFxPreviewVar(slotId)` | Filter chain on one screenshot slot |
+
+One var **per screenshot box**, not one canvas-wide var: the grade sliders honour
+the current selection (a slot, the main screenshot, or all of them), so a shared
+var would preview an edit on boxes the commit will not touch. `buildScreenshotImageStyle`
+emits `filter: var(<box var>, <committed chain>)`; the fallback is deliberately
+empty rather than `none`, because the same string is concatenated after a
+`drop-shadow()` list for framed screenshots (where `none` would invalidate the
+declaration) and any non-`none` identity would flatten the screenshot's 3D tilt.
+
 ### Main screenshot position
 
 | Constant | Purpose |

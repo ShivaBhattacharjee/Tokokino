@@ -8,7 +8,12 @@
  */
 
 import { hexToRgb } from "../../color-utils"
-import type { BackdropLighting, EnhancePreset } from "../../state-types"
+import type {
+  AssetFilter,
+  BackdropLighting,
+  EnhancePreset,
+  MediaAdjustments,
+} from "../../state-types"
 import {
   chooseQuadSubdivision,
   drawImageToQuadWarp,
@@ -24,6 +29,16 @@ import {
  */
 export type VideoMediaFx = {
   enhance?: EnhancePreset | null
+  /** Media filter preset — the same grade CSS applies to the DOM screenshot. */
+  filter?: AssetFilter | null
+  /** Manual media colour grade. */
+  adjustments?: MediaAdjustments | null
+  /**
+   * Export pixels per CSS pixel for the box being painted. Only `blur()` needs
+   * it — it is the one length in the grade, and a 2D canvas at export scale
+   * does not stretch it the way a rasterized CSS filter does.
+   */
+  pixelScale?: number
   /**
    * Inner lighting is painted directly onto the decoded frame instead of being
    * rasterized from CSS in Safari's SVG foreignObject implementation.

@@ -134,6 +134,8 @@ async function encodeVideoMedia(
     // CSS gradient through the foreground SVG pass.
     const mediaFx = {
       enhance: canvas.enhance,
+      filter: canvas.mediaFilter,
+      adjustments: canvas.mediaAdjustments,
       innerLighting:
         !supportsObjectViewBox() && canvas.backdrop.lighting.target === "inner"
           ? canvas.backdrop.lighting

@@ -18,7 +18,13 @@ import {
   screenshotStyleGroup,
 } from "@/lib/editor/store/canvas-helpers"
 import { createCanvas } from "@/lib/editor/store/defaults"
-import type { Border, DeviceFrame, Shadow } from "@/lib/editor/state-types"
+import { NEUTRAL_MEDIA_ADJUSTMENTS } from "@/lib/editor/css-utils"
+import type {
+  Border,
+  DeviceFrame,
+  MediaAdjustments,
+  Shadow,
+} from "@/lib/editor/state-types"
 
 const frame: DeviceFrame = {
   id: "none",
@@ -194,6 +200,75 @@ describe("canvas store helpers", () => {
     expect(style.objectFit).toBe("contain")
   })
 
+  it("falls a slot's colour grade back to the canvas grade, but never its filter", () => {
+    const graded: MediaAdjustments = {
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      saturation: 140,
+    }
+    const canvas = {
+      ...createCanvas("c"),
+      mediaAdjustments: graded,
+      mediaFilter: "noir" as const,
+    }
+    const inheriting = resolveSlotScreenshotStyle(
+      createScreenshotSlot({ id: "s" }, 1),
+      canvas
+    )
+    expect(inheriting.adjustments).toBe(graded)
+    // `filter` is a required slot field defaulting to "none", so it cannot
+    // inherit — an "all" edit mirrors onto it instead.
+    expect(inheriting.filter).toBe("none")
+
+    const own = resolveSlotScreenshotStyle(
+      createScreenshotSlot(
+        { id: "s", filter: "bw", adjustments: NEUTRAL_MEDIA_ADJUSTMENTS },
+        1
+      ),
+      canvas
+    )
+    expect(own.filter).toBe("bw")
+    expect(own.adjustments).toBe(NEUTRAL_MEDIA_ADJUSTMENTS)
+  })
+
+  it("keeps an ungraded slot inheriting after a draft round-trip", () => {
+    const graded: MediaAdjustments = {
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      contrast: 130,
+    }
+    const canvas = { ...createCanvas("c"), mediaAdjustments: graded }
+    const loaded = applySlotStyleDefaults(
+      createScreenshotSlot({ id: "s" }, 1),
+      canvas
+    )
+    // Materializing the *resolved* grade here would freeze the slot on today's
+    // canvas value, so a later main-scoped grade would stop reaching it.
+    expect(loaded.adjustments).toBeUndefined()
+    expect(resolveSlotScreenshotStyle(loaded, canvas).adjustments).toBe(graded)
+
+    const regraded: MediaAdjustments = {
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      contrast: 80,
+    }
+    expect(
+      resolveSlotScreenshotStyle(loaded, {
+        ...canvas,
+        mediaAdjustments: regraded,
+      }).adjustments
+    ).toBe(regraded)
+  })
+
+  it("materializes a grade the slot actually owns", () => {
+    const own: MediaAdjustments = { ...NEUTRAL_MEDIA_ADJUSTMENTS, hue: 40 }
+    const canvas = createCanvas("c")
+    const loaded = applySlotStyleDefaults(
+      createScreenshotSlot({ id: "s", adjustments: own }, 1),
+      canvas
+    )
+    expect(loaded.adjustments).toEqual(own)
+    // Cloned, so editing the slot can never write through to the source object.
+    expect(loaded.adjustments).not.toBe(own)
+  })
+
   describe("applyScreenshotStyle", () => {
     it("target 'main' patches only the canvas, never the slots", () => {
       const canvas = {
@@ -244,6 +319,28 @@ describe("canvas store helpers", () => {
       expect(patch.screenshotSlots![0].rotation).toBe(25)
     })
 
+    it("writes the media grade to canvas fields for main and per-slot for slots", () => {
+      const canvas = {
+        ...createCanvas("c"),
+        screenshotSlots: [createScreenshotSlot({ id: "a" }, 1)],
+      }
+      const graded: MediaAdjustments = {
+        ...NEUTRAL_MEDIA_ADJUSTMENTS,
+        contrast: 130,
+      }
+      const patch = applyScreenshotStyle(canvas, "all", {
+        adjustments: graded,
+        filter: "vintage",
+      })
+      expect(patch.mediaAdjustments).toEqual(graded)
+      expect(patch.mediaFilter).toBe("vintage")
+      const [slot] = patch.screenshotSlots!
+      expect(slot.adjustments).toEqual(graded)
+      // Cloned, never the shared reference the canvas holds.
+      expect(slot.adjustments).not.toBe(graded)
+      expect(slot.filter).toBe("vintage")
+    })
+
     it("target slotId patches only that slot and leaves the canvas + siblings alone", () => {
       const canvas = {
         ...createCanvas("c"),
@@ -284,6 +381,12 @@ describe("canvas store helpers", () => {
 
     it("emits no effect for non-animatable fields like objectFit", () => {
       expect(screenshotStyleEffects({ objectFit: "cover" })).toEqual([])
+      expect(
+        screenshotStyleEffects({
+          filter: "bw",
+          adjustments: NEUTRAL_MEDIA_ADJUSTMENTS,
+        })
+      ).toEqual([])
     })
 
     it("groups by sorted field set so unlike edits don't merge in history", () => {

@@ -8,6 +8,7 @@ import {
   type Mock,
 } from "vitest"
 import type * as FrameCanvasUtils from "@/lib/editor/animation-export/video-media/frame-canvas-utils"
+import { NEUTRAL_MEDIA_ADJUSTMENTS } from "@/lib/editor/css-utils"
 
 const mocks = vi.hoisted(() => ({
   supportsObjectViewBox: vi.fn(),
@@ -332,7 +333,11 @@ describe("captureLayeredAnimationFrame — video pixels", () => {
     const frame = await captureLayeredAnimationFrame(capture, {
       timelineMs: 1234,
       videoLayer,
-      enhance: "vivid",
+      mediaFx: {
+        enhance: "vivid",
+        filter: "bw",
+        adjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS, brightness: 120, blur: 3 },
+      },
     })
 
     expect(frame).not.toBeNull()
@@ -347,7 +352,11 @@ describe("captureLayeredAnimationFrame — video pixels", () => {
     expect(paintArgs[3]).toBe(videoLayer.mediaElement)
     expect(paintArgs[4]).toBe(1920)
     expect(paintArgs[5]).toBe(1080)
-    expect(paintArgs[7]).toMatchObject({ enhance: "vivid" })
+    expect(paintArgs[7]).toMatchObject({
+      enhance: "vivid",
+      filter: "bw",
+      adjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS, brightness: 120, blur: 3 },
+    })
   })
 
   it("clips the video with the plate's rounding, not the media element's own", () => {
@@ -374,6 +383,11 @@ describe("captureLayeredAnimationFrame — video pixels", () => {
       // Reported in media-box px, so the compositor scales it to texture px.
       const scale = mocks.paintFrameToLocalBox.mock.calls[0][6] / 12
       expect(scale).toBeGreaterThan(0)
+      // The grade's blur is a length, so the painter needs the same scale the
+      // box dimensions were multiplied by or it under-blurs at export scale.
+      expect(mocks.paintFrameToLocalBox.mock.calls[0][7]).toMatchObject({
+        pixelScale: scale,
+      })
     })
   })
 

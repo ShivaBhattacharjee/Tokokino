@@ -95,6 +95,7 @@ import type {
   EditorState,
   EditorTool,
   EnhancePreset,
+  MediaAdjustments,
   Overlay,
   Portrait,
   ScreenshotLayer,
@@ -767,6 +768,7 @@ export type CustomPresetSlotConfig = {
   scale: number
   zIndex?: number
   filter?: AssetFilter
+  adjustments?: MediaAdjustments
   hidden?: boolean
   objectFit?: "contain" | "cover" | "fill"
   shadow?: Shadow
@@ -1318,7 +1320,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       (canvas, state) => {
         const base = typeof patch === "function" ? patch(canvas, state) : patch
         const full = get()
-        if (!full.isAnimateMode) return base
+        // A patch that touches nothing animatable must not reach the keyframe
+        // bookkeeping below: an empty list satisfies every `list.every(...)`
+        // test and would re-target an unbound clip on a non-animatable edit.
+        if (!full.isAnimateMode || list.length === 0) return base
         const anim = getCanvasAnimation(canvas)
         const selId = full.selectedAnimationClipId
 
@@ -1746,6 +1751,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     previous?.zIndex ??
                     computeNextLayerZ(canvas) + index,
                   filter: config.filter ?? previous?.filter ?? "none",
+                  adjustments: config.adjustments ?? previous?.adjustments,
                   hidden: config.hidden ?? previous?.hidden,
                   objectFit: config.objectFit ?? previous?.objectFit,
                   shadow: config.shadow ?? previous?.shadow,

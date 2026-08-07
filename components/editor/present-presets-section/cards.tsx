@@ -448,6 +448,7 @@ const CustomPresetCard = React.memo(function CustomPresetCard({
       scale: cfg.scale,
       zIndex: cfg.zIndex ?? i + 1,
       filter: cfg.filter ?? "none",
+      adjustments: cfg.adjustments,
       hidden: cfg.hidden,
       objectFit: cfg.objectFit,
       shadow: cfg.shadow,

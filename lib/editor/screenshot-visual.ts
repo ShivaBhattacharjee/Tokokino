@@ -1,14 +1,13 @@
 import type * as React from "react"
 
 import type { ResolvedScreenshotStyle } from "./store/canvas-helpers"
-import type { AssetFilter, EnhancePreset } from "./state-types"
+import type { EnhancePreset } from "./state-types"
 import {
-  assetFilterCss,
   BORDER_OFFSET_PREVIEW_VAR,
   BORDER_OUTLINE_PREVIEW_VAR,
   borderOffsetCss,
   borderOutlineCss,
-  enhanceFilterCss,
+  mediaFilterCss,
   SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowBoxShadowCss,
   shadowCss,
@@ -25,10 +24,10 @@ import {
 export type ScreenshotImageStyleParams = {
   style: ResolvedScreenshotStyle
   enhance: EnhancePreset
-  /** Per-item colour filter (slots only). Main has none. */
-  assetFilter?: AssetFilter | null
   /** CSS-var namespace AnimationLayer / drags write the live transform into. */
   transformVarPrefix: "canvas-ts" | "slot-ts"
+  /** CSS var the colour-grade sliders live-preview this box's filter through. */
+  mediaFxVar: string
   /**
    * True when an open Animate keyframe animates this screenshot's border, so the
    * outline must mount even when the committed border is invisible (the player
@@ -46,15 +45,15 @@ export type ScreenshotImageStyle = {
   imgStyle: React.CSSProperties
   /** drop-shadow() filter for framed screenshots (mockups draw shadow as filter). */
   shadowFilter: string | undefined
-  /** Combined enhance + asset filter, for the <img> imageFilter prop. */
+  /** Enhance + filter preset + colour grade, for the <img> imageFilter prop. */
   filterChain: string
 }
 
 export function buildScreenshotImageStyle({
   style,
   enhance,
-  assetFilter,
   transformVarPrefix,
+  mediaFxVar,
   borderAnimated,
   fullPageMediaStyle,
 }: ScreenshotImageStyleParams): ScreenshotImageStyle {
@@ -68,13 +67,17 @@ export function buildScreenshotImageStyle({
     `scale(var(--${transformVarPrefix}-scale, ${scale / 100}))`,
   ].join(" ")
 
-  const filterChain = [
-    enhanceFilterCss(enhance),
-    assetFilterCss(assetFilter ?? "none"),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim()
+  // Read the grade via a var so the colour-grade sliders can preview it without
+  // a store write; falls back to the committed chain at rest. The fallback is
+  // deliberately EMPTY rather than `none` — this string is also concatenated
+  // after a drop-shadow() chain (framePositionedStyle), and `none` inside a
+  // filter list invalidates the whole declaration.
+  const committedFilter = mediaFilterCss({
+    enhance,
+    filter: style.filter,
+    adjustments: style.adjustments,
+  })
+  const filterChain = `var(${mediaFxVar},${committedFilter ? ` ${committedFilter}` : ""})`
 
   const imgStyle: React.CSSProperties = {
     // Read the radius via a var so an Animate-mode clip can ease it; falls back
@@ -83,7 +86,7 @@ export function buildScreenshotImageStyle({
     transform,
     transformStyle: "preserve-3d",
     boxShadow: shadowBoxShadowCss(shadowCss(shadow)),
-    filter: filterChain || undefined,
+    filter: filterChain,
   }
 
   if (fullPageMediaStyle) Object.assign(imgStyle, fullPageMediaStyle)

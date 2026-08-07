@@ -5,29 +5,35 @@ import { RiMagicLine } from "@remixicon/react"
 import type { AssetFilter } from "@/lib/editor/state-types"
 
 import { BackdropControlPopover } from "./control-popover"
-import type { BackdropPickerLayout } from "./constants"
+import type { BackdropLayerTarget, BackdropPickerLayout } from "./constants"
 import { BackdropFilterGrid } from "./filter-grid"
+import { LayerTargetToggle } from "./layer-target-toggle"
 
 export function FiltersControl({
   popoverSide,
   controlsVariant,
   usesInlineControls,
   inlineOpen,
-  backdropFilter,
+  target,
+  onTargetChange,
+  filter,
   pickerLayout,
   onOpenChange,
   onReset,
-  setBackdropFilter,
+  setFilter,
 }: {
   popoverSide: "left" | "top"
   controlsVariant: "popover" | "inline"
   usesInlineControls: boolean
   inlineOpen: boolean
-  backdropFilter: AssetFilter
+  target: BackdropLayerTarget
+  onTargetChange: (target: BackdropLayerTarget) => void
+  /** The filter of whichever layer the toggle points at. */
+  filter: AssetFilter
   pickerLayout: BackdropPickerLayout
   onOpenChange?: (open: boolean) => void
   onReset: () => void
-  setBackdropFilter: (filter: AssetFilter) => void
+  setFilter: (filter: AssetFilter) => void
 }) {
   return (
     <BackdropControlPopover
@@ -37,17 +43,22 @@ export function FiltersControl({
       inlineBodyMode="content"
       icon={RiMagicLine}
       label="Filters"
-      active={backdropFilter !== "none"}
+      active={filter !== "none"}
       title="Filters"
-      description="Apply a colour grade to the background."
+      description={
+        target === "backdrop"
+          ? "Apply a colour grade to the background."
+          : "Apply a colour grade to the screenshot or video."
+      }
       onReset={onReset}
       resetTitle="Reset filter"
       open={usesInlineControls ? inlineOpen : undefined}
       onOpenChange={usesInlineControls ? onOpenChange : undefined}
+      footer={<LayerTargetToggle value={target} onChange={onTargetChange} />}
     >
       <BackdropFilterGrid
-        current={backdropFilter}
-        onChange={setBackdropFilter}
+        current={filter}
+        onChange={setFilter}
         layout="grid"
         columns={pickerLayout === "carousel" ? 4 : 3}
       />

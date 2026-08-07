@@ -30,8 +30,11 @@ export type Border = {
   padding: number
 }
 
-export type BackdropEffects = {
-  noise: number
+/**
+ * Colour-grading knobs. The backdrop layer and the screenshot/video media both
+ * grade through this same set, so one filter builder serves both.
+ */
+export type MediaAdjustments = {
   blur: number
   brightness: number
   contrast: number
@@ -40,6 +43,10 @@ export type BackdropEffects = {
   grayscale: number
   sepia: number
   invert: number
+}
+
+export type BackdropEffects = MediaAdjustments & {
+  noise: number
   opacity: number
 }
 
@@ -368,6 +375,8 @@ export type ScreenshotSlot = {
   scale: number
   zIndex: number
   filter: AssetFilter
+  /** Per-slot colour grade. Falls back to the canvas grade when unset. */
+  adjustments?: MediaAdjustments
   hidden?: boolean
   objectFit?: "contain" | "cover" | "fill"
   border?: Border
@@ -573,6 +582,10 @@ export type CanvasState = {
   texts: TextElement[]
   assets: AssetElement[]
   enhance: EnhancePreset
+  /** Colour grade on the screenshot/video pixels (not the backdrop). */
+  mediaAdjustments?: MediaAdjustments
+  /** Filter preset on the screenshot/video pixels (not the backdrop). */
+  mediaFilter?: AssetFilter
   annotations: AnnotationStroke[]
   annotationShapes: AnnotationShape[]
   screenshotSlots: ScreenshotSlot[]

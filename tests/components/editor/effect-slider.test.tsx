@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
 
 import { EffectSlider } from "@/components/editor/inspector/effect-slider"
 
@@ -73,5 +73,28 @@ describe("EffectSlider", () => {
       />
     )
     expect(container.querySelector(".wrap-x")).not.toBeNull()
+  })
+
+  it("commits when a drag is cancelled instead of released", () => {
+    // pointercancel (touch interrupted by a system gesture) fires INSTEAD of
+    // pointerup. Without a commit the caller's live-preview var is never
+    // cleared, so a stale preview filter outranks the committed style for good.
+    const onChange = vi.fn()
+    const onPreview = vi.fn()
+    render(
+      <EffectSlider
+        label="Brightness"
+        value={100}
+        onChange={onChange}
+        onPreview={onPreview}
+        max={200}
+      />
+    )
+    const slider = screen.getByRole("slider")
+    slider.setPointerCapture = vi.fn()
+    fireEvent.pointerDown(slider, { pointerId: 1, clientX: 10 })
+    fireEvent.pointerCancel(slider, { pointerId: 1, clientX: 10 })
+
+    expect(onChange).toHaveBeenCalled()
   })
 })

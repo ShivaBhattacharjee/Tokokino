@@ -141,6 +141,7 @@ export function captureCustomPresetGeometry(
       scale: round(slot.scale),
       zIndex: slot.zIndex,
       filter: slot.filter,
+      adjustments: slot.adjustments,
       hidden: slot.hidden,
       objectFit: slot.objectFit,
       shadow: slot.shadow,

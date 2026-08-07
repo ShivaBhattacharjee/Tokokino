@@ -72,6 +72,50 @@ export function setLivePreviewVar(
 }
 
 /**
+ * The (root, var) pairs one live-preview gesture has actually written.
+ *
+ * Cleanup that re-derives its targets at commit time is wrong whenever the
+ * targets can move mid-gesture: the media colour grade writes one var per
+ * screenshot box, chosen from the current selection, so a selection or canvas
+ * change during a drag leaves the earlier boxes' vars set forever — they pin a
+ * filter that outranks the committed style and nothing later clears them.
+ * Recording the writes makes the undo exact regardless of what changed since.
+ */
+export type LivePreviewVarWrites = Map<HTMLElement, Set<string>>
+
+export function createLivePreviewVarWrites(): LivePreviewVarWrites {
+  return new Map()
+}
+
+/** Set `names` to `value` on every root, remembering the pairs for cleanup. */
+export function writeTrackedLivePreviewVars(
+  writes: LivePreviewVarWrites,
+  roots: HTMLElement[],
+  names: string[],
+  value: string
+) {
+  for (const root of roots) {
+    let written = writes.get(root)
+    if (!written) {
+      written = new Set()
+      writes.set(root, written)
+    }
+    for (const name of names) {
+      root.style.setProperty(name, value)
+      written.add(name)
+    }
+  }
+}
+
+/** Remove every var this gesture set, on the roots it actually set them on. */
+export function clearTrackedLivePreviewVars(writes: LivePreviewVarWrites) {
+  for (const [root, names] of writes) {
+    for (const name of names) root.style.removeProperty(name)
+  }
+  writes.clear()
+}
+
+/**
  * Per-element position vars, keyed by the element's own id.
  *
  * Dragging a text, asset or annotation layer used to write straight to the

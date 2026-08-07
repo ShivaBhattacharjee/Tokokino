@@ -33,7 +33,7 @@ Screenshot box + style + layers + optional animation:
 | Media | `screenshot`, `originalScreenshot`, `lastCropRegion`, `fullPageCapture`, `videoClips`, `objectFit`, `tweet` |
 | Box style | `background`, `padding`, `borderRadius`, `canvasBorderRadius`, `border`, `backdrop` |
 | Transform | `tilt`, `scale`, `screenshotPosition`, `screenshotOffset`, `screenshotLayer` |
-| Effects | `shadow`, `overlay`, `frame`, `portrait`, `enhance` |
+| Effects | `shadow`, `overlay`, `frame`, `portrait`, `enhance`, `mediaAdjustments`, `mediaFilter` |
 | Layers | `texts`, `assets`, `annotations`, `annotationShapes`, `screenshotSlots` |
 | Misc | `frameAddress`, `aspect?`, `animation?` |
 

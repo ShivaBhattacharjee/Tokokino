@@ -65,7 +65,11 @@ function makeVideoLayer(): CloneVideoLayer & {
   }
 }
 
-const canvasState = { enhance: "vivid" } as CanvasState
+const canvasState = {
+  enhance: "vivid",
+  mediaFilter: "noir",
+  mediaAdjustments: { brightness: 120, blur: 4 },
+} as CanvasState
 const aspect: AspectState = { id: "auto", w: 0, h: 0 }
 
 beforeEach(() => {
@@ -106,7 +110,17 @@ describe("captureStableFrame — layered WebKit path integration", () => {
     )
     expect(mocks.captureLayeredAnimationFrame).toHaveBeenCalledWith(
       capture,
-      expect.objectContaining({ timelineMs: 1500, enhance: "vivid" })
+      expect.objectContaining({
+        timelineMs: 1500,
+        // The whole media grade has to reach the layered path — it paints the
+        // decoded pixels itself, so anything missing here silently exports
+        // ungraded.
+        mediaFx: expect.objectContaining({
+          enhance: "vivid",
+          filter: "noir",
+          adjustments: { brightness: 120, blur: 4 },
+        }) as unknown,
+      })
     )
     // The keyframe must be on the clone before the layered passes rasterize it.
     expect(

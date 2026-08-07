@@ -1,3 +1,4 @@
+import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../css-utils"
 import { getBlobForObjectUrl, registerObjectUrl } from "../media-type"
 import { BACKGROUND_LIBRARY } from "../presets"
 import type { Background, CanvasState, EditorState } from "../state-types"
@@ -545,6 +546,10 @@ function normalizeCanvasState(
         ...fallbackBackdrop.lighting,
         ...(sourceBackdrop?.lighting ?? {}),
       },
+    },
+    mediaAdjustments: {
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      ...(source.mediaAdjustments ?? {}),
     },
     tilt: { ...fallback.tilt, ...(source.tilt ?? {}) },
     screenshotOffset: {

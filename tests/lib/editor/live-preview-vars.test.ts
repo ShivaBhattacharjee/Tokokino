@@ -3,12 +3,26 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   afterPositionPreviewCleared,
   clearPositionPreviewVarsAfterPaint,
+  clearTrackedLivePreviewVars,
+  createLivePreviewVarWrites,
   POSITION_PREVIEW_VARS,
+  writeTrackedLivePreviewVars,
 } from "@/lib/editor/live-preview-vars"
 
 type FakeEl = { style: { removeProperty: ReturnType<typeof vi.fn> } }
 const fakeEl = (): FakeEl => ({ style: { removeProperty: vi.fn() } })
 const asEl = (el: FakeEl) => el as unknown as HTMLElement
+
+type TrackedEl = {
+  style: {
+    setProperty: ReturnType<typeof vi.fn>
+    removeProperty: ReturnType<typeof vi.fn>
+  }
+}
+const trackedEl = (): TrackedEl => ({
+  style: { setProperty: vi.fn(), removeProperty: vi.fn() },
+})
+const asTracked = (el: TrackedEl) => el as unknown as HTMLElement
 
 // One-frame-at-a-time requestAnimationFrame: callbacks scheduled *during* a
 // flush land in the next queue, so draining a double-rAF chain takes two
@@ -100,5 +114,47 @@ describe("afterPositionPreviewCleared", () => {
     current = false
     flushFrame() // inner frame checks the predicate
     expect(cb).not.toHaveBeenCalled()
+  })
+})
+
+describe("tracked live-preview vars", () => {
+  it("writes every name on every root", () => {
+    const writes = createLivePreviewVarWrites()
+    const a = trackedEl()
+    const b = trackedEl()
+    writeTrackedLivePreviewVars(
+      writes,
+      [asTracked(a), asTracked(b)],
+      ["--x", "--y"],
+      "blur(2px)"
+    )
+    expect(a.style.setProperty).toHaveBeenCalledWith("--x", "blur(2px)")
+    expect(a.style.setProperty).toHaveBeenCalledWith("--y", "blur(2px)")
+    expect(b.style.setProperty).toHaveBeenCalledTimes(2)
+  })
+
+  it("clears the roots and names it actually wrote, not the latest ones", () => {
+    // The media grade picks its vars from the current selection. When that moves
+    // mid-drag, cleanup that re-derives targets strands a filter on the boxes the
+    // drag started on — nothing later clears them, so the stale preview outranks
+    // the committed style for good.
+    const writes = createLivePreviewVarWrites()
+    const started = trackedEl()
+    const moved = trackedEl()
+    writeTrackedLivePreviewVars(writes, [asTracked(started)], ["--slot-a"], "x")
+    writeTrackedLivePreviewVars(writes, [asTracked(moved)], ["--slot-b"], "y")
+
+    clearTrackedLivePreviewVars(writes)
+    expect(started.style.removeProperty).toHaveBeenCalledWith("--slot-a")
+    expect(moved.style.removeProperty).toHaveBeenCalledWith("--slot-b")
+  })
+
+  it("is idempotent — a second clear re-removes nothing", () => {
+    const writes = createLivePreviewVarWrites()
+    const el = trackedEl()
+    writeTrackedLivePreviewVars(writes, [asTracked(el)], ["--x"], "v")
+    clearTrackedLivePreviewVars(writes)
+    clearTrackedLivePreviewVars(writes)
+    expect(el.style.removeProperty).toHaveBeenCalledTimes(1)
   })
 })

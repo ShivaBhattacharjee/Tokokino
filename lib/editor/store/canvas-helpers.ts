@@ -1,14 +1,17 @@
 import { LAYOUT_PRESETS, resolveLayoutPresetGeometry } from "../present-presets"
 import { computeRowLayout } from "../screenshot-layout"
+import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../css-utils"
 import type {
   AnimationEffect,
   AnnotationStroke,
   AspectState,
+  AssetFilter,
   BackdropLighting,
   Border,
   CanvasState,
   DeviceFrame,
   EditorState,
+  MediaAdjustments,
   ScreenshotSlot,
   Shadow,
   Tilt,
@@ -306,6 +309,10 @@ export const cloneLighting = (
   ...lighting,
 })
 
+export const cloneAdjustments = (a: MediaAdjustments): MediaAdjustments => ({
+  ...a,
+})
+
 export function applySlotStyleDefaults(
   slot: ScreenshotSlot,
   canvas: CanvasState
@@ -318,6 +325,13 @@ export function applySlotStyleDefaults(
     padding: style.padding,
     shadow: cloneShadow(style.shadow),
     lighting: cloneLighting(style.lighting),
+    // Only materialize a grade the slot actually owns. Baking the *resolved*
+    // value here would turn "inherits the canvas grade" into a hard override the
+    // moment a draft round-trips, so a later main-scoped grade would stop
+    // reaching slots that had never been graded individually.
+    ...(slot.adjustments
+      ? { adjustments: cloneAdjustments(slot.adjustments) }
+      : {}),
   }
 }
 
@@ -337,6 +351,10 @@ export type ResolvedScreenshotStyle = {
   padding: number
   lighting: BackdropLighting
   objectFit: "contain" | "cover" | "fill"
+  /** Filter preset on this screenshot's own pixels. */
+  filter: AssetFilter
+  /** Manual colour grade on this screenshot's own pixels. */
+  adjustments: MediaAdjustments
 }
 
 export function resolveMainScreenshotStyle(
@@ -351,6 +369,8 @@ export function resolveMainScreenshotStyle(
     padding: canvas.padding,
     lighting: canvas.backdrop.lighting,
     objectFit: canvas.objectFit ?? "cover",
+    filter: canvas.mediaFilter ?? "none",
+    adjustments: canvas.mediaAdjustments ?? NEUTRAL_MEDIA_ADJUSTMENTS,
   }
 }
 
@@ -367,6 +387,11 @@ export function resolveSlotScreenshotStyle(
     padding: slot.padding ?? canvas.padding,
     lighting: slot.lighting ?? canvas.backdrop.lighting,
     objectFit: slot.objectFit ?? "contain",
+    // A slot's `filter` is required and defaults to "none", so unlike the style
+    // fields above it never inherits — an "all" edit mirrors onto it instead.
+    filter: slot.filter ?? "none",
+    adjustments:
+      slot.adjustments ?? canvas.mediaAdjustments ?? NEUTRAL_MEDIA_ADJUSTMENTS,
   }
 }
 
@@ -387,6 +412,8 @@ export type ScreenshotStylePatch = {
   padding?: number
   lighting?: BackdropLighting
   objectFit?: "contain" | "cover" | "fill"
+  filter?: AssetFilter
+  adjustments?: MediaAdjustments
 }
 
 /** Which screenshot(s) a style edit applies to. */
@@ -407,6 +434,8 @@ const patchMainCanvasStyle = (
   if (patch.borderRadius !== undefined) next.borderRadius = patch.borderRadius
   if (patch.padding !== undefined) next.padding = patch.padding
   if (patch.objectFit) next.objectFit = patch.objectFit
+  if (patch.filter) next.mediaFilter = patch.filter
+  if (patch.adjustments) next.mediaAdjustments = { ...patch.adjustments }
   if (patch.lighting) {
     next.backdrop = { ...canvas.backdrop, lighting: patch.lighting }
   }
@@ -430,6 +459,8 @@ const patchSlotStyle = (
   if (patch.borderRadius !== undefined) next.borderRadius = patch.borderRadius
   if (patch.padding !== undefined) next.padding = patch.padding
   if (patch.objectFit) next.objectFit = patch.objectFit
+  if (patch.filter) next.filter = patch.filter
+  if (patch.adjustments) next.adjustments = cloneAdjustments(patch.adjustments)
   if (patch.lighting) next.lighting = cloneLighting(patch.lighting)
   return next
 }
@@ -539,6 +570,12 @@ export function migrateLegacySlot(raw: unknown): ScreenshotSlot {
   if (typeof slot.padding === "number") base.padding = slot.padding
   if (slot.shadow) base.shadow = cloneShadow(slot.shadow)
   if (slot.lighting) base.lighting = cloneLighting(slot.lighting)
+  if (slot.adjustments) {
+    base.adjustments = {
+      ...NEUTRAL_MEDIA_ADJUSTMENTS,
+      ...slot.adjustments,
+    }
+  }
   if (slot.frame && typeof slot.frame.id === "string") {
     base.frame = { ...slot.frame }
   }
