@@ -25,6 +25,7 @@ import {
   NEUTRAL_MEDIA_ADJUSTMENTS,
   slotMediaFxPreviewVar,
 } from "@/lib/editor/css-utils"
+import { isVideoSrc } from "@/lib/editor/media-type"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import {
   resolveMainScreenshotStyle,
@@ -76,6 +77,10 @@ export function BackdropSection({
       ? resolveSlotScreenshotStyle(selectedSlot, canvas)
       : resolveMainScreenshotStyle(canvas)
   )
+  const isVideoMedia = useActiveCanvasField((canvas) =>
+    isVideoSrc(selectedSlot ? selectedSlot.src : canvas.screenshot)
+  )
+  const mediaLabel = isVideoMedia ? "Video" : "Screenshot"
   const activeCanvasId = useActiveCanvasId()
   const setBackdropEffects = useEditorStore((s) => s.setBackdropEffects)
   const setBackdropPattern = useEditorStore((s) => s.setBackdropPattern)
@@ -399,6 +404,7 @@ export function BackdropSection({
             inlineOpen={inlineControl === "effects"}
             target={effectsTarget}
             onTargetChange={setEffectsTarget}
+            mediaLabel={mediaLabel}
             grade={effectsGrade}
             effects={effects}
             onOpenChange={handleInlineControlOpenChange("effects")}
@@ -462,6 +468,7 @@ export function BackdropSection({
             inlineOpen={inlineControl === "filters"}
             target={filtersTarget}
             onTargetChange={setFiltersTarget}
+            mediaLabel={mediaLabel}
             filter={
               filtersTarget === "backdrop" ? backdropFilter : mediaStyle.filter
             }

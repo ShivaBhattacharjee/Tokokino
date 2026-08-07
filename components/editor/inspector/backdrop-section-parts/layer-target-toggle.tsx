@@ -15,9 +15,11 @@ const ITEM_CLASS =
 export function LayerTargetToggle({
   value,
   onChange,
+  mediaLabel,
 }: {
   value: BackdropLayerTarget
   onChange: (value: BackdropLayerTarget) => void
+  mediaLabel: string
 }) {
   return (
     <div className="min-w-0 space-y-2">
@@ -32,7 +34,7 @@ export function LayerTargetToggle({
           Backdrop
         </ToggleGroupItem>
         <ToggleGroupItem value="screenshot" className={ITEM_CLASS}>
-          Screenshot
+          {mediaLabel}
         </ToggleGroupItem>
       </ToggleGroup>
     </div>

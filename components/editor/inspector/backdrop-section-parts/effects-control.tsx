@@ -18,6 +18,7 @@ export function EffectsControl({
   inlineOpen,
   target,
   onTargetChange,
+  mediaLabel,
   grade,
   effects,
   onOpenChange,
@@ -30,6 +31,8 @@ export function EffectsControl({
   inlineOpen: boolean
   target: BackdropLayerTarget
   onTargetChange: (target: BackdropLayerTarget) => void
+  /** "Video" or "Screenshot", depending on the media the grade lands on. */
+  mediaLabel: string
   /** The adjustments the toggle currently points at. */
   grade: LayerGrade
   /** Backdrop-only channels — noise and opacity have no media equivalent. */
@@ -51,7 +54,7 @@ export function EffectsControl({
       description={
         target === "backdrop"
           ? "Color & filter adjustments applied to the backdrop layer."
-          : "Color & filter adjustments applied to the screenshot or video."
+          : `Color & filter adjustments applied to the ${mediaLabel.toLowerCase()}.`
       }
       onReset={grade.reset}
       resetTitle="Reset effects"
@@ -59,7 +62,13 @@ export function EffectsControl({
       onOpenChange={usesInlineControls ? onOpenChange : undefined}
       contentClassName="w-[240px]"
       bodyClassName="space-y-2.5 pr-1"
-      footer={<LayerTargetToggle value={target} onChange={onTargetChange} />}
+      footer={
+        <LayerTargetToggle
+          value={target}
+          onChange={onTargetChange}
+          mediaLabel={mediaLabel}
+        />
+      }
     >
       <AdjustmentSliders
         adjustments={grade.adjustments}

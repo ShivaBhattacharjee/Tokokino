@@ -16,6 +16,7 @@ export function FiltersControl({
   inlineOpen,
   target,
   onTargetChange,
+  mediaLabel,
   filter,
   pickerLayout,
   onOpenChange,
@@ -28,6 +29,8 @@ export function FiltersControl({
   inlineOpen: boolean
   target: BackdropLayerTarget
   onTargetChange: (target: BackdropLayerTarget) => void
+  /** "Video" or "Screenshot", depending on the media the filter lands on. */
+  mediaLabel: string
   /** The filter of whichever layer the toggle points at. */
   filter: AssetFilter
   pickerLayout: BackdropPickerLayout
@@ -48,13 +51,19 @@ export function FiltersControl({
       description={
         target === "backdrop"
           ? "Apply a colour grade to the background."
-          : "Apply a colour grade to the screenshot or video."
+          : `Apply a colour grade to the ${mediaLabel.toLowerCase()}.`
       }
       onReset={onReset}
       resetTitle="Reset filter"
       open={usesInlineControls ? inlineOpen : undefined}
       onOpenChange={usesInlineControls ? onOpenChange : undefined}
-      footer={<LayerTargetToggle value={target} onChange={onTargetChange} />}
+      footer={
+        <LayerTargetToggle
+          value={target}
+          onChange={onTargetChange}
+          mediaLabel={mediaLabel}
+        />
+      }
     >
       <BackdropFilterGrid
         current={filter}
