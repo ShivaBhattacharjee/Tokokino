@@ -55,6 +55,14 @@ const releases: Release[] = [
         text: "Move, resize, rotate, recolour, and reorder a shape exactly like an image you added yourself.",
       },
       {
+        title: "Colour grade your screenshot or video",
+        text: "Brightness, contrast, saturation, hue and the filter presets now work on the screenshot or video itself, not just the background. Open Effects or Filters under Backdrop and switch Apply to from Backdrop to Screenshot.",
+      },
+      {
+        title: "Grade one screenshot or all of them",
+        text: "With nothing selected a grade covers every screenshot on the canvas; select a single one first and it only changes that one.",
+      },
+      {
         title: "Custom transition curves",
         text: "Pick Custom in the Animate transition menu and drag the two handles on the curve to shape exactly how a clip eases in and out, then set its speed in milliseconds.",
       },
