@@ -31,8 +31,15 @@ flowchart LR
 | Shadow | type, intensity, light, color | `shadow` |
 | Tilt | rx/ry/rz + scale | `tilt`, `scale` |
 | Position | placement grid + offset | `screenshotPosition`, `screenshotOffset` |
-| Backdrop | effects, filter, pattern, lighting, portrait, overlay | `backdrop.*`, `portrait`, `overlay` |
+| Backdrop | effects, filter, pattern, lighting, portrait, overlay | `backdrop.*`, `portrait`, `overlay`, `mediaAdjustments`, `mediaFilter` |
 | Tweet | theme / metrics / font (when tweet loaded) | `tweet` |
+
+The Backdrop section's **Effects** and **Filters** controls each carry an
+"Apply to" toggle (`backdrop-section-parts/layer-target-toggle.tsx`). On
+*Backdrop* they write `backdrop.effects` / `backdrop.filter`; on *Screenshot*
+they write the media grade through `applyScreenshotStyle`, so the edit lands on
+the selected slot, the main screenshot, or all of them. Noise and opacity are
+backdrop-only channels and hide on the screenshot side.
 
 Entry: `components/editor/inspector.tsx` + `inspector/*`. Mobile: `mobile-controls/*`.
 
@@ -47,9 +54,10 @@ Numeric inputs use `clampNumber` / `parseEditorNumber` / `editorValueSchemas` (`
 | `backgroundCss(background)` | CSS background string |
 | `shadowCss(shadow, tilt)` | box-shadow / filter shadow |
 | `patternCssFor(pattern)` | SVG pattern background |
-| `effectsFilterCss(effects)` | backdrop filter string |
+| `effectsFilterCss(effects)` | colour-grade filter string (backdrop or media) |
 | `assetFilterCss(filter)` | layer filter presets |
 | `enhanceFilterCss(enhance)` | enhance presets |
+| `mediaFilterCss({enhance, filter, adjustments})` | the screenshot/video chain, in that order |
 
 Color helpers: `lib/editor/color-utils.ts` (sampling, gradients for `background.type === "auto"`).
 

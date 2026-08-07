@@ -1318,7 +1318,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       (canvas, state) => {
         const base = typeof patch === "function" ? patch(canvas, state) : patch
         const full = get()
-        if (!full.isAnimateMode) return base
+        // A patch that touches nothing animatable must not reach the keyframe
+        // bookkeeping below: an empty list satisfies every `list.every(...)`
+        // test and would re-target an unbound clip on a non-animatable edit.
+        if (!full.isAnimateMode || list.length === 0) return base
         const anim = getCanvasAnimation(canvas)
         const selId = full.selectedAnimationClipId
 

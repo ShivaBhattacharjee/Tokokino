@@ -22,7 +22,7 @@
  */
 
 import { supportsObjectViewBox } from "../../crop-utils"
-import { enhanceFilterCss } from "../../css-utils"
+import { mediaFilterCss } from "../../css-utils"
 import type { AnimationCapture } from "../../export"
 import { drawPortraitDepthOfField } from "../capture"
 import { waitForPaint } from "../utils"
@@ -163,10 +163,14 @@ export function paintFrameToLocalBox(
   }
 
   try {
-    const enhance = mediaFx?.enhance
-      ? enhanceFilterCss(mediaFx.enhance)
-      : undefined
-    if (enhance) ctx.filter = enhance
+    const grade = mediaFx
+      ? mediaFilterCss({
+          enhance: mediaFx.enhance,
+          filter: mediaFx.filter,
+          adjustments: mediaFx.adjustments,
+        })
+      : ""
+    if (grade) ctx.filter = grade
     ctx.drawImage(frame, 0, 0, fw, fh, dx, dy, dw, dh)
   } catch {
     return null

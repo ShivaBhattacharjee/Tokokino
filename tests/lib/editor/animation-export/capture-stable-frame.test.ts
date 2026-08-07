@@ -106,7 +106,10 @@ describe("captureStableFrame — layered WebKit path integration", () => {
     )
     expect(mocks.captureLayeredAnimationFrame).toHaveBeenCalledWith(
       capture,
-      expect.objectContaining({ timelineMs: 1500, enhance: "vivid" })
+      expect.objectContaining({
+        timelineMs: 1500,
+        mediaFx: expect.objectContaining({ enhance: "vivid" }) as unknown,
+      })
     )
     // The keyframe must be on the clone before the layered passes rasterize it.
     expect(

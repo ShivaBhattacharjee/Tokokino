@@ -34,7 +34,6 @@
 
 import { supportsObjectViewBox } from "../crop-utils"
 import type { AnimationCapture } from "../export"
-import type { EnhancePreset } from "../state-types"
 import { waitForPaint } from "./utils"
 import type { CloneVideoLayer } from "./video-layer"
 import {
@@ -55,6 +54,7 @@ import {
   paintsAboveVideo,
   warpProjectedTexture,
   type ProjectedElementTexture,
+  type VideoMediaFx,
 } from "./video-media/frame-renderer"
 
 export type LayeredFrameOptions = {
@@ -62,8 +62,8 @@ export type LayeredFrameOptions = {
   timelineMs: number
   /** Video pixels source — null/omitted for image canvases. */
   videoLayer?: CloneVideoLayer | null
-  /** The canvas's enhance preset, re-applied to decoded frames like the DOM would. */
-  enhance?: EnhancePreset
+  /** Media effects re-applied to decoded frames, exactly as the DOM would. */
+  mediaFx?: VideoMediaFx | null
 }
 
 /**
@@ -260,7 +260,7 @@ async function composeShellWithVideo(
   tex: ProjectedElementTexture,
   videoLayer: CloneVideoLayer,
   timelineMs: number,
-  enhance: EnhancePreset | undefined,
+  mediaFx: VideoMediaFx | null | undefined,
   scale: number,
   shell: HTMLElement
 ): Promise<HTMLCanvasElement> {
@@ -285,7 +285,7 @@ async function composeShellWithVideo(
     fw,
     fh,
     radius,
-    { enhance: enhance ?? "off", innerLighting: null }
+    { ...mediaFx, innerLighting: null }
   )
   if (!local) return tex.texture
 
@@ -307,7 +307,7 @@ export async function captureLayeredAnimationFrame(
 ): Promise<HTMLCanvasElement | null> {
   if (supportsObjectViewBox()) return null
   const node = capture.node
-  const { timelineMs, videoLayer, enhance } = options
+  const { timelineMs, videoLayer, mediaFx } = options
 
   // Flat hits included: their projection is exact, and staying on one pipeline
   // across a tilt's zero-crossings keeps every frame consistent (and fast).
@@ -413,7 +413,7 @@ export async function captureLayeredAnimationFrame(
             entry.tex,
             videoLayer,
             timelineMs,
-            enhance,
+            mediaFx,
             scale,
             layer.el
           )

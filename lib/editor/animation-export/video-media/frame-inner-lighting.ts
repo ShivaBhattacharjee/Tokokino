@@ -8,7 +8,12 @@
  */
 
 import { hexToRgb } from "../../color-utils"
-import type { BackdropLighting, EnhancePreset } from "../../state-types"
+import type {
+  AssetFilter,
+  BackdropLighting,
+  EnhancePreset,
+  MediaAdjustments,
+} from "../../state-types"
 import {
   chooseQuadSubdivision,
   drawImageToQuadWarp,
@@ -24,6 +29,10 @@ import {
  */
 export type VideoMediaFx = {
   enhance?: EnhancePreset | null
+  /** Media filter preset — the same grade CSS applies to the DOM screenshot. */
+  filter?: AssetFilter | null
+  /** Manual media colour grade. */
+  adjustments?: MediaAdjustments | null
   /**
    * Inner lighting is painted directly onto the decoded frame instead of being
    * rasterized from CSS in Safari's SVG foreignObject implementation.

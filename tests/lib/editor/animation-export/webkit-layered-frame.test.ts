@@ -332,7 +332,7 @@ describe("captureLayeredAnimationFrame — video pixels", () => {
     const frame = await captureLayeredAnimationFrame(capture, {
       timelineMs: 1234,
       videoLayer,
-      enhance: "vivid",
+      mediaFx: { enhance: "vivid", filter: "bw" },
     })
 
     expect(frame).not.toBeNull()
@@ -347,7 +347,7 @@ describe("captureLayeredAnimationFrame — video pixels", () => {
     expect(paintArgs[3]).toBe(videoLayer.mediaElement)
     expect(paintArgs[4]).toBe(1920)
     expect(paintArgs[5]).toBe(1080)
-    expect(paintArgs[7]).toMatchObject({ enhance: "vivid" })
+    expect(paintArgs[7]).toMatchObject({ enhance: "vivid", filter: "bw" })
   })
 
   it("clips the video with the plate's rounding, not the media element's own", () => {

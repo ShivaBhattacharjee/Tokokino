@@ -15,7 +15,19 @@ import {
   livePreviewRoots,
   setLivePreviewVar,
 } from "@/lib/editor/live-preview-vars"
+import {
+  isNeutralMediaAdjustments,
+  MAIN_MEDIA_FX_PREVIEW_VAR,
+  mediaFilterCss,
+  NEUTRAL_MEDIA_ADJUSTMENTS,
+  slotMediaFxPreviewVar,
+} from "@/lib/editor/css-utils"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
+import {
+  resolveMainScreenshotStyle,
+  resolveSlotScreenshotStyle,
+} from "@/lib/editor/store/canvas-helpers"
+import type { AssetFilter, MediaAdjustments } from "@/lib/editor/state-types"
 import { cn } from "@/lib/utils"
 
 import {
@@ -23,8 +35,10 @@ import {
   BACKDROP_NOISE_PREVIEW_VAR,
   lightingPatch,
   type BackdropControlId,
+  type BackdropLayerTarget,
   type BackdropPickerLayout,
 } from "./backdrop-section-parts/constants"
+import type { LayerGrade } from "./backdrop-section-parts/layer-grade"
 import { EffectsControl } from "./backdrop-section-parts/effects-control"
 import { FiltersControl } from "./backdrop-section-parts/filters-control"
 import { LightingControl } from "./backdrop-section-parts/lighting-control"
@@ -45,7 +59,20 @@ export function BackdropSection({
   const overlay = useActiveCanvasField((c) => c.overlay)
   const portrait = useActiveCanvasField((c) => c.portrait)
   const canvasBorderRadius = useActiveCanvasField((c) => c.canvasBorderRadius)
-  const { applyStyle, selectedSlot } = useScreenshotStyleTarget()
+  const enhance = useActiveCanvasField((c) => c.enhance)
+  const slotIds = useActiveCanvasField((c) =>
+    c.screenshotSlots.map((slot) => slot.id).join(",")
+  )
+  const {
+    applyStyle,
+    selectedSlot,
+    target: styleTarget,
+  } = useScreenshotStyleTarget()
+  const mediaStyle = useActiveCanvasField((canvas) =>
+    selectedSlot
+      ? resolveSlotScreenshotStyle(selectedSlot, canvas)
+      : resolveMainScreenshotStyle(canvas)
+  )
   const activeCanvasId = useActiveCanvasId()
   const setBackdropEffects = useEditorStore((s) => s.setBackdropEffects)
   const setBackdropPattern = useEditorStore((s) => s.setBackdropPattern)
@@ -130,6 +157,55 @@ export function BackdropSection({
     },
     [effects, setPreviewVar]
   )
+
+  // Which boxes a media-grade drag previews on has to match which boxes the
+  // commit will touch, so the preview vars come from the same style target.
+  const mediaFxVars = React.useMemo(() => {
+    if (styleTarget === "slot" && selectedSlot) {
+      return [slotMediaFxPreviewVar(selectedSlot.id)]
+    }
+    if (styleTarget === "main") return [MAIN_MEDIA_FX_PREVIEW_VAR]
+    return [
+      MAIN_MEDIA_FX_PREVIEW_VAR,
+      ...slotIds
+        .split(",")
+        .filter(Boolean)
+        .map((id) => slotMediaFxPreviewVar(id)),
+    ]
+  }, [selectedSlot, slotIds, styleTarget])
+  const setMediaFxPreview = React.useCallback(
+    (value: string | null) => {
+      const roots = livePreviewRoots(activeCanvasId)
+      for (const name of mediaFxVars) setLivePreviewVar(roots, name, value)
+    },
+    [activeCanvasId, mediaFxVars]
+  )
+  const commitMediaAdjustments = React.useCallback(
+    (patch: Partial<MediaAdjustments>) => {
+      applyStyle({ adjustments: { ...mediaStyle.adjustments, ...patch } })
+      if (typeof requestAnimationFrame === "undefined") return
+      requestAnimationFrame(() => setMediaFxPreview(null))
+    },
+    [applyStyle, mediaStyle.adjustments, setMediaFxPreview]
+  )
+  const previewMediaAdjustments = React.useCallback(
+    (patch: Partial<MediaAdjustments>) => {
+      const candidate = { ...mediaStyle.adjustments, ...patch }
+      setMediaFxPreview(
+        mediaFilterCss({
+          enhance,
+          filter: mediaStyle.filter,
+          adjustments: candidate,
+        }) || "brightness(1)"
+      )
+    },
+    [enhance, mediaStyle.adjustments, mediaStyle.filter, setMediaFxPreview]
+  )
+  const setMediaFilter = React.useCallback(
+    (next: AssetFilter) => applyStyle({ filter: next }),
+    [applyStyle]
+  )
+
   const setPattern = React.useCallback(
     (patch: Partial<typeof pattern>) =>
       setBackdropPattern({ ...pattern, ...patch }),
@@ -163,6 +239,12 @@ export function BackdropSection({
 
   const [overlayPopoverOpen, setOverlayPopoverOpen] = React.useState(false)
   const [overlayHasOpened, setOverlayHasOpened] = React.useState(false)
+  // Effects and Filters each remember their own layer choice, so grading the
+  // backdrop doesn't move the filter picker off the screenshot and back.
+  const [effectsTarget, setEffectsTarget] =
+    React.useState<BackdropLayerTarget>("backdrop")
+  const [filtersTarget, setFiltersTarget] =
+    React.useState<BackdropLayerTarget>("backdrop")
   const [inlineControl, setInlineControl] =
     React.useState<BackdropControlId | null>(null)
   const usesInlineControls = controlsVariant === "inline"
@@ -188,17 +270,29 @@ export function BackdropSection({
     [handleOverlayOpenChange, usesInlineControls]
   )
 
-  const effectsDirty =
-    effects.brightness !== 100 ||
-    effects.contrast !== 100 ||
-    effects.saturation !== 100 ||
-    effects.hue !== 0 ||
-    effects.grayscale !== 0 ||
-    effects.sepia !== 0 ||
-    effects.invert !== 0 ||
-    effects.blur !== 0 ||
-    effects.noise !== 0 ||
-    effects.opacity !== 100
+  const backdropGrade: LayerGrade = {
+    adjustments: effects,
+    commit: commitEffects,
+    preview: previewEffects,
+    dirty:
+      !isNeutralMediaAdjustments(effects) ||
+      effects.noise !== 0 ||
+      effects.opacity !== 100,
+    reset: () =>
+      setBackdropEffects({
+        ...NEUTRAL_MEDIA_ADJUSTMENTS,
+        noise: 0,
+        opacity: 100,
+      }),
+  }
+  const mediaGrade: LayerGrade = {
+    adjustments: mediaStyle.adjustments,
+    commit: commitMediaAdjustments,
+    preview: previewMediaAdjustments,
+    dirty: !isNeutralMediaAdjustments(mediaStyle.adjustments),
+    reset: () => applyStyle({ adjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS } }),
+  }
+  const effectsGrade = effectsTarget === "backdrop" ? backdropGrade : mediaGrade
   const overlayActive = overlay.id !== null
   const patternActive = pattern.ids.length > 0
   const portraitActive = portrait.mode !== "off"
@@ -285,23 +379,11 @@ export function BackdropSection({
             controlsVariant={controlsVariant}
             usesInlineControls={usesInlineControls}
             inlineOpen={inlineControl === "effects"}
+            target={effectsTarget}
+            onTargetChange={setEffectsTarget}
+            grade={effectsGrade}
             effects={effects}
-            effectsDirty={effectsDirty}
             onOpenChange={handleInlineControlOpenChange("effects")}
-            onReset={() =>
-              setBackdropEffects({
-                noise: 0,
-                blur: 0,
-                brightness: 100,
-                contrast: 100,
-                saturation: 100,
-                hue: 0,
-                grayscale: 0,
-                sepia: 0,
-                invert: 0,
-                opacity: 100,
-              })
-            }
             commitEffects={commitEffects}
             previewEffects={previewEffects}
           />
@@ -360,11 +442,21 @@ export function BackdropSection({
             controlsVariant={controlsVariant}
             usesInlineControls={usesInlineControls}
             inlineOpen={inlineControl === "filters"}
-            backdropFilter={backdropFilter}
+            target={filtersTarget}
+            onTargetChange={setFiltersTarget}
+            filter={
+              filtersTarget === "backdrop" ? backdropFilter : mediaStyle.filter
+            }
             pickerLayout={pickerLayout}
             onOpenChange={handleInlineControlOpenChange("filters")}
-            onReset={() => setBackdropFilter("none")}
-            setBackdropFilter={setBackdropFilter}
+            onReset={() =>
+              filtersTarget === "backdrop"
+                ? setBackdropFilter("none")
+                : setMediaFilter("none")
+            }
+            setFilter={
+              filtersTarget === "backdrop" ? setBackdropFilter : setMediaFilter
+            }
           />
         ) : null}
       </div>

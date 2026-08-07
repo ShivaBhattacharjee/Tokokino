@@ -406,7 +406,11 @@ export async function captureStableFrame(
   const layered = await captureLayeredAnimationFrame(capture, {
     timelineMs: timeMs,
     videoLayer,
-    enhance: canvas.enhance,
+    mediaFx: {
+      enhance: canvas.enhance,
+      filter: canvas.mediaFilter,
+      adjustments: canvas.mediaAdjustments,
+    },
   }).catch(() => null)
   if (layered) {
     const frame = snapshotFrame(layered, capture.width, capture.height)

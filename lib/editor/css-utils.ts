@@ -4,9 +4,9 @@ import { hexToRgb } from "./color-utils"
 import type {
   AssetFilter,
   Background,
-  BackdropEffects,
   Border,
   EnhancePreset,
+  MediaAdjustments,
   Shadow,
 } from "./state-types"
 
@@ -141,7 +141,33 @@ export function enhanceFilterCss(preset: EnhancePreset): string | undefined {
   }
 }
 
-export function effectsFilterCss(e: BackdropEffects): string | undefined {
+export const NEUTRAL_MEDIA_ADJUSTMENTS: MediaAdjustments = {
+  blur: 0,
+  brightness: 100,
+  contrast: 100,
+  saturation: 100,
+  hue: 0,
+  grayscale: 0,
+  sepia: 0,
+  invert: 0,
+}
+
+export function isNeutralMediaAdjustments(a: MediaAdjustments): boolean {
+  return (
+    a.blur === 0 &&
+    a.brightness === 100 &&
+    a.contrast === 100 &&
+    a.saturation === 100 &&
+    a.hue === 0 &&
+    a.grayscale === 0 &&
+    a.sepia === 0 &&
+    a.invert === 0
+  )
+}
+
+export function effectsFilterCss(
+  e: MediaAdjustments & { opacity?: number }
+): string | undefined {
   const parts: string[] = []
   if (e.blur > 0) parts.push(`blur(${e.blur}px)`)
   if (e.brightness !== 100) parts.push(`brightness(${e.brightness}%)`)
@@ -151,8 +177,35 @@ export function effectsFilterCss(e: BackdropEffects): string | undefined {
   if (e.grayscale > 0) parts.push(`grayscale(${e.grayscale}%)`)
   if (e.sepia > 0) parts.push(`sepia(${e.sepia}%)`)
   if (e.invert > 0) parts.push(`invert(${e.invert}%)`)
-  if (e.opacity !== 100) parts.push(`opacity(${e.opacity}%)`)
+  if (e.opacity !== undefined && e.opacity !== 100) {
+    parts.push(`opacity(${e.opacity}%)`)
+  }
   return parts.length ? parts.join(" ") : undefined
+}
+
+/**
+ * The full filter chain a screenshot/video renders with: the canvas enhance
+ * preset, then the media filter preset, then the manual colour grade. Both the
+ * DOM renderers and the export frame renderers (which draw decoded video pixels
+ * themselves and must re-apply what CSS would have done) build it here.
+ */
+export function mediaFilterCss({
+  enhance,
+  filter,
+  adjustments,
+}: {
+  enhance?: EnhancePreset | null
+  filter?: AssetFilter | null
+  adjustments?: MediaAdjustments | null
+}): string {
+  return [
+    enhance ? enhanceFilterCss(enhance) : undefined,
+    filter ? assetFilterCss(filter) : undefined,
+    adjustments ? effectsFilterCss(adjustments) : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
 }
 
 function shadowRgba(color: string, opacity: number): string {
@@ -271,6 +324,18 @@ export const BORDER_OUTLINE_PREVIEW_VAR = "--editor-border-outline-preview"
 export const BORDER_OFFSET_PREVIEW_VAR = "--editor-border-offset-preview"
 /** Screenshot corner-radius live preview (Border section "Radius" slider). */
 export const SCREENSHOT_RADIUS_PREVIEW_VAR = "--editor-screenshot-radius"
+
+/**
+ * Media colour-grade live preview. One var per screenshot box rather than one
+ * canvas-wide var: the grade sliders honour the current selection (a slot, the
+ * main screenshot, or all of them), so a canvas-wide var would preview an edit
+ * on boxes the commit will not touch.
+ */
+export const MAIN_MEDIA_FX_PREVIEW_VAR = "--editor-media-fx-main"
+
+export function slotMediaFxPreviewVar(slotId: string): string {
+  return `--editor-media-fx-${slotId}`
+}
 
 /** The `outline` shorthand a border renders as (invisible when width is 0). */
 export function borderOutlineCss(border: Border): string {

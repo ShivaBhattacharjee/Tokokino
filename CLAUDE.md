@@ -231,6 +231,8 @@ Each canvas is one styled screenshot card:
   backdrop: Backdrop             // { effects, pattern, filter }
 
   // Visual effects on the screenshot
+  mediaAdjustments: MediaAdjustments  // colour grade on the screenshot/video pixels
+  mediaFilter: AssetFilter            // filter preset on the screenshot/video pixels
   shadow: Shadow                 // { type, intensity, lightSource, color }
   overlay: Overlay               // { id, opacity, position: "overlay"|"underlay" }
   frame: DeviceFrame             // { id, color, orientation: "vertical"|"horizontal" }
@@ -293,6 +295,7 @@ Up to 3 extra screenshots can be added per canvas. Each slot is a floating image
   scale: number
   zIndex: number
   filter: AssetFilter
+  adjustments?: MediaAdjustments   // falls back to canvas.mediaAdjustments
   hidden?: boolean
   objectFit?: "contain"|"cover"|"fill"
 }
@@ -331,13 +334,14 @@ Image/SVG layers also positioned by percent:
 }
 ```
 
-### Backdrop effects
+### Colour grading
 
 ```ts
-BackdropEffects = {
-  noise, blur, brightness, contrast,
-  saturation, hue, grayscale, sepia, invert, opacity
+MediaAdjustments = {
+  blur, brightness, contrast,
+  saturation, hue, grayscale, sepia, invert
 }
+BackdropEffects = MediaAdjustments & { noise, opacity }
 BackdropPattern = { ids: number[], intensity, thickness, color }
 ```
 
@@ -398,6 +402,10 @@ setEnhance("off"|"auto"|"vivid"|...)
 setBackdropEffects(effects)
 setBackdropPattern(pattern)
 setBackdropFilter(filter)
+
+// Screenshot / video colour grade (target-aware: main, all, or one slot)
+applyScreenshotStyle(target, { adjustments })
+applyScreenshotStyle(target, { filter })
 
 // Screenshot placement
 setScreenshotPosition(pos)
@@ -685,8 +693,9 @@ shadowCss(shadow, tilt)          // returns full shadow CSS (box-shadow or filte
 backgroundCss(background)        // returns CSS background string
 patternCssFor(pattern)           // returns SVG pattern CSS
 assetFilterCss(filter)           // returns CSS filter string for AssetFilter
-effectsFilterCss(effects)        // returns CSS filter string for BackdropEffects
+effectsFilterCss(effects)        // returns CSS filter string for a colour grade
 enhanceFilterCss(enhance)        // returns CSS filter for enhance preset
+mediaFilterCss({ enhance, filter, adjustments })  // full screenshot/video chain
 ```
 
 ---

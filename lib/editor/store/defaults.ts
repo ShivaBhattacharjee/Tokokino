@@ -1,3 +1,4 @@
+import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../css-utils"
 import { DEFAULT_IMAGE_BACKGROUND_ENTRY } from "../presets"
 import type { CanvasState, EditorState } from "../state-types"
 
@@ -100,6 +101,8 @@ export const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
   texts: [],
   assets: [],
   enhance: "off",
+  mediaAdjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS },
+  mediaFilter: "none",
   annotations: [],
   annotationShapes: [],
   screenshotSlots: [],

@@ -102,7 +102,7 @@ flowchart TB
   subgraph EveryFrame["Every frame"]
     D["Decode frame @ t<br/>WebCodecs / dav1d / DOM seek"]
     C["Composite into media slot<br/>object-fit region or tilted quads"]
-    FX["Re-apply enhance / inner lighting<br/>on decoded pixels"]
+    FX["Re-apply enhance + media filter + grade<br/>/ inner lighting on decoded pixels"]
     W["Optional watermark"]
   end
 
@@ -232,7 +232,7 @@ Remux is judged against `containerAudioCodecs`, **not** the muxer's own capabili
 | `RenderFrame` | `(index) => Promise<HTMLCanvasElement>` — returns the captured frame canvas passed to `blitFrame` |
 | `DecodedFrameSource` | Iterator + cleanup over decoded canvases |
 | `VideoRegion` | Src/dest rects for flat compositing |
-| `VideoMediaFx` | Enhance + optional inner lighting reapplied on pixels |
+| `VideoMediaFx` | Enhance, media filter preset, colour grade + optional inner lighting reapplied on pixels |
 | `ExportStackLayer` | `"underlay" \| "media" \| "foreground"` |
 | `SourceAudioFeed` | Remux / re-encode handle for the encode step |
 

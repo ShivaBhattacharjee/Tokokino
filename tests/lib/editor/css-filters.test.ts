@@ -4,6 +4,9 @@ import {
   assetFilterCss,
   effectsFilterCss,
   enhanceFilterCss,
+  isNeutralMediaAdjustments,
+  mediaFilterCss,
+  NEUTRAL_MEDIA_ADJUSTMENTS,
 } from "@/lib/editor/css-utils"
 import type { AssetFilter, BackdropEffects } from "@/lib/editor/state-types"
 
@@ -104,10 +107,51 @@ describe("effectsFilterCss", () => {
   })
 
   it("ignores the noise channel (not a CSS filter)", () => {
-    expect(effectsFilterCss({ ...NEUTRAL_EFFECTS, noise: 80 })).toBeUndefined()
+    const noisy: BackdropEffects = { ...NEUTRAL_EFFECTS, noise: 80 }
+    expect(effectsFilterCss(noisy)).toBeUndefined()
   })
 
   it("treats blur of exactly 0 as no blur", () => {
     expect(effectsFilterCss({ ...NEUTRAL_EFFECTS, blur: 0 })).toBeUndefined()
+  })
+})
+
+describe("mediaFilterCss", () => {
+  it("is empty when nothing grades the media", () => {
+    expect(
+      mediaFilterCss({
+        enhance: "off",
+        filter: "none",
+        adjustments: NEUTRAL_MEDIA_ADJUSTMENTS,
+      })
+    ).toBe("")
+  })
+
+  it("chains enhance, then the filter preset, then the manual grade", () => {
+    expect(
+      mediaFilterCss({
+        enhance: "sharp",
+        filter: "sepia",
+        adjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS, hue: 20 },
+      })
+    ).toBe(
+      "brightness(1.02) contrast(1.18) saturate(1.05) sepia(0.85) saturate(1.1) hue-rotate(20deg)"
+    )
+  })
+
+  it("skips the legs it was given nothing for", () => {
+    expect(mediaFilterCss({ filter: "bw" })).toBe("grayscale(1) contrast(1.05)")
+  })
+})
+
+describe("isNeutralMediaAdjustments", () => {
+  it("is true only when every channel sits at its neutral value", () => {
+    expect(isNeutralMediaAdjustments(NEUTRAL_MEDIA_ADJUSTMENTS)).toBe(true)
+    expect(
+      isNeutralMediaAdjustments({ ...NEUTRAL_MEDIA_ADJUSTMENTS, blur: 1 })
+    ).toBe(false)
+    expect(
+      isNeutralMediaAdjustments({ ...NEUTRAL_MEDIA_ADJUSTMENTS, hue: -10 })
+    ).toBe(false)
   })
 })

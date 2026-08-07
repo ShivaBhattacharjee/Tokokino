@@ -137,7 +137,7 @@ flowchart TD
 
 1. **Underlay** — scene minus foreground and bent shells (`data-export-stack=underlay`, bent els hidden). Cached by backdrop CSS-var key; recaptured until two consecutive downsampled rasters agree (WebKit can fire SVG image load before data-URI backgrounds decode). Cache bounded (~6 entries / 96 MB) so crossfade segments cannot retain hundreds of MB.
 2. **Below-media foreground** — text/overlays ordered behind the shell (`paintsAboveVideo`).
-3. **Shell texture(s)** — each bent shell rasterized untransformed via `captureProjectedElementTexture` (shared with video-media). Cached per shell-var + layout size. On video canvases the clone `<img>` is hidden during texture capture; decoded pixels are drawn straight into the measured media box with `paintFrameToLocalBox` (object-fit / radius / enhance) — **no JPEG round-trip**. Result is `warpProjectedTexture`'d onto the frame's current quad.
+3. **Shell texture(s)** — each bent shell rasterized untransformed via `captureProjectedElementTexture` (shared with video-media). Cached per shell-var + layout size. On video canvases the clone `<img>` is hidden during texture capture; decoded pixels are drawn straight into the measured media box with `paintFrameToLocalBox` (object-fit / radius / media filter chain) — **no JPEG round-trip**. Result is `warpProjectedTexture`'d onto the frame's current quad.
 4. **Device-frame chrome** — re-projected over the media (`buildFrameChromeLayer`).
 5. **Above-media foreground** — remaining overlays / annotations.
 
@@ -280,7 +280,7 @@ MediaRecorder fallback has **no** audio.
 | `AnimationCaptureMode` | `"auto" \| "fast" \| "legacy"` |
 | `CaptureCtx` | Capture handle + clips + frame plan + optional video layer |
 | `CloneVideoLayer` | `paint` / `getFrame` / `mediaElement` bridge for video-in-animation |
-| `LayeredFrameOptions` | `{ timelineMs, videoLayer?, enhance? }` for WebKit layered capture |
+| `LayeredFrameOptions` | `{ timelineMs, videoLayer?, mediaFx? }` for WebKit layered capture |
 | `AnimationExportBlobResult` | `{ blob, contentType, extension }` |
 
 ---

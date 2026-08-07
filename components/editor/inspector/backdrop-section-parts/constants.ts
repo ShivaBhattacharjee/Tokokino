@@ -62,6 +62,9 @@ export type BackdropControlId =
 
 export type BackdropPickerLayout = "grid" | "carousel"
 
+/** Which layer the Effects / Filters controls are currently editing. */
+export type BackdropLayerTarget = "backdrop" | "screenshot"
+
 export const BACKDROP_FILTERS: { id: AssetFilter; label: string }[] = [
   { id: "none", label: "Original" },
   { id: "bw", label: "B&W" },

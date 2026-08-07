@@ -40,6 +40,7 @@ import {
 import { slotBoxAspectRatio } from "@/lib/editor/screenshot-layout"
 import { resolveSlotScreenshotStyle } from "@/lib/editor/store/canvas-helpers"
 import { buildScreenshotImageStyle } from "@/lib/editor/screenshot-visual"
+import { slotMediaFxPreviewVar } from "@/lib/editor/css-utils"
 import { computeCropTarget, type CropTarget } from "@/lib/editor/crop-utils"
 import { clipAffectsSlot, clipOwns } from "@/lib/editor/animation-playback"
 import {
@@ -224,8 +225,8 @@ export function ScreenshotSlotRender({
   } = buildScreenshotImageStyle({
     style: resolved,
     enhance: shared.enhance,
-    assetFilter: slot.filter,
     transformVarPrefix: "slot-ts",
+    mediaFxVar: slotMediaFxPreviewVar(slot.id),
     borderAnimated,
     fullPageMediaStyle,
   })

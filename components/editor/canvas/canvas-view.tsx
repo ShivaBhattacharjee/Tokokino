@@ -12,6 +12,8 @@ import { bulkToolbarScale } from "@/components/editor/toolbar/primitives"
 import { cn } from "@/lib/utils"
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
 import {
+  MAIN_MEDIA_FX_PREVIEW_VAR,
+  NEUTRAL_MEDIA_ADJUSTMENTS,
   SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowBoxShadowCss,
   shadowCss,
@@ -22,7 +24,6 @@ import {
   CanvasScope,
   type CanvasState,
   effectsFilterCss,
-  enhanceFilterCss,
   overlayUrl,
   screenshotPositionAnchor,
   useCanvasPreviewMode,
@@ -155,6 +156,8 @@ function CanvasViewInner({
     clearTweet,
     portrait,
     enhance,
+    mediaAdjustments,
+    mediaFilter,
     annotation,
     annotations,
     annotationShapes,
@@ -532,7 +535,6 @@ function CanvasViewInner({
     tweet,
     widthPx,
   ])
-  const enhanceFilter = enhanceFilterCss(enhance)
   // Read the animated radius via a var so an Animate-mode clip can ease it,
   // falling back to the committed value at rest / outside Animate mode.
   const screenshotRadiusCss = `var(${SCREENSHOT_RADIUS_PREVIEW_VAR}, ${borderRadius}px)`
@@ -549,6 +551,7 @@ function CanvasViewInner({
     transform,
     imgStyle,
     shadowFilter: computedShadowFilter,
+    filterChain: enhanceFilter,
   } = buildScreenshotImageStyle({
     style: {
       tilt,
@@ -559,10 +562,12 @@ function CanvasViewInner({
       padding,
       lighting: backdrop.lighting,
       objectFit: objectFit ?? "cover",
+      filter: mediaFilter ?? "none",
+      adjustments: mediaAdjustments ?? NEUTRAL_MEDIA_ADJUSTMENTS,
     },
     enhance,
-    assetFilter: null,
     transformVarPrefix: "canvas-ts",
+    mediaFxVar: MAIN_MEDIA_FX_PREVIEW_VAR,
     borderAnimated,
     fullPageMediaStyle,
   })
