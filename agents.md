@@ -14,9 +14,9 @@ Tokokino is a client-heavy Next.js 16 app deployed to Cloudflare Workers through
 
 | Task | File(s) |
 |---|---|
-| Add/change a canvas property (shadow, border, etc.) | `lib/editor/state-types.ts` (type) + `lib/editor/store.tsx` (action) + relevant inspector component |
-| Make a canvas property **animatable** (Animate mode) | See [Animate mode](#animate-mode--making-an-effect-animatable) — touches `state-types.ts`, `animation-playback.ts`, `store.tsx`, `animation-layer.tsx`, `canvas-view.tsx`/`canvas-backdrop.tsx`, `timeline-clip.tsx` |
-| Add a new store action | `lib/editor/store.tsx` — add to `EditorActions` type and implement in `createEditorStore` |
+| Add/change a canvas property (shadow, border, etc.) | `lib/editor/state-types.ts` (type) + `lib/editor/store/defaults.ts` (default) + matching `lib/editor/store/actions/` module + relevant inspector component |
+| Make a canvas property **animatable** (Animate mode) | See [Animate mode](#animate-mode--making-an-effect-animatable) — touches `state-types.ts`, `animation-playback.ts`, `store/animation-helpers.ts`, `store/actions/animation.ts`, the owning action module, `animation-layer.tsx`, `canvas-view.tsx`/`canvas-backdrop.tsx`, `timeline-clip.tsx` |
+| Add a new store action | `lib/editor/store/types.ts` (`EditorActions`) + the matching domain factory in `lib/editor/store/actions/`; `store.tsx` is only the public facade/composition root |
 | Change export behavior | `lib/editor/export.ts` |
 | Add a new background type | `lib/editor/state-types.ts` (`BgType`) + `lib/editor/css-utils.ts` (`backgroundCss`) + `components/inspector/background-section.tsx` |
 | Add a new shadow type | `state-types.ts` (`ShadowType`) + `css-utils.ts` (`shadowCss`) + `inspector/shadow-section.tsx` |
@@ -87,19 +87,14 @@ setShadow({ type: "drop", intensity: 60, color: "#000000", lightSource: "top" })
 
 ### Writing a new store action
 
-1. Add to `EditorActions` type in `store.tsx`
-2. Implement in the `create(...)` block — always call `set()` with temporal middleware:
+1. Add the signature to `EditorActions` in `lib/editor/store/types.ts`.
+2. Implement it in the matching factory under `lib/editor/store/actions/`. Use the shared commit context for document changes:
    ```ts
-   myAction: (value) => {
-     set((state) => {
-       const canvas = getActiveCanvas(state)
-       if (!canvas) return state
-       return produce(state, draft => {
-         draft.present.canvases.find(c => c.id === draft.present.activeCanvasId).myProp = value
-       })
-     })
-   }
+   myAction: (value, canvasId) =>
+     commitCanvas(canvasId, { myProp: value }, "my-prop")
    ```
+   Use `commitCanvasEffect` instead when the property is animatable. Use raw `set`
+   only for non-undoable session/UI state.
 3. History grouping: rapid sequential calls within 600 ms are merged into one undo step automatically by the temporal middleware.
 
 ### History
@@ -217,7 +212,7 @@ Core files:
 - `components/editor/animate/animation-layer.tsx` — the per-frame player: samples every owned effect at the playhead and writes CSS vars; clears them at rest.
 - `components/editor/canvas/canvas-view.tsx` + `canvas-backdrop.tsx` — read those vars via `var(--…, <committed fallback>)`.
 - `components/editor/animate/timeline-clip.tsx` — the icon shown on a clip per owned effect.
-- `lib/editor/store.tsx` — `commitCanvasEffect`, the pose helpers (`captureClipPose` / `applyPoseToCanvas` / `resolveKeyframePose`).
+- `lib/editor/store/commit-context.ts` — `commitCanvasEffect`; `lib/editor/store/animation-helpers.ts` — pose helpers (`captureClipPose` / `applyPoseToCanvas` / `resolveKeyframePose`); `lib/editor/store/actions/animation.ts` — timeline actions.
 
 ### The non-negotiable rules (every animatable effect MUST follow these)
 
@@ -270,10 +265,12 @@ Core files:
 2. **`animation-playback.ts`** — add `myEffect: DEFAULT_CANVAS_BASE.myEffect` to
    `DEFAULT_BASELINE`; add the interpolator (`myEffectBetween`, or a `resolveAnimateXStack`
    for a layered stack) and an `INVISIBLE_/EMPTY_` rest constant.
-3. **`store.tsx`** — capture it in `captureClipPose`, apply it in `applyPoseToCanvas`
-   (with `?? canvas.myEffect` fallback), resolve it in `resolveKeyframePose`, and change
-   its setter from `commitCanvas` to `commitCanvasEffect(id, patch, group, "myEffect")` so
-   editing it while a clip is selected registers ownership.
+3. **`store/animation-helpers.ts` + owning `store/actions/*.ts` file** — capture it
+   in `captureClipPose`, apply it in `applyPoseToCanvas` (with
+   `?? canvas.myEffect` fallback), resolve it in `resolveKeyframePose`, and change
+   its setter from `commitCanvas` to
+   `commitCanvasEffect(id, patch, group, "myEffect")` so editing it while a clip
+   is selected registers ownership.
 4. **`animation-layer.tsx`** — sample/drive the CSS var(s) in the player loop, and add
    them to `SCOPE_VARS`/`CANVAS_FX_VARS` (or the per-clip clear loop) so `clearAll` resets
    them at rest.

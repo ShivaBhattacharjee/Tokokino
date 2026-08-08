@@ -17,7 +17,7 @@ import {
   FIRST_CANVAS_ID,
   CLEAR_SELECTION,
 } from "./defaults"
-import type { EditorStore } from "../store"
+import type { EditorStore } from "./types"
 
 export const EDITOR_DRAFT_DB_NAME = "tokokino-editor"
 export const EDITOR_DRAFT_STORE_NAME = "drafts"

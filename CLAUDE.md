@@ -83,8 +83,8 @@ pnpm build:shapes                 # 3D shape manifest + thumbnails
   toolbar/, top-bar/, mobile-controls/, settings/
 /components/ui/           shadcn component library
 /lib/editor/              Core editor logic
-  store.tsx               Zustand store — all state & actions
-  store/                  Defaults, canvas helpers, layer stack, draft persistence
+  store.tsx               Zustand public facade + domain-action composition
+  store/                  Contracts, commit/history, action factories, helpers, persistence
   state-types.ts          All TypeScript types
   export.ts               Still image capture & export
   animation-export/       Video/GIF encode pipeline (Mediabunny + WebCodecs)

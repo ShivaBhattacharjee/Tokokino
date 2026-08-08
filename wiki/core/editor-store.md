@@ -52,10 +52,15 @@ Screenshot box + style + layers + optional animation:
 
 ```
 lib/editor/
-├── store.tsx              # create store + all EditorActions
+├── store.tsx              # stable public facade + action composition
 ├── state-types.ts         # shared types
 ├── value-schemas.ts       # Zod ranges for inputs
 └── store/
+    ├── types.ts           # EditorStore state and action contracts
+    ├── initial-state.ts   # root/session initial values
+    ├── commit-context.ts  # history-aware commit primitives
+    ├── animation-helpers.ts
+    ├── actions/           # domain factories: media, style, layers, animation, etc.
     ├── provider.tsx       # EditorProvider — hydrate, autosave, shortcuts, template URL
     ├── draft-persistence.ts
     ├── defaults.ts
@@ -172,7 +177,7 @@ Also wires global shortcuts (copy canvas as PNG, undo/redo) and template apply t
 | Presets | `setActiveLayoutPresetId`, custom preset cache mutators |
 | Draft UI | `setCurrentDraft`, `loadDraftState` |
 
-Full list: `EditorActions` in `store.tsx` (+ `CLAUDE.md` summary).
+Full list: `EditorActions` in `store/types.ts` (+ `CLAUDE.md` summary).
 
 ---
 
