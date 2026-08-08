@@ -31,6 +31,7 @@ import {
   resolveAnimationDownloadFilename,
   throwIfAborted,
   triggerDownload,
+  waitForPaint,
 } from "../utils"
 import { loadWatermarkLogo, resolveWatermarkFontStack } from "../watermark"
 import { exportAudioDurationSec } from "./audio"
@@ -194,11 +195,24 @@ async function encodeVideoMedia(
   }
 }
 
-/** Export the active video canvas as a video/GIF — downloads by default. */
+/** Encode a video canvas and always return the blob (for share uploads). */
+export async function exportVideoMediaBlob(
+  canvasId: string,
+  options: Omit<VideoMediaExportOptions, "asBlob">
+): Promise<AnimationExportBlobResult> {
+  return encodeVideoMedia(canvasId, { ...options, asBlob: true })
+}
+
+/**
+ * Export the active video canvas as a video/GIF — downloads by default.
+ *
+ * Returns the resolved download filename (matching `exportCanvas`) so callers
+ * can name the real file in their confirmation.
+ */
 export async function exportVideoMedia(
   canvasId: string,
   options: VideoMediaExportOptions
-): Promise<void | AnimationExportBlobResult> {
+): Promise<string | AnimationExportBlobResult> {
   const result = await encodeVideoMedia(canvasId, options)
   if (options.asBlob) return result
   const targetWidth = even(options.targetWidth ?? 1080)
@@ -208,5 +222,9 @@ export async function exportVideoMedia(
     targetWidth,
     extension: result.extension,
   })
+  // The last progress reports land in the same task as the download, so without
+  // a paint the bar is still showing mid-capture when the dialog tears down.
+  await waitForPaint()
   triggerDownload(result.blob, filename)
+  return filename
 }

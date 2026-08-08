@@ -23,7 +23,34 @@ import {
   type WebMOutputFormat,
 } from "mediabunny"
 
-import { throwIfAborted } from "../utils"
+import { throwIfAborted } from "../abort"
+
+/**
+ * Fetch a media src into a Blob for the audio readers.
+ *
+ * The muxer runs in a worker, and handing it the bytes is safer than handing it
+ * the URL: object URLs are minted against the page's environment and the export
+ * can be racing a `revokeObjectURL` from the media registry. Returns null when
+ * the source can't be read — audio is always best-effort.
+ *
+ * A cancelled export is the one failure that must not read as "no audio":
+ * returning null there would carry on into a silent encode instead of stopping,
+ * so an abort is rethrown rather than swallowed with the rest.
+ */
+export async function loadAudioSourceBlob(
+  src: string,
+  signal?: AbortSignal
+): Promise<Blob | null> {
+  throwIfAborted(signal)
+  try {
+    const res = await fetch(src, { signal })
+    if (!res.ok) return null
+    return await res.blob()
+  } catch {
+    throwIfAborted(signal)
+    return null
+  }
+}
 
 /**
  * Preferred audio codecs for an export container, in preference order.
@@ -131,7 +158,7 @@ export type SourceAudioFeed = {
  * video export still proceeds silently.
  */
 export async function prepareSourceAudio(
-  src: string,
+  source: Blob,
   format: "mp4" | "webm",
   outputFormat: Mp4OutputFormat | WebMOutputFormat,
   durationSec: number,
@@ -140,10 +167,7 @@ export async function prepareSourceAudio(
   let input: Input | null = null
   try {
     throwIfAborted(signal)
-    const res = await fetch(src)
-    if (!res.ok) return null
-    const blob = await res.blob()
-    input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) })
+    input = new Input({ formats: ALL_FORMATS, source: new BlobSource(source) })
     const track = await input.getPrimaryAudioTrack()
     if (!track) {
       input.dispose()

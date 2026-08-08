@@ -12,16 +12,7 @@ import { triggerAnchorDownload } from "@/lib/download"
 import { getCanvasRenderedDims } from "../export"
 import { resolveExportDownloadFilename } from "../export-filename"
 
-export class AnimationExportAbortedError extends Error {
-  constructor(message = "Export cancelled") {
-    super(message)
-    this.name = "AnimationExportAbortedError"
-  }
-}
-
-export function throwIfAborted(signal?: AbortSignal) {
-  if (signal?.aborted) throw new AnimationExportAbortedError()
-}
+export { AnimationExportAbortedError, throwIfAborted } from "./abort"
 
 export function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -97,12 +88,71 @@ export function animationMimeAndExt(format: AnimationExportFormat): {
   return { contentType: "video/webm", extension: "webm" }
 }
 
+/**
+ * Longest a paint wait may block. `requestAnimationFrame` does not fire at all
+ * in a backgrounded tab, so an unbounded wait would stall an export that the
+ * user switched away from — including the one just before the download, leaving
+ * a finished file that never lands. Two frames is ~32ms in the normal case, so
+ * this only ever trips when rAF is genuinely paused.
+ */
+const MAX_PAINT_WAIT_MS = 1_000
+
 export function waitForPaint(): Promise<void> {
   return new Promise((resolve) => {
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(done, MAX_PAINT_WAIT_MS)
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve())
+      requestAnimationFrame(done)
     })
   })
+}
+
+type SchedulerYield = { yield?: () => Promise<void> }
+
+/**
+ * Hand the main thread back to the browser mid-export so queued input (the
+ * dialog's Cancel button) and a progress repaint can actually run.
+ *
+ * `scheduler.yield()` resumes at the *front* of the task queue, so the export
+ * doesn't lose its slot to unrelated work. The MessageChannel fallback is a
+ * plain task; `setTimeout(0)` is not equivalent — it's clamped to 4ms+ once
+ * nested, which is real overhead at hundreds of frames.
+ */
+export function yieldToUi(): Promise<void> {
+  const scheduler = (globalThis as { scheduler?: SchedulerYield }).scheduler
+  if (typeof scheduler?.yield === "function") {
+    return scheduler.yield().catch(() => {})
+  }
+  if (typeof MessageChannel === "undefined") return Promise.resolve()
+  return new Promise((resolve) => {
+    const channel = new MessageChannel()
+    channel.port1.onmessage = () => {
+      channel.port1.close()
+      resolve()
+    }
+    channel.port2.postMessage(null)
+  })
+}
+
+/**
+ * Budgeted variant of {@link yieldToUi} for per-frame loops: yields only once
+ * `budgetMs` of uninterrupted work has gone by. A frame that already takes
+ * longer than the budget therefore yields every iteration, while cheap frames
+ * batch up instead of paying a task hop each.
+ */
+export function createUiYielder(budgetMs = 40): () => Promise<void> {
+  let lastYieldAt = performance.now()
+  return async () => {
+    if (performance.now() - lastYieldAt < budgetMs) return
+    await yieldToUi()
+    lastYieldAt = performance.now()
+  }
 }
 
 export type ProgressReporter = {
