@@ -206,6 +206,11 @@ export async function prepareCloneVideoLayer({
     return null
   }
 
+  // Must happen here: the <video> is loaded and still in the clone, and it sits
+  // at 0 so the decoded frame at 0 is the same picture. The swap below replaces
+  // it with an <img>, and the first frame requested is a clip's start, not 0.
+  await decoded.calibrateRange(video, 0)
+
   const frameImage = replaceVideoWithFrameImage(video)
   if (!frameImage) {
     decoded.cleanup()

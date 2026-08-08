@@ -190,6 +190,7 @@ describe("prepareCloneVideoLayer — Animate export frame bridge", () => {
     decodedFrame.height = 1080
     const decoded = {
       getFrameAt: vi.fn().mockResolvedValue(decodedFrame),
+      calibrateRange: vi.fn(),
       cleanup: vi.fn(),
     }
     mocks.createDecodedFrameSource.mockResolvedValue(decoded)
@@ -242,6 +243,7 @@ describe("prepareCloneVideoLayer — Animate export frame bridge", () => {
     frame.height = 180
     const decoded = {
       getFrameAt: vi.fn().mockResolvedValue(frame),
+      calibrateRange: vi.fn(),
       cleanup: vi.fn(),
     }
     mocks.createDecodedFrameSource.mockResolvedValue(decoded)

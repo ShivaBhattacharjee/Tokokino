@@ -127,6 +127,10 @@ async function encodeVideoMedia(
       ? null
       : await createDecodedFrameSource(canvas.screenshot, signal)
 
+    // The clone's <video> is loaded and parked at 0, and the decoded frame at 0
+    // is the same picture — the pairing the range test needs.
+    await decoded?.calibrateRange(cloneVideo, 0)
+
     const tilt = canvas.tilt
     const tilted = !!tilt && (tilt.rx !== 0 || tilt.ry !== 0 || tilt.rz !== 0)
     // The composite renderer owns the decoded pixels. Re-apply media effects
