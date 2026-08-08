@@ -81,6 +81,24 @@ describe("duplicateAnimationClips refusals", () => {
     expect(store.getState().duplicateAnimationClips([sourceId])).toEqual([])
     expect(clips()).toHaveLength(2)
   })
+
+  it("refuses the whole bulk duplicate when any selected clip cannot fit", () => {
+    const firstId = store.getState().addAnimationClip()
+    const saturatedId = store.getState().addAnimationClip()
+    store.getState().updateAnimationClip(firstId, {
+      startMs: 0,
+      durationMs: 1_000,
+    })
+    store.getState().updateAnimationClip(saturatedId, {
+      startMs: MAX_DURATION_MS - 1_000,
+      durationMs: 1_000,
+    })
+
+    expect(
+      store.getState().duplicateAnimationClips([firstId, saturatedId])
+    ).toEqual([])
+    expect(clips().map((clip) => clip.id)).toEqual([firstId, saturatedId])
+  })
 })
 
 describe("duplicateVideoClip refusals", () => {

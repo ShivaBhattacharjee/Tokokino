@@ -531,11 +531,13 @@ export const createAnimationActions = ({
       for (const source of sources) {
         const newId = makeId()
         const inserted = insertClipCopy(clips, source.id, newId)
-        if (inserted === clips) continue
+        // Bulk duplicate is atomic for the valid selected clips: if any copy
+        // cannot fit, keep the timeline unchanged instead of committing a
+        // partial group while reporting overall success.
+        if (inserted === clips) return []
         clips = inserted
         newIds.push(newId)
       }
-      if (newIds.length === 0) return []
       commitCanvas(
         resolvedId,
         (c) => {
