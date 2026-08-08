@@ -543,7 +543,8 @@ AnimationClip = {
   target?: { scope: "all" } | { scope: "main" } | { scope: "slot"; slotId }
   effects?: AnimationEffect[]      // "position"|"zoom"|"tilt"|"padding"|"shadow"|
                                    // "background"|"backdrop"|"canvasRadius"|"lighting"|
-                                   // "filter"|"portrait"|"pattern"|"overlay"|"border"|
+                                   // "filter"|"mediaEffects"|"mediaFilter"|
+                                   // "portrait"|"pattern"|"overlay"|"border"|
                                    // "borderRadius"|"crop"
   pose?: ClipBaseline              // target values
   baseline?: ClipBaseline          // committed values the clip eases FROM
@@ -555,7 +556,8 @@ AnimationClip = {
 ```
 
 - Easing helpers and the custom cubic-bezier maths live in `lib/editor/clip-easing.ts`; the draggable graph is `animate/bezier-curve-editor.tsx`, wired up from `animate/clip-transition-toolbar.tsx`.
-- Only `tilt`, `zoom`, `shadow`, `position`, `border`, `borderRadius`, `padding`, and `lighting` can animate on an extra screenshot slot (`SLOT_ANIMATABLE_EFFECTS` in `store.tsx`); everything else is main-canvas only.
+- `backdrop`/`filter` animate the canvas backdrop's grade; `mediaEffects`/`mediaFilter` animate the screenshot or video's own pixels.
+- Only `tilt`, `zoom`, `shadow`, `position`, `border`, `borderRadius`, `padding`, `lighting`, `mediaEffects`, and `mediaFilter` can animate on an extra screenshot slot (`SLOT_ANIMATABLE_EFFECTS` in `store.tsx`); everything else is main-canvas only.
 - Adding a *new* animatable effect is a multi-file checklist — follow the Animate mode section in `agents.md`.
 
 ---

@@ -51,9 +51,11 @@ AnimationClip {
 
 `AnimationEffect` union (`state-types.ts`):
 
-`position` · `zoom` · `tilt` · `padding` · `shadow` · `background` · `backdrop` · `canvasRadius` · `lighting` · `filter` · `portrait` · `pattern` · `overlay` · `border` · `borderRadius` · `crop`
+`position` · `zoom` · `tilt` · `padding` · `shadow` · `background` · `backdrop` · `canvasRadius` · `lighting` · `filter` · `mediaEffects` · `mediaFilter` · `portrait` · `pattern` · `overlay` · `border` · `borderRadius` · `crop`
 
-Slot-limited set: `tilt` · `zoom` · `shadow` · `position` · `border` · `borderRadius` · `padding` · `lighting` — see `SLOT_ANIMATABLE_EFFECTS` in `store.tsx`. Everything else is main-canvas only.
+`backdrop`/`filter` grade the canvas backdrop; `mediaEffects`/`mediaFilter` grade the screenshot or video's own pixels.
+
+Slot-limited set: `tilt` · `zoom` · `shadow` · `position` · `border` · `borderRadius` · `padding` · `lighting` · `mediaEffects` · `mediaFilter` — see `SLOT_ANIMATABLE_EFFECTS` in `store.tsx`. Everything else is main-canvas only.
 
 ### Easing
 
@@ -102,11 +104,11 @@ Renderers read `var(--anim-…, <committed fallback>)` so committed style shows 
 
 ---
 
-## Two interpolation shapes
+## Three interpolation shapes
 
 ### Numeric / interpolatable tracks
 
-tilt, zoom, padding, canvasRadius, shadow, border, lighting, crop, …  
+tilt, zoom, padding, canvasRadius, shadow, border, lighting, crop, mediaEffects, …  
 
 `sampleKeyframes` + a `lerpValue` (`shadowBetween`, `borderBetween`, `lightingBetween`, …).
 
@@ -122,6 +124,22 @@ background, filter, portrait, pattern, overlay — each keyframe owns a layer; p
 Resolvers: `resolveAnimateXStack` in `animation-playback.ts`. Render: `canvas-backdrop.tsx` (+ overlay over/under in `canvas-view.tsx`).
 
 Invisible rest constants: `INVISIBLE_BORDER`, `INVISIBLE_SHADOW`, `lightingEntranceRest`, etc.
+
+### Channel blends
+
+`mediaFilter` — the filter preset on the screenshot/video pixels. Stacking layers is not an option there (a video would have to be decoded once per layer), so `assetFilterVector` turns each preset into its channels and the player eases between them, emitting one chain into the media-grade var.
+
+A sample that is still sitting on one preset keeps that preset's name (`MediaFilterBlend.preset`) and emits `assetFilterCss`'s own chain, so the value the player holds at the end of a keyframe is byte-identical to the committed one it settles into. Only a genuine mid-transition falls back to the blended channels.
+
+---
+
+## The resting frame
+
+Leaving Animate mode restores the committed canvas to **where the animation starts**: every effect resolves to the first keyframe that owns it — the value that keyframe eases FROM — and an effect no keyframe owns keeps the canvas's own value. `buildRestingPose` in `store.tsx` builds it; `setIsAnimateMode(false)` applies it.
+
+Keyframes describe motion, so they must not leave their look baked into the document. The static editor, the still/PNG export, the share image and the draft thumbnail all read the committed canvas, and they show the composition the user built rather than the last frame of its animation.
+
+Entering Animate mode is the mirror: the committed canvas is the animation's start, so an edit made outside is routed to each effect's *first* owning keyframe (moving where the animation begins) instead of being folded onto the last keyframe. Only a property nothing animates carries onto that last keyframe, since for those the canvas value is plain document style.
 
 ---
 

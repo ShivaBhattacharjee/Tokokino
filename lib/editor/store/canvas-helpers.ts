@@ -505,6 +505,8 @@ const SCREENSHOT_STYLE_EFFECT: Partial<
   borderRadius: "borderRadius",
   padding: "padding",
   lighting: "lighting",
+  filter: "mediaFilter",
+  adjustments: "mediaEffects",
 }
 
 export function screenshotStyleEffects(

@@ -8,9 +8,11 @@ import {
   RiCropLine,
   RiDeleteBinLine,
   RiDragMove2Line,
+  RiEqualizerLine,
   RiEraserLine,
   RiFileCopyLine,
   RiLayoutGrid2Line,
+  RiMagicLine,
   RiMoonClearLine,
   RiPaletteLine,
   RiRotateLockLine,
@@ -110,6 +112,9 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   portrait: RiSunLine,
   pattern: RiSunLine,
   overlay: RiSunLine,
+  // The media grade has its own Effects / Filters controls — share their icons.
+  mediaEffects: RiEqualizerLine,
+  mediaFilter: RiMagicLine,
   // Border lives in its own inspector section — share its brush icon.
   border: RiBrushLine,
   borderRadius: RiBrushLine,

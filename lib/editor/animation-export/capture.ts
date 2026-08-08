@@ -7,7 +7,9 @@
 import {
   applyAnimationFrameAtTime,
   measureBareStageDims,
+  sampleMainMediaGrade,
 } from "../apply-animation-frame"
+import { clipAffectsMain, clipPose } from "../animation-playback"
 import {
   prepareAnimationCapture,
   prepareFastAnimationCapture,
@@ -410,6 +412,15 @@ export async function captureStableFrame(
       enhance: canvas.enhance,
       filter: canvas.mediaFilter,
       adjustments: canvas.mediaAdjustments,
+      // The layered path draws the decoded frame itself, so it never sees the
+      // grade var `applyExportFrame` just wrote. Hand it this frame's chain
+      // whenever a keyframe animates the grade; null keeps the committed one.
+      gradeCss: sampleMainMediaGrade(
+        canvas,
+        clips.filter(clipAffectsMain),
+        clipPose,
+        timeMs
+      ),
     },
   }).catch(() => null)
   if (layered) {

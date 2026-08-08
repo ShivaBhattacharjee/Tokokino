@@ -63,6 +63,18 @@ const releases: Release[] = [
         text: "With nothing selected a grade covers every screenshot on the canvas; select a single one first and it only changes that one.",
       },
       {
+        title: "Animate the grade",
+        text: "Screenshot and video grades are now keyframeable in Animate mode — fade a video from black and white into full colour, or ease brightness and saturation across a clip. Works on extra screenshots too, and carries through to video export.",
+      },
+      {
+        title: "Keyframes stop restyling your canvas",
+        text: "Leaving Animate mode used to leave the last keyframe's look painted onto the canvas, so a still export showed the end of the animation instead of your composition. The canvas now returns to where the animation starts.",
+      },
+      {
+        title: "Grades and filters export correctly in Safari",
+        text: "Video exports in Safari dropped every colour grade and filter preset from the finished file, even though the canvas showed them. They are now applied to the exported frames.",
+      },
+      {
         title: "Custom transition curves",
         text: "Pick Custom in the Animate transition menu and drag the two handles on the curve to shape exactly how a clip eases in and out, then set its speed in milliseconds.",
       },

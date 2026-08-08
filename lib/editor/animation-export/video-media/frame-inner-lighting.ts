@@ -34,6 +34,12 @@ export type VideoMediaFx = {
   /** Manual media colour grade. */
   adjustments?: MediaAdjustments | null
   /**
+   * The whole grade chain, already resolved, used instead of `filter` +
+   * `adjustments`. Animate mode blends both across a keyframe, and the result
+   * is a channel mix no `AssetFilter` names.
+   */
+  gradeCss?: string | null
+  /**
    * Export pixels per CSS pixel for the box being painted. Only `blur()` needs
    * it — it is the one length in the grade, and a 2D canvas at export scale
    * does not stretch it the way a rasterized CSS filter does.

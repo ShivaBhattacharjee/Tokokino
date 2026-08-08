@@ -16,10 +16,31 @@ import {
   registerDav1dAv1Decoder,
 } from "./dav1d-av1-decoder"
 import { AnimationExportAbortedError, throwIfAborted } from "../utils"
+import {
+  decodedNeedsRangeExpansion,
+  drawVideoReference,
+  expandLimitedRange,
+  isFrameCanvas,
+  type FrameCanvas,
+} from "./frame-range"
 
 export type DecodedFrameSource = {
   /** Decoded frame whose start timestamp is ≤ `t` seconds, or null if none. */
   getFrameAt: (t: number) => Promise<CanvasImageSource | null>
+  /**
+   * Check whether this engine's decode leaves frames in studio swing, and start
+   * repairing them if so — see `frame-range.ts`.
+   *
+   * `reference` must be a `<video>` on this same clip, loaded and sitting at
+   * `atSeconds`: the test compares the two conversions of ONE picture, so a
+   * mismatched time would compare content instead of conversions. Call it before
+   * the first `getFrameAt` and before anything detaches that element. Skipping it
+   * entirely just passes frames through as decoded.
+   */
+  calibrateRange: (
+    reference: HTMLVideoElement,
+    atSeconds?: number
+  ) => Promise<void>
   cleanup: () => void
 }
 
@@ -101,7 +122,19 @@ export async function createDecodedFrameSource(
     let chosen: WrappedCanvas | null = null
     let lastT = -Infinity
 
-    return {
+    // Set by calibrateRange; until then frames pass through untouched.
+    let expandRange = false
+    // poolSize 0 gives every frame its own canvas, but one canvas is handed out
+    // for every output frame that lands on it — expand each exactly once.
+    const expanded = new WeakSet<object>()
+    const repair = (canvas: FrameCanvas) => {
+      if (!expandRange || expanded.has(canvas)) return canvas
+      expandLimitedRange(canvas)
+      expanded.add(canvas)
+      return canvas
+    }
+
+    const source: DecodedFrameSource = {
       getFrameAt: async (t) => {
         // A backward jump (e.g. GIF's palette pass restarting at 0) cannot be
         // served by the forward-only iterator, so restart it from that time.
@@ -123,13 +156,25 @@ export async function createDecodedFrameSource(
             buffered = null
           } else break
         }
-        return chosen?.canvas ?? null
+        return chosen ? repair(chosen.canvas) : null
+      },
+      calibrateRange: async (reference, atSeconds = 0) => {
+        const native = drawVideoReference(reference)
+        if (!native) return
+        // Measured BEFORE any repair — this frame is the evidence.
+        const decodedFrame = await source.getFrameAt(atSeconds)
+        if (!decodedFrame || !isFrameCanvas(decodedFrame)) return
+        expandRange = decodedNeedsRangeExpansion(decodedFrame, native)
+        // The frame just measured is handed out again for the first output
+        // frame, so repair it now rather than letting one frame through raw.
+        if (expandRange) repair(decodedFrame)
       },
       cleanup: () => {
         void frames.return(undefined)
         boundInput.dispose()
       },
     }
+    return source
   } catch (error) {
     input?.dispose()
     // Cancellation must propagate — swallowing it to null would make the caller

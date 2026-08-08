@@ -4,6 +4,8 @@ import * as React from "react"
 import { RiArrowDownSLine, RiArrowUpSLine } from "@remixicon/react"
 import { motion } from "motion/react"
 
+import { cn } from "@/lib/utils"
+
 import { TILE_FADE_VARIANTS } from "./constants"
 
 export function ExpandToggleTile({
@@ -13,6 +15,8 @@ export function ExpandToggleTile({
   peekStyle,
   title,
   animate = true,
+  aspect = "video",
+  peekFit = "cover",
 }: {
   expanded: boolean
   onToggle: () => void
@@ -20,6 +24,9 @@ export function ExpandToggleTile({
   peekStyle?: React.CSSProperties
   title: string
   animate?: boolean
+  /** Matches the shape of the tiles this toggle sits among. */
+  aspect?: "video" | "square"
+  peekFit?: "cover" | "contain"
 }) {
   const Icon = expanded ? RiArrowUpSLine : RiArrowDownSLine
 
@@ -29,12 +36,18 @@ export function ExpandToggleTile({
       onClick={onToggle}
       title={title}
       aria-expanded={expanded}
-      className="group relative aspect-video w-full cursor-pointer overflow-hidden rounded-lg border border-border/60 bg-secondary/40 transition-colors hover:border-foreground/30"
+      className={cn(
+        "group relative w-full cursor-pointer overflow-hidden rounded-lg border border-border/60 bg-secondary/40 transition-colors hover:border-foreground/30",
+        aspect === "square" ? "aspect-square" : "aspect-video"
+      )}
     >
       {peekStyle ? (
         <span
           aria-hidden
-          className="absolute inset-0 scale-110 bg-cover bg-center blur-sm"
+          className={cn(
+            "absolute inset-0 scale-110 bg-center bg-no-repeat blur-sm",
+            peekFit === "contain" ? "bg-contain" : "bg-cover"
+          )}
           style={peekStyle}
         />
       ) : null}
