@@ -9,6 +9,14 @@
 
 import { clipProgressEase, clipReleaseEase, clipReleaseMs } from "./clip-easing"
 import { hexToRgb } from "./color-utils"
+import {
+  assetFilterCss,
+  assetFilterVector,
+  filterVectorBetween,
+  filterVectorCss,
+  NEUTRAL_MEDIA_ADJUSTMENTS,
+  type FilterVector,
+} from "./css-utils"
 import { DEFAULT_CANVAS_BASE } from "./store/defaults"
 import type {
   AnimationClip,
@@ -23,6 +31,7 @@ import type {
   ClipBaseline,
   ClipSlotPose,
   CropRegion,
+  MediaAdjustments,
   Overlay,
   Portrait,
   ScreenshotPosition,
@@ -54,6 +63,9 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   lighting: DEFAULT_CANVAS_BASE.backdrop.lighting,
   background: DEFAULT_CANVAS_BASE.background,
   filter: DEFAULT_CANVAS_BASE.backdrop.filter,
+  mediaAdjustments:
+    DEFAULT_CANVAS_BASE.mediaAdjustments ?? NEUTRAL_MEDIA_ADJUSTMENTS,
+  mediaFilter: DEFAULT_CANVAS_BASE.mediaFilter ?? "none",
   portrait: DEFAULT_CANVAS_BASE.portrait,
   pattern: DEFAULT_CANVAS_BASE.backdrop.pattern,
   overlay: DEFAULT_CANVAS_BASE.overlay,
@@ -550,6 +562,63 @@ export function backdropEffectsBetween(
     invert: lerp(from.invert, to.invert, p),
     opacity: lerp(from.opacity, to.opacity, p),
   }
+}
+
+/** Colour grade on the screenshot/video pixels at progress p, channel by channel. */
+export function mediaAdjustmentsBetween(
+  from: MediaAdjustments,
+  to: MediaAdjustments,
+  p: number
+): MediaAdjustments {
+  return {
+    blur: lerp(from.blur, to.blur, p),
+    brightness: lerp(from.brightness, to.brightness, p),
+    contrast: lerp(from.contrast, to.contrast, p),
+    saturation: lerp(from.saturation, to.saturation, p),
+    hue: lerp(from.hue, to.hue, p),
+    grayscale: lerp(from.grayscale, to.grayscale, p),
+    sepia: lerp(from.sepia, to.sepia, p),
+    invert: lerp(from.invert, to.invert, p),
+  }
+}
+
+/**
+ * A sampled media filter preset: either a named preset (the sample sits on a
+ * keyframe) or the channel mix between two of them.
+ *
+ * Keeping the preset name alongside the channels is what lets an unblended
+ * sample emit `assetFilterCss`'s own chain, so the value the player drives at
+ * the end of a keyframe is byte-identical to the committed one it settles into.
+ */
+export type MediaFilterBlend = {
+  preset: AssetFilter | null
+  vector: FilterVector
+}
+
+export function mediaFilterBlendOf(filter: AssetFilter): MediaFilterBlend {
+  return { preset: filter, vector: assetFilterVector(filter) }
+}
+
+export function mediaFilterBlendBetween(
+  from: MediaFilterBlend,
+  to: MediaFilterBlend,
+  p: number
+): MediaFilterBlend {
+  if (p <= 0) return from
+  if (p >= 1) return to
+  if (from.preset !== null && from.preset === to.preset) return from
+  return {
+    preset: null,
+    vector: filterVectorBetween(from.vector, to.vector, p),
+  }
+}
+
+export function mediaFilterBlendCss(
+  blend: MediaFilterBlend
+): string | undefined {
+  return blend.preset !== null
+    ? assetFilterCss(blend.preset)
+    : filterVectorCss(blend.vector)
 }
 
 /**
@@ -1172,10 +1241,23 @@ export function poseAtCut(
         p
       )
     }
+    if (owns("mediaEffects")) {
+      const from = fromPose.mediaAdjustments ?? NEUTRAL_MEDIA_ADJUSTMENTS
+      mid.mediaAdjustments = mediaAdjustmentsBetween(
+        from,
+        toPose.mediaAdjustments ?? from,
+        p
+      )
+    }
     if (owns("background")) {
       mid.background = disc(fromPose.background, toPose.background)
     }
     if (owns("filter")) mid.filter = disc(fromPose.filter, toPose.filter)
+    // The media filter blends channel-wise at playback, but a keyframe pose has
+    // to name one preset — so the cut lands on whichever half it is nearer.
+    if (owns("mediaFilter")) {
+      mid.mediaFilter = disc(fromPose.mediaFilter, toPose.mediaFilter)
+    }
     if (owns("portrait"))
       mid.portrait = disc(fromPose.portrait, toPose.portrait)
     if (owns("pattern")) mid.pattern = disc(fromPose.pattern, toPose.pattern)
@@ -1215,6 +1297,10 @@ export function poseAtCut(
     if (owns("lighting") && f.lighting && tp.lighting) {
       s.lighting = lightingBetween(f.lighting, tp.lighting, p)
     }
+    if (owns("mediaEffects") && f.adjustments && tp.adjustments) {
+      s.adjustments = mediaAdjustmentsBetween(f.adjustments, tp.adjustments, p)
+    }
+    if (owns("mediaFilter")) s.filter = disc(f.filter, tp.filter)
     mid.slots[id] = s
   }
 

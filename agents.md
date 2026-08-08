@@ -247,7 +247,7 @@ Core files:
 ### Two interpolation shapes — pick the right one
 
 - **Numeric / interpolatable track** (tilt, zoom, padding, canvasRadius, shadow, border,
-  backdrop effects, lighting): sample with `sampleKeyframes<V>(framesFor(...), playhead,
+  backdrop effects, media colour grade, lighting): sample with `sampleKeyframes<V>(framesFor(...), playhead,
   restFor(...), lerpValue)`. Provide a `lerpValue(from, to, p)` (e.g. `borderBetween`,
   `shadowBetween`, `lightingBetween`). Drive the result onto a CSS var each frame; the
   renderer reads `var(--…, <committed>)`.
@@ -291,10 +291,16 @@ Core files:
   clip as owning the effect, so it silently won't animate.
 - **Stale IDE diagnostics** — after extending the `AnimationEffect` union the TS language
   server may still flag `"myEffect" does not exist`; `pnpm typecheck` is authoritative.
-- **Main vs slots** — only effects in `SLOT_ANIMATABLE_EFFECTS` (tilt/zoom/shadow) animate
+- **Main vs slots** — only effects in `SLOT_ANIMATABLE_EFFECTS` (transform/shadow/position/
+  border/radius/padding/lighting/media grade) animate
   on extra screenshot slots; canvas-wide effects are main-only (driven on `mainScopeEl`).
 - **"Remove effects"** on a clip must revert its pose to baseline AND clear
   `clip.effects` — see `clearAnimationClipEffects` in `store.tsx`.
+- **The committed canvas rests at the animation's START**, never at a keyframe's
+  look — `buildRestingPose`. A new effect gets this for free through
+  `EFFECT_MAIN_POSE_FIELDS` / `EFFECT_SLOT_POSE_FIELDS`, which is the whole
+  reason those maps are exhaustive; forget to add your effect there and it will
+  silently bind itself to the document on exit.
 
 ---
 

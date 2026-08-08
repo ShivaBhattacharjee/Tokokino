@@ -40,6 +40,125 @@ export function assetFilterCss(filter: AssetFilter): string | undefined {
   }
 }
 
+/**
+ * A filter preset expressed as numbers so two presets can be blended.
+ * `assetFilterCss` hands back a ready-made string, and there is no way to ease
+ * one string into another — Animate mode needs the channels.
+ *
+ * Multiplier channels are 1 at neutral, amount channels 0, `hueRotate` in
+ * degrees and `blur` in px.
+ */
+export type FilterVector = {
+  blur: number
+  grayscale: number
+  sepia: number
+  saturate: number
+  hueRotate: number
+  brightness: number
+  contrast: number
+  invert: number
+}
+
+export const NEUTRAL_FILTER_VECTOR: FilterVector = {
+  blur: 0,
+  grayscale: 0,
+  sepia: 0,
+  saturate: 1,
+  hueRotate: 0,
+  brightness: 1,
+  contrast: 1,
+  invert: 0,
+}
+
+const filterVector = (v: Partial<FilterVector>): FilterVector => ({
+  ...NEUTRAL_FILTER_VECTOR,
+  ...v,
+})
+
+/** The channel values behind each preset in `assetFilterCss`. */
+export function assetFilterVector(filter: AssetFilter): FilterVector {
+  switch (filter) {
+    case "bw":
+      return filterVector({ grayscale: 1, contrast: 1.05 })
+    case "sepia":
+      return filterVector({ sepia: 0.85, saturate: 1.1 })
+    case "vintage":
+      return filterVector({
+        sepia: 0.4,
+        contrast: 0.95,
+        saturate: 0.9,
+        hueRotate: -10,
+      })
+    case "warm":
+      return filterVector({ saturate: 1.15, hueRotate: -12, brightness: 1.04 })
+    case "cool":
+      return filterVector({ saturate: 1.1, hueRotate: 15, brightness: 1.02 })
+    case "fade":
+      return filterVector({ contrast: 0.85, brightness: 1.08, saturate: 0.85 })
+    case "vivid":
+      return filterVector({ saturate: 1.5, contrast: 1.15 })
+    case "noir":
+      return filterVector({ grayscale: 1, contrast: 1.35, brightness: 0.9 })
+    case "dream":
+      return filterVector({
+        blur: 0.5,
+        saturate: 1.2,
+        brightness: 1.05,
+        contrast: 0.95,
+      })
+    case "mono":
+      return filterVector({ grayscale: 1, sepia: 0.3, contrast: 1.05 })
+    case "invert":
+      return filterVector({ invert: 1, hueRotate: 180 })
+    case "none":
+    default:
+      return NEUTRAL_FILTER_VECTOR
+  }
+}
+
+export function filterVectorBetween(
+  from: FilterVector,
+  to: FilterVector,
+  p: number
+): FilterVector {
+  const mix = (a: number, b: number) => a + (b - a) * p
+  return {
+    blur: mix(from.blur, to.blur),
+    grayscale: mix(from.grayscale, to.grayscale),
+    sepia: mix(from.sepia, to.sepia),
+    saturate: mix(from.saturate, to.saturate),
+    hueRotate: mix(from.hueRotate, to.hueRotate),
+    brightness: mix(from.brightness, to.brightness),
+    contrast: mix(from.contrast, to.contrast),
+    invert: mix(from.invert, to.invert),
+  }
+}
+
+const round3 = (n: number) => Number(n.toFixed(3))
+
+/**
+ * A blended preset as a filter chain.
+ *
+ * The leg order is not the one `assetFilterCss` writes per preset, because a
+ * single fixed order has to serve every blend. `grayscale` stays ahead of
+ * `sepia` (the reverse would flatten "mono"'s tint to plain grey); the rest are
+ * a linear matrix, a scalar, and an affine, which commute closely enough that
+ * the two chains agree to well under a 1/255 step. Only used mid-blend anyway —
+ * a sample sitting on one preset emits that preset's own chain verbatim.
+ */
+export function filterVectorCss(v: FilterVector): string | undefined {
+  const parts: string[] = []
+  if (v.blur > 0) parts.push(`blur(${round3(v.blur)}px)`)
+  if (v.grayscale > 0) parts.push(`grayscale(${round3(v.grayscale)})`)
+  if (v.sepia > 0) parts.push(`sepia(${round3(v.sepia)})`)
+  if (v.saturate !== 1) parts.push(`saturate(${round3(v.saturate)})`)
+  if (v.hueRotate !== 0) parts.push(`hue-rotate(${round3(v.hueRotate)}deg)`)
+  if (v.brightness !== 1) parts.push(`brightness(${round3(v.brightness)})`)
+  if (v.contrast !== 1) parts.push(`contrast(${round3(v.contrast)})`)
+  if (v.invert > 0) parts.push(`invert(${round3(v.invert)})`)
+  return parts.length ? parts.join(" ") : undefined
+}
+
 export function patternCssFor(
   id: number,
   color: string,
@@ -208,15 +327,26 @@ export function scaleFilterBlur(filter: string, scale: number): string {
 export function mediaFilterCss({
   enhance,
   filter,
+  filterCss,
   adjustments,
 }: {
   enhance?: EnhancePreset | null
   filter?: AssetFilter | null
+  /**
+   * Ready-made filter-preset legs, used instead of resolving `filter`. Animate
+   * mode blends between two presets, and the result is a channel mix that no
+   * single `AssetFilter` names.
+   */
+  filterCss?: string | null
   adjustments?: MediaAdjustments | null
 }): string {
   return [
     enhance ? enhanceFilterCss(enhance) : undefined,
-    filter ? assetFilterCss(filter) : undefined,
+    filterCss !== undefined && filterCss !== null
+      ? filterCss || undefined
+      : filter
+        ? assetFilterCss(filter)
+        : undefined,
     adjustments ? effectsFilterCss(adjustments) : undefined,
   ]
     .filter(Boolean)

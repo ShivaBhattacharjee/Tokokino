@@ -14,6 +14,10 @@ import {
   portraitLayerOpacityVar,
   REST_LIGHTING,
 } from "@/lib/editor/animation-playback"
+import {
+  MAIN_MEDIA_FX_PREVIEW_VAR,
+  NEUTRAL_MEDIA_ADJUSTMENTS,
+} from "@/lib/editor/css-utils"
 import { captureClipPose, useEditorStore } from "@/lib/editor/store"
 import type {
   AnimationClip,
@@ -48,6 +52,8 @@ const ALL_EFFECTS: AnimationEffect[] = [
   "border",
   "borderRadius",
   "crop",
+  "mediaEffects",
+  "mediaFilter",
 ]
 
 /** Every var the clip below drives, across all of those sampling paths. */
@@ -77,6 +83,7 @@ const VARS = [
   PATTERN_BASE_OPACITY_VAR,
   overlayLayerOpacityVar("c1"),
   OVERLAY_BASE_OPACITY_VAR,
+  MAIN_MEDIA_FX_PREVIEW_VAR,
 ]
 
 const baseCanvas = (): CanvasState => {
@@ -131,6 +138,8 @@ const everythingClip = (over: Partial<AnimationClip> = {}): AnimationClip => {
       portrait: { ...portrait, mode: "off" },
       pattern: { ...pattern, ids: [] },
       overlay: { ...overlay, opacity: 0 },
+      mediaFilter: "none",
+      mediaAdjustments: NEUTRAL_MEDIA_ADJUSTMENTS,
     },
     pose: {
       ...base,
@@ -154,6 +163,8 @@ const everythingClip = (over: Partial<AnimationClip> = {}): AnimationClip => {
       portrait: { ...portrait, mode: "studio", intensity: 70 },
       pattern: { ...pattern, ids: [1] },
       overlay: { ...overlay, id: 3, opacity: 60 },
+      mediaFilter: "noir",
+      mediaAdjustments: { ...NEUTRAL_MEDIA_ADJUSTMENTS, brightness: 140 },
     },
     ...over,
   }

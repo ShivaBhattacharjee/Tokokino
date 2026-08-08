@@ -381,12 +381,19 @@ describe("canvas store helpers", () => {
 
     it("emits no effect for non-animatable fields like objectFit", () => {
       expect(screenshotStyleEffects({ objectFit: "cover" })).toEqual([])
+    })
+
+    it("maps the media grade onto its two effects", () => {
+      expect(screenshotStyleEffects({ filter: "bw" })).toEqual(["mediaFilter"])
+      expect(
+        screenshotStyleEffects({ adjustments: NEUTRAL_MEDIA_ADJUSTMENTS })
+      ).toEqual(["mediaEffects"])
       expect(
         screenshotStyleEffects({
           filter: "bw",
           adjustments: NEUTRAL_MEDIA_ADJUSTMENTS,
         })
-      ).toEqual([])
+      ).toEqual(["mediaFilter", "mediaEffects"])
     })
 
     it("groups by sorted field set so unlike edits don't merge in history", () => {

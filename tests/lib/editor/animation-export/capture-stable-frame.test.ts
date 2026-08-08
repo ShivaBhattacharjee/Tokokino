@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   captureLayeredAnimationFrame: vi.fn(),
   applyAnimationFrameAtTime: vi.fn(),
   measureBareStageDims: vi.fn(() => null),
+  sampleMainMediaGrade: vi.fn(() => null),
 }))
 
 vi.mock("@/lib/editor/animation-export/webkit-layered-frame", () => ({
@@ -12,6 +13,7 @@ vi.mock("@/lib/editor/animation-export/webkit-layered-frame", () => ({
 vi.mock("@/lib/editor/apply-animation-frame", () => ({
   applyAnimationFrameAtTime: mocks.applyAnimationFrameAtTime,
   measureBareStageDims: mocks.measureBareStageDims,
+  sampleMainMediaGrade: mocks.sampleMainMediaGrade,
 }))
 vi.mock("@/lib/editor/export", () => ({
   prepareAnimationCapture: vi.fn(),

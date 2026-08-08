@@ -23,6 +23,7 @@
 
 import { supportsObjectViewBox } from "../../crop-utils"
 import { mediaFilterCss, scaleFilterBlur } from "../../css-utils"
+import { applyGradeToCanvas, supportsCanvas2dFilter } from "./frame-grade"
 import type { AnimationCapture } from "../../export"
 import { drawPortraitDepthOfField } from "../capture"
 import { waitForPaint } from "../utils"
@@ -162,24 +163,32 @@ export function paintFrameToLocalBox(
     dy = parsePos(pos[1], buf.height - dh)
   }
 
-  try {
-    const grade = mediaFx
-      ? scaleFilterBlur(
+  // WebKit ignores `ctx.filter`, so there the grade is painted over the drawn
+  // pixels instead (see frame-grade). Resolved before the draw because the
+  // native path has to set `filter` on the same call.
+  const grade = mediaFx
+    ? scaleFilterBlur(
+        mediaFx.gradeCss ??
           mediaFilterCss({
             enhance: mediaFx.enhance,
             filter: mediaFx.filter,
             adjustments: mediaFx.adjustments,
           }),
-          mediaFx.pixelScale ?? 1
-        )
-      : ""
-    if (grade) ctx.filter = grade
+        mediaFx.pixelScale ?? 1
+      )
+    : ""
+  const nativeGrade = grade ? supportsCanvas2dFilter() : true
+
+  try {
+    if (grade && nativeGrade) ctx.filter = grade
     ctx.drawImage(frame, 0, 0, fw, fh, dx, dy, dw, dh)
   } catch {
     return null
   } finally {
     ctx.restore()
   }
+
+  if (grade && !nativeGrade) applyGradeToCanvas(buf, grade)
 
   return buf
 }

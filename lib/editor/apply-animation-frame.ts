@@ -54,6 +54,11 @@ import {
   lightingEntranceRest,
   lightingBetween,
   lightingTargetMixAt,
+  mediaAdjustmentsBetween,
+  mediaFilterBlendBetween,
+  mediaFilterBlendCss,
+  mediaFilterBlendOf,
+  type MediaFilterBlend,
   NEUTRAL_SLOT_POSE,
   REST_LIGHTING,
   sampleKeyframes,
@@ -65,12 +70,20 @@ import {
   borderOffsetCss,
   borderOutlineCss,
   effectsFilterCss,
+  MAIN_MEDIA_FX_PREVIEW_VAR,
+  mediaFilterCss,
+  NEUTRAL_MEDIA_ADJUSTMENTS,
   SCREENSHOT_RADIUS_PREVIEW_VAR,
   shadowCss,
   shadowDropFilterCss,
   SHADOW_FILTER_PREVIEW_VAR,
   SHADOW_PREVIEW_VAR,
+  slotMediaFxPreviewVar,
 } from "@/lib/editor/css-utils"
+import {
+  resolveMainScreenshotStyle,
+  resolveSlotScreenshotStyle,
+} from "@/lib/editor/store/canvas-helpers"
 import {
   CROP_ANIMATION_VARS,
   CROP_FIT_ORIGIN_VAR,
@@ -96,14 +109,17 @@ import {
 import { captureClipPose } from "@/lib/editor/store"
 import type {
   AnimationClip,
+  AnimationEffect,
   AspectState,
   BackdropEffects,
   BackdropLighting,
   Border,
   CanvasState,
   ClipBaseline,
+  AssetFilter,
   ClipSlotPose,
   CropRegion,
+  MediaAdjustments,
   ScreenshotPosition,
   Shadow,
   Tilt,
@@ -114,6 +130,89 @@ const INVISIBLE_SHADOW: Shadow = {
   intensity: 0,
   color: "#000000",
   lightSource: "center",
+}
+
+/**
+ * One screenshot's whole grade chain (enhance → filter preset → colour grade)
+ * for this frame, in the form `buildScreenshotImageStyle`'s var expects.
+ *
+ * Both halves share one var, so a keyframe that animates only one of them still
+ * has to emit the committed value for the other — otherwise driving the var
+ * would silently drop it. A neutral result still writes `brightness(1)` rather
+ * than an empty string: the var has to WIN over the committed chain in its own
+ * fallback, and an empty value would let that chain back through.
+ */
+function mediaGradeChain(
+  enhance: CanvasState["enhance"],
+  blend: MediaFilterBlend | null,
+  adjustments: MediaAdjustments | null,
+  committed: { filter: AssetFilter; adjustments: MediaAdjustments }
+): string {
+  return (
+    mediaFilterCss({
+      enhance,
+      filter: blend ? undefined : committed.filter,
+      filterCss: blend ? (mediaFilterBlendCss(blend) ?? "") : undefined,
+      adjustments: adjustments ?? committed.adjustments,
+    }) || "brightness(1)"
+  )
+}
+
+/**
+ * The main screenshot's grade chain at `timeMs`, or null when no keyframe
+ * animates either half of it (the committed chain then shows through).
+ *
+ * Exported because a video export never renders the media through CSS: the
+ * decoded frames are drawn onto a 2D canvas and re-graded by hand, so the
+ * encoder has to ask for the very value the player would have written.
+ */
+export function sampleMainMediaGrade(
+  canvas: CanvasState,
+  mainClips: AnimationClip[],
+  poseOf: (clip: AnimationClip) => ClipBaseline,
+  timeMs: number
+): string | null {
+  const track = <V>(
+    effect: AnimationEffect,
+    value: (pose: ClipBaseline) => V,
+    lerpValue: (from: V, to: V, p: number) => V
+  ): V | null => {
+    const owners = mainClips
+      .filter((c) => clipOwns(c, effect))
+      .sort((a, b) => a.startMs - b.startMs)
+    if (owners.length === 0) return null
+    return sampleKeyframes<V>(
+      owners.map((c) => ({
+        startMs: c.startMs,
+        durationMs: c.durationMs,
+        value: value(poseOf(c)),
+        ease: clipProgressEase(c),
+        releaseMs: clipReleaseMs(c),
+        releaseEase: clipReleaseEase(c),
+      })),
+      timeMs,
+      value(clipBaseline(owners[0])),
+      lerpValue
+    )
+  }
+
+  const filterVal = track<MediaFilterBlend>(
+    "mediaFilter",
+    (pz) => mediaFilterBlendOf(pz.mediaFilter ?? "none"),
+    mediaFilterBlendBetween
+  )
+  const adjVal = track<MediaAdjustments>(
+    "mediaEffects",
+    (pz) => pz.mediaAdjustments ?? NEUTRAL_MEDIA_ADJUSTMENTS,
+    mediaAdjustmentsBetween
+  )
+  if (!filterVal && !adjVal) return null
+  return mediaGradeChain(
+    canvas.enhance,
+    filterVal,
+    adjVal,
+    resolveMainScreenshotStyle(canvas)
+  )
 }
 
 const tiltLerp = (a: Tilt, b: Tilt, p: number): Tilt => ({
@@ -148,6 +247,7 @@ const SCOPE_VARS = [
 const CROP_VARS = CROP_ANIMATION_VARS
 const CANVAS_FX_VARS = [
   BG_OPACITY_VAR,
+  MAIN_MEDIA_FX_PREVIEW_VAR,
   ...CROP_VARS,
   BACKDROP_FX_PREVIEW_VAR,
   BACKDROP_NOISE_PREVIEW_VAR,
@@ -229,6 +329,8 @@ export function clearAnimationFrameVars(
       for (const v of SLOT_FX_VARS) setVar(slotEl, v, null)
       setVar(slotEl, SHADOW_PREVIEW_VAR, null)
       setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
+      const slotId = slotEl.dataset.screenshotSlotId
+      if (slotId) setVar(slotEl, slotMediaFxPreviewVar(slotId), null)
       clearPositionPreviewVars(slotEl)
     })
 }
@@ -765,6 +867,13 @@ export function applyAnimationFrameAtTime({
       setVar(canvasEl, BACKDROP_NOISE_PREVIEW_VAR, null)
     }
 
+    // media grade (screenshot/video pixels)
+    setVar(
+      canvasEl,
+      MAIN_MEDIA_FX_PREVIEW_VAR,
+      sampleMainMediaGrade(canvas, mainClips, poseOf, playheadMs)
+    )
+
     // crop (video only) — the source rect, never the laid-out box: the canvas
     // aspect keeps reading the committed region so the encoder's frame size is
     // constant. Both render paths get their var because browser support for
@@ -860,6 +969,7 @@ export function applyAnimationFrameAtTime({
       for (const v of SLOT_FX_VARS) setVar(slotEl, v, null)
       setVar(slotEl, SHADOW_PREVIEW_VAR, null)
       setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)
+      setVar(slotEl, slotMediaFxPreviewVar(slot.id), null)
       clearPositionPreviewVars(slotEl)
       continue
     }
@@ -1110,5 +1220,50 @@ export function applyAnimationFrameAtTime({
       setVar(slotEl, `${LIGHTING_IMAGE_VAR}-in`, null)
       setVar(slotEl, `${LIGHTING_OPACITY_VAR}-in`, null)
     }
+
+    const slotMedia = resolveSlotScreenshotStyle(slot, canvas)
+    const slotFilterVal = sampleKeyframes<MediaFilterBlend>(
+      slotClips
+        .filter((c) => clipOwns(c, "mediaFilter"))
+        .map((c) => ({
+          startMs: c.startMs,
+          durationMs: c.durationMs,
+          value: mediaFilterBlendOf(slotPoseOf(c).filter ?? slotMedia.filter),
+          ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
+        })),
+      playheadMs,
+      mediaFilterBlendOf(
+        slotRestFor("mediaFilter", (sp) => sp?.filter, slotMedia.filter)
+      ),
+      mediaFilterBlendBetween
+    )
+    const slotAdjVal = sampleKeyframes<MediaAdjustments>(
+      slotClips
+        .filter((c) => clipOwns(c, "mediaEffects"))
+        .map((c) => ({
+          startMs: c.startMs,
+          durationMs: c.durationMs,
+          value: slotPoseOf(c).adjustments ?? slotMedia.adjustments,
+          ease: clipProgressEase(c),
+          releaseMs: clipReleaseMs(c),
+          releaseEase: clipReleaseEase(c),
+        })),
+      playheadMs,
+      slotRestFor(
+        "mediaEffects",
+        (sp) => sp?.adjustments,
+        slotMedia.adjustments
+      ),
+      mediaAdjustmentsBetween
+    )
+    setVar(
+      slotEl,
+      slotMediaFxPreviewVar(slot.id),
+      slotFilterVal || slotAdjVal
+        ? mediaGradeChain(canvas.enhance, slotFilterVal, slotAdjVal, slotMedia)
+        : null
+    )
   }
 }

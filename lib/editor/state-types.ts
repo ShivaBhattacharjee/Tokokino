@@ -414,6 +414,8 @@ export type AnimationEffect =
   | "canvasRadius"
   | "lighting"
   | "filter"
+  | "mediaEffects"
+  | "mediaFilter"
   | "portrait"
   | "pattern"
   | "overlay"
@@ -452,6 +454,10 @@ export type ClipSlotPose = {
   borderRadius?: number
   padding?: number
   lighting?: BackdropLighting
+  /** Filter preset on this slot's own pixels. */
+  filter?: AssetFilter
+  /** Colour grade on this slot's own pixels. */
+  adjustments?: MediaAdjustments
 }
 
 export type ClipBaseline = {
@@ -466,6 +472,10 @@ export type ClipBaseline = {
   lighting?: BackdropLighting
   background: Background
   filter?: AssetFilter
+  /** Colour grade on the screenshot/video pixels (not the backdrop). */
+  mediaAdjustments?: MediaAdjustments
+  /** Filter preset on the screenshot/video pixels (not the backdrop). */
+  mediaFilter?: AssetFilter
   portrait?: Portrait
   pattern?: BackdropPattern
   overlay?: Overlay
