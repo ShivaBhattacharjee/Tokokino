@@ -697,34 +697,36 @@ export const insertClipCopy = (
   const source = clips.find((c) => c.id === sourceId)
   if (!source) return clips
   const dur = source.durationMs
-  const insertStart = Math.min(
-    source.startMs + dur,
-    Math.max(0, MAX_DURATION_MS - dur)
+  const insertStart = source.startMs + dur
+  if (insertStart + dur > MAX_DURATION_MS) return clips
+  const later = clips.filter(
+    (clip) => clip.id !== source.id && clip.startMs >= insertStart
   )
-  const nextStart = clips
-    .filter((clip) => clip.id !== source.id && clip.startMs >= insertStart)
-    .reduce((min, clip) => Math.min(min, clip.startMs), Infinity)
+  const nextStart = later.reduce(
+    (min, clip) => Math.min(min, clip.startMs),
+    Infinity
+  )
   const shift = Number.isFinite(nextStart)
     ? Math.max(0, insertStart + dur - nextStart)
     : 0
+  const availableShift = later.reduce(
+    (available, clip) =>
+      Math.min(available, MAX_DURATION_MS - (clip.startMs + clip.durationMs)),
+    Infinity
+  )
+  // The cap leaves no legal room for a duplicate. Partially clamping individual
+  // clips would collapse their spacing and overlap the copy, so decline instead.
+  if (shift > availableShift) return clips
   const shifted = clips.map((clip) =>
     clip.id !== source.id && clip.startMs >= insertStart
       ? {
           ...clip,
-          startMs: Math.min(
-            clip.startMs + shift,
-            Math.max(0, MAX_DURATION_MS - clip.durationMs)
-          ),
+          startMs: clip.startMs + shift,
         }
       : clip
   )
   const copy: AnimationClip = { ...source, id: newId, startMs: insertStart }
-  const sourceIndex = shifted.findIndex((cl) => cl.id === source.id)
-  return [
-    ...shifted.slice(0, sourceIndex + 1),
-    copy,
-    ...shifted.slice(sourceIndex + 1),
-  ]
+  return [...shifted, copy].sort((a, b) => a.startMs - b.startMs)
 }
 
 /**

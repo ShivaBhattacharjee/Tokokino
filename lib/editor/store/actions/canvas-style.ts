@@ -116,9 +116,7 @@ export const createCanvasStyleActions = ({
               scale:
                 shouldReapply && activeGeometry
                   ? activeGeometry.canvasScale
-                  : activeSinglePreset
-                    ? canvas.scale
-                    : canvas.scale,
+                  : canvas.scale,
               screenshotOffset,
               screenshotSlots,
               annotations: scaleAnnotationStrokesForAspectChange(
@@ -202,9 +200,7 @@ export const createCanvasStyleActions = ({
             scale:
               shouldReapply && activeGeometry
                 ? activeGeometry.canvasScale
-                : activeSinglePreset
-                  ? canvas.scale
-                  : canvas.scale,
+                : canvas.scale,
             screenshotOffset:
               shouldReapply && activeGeometry
                 ? resolveMainOffsetPx(activeGeometry.mainOffset)

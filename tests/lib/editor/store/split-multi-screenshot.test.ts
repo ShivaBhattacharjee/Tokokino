@@ -48,5 +48,6 @@ describe("splitAnimationClip with a multi-screenshot row", () => {
     expect(second.pose?.slots[slotId!].scale).toBe(300)
     expect(second.effects).toContain("zoom")
     expect(store.getState().selectedAnimationClipId).toBe(newId)
+    expect(store.getState().selectedAnimationClipIds).toEqual([newId])
   })
 })

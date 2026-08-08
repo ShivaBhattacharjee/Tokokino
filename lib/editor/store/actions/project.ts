@@ -2,6 +2,7 @@ import { clipBaseline, clipPose } from "../../animation-playback"
 import { mergeCanvasStyle } from "../../preset-fields"
 import { resolveMainOffsetPx } from "../../preset-geometry"
 import { remapAnimationForApply } from "../../custom-preset-snapshot"
+import { presetGeometrySchema } from "../../../schemas/preset"
 import type {
   CanvasState,
   EditorState,
@@ -19,6 +20,30 @@ import type { CustomPresetSummary, EditorActions } from "../types"
 // is stale (logout, account switch, or a superseding sort request).
 let customPresetsRequestToken = 0
 let customPresetsInFlightUserId: string | null = null
+
+const isPresetSummary = (preset: unknown): preset is CustomPresetSummary => {
+  if (typeof preset !== "object" || preset === null) return false
+  const candidate = preset as Record<string, unknown>
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string" &&
+    Number.isInteger(candidate.slotCount) &&
+    Number(candidate.slotCount) >= 0 &&
+    (candidate.type === undefined ||
+      candidate.type === "style" ||
+      candidate.type === "animate") &&
+    presetGeometrySchema.safeParse(candidate.geometry).success
+  )
+}
+
+const isPresetResponse = (
+  body: unknown
+): body is { presets: CustomPresetSummary[] } =>
+  typeof body === "object" &&
+  body !== null &&
+  "presets" in body &&
+  Array.isArray(body.presets) &&
+  body.presets.every(isPresetSummary)
 
 export const createProjectActions = ({ set, get, commit }: CommitContext) =>
   ({
@@ -88,7 +113,10 @@ export const createProjectActions = ({ set, get, commit }: CommitContext) =>
       void fetch(`/api/presets?sort=${nextSort}`, { credentials: "include" })
         .then(async (res) => {
           if (!res.ok) throw new Error(`Preset load failed: ${res.status}`)
-          const body: { presets: CustomPresetSummary[] } = await res.json()
+          const body: unknown = await res.json()
+          if (!isPresetResponse(body)) {
+            throw new Error("Preset load returned an invalid response")
+          }
           return body.presets
         })
         .then((presets) => {
@@ -218,6 +246,9 @@ export const createProjectActions = ({ set, get, commit }: CommitContext) =>
             screenshotSlots: canvas.screenshotSlots.map((slot) => ({
               ...slot,
               src: null,
+              originalSrc: null,
+              lastCropRegion: null,
+              fullPageCapture: null,
             })),
           }
           if (canvas.id === incoming.activeCanvasId && prevActive) {

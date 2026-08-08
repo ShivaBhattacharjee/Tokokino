@@ -393,22 +393,24 @@ export const createAnimationActions = ({
       const state = get().present
       const resolvedId = canvasId ?? state.activeCanvasId
       const canvas = state.canvases.find((c) => c.id === resolvedId)
-      const source = canvas
-        ? getCanvasAnimation(canvas).clips.find((clip) => clip.id === id)
-        : undefined
+      const animation = canvas ? getCanvasAnimation(canvas) : null
+      if (!animation) return null
+      const source = animation.clips.find((clip) => clip.id === id)
       if (!source) return null
       const newId = makeId()
+      const clips = insertClipCopy(animation.clips, source.id, newId)
+      if (clips === animation.clips) return null
       commitCanvas(
-        canvasId,
+        resolvedId,
         (c) => {
-          const animation = getCanvasAnimation(c)
-          // The copy sits immediately after the original (clamped to the max
-          // range; it may land past the set duration and render faded). Duration
-          // is user-controlled — the copy never grows it.
+          const current = getCanvasAnimation(c)
+          // The copy sits immediately after the original (it may land past the
+          // set duration and render faded). Duration is user-controlled — the
+          // copy never grows it.
           return {
             animation: {
-              ...animation,
-              clips: insertClipCopy(animation.clips, source.id, newId),
+              ...current,
+              clips,
             },
           }
         },
@@ -525,16 +527,19 @@ export const createAnimationActions = ({
         .sort((a, b) => a.startMs - b.startMs)
       if (sources.length === 0) return []
       const newIds: string[] = []
+      let clips = existing
+      for (const source of sources) {
+        const newId = makeId()
+        const inserted = insertClipCopy(clips, source.id, newId)
+        if (inserted === clips) continue
+        clips = inserted
+        newIds.push(newId)
+      }
+      if (newIds.length === 0) return []
       commitCanvas(
-        canvasId,
+        resolvedId,
         (c) => {
           const animation = getCanvasAnimation(c)
-          let clips = animation.clips
-          for (const source of sources) {
-            const newId = makeId()
-            newIds.push(newId)
-            clips = insertClipCopy(clips, source.id, newId)
-          }
           return { animation: { ...animation, clips } }
         },
         null
@@ -658,7 +663,12 @@ export const createAnimationActions = ({
       // Hand the open-clip role to the second half (its pose is the live canvas,
       // so the canvas already shows it — no reload needed). A later
       // selectAnimationClip(newId) then no-ops instead of re-saving over the cut.
-      if (wasOpen) set({ selectedAnimationClipId: newId })
+      if (wasOpen) {
+        set({
+          selectedAnimationClipId: newId,
+          selectedAnimationClipIds: [newId],
+        })
+      }
       return newId
     },
     clearAnimationClips: (canvasId) =>

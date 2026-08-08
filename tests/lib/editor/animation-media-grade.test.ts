@@ -325,6 +325,30 @@ describe("a media-grade edit binds an unbound keyframe to the selected slot", ()
     expect(clipById(clipId).effects).toContain("mediaEffects")
   })
 
+  it("registers direct slot filter updates on the open keyframe", () => {
+    const slotId = useEditorStore.getState().addScreenshotSlot()!
+    const clipId = openUnboundClip()
+
+    useEditorStore.getState().setSelectedScreenshotSlotId(slotId)
+    useEditorStore.getState().updateScreenshotSlot(slotId, { filter: "noir" })
+
+    expect(clipById(clipId).target).toEqual({ scope: "slot", slotId })
+    expect(clipById(clipId).effects).toContain("mediaFilter")
+  })
+
+  it("registers direct slot colour-grade updates on the open keyframe", () => {
+    const slotId = useEditorStore.getState().addScreenshotSlot()!
+    const clipId = openUnboundClip()
+
+    useEditorStore.getState().setSelectedScreenshotSlotId(slotId)
+    useEditorStore
+      .getState()
+      .updateScreenshotSlot(slotId, { adjustments: GRADED })
+
+    expect(clipById(clipId).target).toEqual({ scope: "slot", slotId })
+    expect(clipById(clipId).effects).toContain("mediaEffects")
+  })
+
   it("leaves the keyframe canvas-wide when no slot is selected", () => {
     useEditorStore.getState().addScreenshotSlot()
     const clipId = openUnboundClip()

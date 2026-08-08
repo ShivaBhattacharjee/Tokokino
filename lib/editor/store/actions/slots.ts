@@ -82,9 +82,9 @@ export const createSlotActions = ({
           slot.id === id ? { ...slot, ...patch } : slot
         ),
       })
-      // A slot's transform + shadow + position + border/radius/padding/lighting
-      // edits become owned effects on the open keyframe; other slot changes (fit,
-      // filter…) don't animate, so they commit normally.
+      // A slot's transform, styling, lighting, and media-grade edits become
+      // owned effects on the open keyframe; non-animated changes (such as fit)
+      // commit normally.
       const effects: AnimationEffect[] = []
       if ("tilt" in patch || "rotation" in patch) effects.push("tilt")
       if ("scale" in patch) effects.push("zoom")
@@ -94,6 +94,8 @@ export const createSlotActions = ({
       if ("borderRadius" in patch) effects.push("borderRadius")
       if ("padding" in patch) effects.push("padding")
       if ("lighting" in patch) effects.push("lighting")
+      if ("adjustments" in patch) effects.push("mediaEffects")
+      if ("filter" in patch) effects.push("mediaFilter")
       if (effects.length === 0) {
         commitCanvas(canvasId, apply, `screenshot-slot-${id}`)
       } else {
