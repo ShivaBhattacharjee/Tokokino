@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  ENHANCE_PRESETS,
-  FIT_OPTIONS,
-} from "@/components/editor/floating-toolbar-parts/options"
+import { ENHANCE_PRESETS } from "@/components/editor/enhance-presets"
+import { FIT_OPTIONS } from "@/components/editor/floating-toolbar-parts/options"
+import { enhanceFilterCss } from "@/lib/editor/css-utils"
 
 /**
  * `floating-toolbar-parts/options` — static option catalogues. Guard the
@@ -41,7 +40,8 @@ describe("ENHANCE_PRESETS", () => {
   it("gives every non-off preset a CSS filter", () => {
     for (const preset of ENHANCE_PRESETS) {
       if (preset.id === "off") continue
-      expect(preset.filter).toBeTruthy()
+      expect(enhanceFilterCss(preset.id)).toBeTruthy()
     }
+    expect(enhanceFilterCss("off")).toBeUndefined()
   })
 })

@@ -13,6 +13,7 @@ import {
 } from "@remixicon/react"
 import { toast } from "sonner"
 
+import { EnhancePresetGrid } from "@/components/editor/enhance-presets"
 import { LayersPanelContent } from "@/components/editor/layers-popover"
 import {
   PositionSwipeField,
@@ -54,7 +55,6 @@ import {
   positionIdFromPercent,
   screenshotSlotGroupCenter,
 } from "./geometry"
-import { ENHANCE_PRESETS } from "./options"
 
 export function DefaultToolbarContents() {
   const {
@@ -73,7 +73,6 @@ export function DefaultToolbarContents() {
     tweet,
     frame,
     enhance,
-    setEnhance,
     scale,
     setScale,
     selectedTextId,
@@ -827,32 +826,8 @@ export function DefaultToolbarContents() {
               )}
             >
               <div className="flex flex-col gap-2">
-                <span className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                  Enhance
-                </span>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {ENHANCE_PRESETS.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setEnhance(p.id)}
-                      className={cn(
-                        "flex cursor-pointer flex-col items-center gap-1 rounded-md border px-2 py-2 text-[11px] transition-all",
-                        activeEnhance === p.id
-                          ? "border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/20"
-                          : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-foreground/30"
-                      )}
-                    >
-                      <span
-                        className="block size-6 rounded-full border border-border/60"
-                        style={{
-                          background: p.swatch,
-                          filter: p.filter,
-                        }}
-                      />
-                      <span className="font-medium">{p.label}</span>
-                    </button>
-                  ))}
-                </div>
+                <span className="label-eyebrow px-1">Enhance</span>
+                <EnhancePresetGrid />
               </div>
             </ToolbarPopover>
           )

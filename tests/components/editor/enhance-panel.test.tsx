@@ -7,21 +7,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
  */
 const store = vi.hoisted(() => ({
   enhance: "off",
+  screenshot: null as string | null,
   setEnhance: vi.fn(),
 }))
 
 vi.mock("@/lib/editor/store", () => ({
   useActiveCanvasField: (selector: (c: unknown) => unknown) =>
-    selector({ enhance: store.enhance }),
+    selector({
+      enhance: store.enhance,
+      screenshot: store.screenshot,
+      screenshotSlots: [],
+    }),
+  useActiveCanvasId: () => "canvas-1",
   useEditorStore: (selector: (s: unknown) => unknown) =>
     selector({ setEnhance: store.setEnhance }),
 }))
 
 import { MobileEnhancePanel } from "@/components/editor/mobile-controls/enhance-panel"
-import { ENHANCE_PRESETS } from "@/components/editor/mobile-controls/categories"
+import { ENHANCE_PRESETS } from "@/components/editor/enhance-presets"
 
 beforeEach(() => {
   store.enhance = "off"
+  store.screenshot = null
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -38,11 +45,25 @@ describe("MobileEnhancePanel", () => {
   it("highlights the active preset", () => {
     store.enhance = "vivid"
     render(<MobileEnhancePanel />)
-    expect(screen.getByRole("button", { name: "Vivid" })).toHaveClass(
-      "border-primary/40"
+    expect(screen.getByRole("button", { name: "Vivid" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
     )
-    expect(screen.getByRole("button", { name: "Off" })).not.toHaveClass(
-      "border-primary/40"
+    expect(screen.getByRole("button", { name: "Off" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
+  })
+
+  it("previews each preset on the canvas screenshot when there is one", () => {
+    store.screenshot = "data:image/png;base64,AAAA"
+    const { container } = render(<MobileEnhancePanel />)
+    const previews = container.querySelectorAll<HTMLElement>(
+      "[style*='background-image']"
+    )
+    expect(previews).toHaveLength(ENHANCE_PRESETS.length)
+    expect(previews[0].style.backgroundImage).toContain(
+      "data:image/png;base64,AAAA"
     )
   })
 
