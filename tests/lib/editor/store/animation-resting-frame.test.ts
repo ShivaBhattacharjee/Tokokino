@@ -124,6 +124,7 @@ describe("animation resting frame", () => {
   })
 
   it("rests at the FIRST keyframe's baseline across several keyframes", () => {
+    const before = activeCanvas().background
     const first = openClip()
     store.getState().setBackground(RED)
 
@@ -137,8 +138,8 @@ describe("animation resting frame", () => {
     const clips = clipsOf()
     expect(clips.find((c) => c.id === first)?.pose?.background).toEqual(RED)
     expect(clips.find((c) => c.id === second)?.pose?.background).toEqual(green)
-    // The canvas holds what the FIRST keyframe eases from, not the last look.
-    expect(activeCanvas().background).not.toEqual(green)
-    expect(activeCanvas().background).not.toEqual(RED)
+    // The canvas holds what the FIRST keyframe eases from — the pre-animation
+    // look — rather than either keyframe's.
+    expect(activeCanvas().background).toEqual(before)
   })
 })

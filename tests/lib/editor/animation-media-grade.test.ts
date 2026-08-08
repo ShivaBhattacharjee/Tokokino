@@ -275,3 +275,64 @@ describe("media grade on an extra screenshot slot", () => {
     expect(mainVar(el)).toBe("")
   })
 })
+
+/**
+ * An unbound ("all") keyframe binds to the slot an edit targets, but only for
+ * effects a slot can actually animate — `SLOT_ANIMATABLE_EFFECTS`. Leaving the
+ * media grade out of that list would silently scope a per-slot grade to the
+ * whole canvas.
+ */
+describe("a media-grade edit binds an unbound keyframe to the selected slot", () => {
+  beforeEach(() => {
+    useEditorStore.getState().reset()
+  })
+
+  const openUnboundClip = () => {
+    const id = useEditorStore.getState().addAnimationClip()
+    useEditorStore.getState().setIsAnimateMode(true)
+    useEditorStore.getState().selectAnimationClip(id)
+    return id
+  }
+  const clipById = (id: string) =>
+    activeCanvas().animation!.clips.find((c) => c.id === id)!
+
+  it("scopes a filter edit to the selected slot", () => {
+    const slotId = useEditorStore.getState().addScreenshotSlot()!
+    const clipId = openUnboundClip()
+    expect(clipById(clipId).target ?? { scope: "all" }).toEqual({
+      scope: "all",
+    })
+
+    useEditorStore.getState().setSelectedScreenshotSlotId(slotId)
+    useEditorStore
+      .getState()
+      .applyScreenshotStyle({ slotId }, { filter: "noir" })
+
+    expect(clipById(clipId).target).toEqual({ scope: "slot", slotId })
+    expect(clipById(clipId).effects).toContain("mediaFilter")
+  })
+
+  it("scopes a colour-grade edit to the selected slot", () => {
+    const slotId = useEditorStore.getState().addScreenshotSlot()!
+    const clipId = openUnboundClip()
+
+    useEditorStore.getState().setSelectedScreenshotSlotId(slotId)
+    useEditorStore
+      .getState()
+      .applyScreenshotStyle({ slotId }, { adjustments: GRADED })
+
+    expect(clipById(clipId).target).toEqual({ scope: "slot", slotId })
+    expect(clipById(clipId).effects).toContain("mediaEffects")
+  })
+
+  it("leaves the keyframe canvas-wide when no slot is selected", () => {
+    useEditorStore.getState().addScreenshotSlot()
+    const clipId = openUnboundClip()
+
+    useEditorStore.getState().applyScreenshotStyle("all", { filter: "noir" })
+
+    expect(clipById(clipId).target ?? { scope: "all" }).toEqual({
+      scope: "all",
+    })
+  })
+})

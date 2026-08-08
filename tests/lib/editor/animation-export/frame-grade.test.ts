@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { parseGradeChain } from "@/lib/editor/animation-export/video-media/frame-grade"
+import {
+  applyGradeToCanvas,
+  parseGradeChain,
+} from "@/lib/editor/animation-export/video-media/frame-grade"
 
 type Rgb = [number, number, number]
 
@@ -139,5 +142,81 @@ describe("filter maths matches the CSS spec", () => {
       expected,
       expected,
     ])
+  })
+})
+
+/**
+ * jsdom has no 2D context, so this fakes the slice `applyGradeToCanvas` uses:
+ * a canvas backed by an RGBA buffer read and written through
+ * getImageData/putImageData.
+ */
+function fakeCanvas(pixels: number[][]): HTMLCanvasElement {
+  const data = new Uint8ClampedArray(pixels.length * 4)
+  pixels.forEach(([r, g, b, a], i) => {
+    data[i * 4] = r
+    data[i * 4 + 1] = g
+    data[i * 4 + 2] = b
+    data[i * 4 + 3] = a
+  })
+  const image = { data, width: pixels.length, height: 1 }
+  return {
+    width: pixels.length,
+    height: 1,
+    getContext: () => ({
+      getImageData: () => image,
+      putImageData: (next: { data: Uint8ClampedArray }) => data.set(next.data),
+    }),
+  } as unknown as HTMLCanvasElement
+}
+
+const rgbaOf = (canvas: HTMLCanvasElement) => {
+  const { data } = canvas.getContext("2d")!.getImageData(0, 0, 1, 1)
+  const out: number[][] = []
+  for (let i = 0; i < data.length; i += 4) {
+    out.push([data[i], data[i + 1], data[i + 2], data[i + 3]])
+  }
+  return out
+}
+
+describe("applyGradeToCanvas", () => {
+  it("grades the colour channels", () => {
+    const canvas = fakeCanvas([[100, 100, 100, 255]])
+    applyGradeToCanvas(canvas, "brightness(1.5)")
+    expect(rgbaOf(canvas)[0].slice(0, 3)).toEqual([150, 150, 150])
+  })
+
+  it("leaves the alpha mask exactly as the clipped draw left it", () => {
+    // The rounded media box: opaque inside, a soft edge, transparent padding.
+    const canvas = fakeCanvas([
+      [200, 200, 200, 255],
+      [200, 200, 200, 128],
+      [0, 0, 0, 0],
+    ])
+    applyGradeToCanvas(canvas, "blur(2px) contrast(1.4)")
+    expect(rgbaOf(canvas).map((p) => p[3])).toEqual([255, 128, 0])
+  })
+
+  it("does not let blur spread the media into transparent padding", () => {
+    // blur() moves alpha in a plain CSS filter; here the clip has already been
+    // popped, so a spread would round off the corners the clip cut.
+    const canvas = fakeCanvas([
+      [255, 255, 255, 255],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+    ])
+    applyGradeToCanvas(canvas, "blur(1px)")
+    expect(rgbaOf(canvas).map((p) => p[3])).toEqual([255, 0, 0])
+  })
+
+  it("leaves the buffer untouched for a chain it cannot model", () => {
+    const canvas = fakeCanvas([[10, 20, 30, 255]])
+    applyGradeToCanvas(canvas, "drop-shadow(0 0 4px black)")
+    expect(rgbaOf(canvas)[0]).toEqual([10, 20, 30, 255])
+  })
+
+  it("leaves the buffer untouched for an empty chain", () => {
+    const canvas = fakeCanvas([[10, 20, 30, 255]])
+    applyGradeToCanvas(canvas, "")
+    expect(rgbaOf(canvas)[0]).toEqual([10, 20, 30, 255])
   })
 })

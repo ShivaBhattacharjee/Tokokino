@@ -320,6 +320,16 @@ export function supportsCanvas2dFilter(): boolean {
  * Apply `chain` to `canvas`'s pixels in place. No-op when the chain is empty or
  * has a leg this doesn't model — better an ungraded frame than a wrong one.
  *
+ * The alpha channel is put back exactly as it was found. The native path sets
+ * `ctx.filter` on a clipped draw, so its filter lands *inside* the rounded media
+ * box; this one runs on the whole buffer after that clip has been popped, and
+ * `blur()` spreads alpha — which would soften the rounded corners and bleed the
+ * media into the transparent padding. Restoring alpha is the same mask the clip
+ * already left behind, so it reproduces "filter, then clip" without a second
+ * composite. Nothing is lost: `opacity()` is the only leg that means to move
+ * alpha, and it cannot appear here (only `BackdropEffects` carries an opacity,
+ * and the backdrop does not come through this path).
+ *
  * Reads the buffer back, which the draw-only surfaces this runs on otherwise
  * avoid; that cost only lands on engines whose `ctx.filter` doesn't work, and
  * only when the user actually graded the media.
@@ -342,9 +352,15 @@ export function applyGradeToCanvas(
   } catch {
     return
   }
+  const { data } = image
+  const alpha = new Uint8ClampedArray(data.length / 4)
+  for (let i = 0, a = 0; i < data.length; i += 4, a++) alpha[a] = data[i + 3]
+
   for (const op of ops) {
-    if (op.kind === "matrix") applyMatrix(image.data, op.matrix)
-    else applyBlur(image.data, canvas.width, canvas.height, op.px)
+    if (op.kind === "matrix") applyMatrix(data, op.matrix)
+    else applyBlur(data, canvas.width, canvas.height, op.px)
   }
+
+  for (let i = 0, a = 0; i < data.length; i += 4, a++) data[i + 3] = alpha[a]
   ctx.putImageData(image, 0, 0)
 }
