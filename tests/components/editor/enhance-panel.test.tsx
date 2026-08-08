@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const store = vi.hoisted(() => ({
   enhance: "off",
   screenshot: null as string | null,
+  fullPageCapture: null as { scrollPosition: number } | null,
   setEnhance: vi.fn(),
 }))
 
@@ -16,6 +17,7 @@ vi.mock("@/lib/editor/store", () => ({
     selector({
       enhance: store.enhance,
       screenshot: store.screenshot,
+      fullPageCapture: store.fullPageCapture,
       screenshotSlots: [],
     }),
   useActiveCanvasId: () => "canvas-1",
@@ -29,6 +31,7 @@ import { ENHANCE_PRESETS } from "@/components/editor/enhance-presets"
 beforeEach(() => {
   store.enhance = "off"
   store.screenshot = null
+  store.fullPageCapture = null
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -65,6 +68,16 @@ describe("MobileEnhancePanel", () => {
     expect(previews[0].style.backgroundImage).toContain(
       "data:image/png;base64,AAAA"
     )
+  })
+
+  it("matches the long-screenshot scroll crop in preset thumbs", () => {
+    store.screenshot = "data:image/png;base64,AAAA"
+    store.fullPageCapture = { scrollPosition: 12 }
+    const { container } = render(<MobileEnhancePanel />)
+    const previews = container.querySelectorAll<HTMLElement>(
+      "[style*='background-image']"
+    )
+    expect(previews[0].style.backgroundPosition).toBe("50% 12%")
   })
 
   it("applies a preset on click", async () => {

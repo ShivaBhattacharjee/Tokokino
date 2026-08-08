@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { useEditorStore } from "@/lib/editor/store"
+import { MAX_DURATION_MS } from "@/lib/editor/animation-timeline"
 
 /**
  * The timeline's Duplicate actions can decline, and the UI now reports that
@@ -44,6 +45,59 @@ describe("duplicateAnimationClips refusals", () => {
     expect(store.getState().duplicateAnimationClips([id], "missing")).toEqual(
       []
     )
+  })
+
+  it("refuses a copy when later clips cannot ripple without overlap", () => {
+    const sourceId = store.getState().addAnimationClip()
+    const laterId = store.getState().addAnimationClip()
+    store.getState().updateAnimationClip(sourceId, {
+      startMs: MAX_DURATION_MS - 2_000,
+      durationMs: 1_000,
+    })
+    store.getState().updateAnimationClip(laterId, {
+      startMs: MAX_DURATION_MS - 1_000,
+      durationMs: 1_000,
+    })
+
+    expect(store.getState().duplicateAnimationClip(sourceId)).toBeNull()
+    expect(clips()).toHaveLength(2)
+    expect(clips().find((clip) => clip.id === laterId)?.startMs).toBe(
+      MAX_DURATION_MS - 1_000
+    )
+  })
+
+  it("skips saturated clips in bulk duplication", () => {
+    const sourceId = store.getState().addAnimationClip()
+    const laterId = store.getState().addAnimationClip()
+    store.getState().updateAnimationClip(sourceId, {
+      startMs: MAX_DURATION_MS - 2_000,
+      durationMs: 1_000,
+    })
+    store.getState().updateAnimationClip(laterId, {
+      startMs: MAX_DURATION_MS - 1_000,
+      durationMs: 1_000,
+    })
+
+    expect(store.getState().duplicateAnimationClips([sourceId])).toEqual([])
+    expect(clips()).toHaveLength(2)
+  })
+
+  it("refuses the whole bulk duplicate when any selected clip cannot fit", () => {
+    const firstId = store.getState().addAnimationClip()
+    const saturatedId = store.getState().addAnimationClip()
+    store.getState().updateAnimationClip(firstId, {
+      startMs: 0,
+      durationMs: 1_000,
+    })
+    store.getState().updateAnimationClip(saturatedId, {
+      startMs: MAX_DURATION_MS - 1_000,
+      durationMs: 1_000,
+    })
+
+    expect(
+      store.getState().duplicateAnimationClips([firstId, saturatedId])
+    ).toEqual([])
+    expect(clips().map((clip) => clip.id)).toEqual([firstId, saturatedId])
   })
 })
 

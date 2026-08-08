@@ -63,6 +63,39 @@ describe("loadCustomPresets", () => {
     expect(store.getState().customPresetsError).toBe(true)
   })
 
+  it("flags an error when the response has no presets array", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ presets: { id: "not-an-array" } }),
+      })
+    )
+
+    store.getState().loadCustomPresets("user_1")
+    await flush()
+
+    expect(store.getState().customPresetsError).toBe(true)
+    expect(store.getState().customPresets).toEqual([])
+    expect(store.getState().customPresetsLoading).toBe(false)
+  })
+
+  it("flags an error when the presets array contains malformed entries", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ presets: [null] }),
+      })
+    )
+
+    store.getState().loadCustomPresets("user_1")
+    await flush()
+
+    expect(store.getState().customPresetsError).toBe(true)
+    expect(store.getState().customPresets).toEqual([])
+  })
+
   it("lets a retry through after a failure", async () => {
     const fetchMock = vi
       .fn()
