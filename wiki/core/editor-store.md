@@ -50,7 +50,7 @@ Screenshot box + style + layers + optional animation:
 
 ## Module layout
 
-```
+```text
 lib/editor/
 ├── store.tsx              # stable public facade + action composition
 ├── state-types.ts         # shared types
@@ -68,6 +68,33 @@ lib/editor/
     ├── layer-stack.ts
     └── use-editor.tsx     # canvas-scoped hooks
 ```
+
+### Action factories
+
+| Module | Responsibility |
+|---|---|
+| `actions/project.ts` | Active presets, custom-preset cache, draft/template loading, preset snapshots |
+| `actions/media.ts` | Main screenshot, full-page capture, crop, and video timeline sections |
+| `actions/canvas-style.ts` | Aspect, background, transforms, screenshot styling, frames, effects, and post mockups |
+| `actions/layers.ts` | Text, assets, annotations, selection, and layer ordering |
+| `actions/animation.ts` | Animate-mode lifecycle, clip selection, clip CRUD, split, ripple, and duration |
+| `actions/session.ts` | Preview, bulk-edit, popover, viewport, and drag flags outside undo history |
+| `actions/canvases.ts` | Undo/redo/reset plus canvas collection and bulk-board positioning |
+| `actions/slots.ts` | Extra screenshot-slot creation, media, placement, duplication, and ordering |
+
+`store.tsx` creates the shared commit context once and composes every factory.
+Components continue importing `useEditorStore` and public types from
+`@/lib/editor/store`; internal modules import contracts directly from
+`store/types.ts` to avoid depending on the public facade.
+
+Dependency direction is deliberately one-way:
+
+```text
+state/contracts → pure helpers + commit context → action factories → store.tsx
+```
+
+Action factories do not import one another. Existing cross-domain coordination
+uses `get()` to call the already-composed public store action when necessary.
 
 ---
 
@@ -87,6 +114,17 @@ setShadow({ type: "drop", intensity: 60 })
 Multi-field reads: `useShallow` from `zustand/react/shallow`.
 
 Canvas-scoped convenience: `useActiveCanvasField` / helpers in `store/use-editor.tsx` and `CanvasScope` context.
+
+### Adding an action
+
+1. Add its signature to `EditorActions` in `store/types.ts`.
+2. Implement it in the factory that owns the domain.
+3. Use raw `set` only for non-undoable session state.
+4. Use `commit` or `commitCanvas` for undoable document changes.
+5. Use `commitCanvasEffect` for animatable canvas or slot effects so the selected keyframe records ownership.
+
+The final object returned by `store.tsx` must satisfy `EditorStore`, so a missing
+or incorrectly typed action fails typecheck without changing the public API.
 
 ---
 
@@ -198,9 +236,13 @@ Screenshots/backgrounds are extracted to `screenshot-blobs` on IDB write (`@idb:
 
 | Path | Role |
 |---|---|
-| `lib/editor/store.tsx` | Store + actions |
+| `lib/editor/store.tsx` | Public exports and store composition root |
 | `lib/editor/state-types.ts` | Types |
 | `lib/editor/value-schemas.ts` | Input validation ranges |
+| `lib/editor/store/types.ts` | Root state and action contracts |
+| `lib/editor/store/commit-context.ts` | Shared history and canvas commit primitives |
+| `lib/editor/store/animation-helpers.ts` | Clip pose capture, restoration, and keyframe resolution |
+| `lib/editor/store/actions/` | Domain action factories |
 | `lib/editor/store/provider.tsx` | Mount lifecycle |
 | `lib/editor/store/draft-persistence.ts` | IDB |
 | `lib/editor/store/defaults.ts` | `DEFAULT_CANVAS_BASE`, defaults |
