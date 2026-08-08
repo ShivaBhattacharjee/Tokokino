@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { enhanceFilterCss } from "@/lib/editor/css-utils"
+import { fullPageCaptureMediaStyle } from "@/lib/editor/full-page-capture"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 import {
@@ -60,14 +61,21 @@ function videoFrameDataUrl(video: HTMLVideoElement): string | null {
 export function EnhancePresetGrid({ className }: { className?: string }) {
   const enhance = useActiveCanvasField((c) => c.enhance)
   const screenshot = useActiveCanvasField((c) => c.screenshot)
+  const fullPageCapture = useActiveCanvasField((c) => c.fullPageCapture)
   const slots = useActiveCanvasField((c) => c.screenshotSlots)
   const activeCanvasId = useActiveCanvasId()
   const setEnhance = useEditorStore((s) => s.setEnhance)
 
-  const stillSrc =
-    screenshot && !isVideoSrc(screenshot)
-      ? screenshot
-      : (slots.find((slot) => slot.src && !isVideoSrc(slot.src))?.src ?? null)
+  const stillFromMain = Boolean(screenshot && !isVideoSrc(screenshot))
+  const stillSlot = stillFromMain
+    ? null
+    : (slots.find((slot) => slot.src && !isVideoSrc(slot.src)) ?? null)
+  const stillSrc = stillFromMain ? screenshot : (stillSlot?.src ?? null)
+  // Long screenshots crop via object-position on the canvas — match that so
+  // thumbs show the same band, not the vertical center of the full page.
+  const samplePosition = fullPageCaptureMediaStyle(
+    stillFromMain ? fullPageCapture : stillSlot?.fullPageCapture
+  )?.objectPosition
 
   const needsVideoFrame = !stillSrc && isVideoSrc(screenshot)
   // Grabbed once when the panel mounts — the popover/sheet opens fresh each
@@ -99,10 +107,13 @@ export function EnhancePresetGrid({ className }: { className?: string }) {
           >
             <span className="block w-full overflow-hidden rounded-[5px]">
               <span
-                className="block aspect-[4/3] w-full bg-cover bg-center"
+                className="block aspect-[4/3] w-full bg-cover"
                 style={{
                   ...(sample
-                    ? { backgroundImage: `url(${sample})` }
+                    ? {
+                        backgroundImage: `url(${sample})`,
+                        backgroundPosition: samplePosition ?? "center",
+                      }
                     : CHART_STYLE),
                   filter: enhanceFilterCss(preset.id),
                 }}
