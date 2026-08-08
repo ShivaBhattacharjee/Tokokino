@@ -32,13 +32,22 @@ import { throwIfAborted } from "../abort"
  * the URL: object URLs are minted against the page's environment and the export
  * can be racing a `revokeObjectURL` from the media registry. Returns null when
  * the source can't be read — audio is always best-effort.
+ *
+ * A cancelled export is the one failure that must not read as "no audio":
+ * returning null there would carry on into a silent encode instead of stopping,
+ * so an abort is rethrown rather than swallowed with the rest.
  */
-export async function loadAudioSourceBlob(src: string): Promise<Blob | null> {
+export async function loadAudioSourceBlob(
+  src: string,
+  signal?: AbortSignal
+): Promise<Blob | null> {
+  throwIfAborted(signal)
   try {
-    const res = await fetch(src)
+    const res = await fetch(src, { signal })
     if (!res.ok) return null
     return await res.blob()
   } catch {
+    throwIfAborted(signal)
     return null
   }
 }

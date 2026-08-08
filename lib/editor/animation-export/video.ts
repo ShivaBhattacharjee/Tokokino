@@ -143,7 +143,7 @@ async function tryEncodeInWorker(
   const screenshot = canvas.screenshot
   const audioBlob =
     videoLayer && screenshot && isVideoSrc(screenshot)
-      ? await loadAudioSourceBlob(screenshot)
+      ? await loadAudioSourceBlob(screenshot, signal)
       : null
 
   // Audio is decoded and re-encoded inside the worker during init, so report the
@@ -273,7 +273,7 @@ async function encodeWithMediabunnyOnMainThread(
   const screenshot = canvas.screenshot
   const audioBlob =
     videoLayer && screenshot && isVideoSrc(screenshot)
-      ? await loadAudioSourceBlob(screenshot)
+      ? await loadAudioSourceBlob(screenshot, signal)
       : null
   const sourceAudio =
     audioBlob && videoLayer

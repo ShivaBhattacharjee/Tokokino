@@ -79,7 +79,7 @@ async function tryEncodeInWorker(
   sourceSrc: string,
   signal?: AbortSignal
 ): Promise<Blob | null> {
-  const audioBlob = await loadAudioSourceBlob(sourceSrc)
+  const audioBlob = await loadAudioSourceBlob(sourceSrc, signal)
   // Audio is decoded and re-encoded inside the worker during init, so report the
   // phase around the handshake rather than around a separate feed step.
   if (audioBlob) progress.report("audio", 0, 1)
@@ -183,7 +183,7 @@ export async function encodeMp4OrWebm(
   const outputFormat =
     format === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat()
   // Best-effort: missing/unusable audio → silent video, never fail the export.
-  const audioBlob = await loadAudioSourceBlob(sourceSrc)
+  const audioBlob = await loadAudioSourceBlob(sourceSrc, signal)
   const sourceAudio = audioBlob
     ? await prepareSourceAudio(
         audioBlob,

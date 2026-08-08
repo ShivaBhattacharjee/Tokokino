@@ -11,7 +11,7 @@
  * outstanding — so the next frame rasterizes while the worker encodes this one.
  */
 
-import { AnimationExportAbortedError } from "../abort"
+import { AnimationExportAbortedError, throwIfAborted } from "../abort"
 import type { WithoutId } from "./message"
 import type {
   VideoMuxerConfig,
@@ -53,6 +53,11 @@ export async function createVideoMuxSession(
   config: VideoMuxerConfig,
   signal?: AbortSignal
 ): Promise<VideoMuxSession | null> {
+  // An abort that has already fired will never fire again, so the listener
+  // registered below would never run: the worker would go on to decode and
+  // re-encode the whole audio track and start the muxer, and the cancellation
+  // would not surface until init finished or the startup timeout expired.
+  throwIfAborted(signal)
   if (!canUseVideoMuxWorker()) return null
 
   let worker: Worker
