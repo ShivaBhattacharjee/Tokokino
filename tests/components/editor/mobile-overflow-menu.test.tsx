@@ -4,16 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 /**
  * `MobileOverflowMenu` — the mobile "More actions" dropdown. Routes file /
- * history / workspace actions to props + the store.
+ * workspace actions to props + the store. History (undo/redo/reset) lives in
+ * the tools section via MobileHistoryButton.
  */
 const store = vi.hoisted(() => ({
-  undo: vi.fn(),
-  redo: vi.fn(),
-  reset: vi.fn(),
   setIsPreviewMode: vi.fn(),
   addCanvas: vi.fn(() => "c2"),
-  past: [] as unknown[],
-  future: [] as unknown[],
   canvases: [{ id: "c1" }] as unknown[],
 }))
 
@@ -21,13 +17,8 @@ vi.mock("@/lib/editor/store", () => ({
   MAX_CANVASES: 20,
   useEditorStore: (selector: (s: unknown) => unknown) =>
     selector({
-      undo: store.undo,
-      redo: store.redo,
-      reset: store.reset,
       setIsPreviewMode: store.setIsPreviewMode,
       addCanvas: store.addCanvas,
-      past: store.past,
-      future: store.future,
       present: { canvases: store.canvases },
     }),
 }))
@@ -63,8 +54,6 @@ async function openMenu() {
 }
 
 beforeEach(() => {
-  store.past = []
-  store.future = []
   store.canvases = [{ id: "c1" }]
 })
 afterEach(() => vi.clearAllMocks())
@@ -77,25 +66,18 @@ describe("MobileOverflowMenu", () => {
     expect(baseProps.onNewClick).toHaveBeenCalledOnce()
   })
 
-  it("disables Undo/Redo without history", async () => {
+  it("does not expose Undo, Redo, or Reset", async () => {
     render(<MobileOverflowMenu {...baseProps} />)
     await openMenu()
-    expect(screen.getByRole("menuitem", { name: "Undo" })).toHaveAttribute(
-      "aria-disabled",
-      "true"
-    )
-    expect(screen.getByRole("menuitem", { name: "Redo" })).toHaveAttribute(
-      "aria-disabled",
-      "true"
-    )
-  })
-
-  it("undoes when history exists", async () => {
-    store.past = [{}]
-    render(<MobileOverflowMenu {...baseProps} />)
-    const user = await openMenu()
-    await user.click(screen.getByRole("menuitem", { name: "Undo" }))
-    expect(store.undo).toHaveBeenCalledOnce()
+    expect(
+      screen.queryByRole("menuitem", { name: "Undo" })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("menuitem", { name: "Redo" })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("menuitem", { name: "Reset" })
+    ).not.toBeInTheDocument()
   })
 
   it("enters preview mode", async () => {
@@ -120,15 +102,6 @@ describe("MobileOverflowMenu", () => {
     expect(
       screen.getByRole("menuitem", { name: "Add canvas" })
     ).toHaveAttribute("aria-disabled", "true")
-  })
-
-  it("opens a confirm dialog for Reset and resets on confirm", async () => {
-    render(<MobileOverflowMenu {...baseProps} />)
-    const user = await openMenu()
-    await user.click(screen.getByRole("menuitem", { name: "Reset" }))
-    expect(screen.getByText("Reset to defaults?")).toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Reset" }))
-    expect(store.reset).toHaveBeenCalledOnce()
   })
 
   it("copies as PNG", async () => {

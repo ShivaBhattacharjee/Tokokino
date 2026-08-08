@@ -3,8 +3,6 @@
 import * as React from "react"
 import {
   RiAddLine,
-  RiArrowGoBackLine,
-  RiArrowGoForwardLine,
   RiEyeLine,
   RiFeedbackLine,
   RiFileCopyLine,
@@ -15,7 +13,6 @@ import {
   RiLayoutGridLine,
   RiMoreLine,
   RiMoonLine,
-  RiRefreshLine,
   RiSaveLine,
   RiShareForwardLine,
   RiSparkling2Line,
@@ -24,16 +21,6 @@ import {
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -83,17 +70,11 @@ export function MobileOverflowMenu({
     )
     return canvas ? isVideoSrc(canvas.screenshot) : false
   })
-  const undo = useEditorStore((s) => s.undo)
-  const redo = useEditorStore((s) => s.redo)
-  const canUndo = useEditorStore((s) => s.past.length > 0)
-  const canRedo = useEditorStore((s) => s.future.length > 0)
-  const reset = useEditorStore((s) => s.reset)
   const setIsPreviewMode = useEditorStore((s) => s.setIsPreviewMode)
   const addCanvas = useEditorStore((s) => s.addCanvas)
   const canvasCount = useEditorStore((s) => s.present.canvases.length)
   const atCanvasCap = canvasCount >= MAX_CANVASES
   const [menuOpen, setMenuOpen] = React.useState(false)
-  const [showResetAlert, setShowResetAlert] = React.useState(false)
 
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
@@ -102,132 +83,81 @@ export function MobileOverflowMenu({
   const isDark = mounted && resolvedTheme === "dark"
 
   return (
-    <>
-      <AlertDialog open={showResetAlert} onOpenChange={setShowResetAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset to defaults?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will discard all your changes and restore the editor to its
-              default state. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
-            <AlertDialogCancel className="cursor-pointer">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              className="cursor-pointer"
-              onClick={() => {
-                reset()
-                setShowResetAlert(false)
-                setMenuOpen(false)
-              }}
-            >
-              Reset
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon-lg"
+          aria-label="More actions"
+          className="xl:hidden"
+        >
+          <RiMoreLine />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-52">
+        <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
+          File
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={onNewClick}>
+          <RiFileAddLine />
+          New project
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenProjectClick}>
+          <RiFolderOpenLine />
+          Open project
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenImageClick}>
+          <RiImageAddLine />
+          Add image
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenVideoClick}>
+          <RiVideoAddLine />
+          Add video
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            setMenuOpen(false)
+            onTemplatesClick()
+          }}
+        >
+          <RiSparkling2Line />
+          Templates
+        </DropdownMenuItem>
 
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon-lg"
-            aria-label="More actions"
-            className="xl:hidden"
-          >
-            <RiMoreLine />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
-            File
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={onNewClick}>
-            <RiFileAddLine />
-            New project
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onOpenProjectClick}>
-            <RiFolderOpenLine />
-            Open project
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onOpenImageClick}>
-            <RiImageAddLine />
-            Add image
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onOpenVideoClick}>
-            <RiVideoAddLine />
-            Add video
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              setMenuOpen(false)
-              onTemplatesClick()
-            }}
-          >
-            <RiSparkling2Line />
-            Templates
-          </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
+          Workspace
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={onBulkEditClick} disabled={isAnimateMode}>
+          <RiLayoutGridLine />
+          {bulkEditMode ? "Exit bulk edit" : "Bulk edit"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={atCanvasCap}
+          onClick={() => {
+            const id = addCanvas()
+            if (!id) toast.error(`Canvas limit reached (${MAX_CANVASES})`)
+          }}
+        >
+          <RiAddLine />
+          Add canvas
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setIsPreviewMode(true)}>
+          <RiEyeLine />
+          Preview
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onSaveClick}>
+          <RiSaveLine />
+          Save
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onShareClick} disabled={isPreparingShare}>
+          <RiShareForwardLine />
+          Share
+        </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
-            History
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={undo} disabled={!canUndo}>
-            <RiArrowGoBackLine />
-            Undo
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={redo} disabled={!canRedo}>
-            <RiArrowGoForwardLine />
-            Redo
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="label-eyebrow !px-2 !py-1.5">
-            Workspace
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={onBulkEditClick} disabled={isAnimateMode}>
-            <RiLayoutGridLine />
-            {bulkEditMode ? "Exit bulk edit" : "Bulk edit"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={atCanvasCap}
-            onClick={() => {
-              const id = addCanvas()
-              if (!id) toast.error(`Canvas limit reached (${MAX_CANVASES})`)
-            }}
-          >
-            <RiAddLine />
-            Add canvas
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsPreviewMode(true)}>
-            <RiEyeLine />
-            Preview
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onSaveClick}>
-            <RiSaveLine />
-            Save
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onShareClick} disabled={isPreparingShare}>
-            <RiShareForwardLine />
-            Share
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.preventDefault()
-              setMenuOpen(false)
-              setShowResetAlert(true)
-            }}
-          >
-            <RiRefreshLine />
-            Reset
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-          {!isVideoCanvas && !isAnimateMode && (
+        {!isVideoCanvas && !isAnimateMode && (
+          <>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
                 setMenuOpen(false)
@@ -238,30 +168,30 @@ export function MobileOverflowMenu({
               <RiFileCopyLine />
               {isCopyingPng ? "Copying…" : "Copy as PNG"}
             </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              setMenuOpen(false)
-              onFeedbackClick()
-            }}
-          >
-            <RiFeedbackLine />
-            Send feedback
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.preventDefault()
-              toast.dismiss()
-              setMenuOpen(false)
-              setTheme(isDark ? "light" : "dark")
-            }}
-          >
-            {isDark ? <RiSunLine /> : <RiMoonLine />}
-            {isDark ? "Light mode" : "Dark mode"}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => {
+            setMenuOpen(false)
+            onFeedbackClick()
+          }}
+        >
+          <RiFeedbackLine />
+          Send feedback
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.preventDefault()
+            toast.dismiss()
+            setMenuOpen(false)
+            setTheme(isDark ? "light" : "dark")
+          }}
+        >
+          {isDark ? <RiSunLine /> : <RiMoonLine />}
+          {isDark ? "Light mode" : "Dark mode"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
