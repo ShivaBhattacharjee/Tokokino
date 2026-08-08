@@ -26,13 +26,16 @@ import { captureStableFrame } from "./capture"
 import { safeDrawImage } from "./draw-utils"
 import type { CaptureCtx } from "./types"
 import { resolveVideoSegments } from "./video-layer"
+import { loadAudioSourceBlob } from "./video-media/audio"
 import {
   AnimationExportAbortedError,
+  createUiYielder,
   even,
   pickWebmMimeType,
   throwIfAborted,
 } from "./utils"
 import { drawWatermark } from "./watermark"
+import { createVideoMuxSession } from "./workers/video-muxer-client"
 
 // Cap on what the MediaRecorder fallback may buffer = frames × pixels-per-frame.
 // Unlike the WebCodecs path it can't stream: capture is slower than real time, so
@@ -65,27 +68,18 @@ export async function isWebmExportSupported(): Promise<boolean> {
   }
 }
 
-/** Try Mediabunny/WebCodecs encode; returns null if unavailable or unsupported. */
-export async function tryEncodeWithMediabunny(
+/**
+ * Rasterize each frame into `encodeCanvas` and hand it to `addFrame`.
+ *
+ * Shared by the worker and main-thread encoders — the capture half is identical
+ * either way, since rasterizing a frame is DOM work that can't leave this thread.
+ */
+async function pumpFrames(
   ctx: CaptureCtx,
-  format: "webm" | "mp4"
-): Promise<Blob | null> {
-  if (typeof VideoEncoder === "undefined") return null
-
-  const preferred: VideoCodec[] =
-    format === "mp4"
-      ? (["avc", "hevc", "av1"] as VideoCodec[])
-      : (["vp9", "vp8", "av1"] as VideoCodec[])
-
-  const width = even(ctx.capture.width)
-  const height = even(ctx.capture.height)
-  const codec = await getFirstEncodableVideoCodec(preferred, {
-    width,
-    height,
-    bitrate: QUALITY_HIGH,
-  })
-  if (!codec) return null
-
+  encodeCanvas: HTMLCanvasElement,
+  ectx: CanvasRenderingContext2D,
+  addFrame: (timestampSec: number, durationSec: number) => Promise<void>
+) {
   const {
     capture,
     canvas,
@@ -99,6 +93,161 @@ export async function tryEncodeWithMediabunny(
     watermark,
     videoLayer,
   } = ctx
+  const { width, height } = encodeCanvas
+  const durationSec = 1 / fps
+  const yieldToUi = createUiYielder()
+
+  progress.report("capturing", 0, frameCount)
+  for (let f = 0; f < frameCount; f++) {
+    // Frame capture is DOM work that can't leave the main thread, so give the
+    // event loop a turn between frames — otherwise the Cancel click never gets
+    // dispatched and the progress bar can't repaint.
+    await yieldToUi()
+    throwIfAborted(signal)
+
+    const frameCanvas = await captureStableFrame(
+      capture,
+      canvas,
+      globalAspect,
+      clips,
+      f * frameDurationMs,
+      videoLayer
+    )
+    // Letterbox into even-sized encode canvas if needed.
+    ectx.fillStyle = "#000"
+    ectx.fillRect(0, 0, width, height)
+    if (!safeDrawImage(ectx, frameCanvas, 0, 0, width, height)) {
+      // Keep the black letterbox frame rather than aborting the whole export.
+    }
+    if (watermark) drawWatermark(ectx, width, height, watermark)
+
+    await addFrame(f / fps, durationSec)
+    progress.report("capturing", f + 1, frameCount)
+  }
+}
+
+/**
+ * Try the mux worker first: it owns the muxer, the encoder queue and the audio
+ * decode, leaving this thread only the frame rasterization. Returns null when
+ * the worker is unavailable or can't encode this format, so the caller can run
+ * the in-process encoder instead.
+ */
+async function tryEncodeInWorker(
+  ctx: CaptureCtx,
+  format: "webm" | "mp4",
+  encodeCanvas: HTMLCanvasElement,
+  ectx: CanvasRenderingContext2D
+): Promise<Blob | null> {
+  const { canvas, frameCount, fps, progress, signal, videoLayer } = ctx
+
+  const screenshot = canvas.screenshot
+  const audioBlob =
+    videoLayer && screenshot && isVideoSrc(screenshot)
+      ? await loadAudioSourceBlob(screenshot)
+      : null
+
+  // Audio is decoded and re-encoded inside the worker during init, so report the
+  // phase around the whole handshake rather than around a separate feed step.
+  if (audioBlob) progress.report("audio", 0, 1)
+  const session = await createVideoMuxSession(
+    {
+      format,
+      width: encodeCanvas.width,
+      height: encodeCanvas.height,
+      fps,
+      keyFrameIntervalSec: ENCODE_KEY_FRAME_INTERVAL_SEC,
+      audio:
+        audioBlob && videoLayer
+          ? {
+              blob: audioBlob,
+              durationSec: frameCount / fps,
+              segments: resolveVideoSegments(
+                canvas.videoClips ?? [],
+                videoLayer.sourceDurationMs
+              ),
+            }
+          : null,
+    },
+    signal
+  )
+  if (!session) return null
+
+  try {
+    await pumpFrames(ctx, encodeCanvas, ectx, (timestampSec, durationSec) =>
+      session.addFrame(encodeCanvas, timestampSec, durationSec)
+    )
+    throwIfAborted(signal)
+    progress.report("encoding", 0, 1)
+    const buffer = await session.finalize()
+    progress.report("encoding", 1, 1)
+    return new Blob([buffer], {
+      type: format === "mp4" ? "video/mp4" : "video/webm",
+    })
+  } finally {
+    session.dispose()
+  }
+}
+
+/** Try Mediabunny/WebCodecs encode; returns null if unavailable or unsupported. */
+export async function tryEncodeWithMediabunny(
+  ctx: CaptureCtx,
+  format: "webm" | "mp4"
+): Promise<Blob | null> {
+  if (typeof VideoEncoder === "undefined") return null
+
+  const width = even(ctx.capture.width)
+  const height = even(ctx.capture.height)
+
+  // Working canvas we redraw each frame into (both encoders sample this).
+  const workerCanvas = document.createElement("canvas")
+  workerCanvas.width = width
+  workerCanvas.height = height
+  const workerCtx = workerCanvas.getContext("2d")
+  if (!workerCtx) return null
+
+  try {
+    const encoded = await tryEncodeInWorker(
+      ctx,
+      format,
+      workerCanvas,
+      workerCtx
+    )
+    if (encoded) return encoded
+  } catch (err) {
+    if (isAbortError(err)) throw err
+    // Anything else falls through to the in-process encoder below, which is a
+    // genuine second chance rather than a repeat of the same failure.
+  }
+
+  return encodeWithMediabunnyOnMainThread(ctx, format, width, height)
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    err instanceof AnimationExportAbortedError ||
+    (err instanceof Error && err.name === "AnimationExportAbortedError")
+  )
+}
+
+async function encodeWithMediabunnyOnMainThread(
+  ctx: CaptureCtx,
+  format: "webm" | "mp4",
+  width: number,
+  height: number
+): Promise<Blob | null> {
+  const preferred: VideoCodec[] =
+    format === "mp4"
+      ? (["avc", "hevc", "av1"] as VideoCodec[])
+      : (["vp9", "vp8", "av1"] as VideoCodec[])
+
+  const codec = await getFirstEncodableVideoCodec(preferred, {
+    width,
+    height,
+    bitrate: QUALITY_HIGH,
+  })
+  if (!codec) return null
+
+  const { canvas, frameCount, fps, progress, signal, videoLayer } = ctx
 
   // Working canvas we redraw each frame into (CanvasSource samples this).
   const encodeCanvas = document.createElement("canvas")
@@ -122,10 +271,14 @@ export async function tryEncodeWithMediabunny(
   // Best-effort, like the styled-video export: a clip with no usable audio still
   // exports, silently. Must be registered before `output.start()`.
   const screenshot = canvas.screenshot
-  const sourceAudio =
+  const audioBlob =
     videoLayer && screenshot && isVideoSrc(screenshot)
+      ? await loadAudioSourceBlob(screenshot)
+      : null
+  const sourceAudio =
+    audioBlob && videoLayer
       ? await prepareAnimationAudio({
-          src: screenshot,
+          source: audioBlob,
           format,
           outputFormat,
           segments: resolveVideoSegments(
@@ -151,35 +304,20 @@ export async function tryEncodeWithMediabunny(
     // Before the (much larger) video track, so the muxer doesn't buffer every
     // video packet waiting on the first audio one.
     if (sourceAudio) {
-      progress.report("encoding", 0, 1)
+      progress.report("audio", 0, 1)
       await sourceAudio.feed()
+      progress.report("audio", 1, 1)
     }
-    progress.report("capturing", 0, frameCount)
 
-    const durationSec = 1 / fps
-    for (let f = 0; f < frameCount; f++) {
-      if (cancelled || signal?.aborted) throw new AnimationExportAbortedError()
-
-      const frameCanvas = await captureStableFrame(
-        capture,
-        canvas,
-        globalAspect,
-        clips,
-        f * frameDurationMs,
-        videoLayer
-      )
-      // Letterbox into even-sized encode canvas if needed.
-      ectx.fillStyle = "#000"
-      ectx.fillRect(0, 0, width, height)
-      if (!safeDrawImage(ectx, frameCanvas, 0, 0, width, height)) {
-        // Keep the black letterbox frame rather than aborting the whole export.
+    await pumpFrames(
+      ctx,
+      encodeCanvas,
+      ectx,
+      async (timestampSec, duration) => {
+        if (cancelled) throw new AnimationExportAbortedError()
+        await videoSource.add(timestampSec, duration)
       }
-      if (watermark) drawWatermark(ectx, width, height, watermark)
-
-      const timestamp = f / fps
-      await videoSource.add(timestamp, durationSec)
-      progress.report("capturing", f + 1, frameCount)
-    }
+    )
 
     throwIfAborted(signal)
     progress.report("encoding", 0, 1)
@@ -254,7 +392,9 @@ export async function encodeWebmMediaRecorder({
   const frames: HTMLCanvasElement[] = []
   progress.report("capturing", 0, frameCount)
 
+  const yieldToUi = createUiYielder()
   for (let f = 0; f < frameCount; f++) {
+    await yieldToUi()
     throwIfAborted(signal)
     frames.push(
       await captureStableFrame(

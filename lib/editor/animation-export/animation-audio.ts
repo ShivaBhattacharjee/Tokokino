@@ -26,7 +26,7 @@ import {
   type WebMOutputFormat,
 } from "mediabunny"
 
-import { throwIfAborted } from "./utils"
+import { throwIfAborted } from "./abort"
 import type { VideoSegment } from "./video-layer"
 import {
   containerAudioCodecs,
@@ -72,14 +72,14 @@ export function audioWindowSec(
  * the export then proceeds silently rather than failing.
  */
 export async function prepareAnimationAudio({
-  src,
+  source,
   format,
   outputFormat,
   segments,
   exportDurationSec,
   signal,
 }: {
-  src: string
+  source: Blob
   format: "mp4" | "webm"
   outputFormat: Mp4OutputFormat | WebMOutputFormat
   segments: readonly VideoSegment[]
@@ -90,16 +90,13 @@ export async function prepareAnimationAudio({
   if (windowSec <= 0) return null
 
   if (isUntouchedTimeline(segments)) {
-    return prepareSourceAudio(src, format, outputFormat, windowSec, signal)
+    return prepareSourceAudio(source, format, outputFormat, windowSec, signal)
   }
 
   let input: Input | null = null
   try {
     throwIfAborted(signal)
-    const res = await fetch(src)
-    if (!res.ok) return null
-    const blob = await res.blob()
-    input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) })
+    input = new Input({ formats: ALL_FORMATS, source: new BlobSource(source) })
     const track = await input.getPrimaryAudioTrack()
     // Re-timing means re-encoding, so unlike the passthrough path this needs the
     // audio to be decodable here.

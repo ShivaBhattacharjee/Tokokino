@@ -49,21 +49,24 @@ export type ShareProgressState = {
 const PHASE_STEP: Record<ShareProgressState["phase"], number> = {
   idle: 0,
   preparing: 0.05,
-  capturing: 0.15,
-  encoding: 0.75,
-  finishing: 0.92,
-  uploading: 0.95,
+  audio: 0.08,
+  capturing: 0.1,
+  encoding: 0.8,
+  finishing: 0.9,
+  uploading: 0.92,
 }
 
 function progressPercent(progress: ShareProgressState | null): number {
   if (!progress) return 8
   const { phase, current, total } = progress
   if (phase === "capturing" && total > 0) {
-    // 15% → 75% while frames render
-    return Math.min(75, 15 + (current / total) * 60)
+    // 10% → 80% while frames render. Capture is the bulk of the encode too —
+    // each frame is encoded as it is captured — so the phase that follows is a
+    // container flush, not another pass, and gets a correspondingly thin band.
+    return Math.min(80, 10 + (current / total) * 70)
   }
   if (phase === "encoding" && total > 0) {
-    return Math.min(92, 75 + (current / Math.max(total, 1)) * 17)
+    return Math.min(90, 80 + (current / Math.max(total, 1)) * 10)
   }
   if (phase === "uploading" && total > 0) {
     return Math.min(100, 92 + (current / total) * 8)
@@ -355,7 +358,9 @@ function ShareContent({
                   ? "Encoding"
                   : progress?.phase === "capturing"
                     ? "Rendering"
-                    : "Preparing"}
+                    : progress?.phase === "audio"
+                      ? "Adding audio"
+                      : "Preparing"}
             </span>
           </div>
         </div>

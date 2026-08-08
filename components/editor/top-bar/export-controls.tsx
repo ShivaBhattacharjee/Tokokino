@@ -129,6 +129,23 @@ const ANIMATION_CAPTURE_MODE_LABELS: Record<AnimationCaptureMode, string> = {
 }
 const ANIMATION_BUTTON_MAX_LABEL = `Export ${ANIMATION_RESOLUTION_LABELS.fullhd} • ${ANIMATION_FORMAT_LABELS.webm}`
 
+/**
+ * Confirmation naming the file that actually landed in Downloads, the way the
+ * still-image export does. The download paths hand back their resolved
+ * filename — which follows the user's filename format — so falling back to the
+ * format label only happens on the `asBlob` branch these callers never take.
+ */
+function animationSavedMessage(
+  savedAs: string | { extension: string },
+  format: AnimationExportFormat
+): string {
+  const filename =
+    typeof savedAs === "string"
+      ? savedAs
+      : `${ANIMATION_FORMAT_LABELS[format]}${ANIMATION_FORMAT_EXTENSION[format]}`
+  return `Saved as ${filename}`
+}
+
 /** Phase copy — GIF encode is palette work, not "video". */
 function animationExportPhaseLabel(
   phase: AnimationExportProgress["phase"] | "idle" | undefined,
@@ -137,6 +154,8 @@ function animationExportPhaseLabel(
   switch (phase) {
     case "preparing":
       return "Preparing canvas"
+    case "audio":
+      return "Adding audio"
     case "capturing":
       return "Rendering frames"
     case "encoding":
@@ -149,9 +168,17 @@ function animationExportPhaseLabel(
 }
 
 /**
- * Map phase-local counters onto one continuous bar so GIF (and video) don't
- * jump back to 0% when capture ends and encode begins.
- * Preparing stays at 0 (no fake "4%"); capture then encode share the bar.
+ * Map phase-local counters onto one continuous bar, in the order the phases
+ * run, so none of them jumps the fill backwards as they hand over.
+ *
+ * `capturing` owns nearly the whole bar because it owns nearly all the work:
+ * each frame is palette-mapped (GIF) or handed to the video encoder as it is
+ * captured, so by the time the loop ends only the container flush is left. The
+ * old 70/28 split reserved a third of the bar for that flush, which is why every
+ * export sat at 70% until the file dropped.
+ *
+ * `preparing` gets a small band rather than a flat 0: for GIF it is the palette
+ * sampling pass, which is real frame captures with real per-frame counts.
  */
 function overallExportProgressRatio(
   progress: AnimationExportProgress | null
@@ -161,13 +188,15 @@ function overallExportProgressRatio(
   const phaseRatio = total > 0 ? Math.min(1, Math.max(0, current / total)) : 0
   switch (phase) {
     case "preparing":
-      return 0
+      return phaseRatio * 0.04
+    case "audio":
+      return 0.04 + phaseRatio * 0.04
     case "capturing":
-      return phaseRatio * 0.7
+      return 0.08 + phaseRatio * 0.88
     case "encoding":
-      return 0.7 + phaseRatio * 0.28
+      return 0.96 + phaseRatio * 0.03
     case "finishing":
-      return 0.98 + phaseRatio * 0.02
+      return 0.99 + phaseRatio * 0.01
     default:
       return 0
   }
@@ -716,7 +745,7 @@ export function ExportControls({
       setAnimProgress({ phase: "preparing", current: 0, total: 1, etaMs: null })
       setOpen(false)
       try {
-        await exportVideoMedia(activeCanvasId, {
+        const savedAs = await exportVideoMedia(activeCanvasId, {
           format: animFormat,
           fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
@@ -746,9 +775,7 @@ export function ExportControls({
           fps: effectiveAnimFps,
           export_type: "video",
         })
-        toast.success(
-          `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
-        )
+        toast.success(animationSavedMessage(savedAs, animFormat))
       } catch (err) {
         if (
           err instanceof AnimationExportAbortedError ||
@@ -800,7 +827,7 @@ export function ExportControls({
       })
       setOpen(false)
       try {
-        await exportAnimation(activeCanvasId, {
+        const savedAs = await exportAnimation(activeCanvasId, {
           format: animFormat,
           fps: effectiveAnimFps,
           targetWidth: ANIMATION_RESOLUTION_WIDTHS[animResolution],
@@ -833,9 +860,7 @@ export function ExportControls({
           export_type: "animation",
           capture_mode: animCapture,
         })
-        toast.success(
-          `Saved as ${ANIMATION_FORMAT_LABELS[animFormat]}${ANIMATION_FORMAT_EXTENSION[animFormat]}`
-        )
+        toast.success(animationSavedMessage(savedAs, animFormat))
       } catch (err) {
         if (
           err instanceof AnimationExportAbortedError ||

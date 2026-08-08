@@ -12,16 +12,7 @@ import { triggerAnchorDownload } from "@/lib/download"
 import { getCanvasRenderedDims } from "../export"
 import { resolveExportDownloadFilename } from "../export-filename"
 
-export class AnimationExportAbortedError extends Error {
-  constructor(message = "Export cancelled") {
-    super(message)
-    this.name = "AnimationExportAbortedError"
-  }
-}
-
-export function throwIfAborted(signal?: AbortSignal) {
-  if (signal?.aborted) throw new AnimationExportAbortedError()
-}
+export { AnimationExportAbortedError, throwIfAborted } from "./abort"
 
 export function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -103,6 +94,48 @@ export function waitForPaint(): Promise<void> {
       requestAnimationFrame(() => resolve())
     })
   })
+}
+
+type SchedulerYield = { yield?: () => Promise<void> }
+
+/**
+ * Hand the main thread back to the browser mid-export so queued input (the
+ * dialog's Cancel button) and a progress repaint can actually run.
+ *
+ * `scheduler.yield()` resumes at the *front* of the task queue, so the export
+ * doesn't lose its slot to unrelated work. The MessageChannel fallback is a
+ * plain task; `setTimeout(0)` is not equivalent — it's clamped to 4ms+ once
+ * nested, which is real overhead at hundreds of frames.
+ */
+export function yieldToUi(): Promise<void> {
+  const scheduler = (globalThis as { scheduler?: SchedulerYield }).scheduler
+  if (typeof scheduler?.yield === "function") {
+    return scheduler.yield().catch(() => {})
+  }
+  if (typeof MessageChannel === "undefined") return Promise.resolve()
+  return new Promise((resolve) => {
+    const channel = new MessageChannel()
+    channel.port1.onmessage = () => {
+      channel.port1.close()
+      resolve()
+    }
+    channel.port2.postMessage(null)
+  })
+}
+
+/**
+ * Budgeted variant of {@link yieldToUi} for per-frame loops: yields only once
+ * `budgetMs` of uninterrupted work has gone by. A frame that already takes
+ * longer than the budget therefore yields every iteration, while cheap frames
+ * batch up instead of paying a task hop each.
+ */
+export function createUiYielder(budgetMs = 40): () => Promise<void> {
+  let lastYieldAt = performance.now()
+  return async () => {
+    if (performance.now() - lastYieldAt < budgetMs) return
+    await yieldToUi()
+    lastYieldAt = performance.now()
+  }
 }
 
 export type ProgressReporter = {

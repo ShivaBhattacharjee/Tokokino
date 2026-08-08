@@ -66,7 +66,7 @@ import {
   exportAnimationBlob,
   type AnimationExportProgress,
 } from "@/lib/editor/animation-export"
-import { exportVideoMedia } from "@/lib/editor/animation-export/video-media"
+import { exportVideoMediaBlob } from "@/lib/editor/animation-export/video-media"
 import {
   createVideoObjectUrl,
   isVideoFile,
@@ -652,10 +652,7 @@ export function TopBar() {
           setShareProgress(toShareProgress(p)),
       }
       const videoResult = isPlainVideoCanvas
-        ? await exportVideoMedia(activeCanvasId, {
-            ...exportOptions,
-            asBlob: true,
-          })
+        ? await exportVideoMediaBlob(activeCanvasId, exportOptions)
         : null
       const animationResult = isPlainVideoCanvas
         ? null

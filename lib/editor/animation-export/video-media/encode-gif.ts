@@ -1,34 +1,24 @@
 /**
- * GIF encode for the video-media export (gifenc, pure JS): one shared palette
- * built from sampled frames, then a second pass that maps and writes each frame
- * straight into the encoder so only the current frame is ever in memory.
+ * GIF encode for the video-media export. Same two-pass shared-palette scheme as
+ * the Animate-mode GIF path, and the same worker: the main thread only renders
+ * frames, everything downstream of `getImageData` runs off-thread.
  */
 
-import { GIFEncoder, quantize, applyPalette } from "gifenc"
-
+import {
+  GIF_PALETTE_SAMPLE_FRAMES,
+  gifExportExceedsMemory,
+  MAX_GIF_TOTAL_PIXELS,
+} from "../gif-codec"
 import type { WatermarkAssets } from "../types"
-import { type createProgressReporter, throwIfAborted } from "../utils"
+import {
+  type createProgressReporter,
+  createUiYielder,
+  throwIfAborted,
+} from "../utils"
+import { createGifEncoderSession } from "../workers/gif-encoder-client"
 import { blitFrame, type FramePlan, type RenderFrame } from "./frames"
 
-// Cap on GIF output volume = frames × pixels-per-frame. gifenc buffers the
-// whole compressed stream in memory, so this bounds peak usage regardless of
-// clip length or resolution. ~350M keeps the buffer comfortably under ~300 MB
-// even for poorly-compressing footage, while still allowing ~20 s at 1080p or
-// much longer at smaller sizes.
-export const MAX_GIF_TOTAL_PIXELS = 350_000_000
-
-/**
- * True when a GIF export of this many frames at this size would risk exhausting
- * memory (gifenc holds the entire compressed stream in RAM until finish()).
- * Callers should fail fast with a clear message rather than crash the tab.
- */
-export function gifExportExceedsMemory(
-  frameCount: number,
-  width: number,
-  height: number
-): boolean {
-  return frameCount * width * height > MAX_GIF_TOTAL_PIXELS
-}
+export { MAX_GIF_TOTAL_PIXELS, gifExportExceedsMemory }
 
 export async function encodeGif(
   ctx: CanvasRenderingContext2D,
@@ -54,46 +44,48 @@ export async function encodeGif(
     )
   }
 
-  // Pass 1 — build ONE shared 256-color palette (kills frame-to-frame color
-  // shimmer) from a handful of evenly-spaced frames. We re-render for these
-  // rather than buffering every frame, so memory stays flat regardless of length.
-  const sampleCount = Math.min(16, plan.frameCount)
-  const sampleData: Uint8ClampedArray[] = []
-  let total = 0
-  for (let s = 0; s < sampleCount; s++) {
-    throwIfAborted(signal)
-    const f = Math.floor((s / sampleCount) * plan.frameCount)
-    blitFrame(ctx, await renderFrame(f), w, h, watermark)
-    const data = ctx.getImageData(0, 0, w, h).data
-    sampleData.push(data)
-    total += data.length
-    progress.report("preparing", s + 1, sampleCount)
-  }
-  const combined = new Uint8Array(total)
-  let offset = 0
-  for (const d of sampleData) {
-    combined.set(d, offset)
-    offset += d.length
-  }
-  const palette = quantize(combined, 256)
-  sampleData.length = 0
-
-  // Pass 2 — re-render each frame, map onto the shared palette, and write it
-  // straight into the encoder. Only the current frame is ever in memory.
-  const gif = GIFEncoder()
+  const encoder = await createGifEncoderSession()
+  const yieldToUi = createUiYielder()
   const delayMs = plan.frameDurationSec * 1000
-  let emittedCs = 0
-  progress.report("capturing", 0, plan.frameCount)
-  for (let f = 0; f < plan.frameCount; f++) {
+
+  try {
+    // Pass 1 — build ONE shared 256-color palette (kills frame-to-frame color
+    // shimmer) from a handful of evenly-spaced frames. We re-render for these
+    // rather than buffering every frame, so memory stays flat regardless of length.
+    const sampleCount = Math.min(GIF_PALETTE_SAMPLE_FRAMES, plan.frameCount)
+    for (let s = 0; s < sampleCount; s++) {
+      await yieldToUi()
+      throwIfAborted(signal)
+      const f = Math.floor((s / sampleCount) * plan.frameCount)
+      blitFrame(ctx, await renderFrame(f), w, h, watermark)
+      await encoder.addSample(ctx.getImageData(0, 0, w, h).data)
+      progress.report("preparing", s + 1, sampleCount)
+    }
+
     throwIfAborted(signal)
-    blitFrame(ctx, await renderFrame(f), w, h, watermark)
-    const index = applyPalette(ctx.getImageData(0, 0, w, h).data, palette)
-    const targetCs = Math.round(((f + 1) * delayMs) / 10)
-    const delayCs = Math.max(2, targetCs - emittedCs)
-    emittedCs += delayCs
-    gif.writeFrame(index, w, h, { palette, delay: delayCs * 10 })
-    progress.report("capturing", f + 1, plan.frameCount)
+    await yieldToUi()
+    await encoder.buildPalette()
+
+    // Pass 2 — re-render each frame and hand its pixels over. The buffer is
+    // transferred, so only the frames still queued in the worker are held.
+    progress.report("capturing", 0, plan.frameCount)
+    for (let f = 0; f < plan.frameCount; f++) {
+      await yieldToUi()
+      throwIfAborted(signal)
+      blitFrame(ctx, await renderFrame(f), w, h, watermark)
+      await encoder.writeFrame(
+        ctx.getImageData(0, 0, w, h).data,
+        w,
+        h,
+        (f + 1) * delayMs
+      )
+      progress.report("capturing", f + 1, plan.frameCount)
+    }
+
+    throwIfAborted(signal)
+    const bytes = await encoder.finish()
+    return new Blob([bytes], { type: "image/gif" })
+  } finally {
+    encoder.dispose()
   }
-  gif.finish()
-  return new Blob([new Uint8Array(gif.bytesView())], { type: "image/gif" })
 }

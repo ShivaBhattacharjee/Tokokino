@@ -34,6 +34,7 @@ import {
   resolveAnimationDownloadFilename,
   throwIfAborted,
   triggerDownload,
+  waitForPaint,
 } from "./utils"
 import { encodeWebmMediaRecorder, tryEncodeWithMediabunny } from "./video"
 import { loadWatermarkLogo, resolveWatermarkFontStack } from "./watermark"
@@ -52,11 +53,15 @@ export type {
 /**
  * Render the active canvas's animation timeline.
  * 100% on-device encode — download by default, or return a blob for Share.
+ *
+ * Returns the resolved download filename (matching `exportCanvas`) so callers
+ * can name the real file in their confirmation, rather than guessing it from the
+ * format label.
  */
 export async function exportAnimation(
   canvasId: string,
   options: AnimationExportOptions
-): Promise<void | AnimationExportBlobResult> {
+): Promise<string | AnimationExportBlobResult> {
   const result = await encodeAnimation(canvasId, options)
   if (options.asBlob) return result
   const targetWidth =
@@ -68,7 +73,11 @@ export async function exportAnimation(
     targetWidth,
     extension: result.extension,
   })
+  // The last progress reports land in the same task as the download, so without
+  // a paint the bar is still showing mid-capture when the dialog tears down.
+  await waitForPaint()
   triggerDownload(result.blob, filename)
+  return filename
 }
 
 /** Encode animation and always return the blob (for share uploads). */

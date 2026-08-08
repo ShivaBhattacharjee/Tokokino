@@ -9,8 +9,15 @@ import type { CloneVideoLayer } from "./video-layer"
 
 export type AnimationExportFormat = "webm" | "mp4" | "gif"
 
+/**
+ * Export phases in the order they run. `audio` sits before `capturing` because
+ * the source clip's audio is muxed first (the muxer would otherwise buffer every
+ * video packet waiting on the first audio one) — reporting it as `encoding`
+ * pushed the bar to the encode band and then snapped it back when frames began.
+ */
 export type AnimationExportPhase =
   | "preparing"
+  | "audio"
   | "capturing"
   | "encoding"
   | "finishing"
