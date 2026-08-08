@@ -1,5 +1,4 @@
 import { MAX_DURATION_MS, resolveRippleDrop } from "../../animation-timeline"
-import { isVideoSrc } from "../../media-type"
 import { makeId } from "../canvas-helpers"
 import { computeNextLayerZ } from "../layer-stack"
 import type { CommitContext } from "../commit-context"

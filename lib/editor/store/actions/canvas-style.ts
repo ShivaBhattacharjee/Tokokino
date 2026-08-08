@@ -1,5 +1,3 @@
-import { REST_LIGHTING } from "../../animation-playback"
-import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../../css-utils"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "../../present-presets"
 import {
   resolveActivePresetGeometry,
@@ -12,17 +10,14 @@ import {
   applyScreenshotStyle,
   applySharedFrameToCanvas,
   aspectRatioFromState,
-  CANVAS_BASE_W,
   layoutSlotsInRow,
-  resolveMainScreenshotStyle,
-  resolveSlotScreenshotStyle,
   screenshotStyleEffects,
   screenshotStyleGroup,
   scaleAnnotationStrokesForAspectChange,
   scaleScreenshotOffsetForAspectChange,
   stateCanvasAspect,
 } from "../canvas-helpers"
-import { computeNextLayerZ, moveLayerInStack } from "../layer-stack"
+import { moveLayerInStack } from "../layer-stack"
 import type { CommitContext } from "../commit-context"
 import type { EditorActions } from "../types"
 

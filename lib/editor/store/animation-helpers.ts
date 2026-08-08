@@ -18,22 +18,16 @@ import type {
   ClipSlotPose,
   CanvasAnimation,
   AspectState,
-  AssetFilter,
   CanvasState,
   CropRegion,
   DeviceFrame,
-  MediaAdjustments,
   ScreenshotPosition,
   ScreenshotSlot,
   Shadow,
 } from "../state-types"
 import {
-  aspectRatioFromState,
-  cloneLighting,
-  cloneShadow,
   resolveMainScreenshotStyle,
   resolveSlotScreenshotStyle,
-  stateCanvasAspect,
 } from "./canvas-helpers"
 
 /** Smallest an animation clip may be trimmed/fitted to (keep in sync with the
