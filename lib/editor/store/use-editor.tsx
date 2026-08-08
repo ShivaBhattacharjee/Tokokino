@@ -6,8 +6,8 @@ import { useShallow } from "zustand/react/shallow"
 import type { CanvasState, EditorState, ScreenshotSlot } from "../state-types"
 
 import { DEFAULT_CANVAS_BASE } from "./defaults"
-import type { EditorActions, EditorStore } from "../store"
 import { useEditorStore } from "../store"
+import type { EditorActions, EditorStore } from "./types"
 
 const CanvasIdContext = React.createContext<string | null>(null)
 
