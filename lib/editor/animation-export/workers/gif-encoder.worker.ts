@@ -59,6 +59,15 @@ self.onmessage = (event: MessageEvent<GifWorkerRequest>) => {
         reply({ id: request.id, ok: true, bytes: bytes.buffer }, [bytes.buffer])
         return
       }
+      default: {
+        // Unreachable for a well-typed message, but a stale client (or anything
+        // else posting here) must still get a reply — the client keys pending
+        // promises by id and a dropped response would hang the export forever.
+        const unknown: never = request
+        throw new Error(
+          `Unknown GIF worker request: ${(unknown as { type?: string }).type}`
+        )
+      }
     }
   } catch (err) {
     encoder = null

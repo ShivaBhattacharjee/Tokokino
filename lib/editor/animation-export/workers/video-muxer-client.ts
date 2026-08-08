@@ -140,15 +140,16 @@ export async function createVideoMuxSession(
   signal?.addEventListener("abort", onAbort, { once: true })
 
   let ready: VideoMuxerResponse & { ok: true }
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
     ready = await Promise.race([
       send({ type: "init", config }),
-      new Promise<never>((_, reject) =>
-        setTimeout(
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
           () => reject(new Error("Video mux worker did not start")),
           INIT_TIMEOUT_MS
         )
-      ),
+      }),
     ])
   } catch (err) {
     signal?.removeEventListener("abort", onAbort)
@@ -157,6 +158,10 @@ export async function createVideoMuxSession(
     // main-thread encoder — it would just start the whole export again.
     if (err instanceof AnimationExportAbortedError || signal?.aborted) throw err
     return null
+  } finally {
+    // Promise.race leaves the loser pending, so without this the timer keeps the
+    // worker closure alive for the full timeout after a successful init.
+    clearTimeout(timer)
   }
 
   if (ready.type !== "init" || !ready.supported) {
@@ -172,7 +177,17 @@ export async function createVideoMuxSession(
         timestamp: Math.round(timestampSec * 1_000_000),
         duration: Math.round(durationSec * 1_000_000),
       })
-      track(send({ type: "frame", frame, timestampSec, durationSec }, [frame]))
+      try {
+        track(
+          send({ type: "frame", frame, timestampSec, durationSec }, [frame])
+        )
+      } finally {
+        // A transferred frame is detached, so this is a no-op on the happy path
+        // (the worker owns and closes it). It matters when the post never got
+        // that far — a VideoFrame pins its backing memory until it is closed,
+        // and `send` bails without posting once a previous frame has failed.
+        frame.close()
+      }
       await drain(MAX_FRAMES_IN_FLIGHT)
     },
     async finalize() {

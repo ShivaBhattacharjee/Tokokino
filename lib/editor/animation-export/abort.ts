@@ -16,3 +16,18 @@ export class AnimationExportAbortedError extends Error {
 export function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw new AnimationExportAbortedError()
 }
+
+/**
+ * Whether `err` is an export cancellation.
+ *
+ * The name check is not redundant: the error can cross a worker boundary, where
+ * it is rebuilt from the wire and is no longer an instance of the class here.
+ * Callers use this to decide between rethrowing and falling back to another
+ * encoder — getting it wrong restarts a whole export the user just cancelled.
+ */
+export function isAnimationExportAborted(err: unknown): boolean {
+  return (
+    err instanceof AnimationExportAbortedError ||
+    (err instanceof Error && err.name === "AnimationExportAbortedError")
+  )
+}

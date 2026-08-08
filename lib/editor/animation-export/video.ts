@@ -19,6 +19,7 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
+import { isAnimationExportAborted } from "./abort"
 import { ENCODE_KEY_FRAME_INTERVAL_SEC } from "../encode-settings"
 import { isVideoSrc } from "../media-type"
 import { prepareAnimationAudio } from "./animation-audio"
@@ -214,19 +215,12 @@ export async function tryEncodeWithMediabunny(
     )
     if (encoded) return encoded
   } catch (err) {
-    if (isAbortError(err)) throw err
+    if (isAnimationExportAborted(err)) throw err
     // Anything else falls through to the in-process encoder below, which is a
     // genuine second chance rather than a repeat of the same failure.
   }
 
   return encodeWithMediabunnyOnMainThread(ctx, format, width, height)
-}
-
-function isAbortError(err: unknown): boolean {
-  return (
-    err instanceof AnimationExportAbortedError ||
-    (err instanceof Error && err.name === "AnimationExportAbortedError")
-  )
 }
 
 async function encodeWithMediabunnyOnMainThread(

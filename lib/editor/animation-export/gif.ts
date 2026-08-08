@@ -54,7 +54,7 @@ export async function encodeGif(ctx: CaptureCtx) {
     return gctx.getImageData(0, 0, frameCanvas.width, frameCanvas.height)
   }
 
-  const encoder = await createGifEncoderSession()
+  const encoder = await createGifEncoderSession(signal)
   const yieldToUi = createUiYielder()
 
   try {

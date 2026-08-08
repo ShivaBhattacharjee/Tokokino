@@ -44,7 +44,7 @@ export async function encodeGif(
     )
   }
 
-  const encoder = await createGifEncoderSession()
+  const encoder = await createGifEncoderSession(signal)
   const yieldToUi = createUiYielder()
   const delayMs = plan.frameDurationSec * 1000
 
@@ -56,7 +56,12 @@ export async function encodeGif(
     for (let s = 0; s < sampleCount; s++) {
       await yieldToUi()
       throwIfAborted(signal)
-      const f = Math.floor((s / sampleCount) * plan.frameCount)
+      // Bias to frameCount - 1 on the last sample so end-state colors are
+      // covered, matching the Animate-mode GIF path.
+      const f =
+        s === sampleCount - 1
+          ? plan.frameCount - 1
+          : Math.floor((s / sampleCount) * plan.frameCount)
       blitFrame(ctx, await renderFrame(f), w, h, watermark)
       await encoder.addSample(ctx.getImageData(0, 0, w, h).data)
       progress.report("preparing", s + 1, sampleCount)

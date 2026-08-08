@@ -148,11 +148,17 @@ export class GifStreamEncoder {
     }
     const combined = new Uint8Array(this.sampleBytes)
     let offset = 0
-    for (const sample of this.samples) {
+    // Drop each sample as it is copied rather than after the loop: both copies
+    // are live until then, and 16 sampled 1080p frames is ~130 MB per copy —
+    // right before quantize() wants a working set of its own.
+    for (
+      let sample = this.samples.shift();
+      sample;
+      sample = this.samples.shift()
+    ) {
       combined.set(sample, offset)
       offset += sample.length
     }
-    this.samples.length = 0
     this.sampleBytes = 0
     this.palette = quantize(combined, 256)
     this.ditherAmplitude = paletteDitherAmplitude(this.palette)

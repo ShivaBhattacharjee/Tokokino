@@ -20,6 +20,7 @@ import {
 } from "mediabunny"
 
 import { ENCODE_KEY_FRAME_INTERVAL_SEC } from "../../encode-settings"
+import { isAnimationExportAborted } from "../abort"
 import type { WatermarkAssets } from "../types"
 import {
   AnimationExportAbortedError,
@@ -76,10 +77,9 @@ async function tryEncodeInWorker(
   plan: FramePlan,
   progress: Progress,
   durationSec: number,
-  sourceSrc: string,
+  audioBlob: Blob | null,
   signal?: AbortSignal
 ): Promise<Blob | null> {
-  const audioBlob = await loadAudioSourceBlob(sourceSrc, signal)
   // Audio is decoded and re-encoded inside the worker during init, so report the
   // phase around the handshake rather than around a separate feed step.
   if (audioBlob) progress.report("audio", 0, 1)
@@ -142,6 +142,11 @@ export async function encodeMp4OrWebm(
     throw new Error("Video encoding is not supported in this browser")
   }
 
+  // Read once and share with the fallback: this is the whole source clip, and
+  // re-reading it on the fallback path doubles the cost for a long video.
+  // Best-effort — missing/unusable audio → silent video, never fail the export.
+  const audioBlob = await loadAudioSourceBlob(sourceSrc, signal)
+
   try {
     const encoded = await tryEncodeInWorker(
       format,
@@ -152,17 +157,12 @@ export async function encodeMp4OrWebm(
       plan,
       progress,
       durationSec,
-      sourceSrc,
+      audioBlob,
       signal
     )
     if (encoded) return encoded
   } catch (err) {
-    if (
-      err instanceof AnimationExportAbortedError ||
-      (err instanceof Error && err.name === "AnimationExportAbortedError")
-    ) {
-      throw err
-    }
+    if (isAnimationExportAborted(err)) throw err
     // Anything else falls through to the in-process encoder, which is a genuine
     // second chance rather than a repeat of the same failure.
   }
@@ -182,8 +182,6 @@ export async function encodeMp4OrWebm(
 
   const outputFormat =
     format === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat()
-  // Best-effort: missing/unusable audio → silent video, never fail the export.
-  const audioBlob = await loadAudioSourceBlob(sourceSrc, signal)
   const sourceAudio = audioBlob
     ? await prepareSourceAudio(
         audioBlob,

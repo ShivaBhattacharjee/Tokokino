@@ -10,6 +10,7 @@
  * unbounded queue would hold every frame's pixels at once.
  */
 
+import { throwIfAborted } from "../abort"
 import { GifStreamEncoder } from "../gif-codec"
 import type {
   GifWorkerRequest,
@@ -189,25 +190,35 @@ function createInlineSession(): GifEncoderSession {
  * it — including on the error path — so a cancelled export doesn't leave a
  * worker (and its buffered stream) alive.
  */
-export async function createGifEncoderSession(): Promise<GifEncoderSession> {
+export async function createGifEncoderSession(
+  signal?: AbortSignal
+): Promise<GifEncoderSession> {
+  // An abort that has already fired never fires again, so nothing downstream
+  // would notice it — don't spawn a worker for an export that is already over.
+  throwIfAborted(signal)
   const handle = createWorkerSession()
   if (!handle) return createInlineSession()
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
     // Round-trips one message before any pixels are sent, so a worker that can't
     // load (blocked by CSP, missing chunk) falls back here rather than halfway
     // through an export.
     await Promise.race([
       handle.handshake(),
-      new Promise((_, reject) =>
-        setTimeout(
+      new Promise((_, reject) => {
+        timer = setTimeout(
           () => reject(new Error("GIF encode worker did not start")),
           HANDSHAKE_TIMEOUT_MS
         )
-      ),
+      }),
     ])
     return handle.session
   } catch {
     handle.session.dispose()
     return createInlineSession()
+  } finally {
+    // Promise.race leaves the loser pending, so without this the timer keeps the
+    // worker closure alive for the full timeout after a successful handshake.
+    clearTimeout(timer)
   }
 }

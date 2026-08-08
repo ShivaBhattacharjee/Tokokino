@@ -159,6 +159,15 @@ async function handle(request: VideoMuxerRequest) {
         reply({ id: request.id, ok: true, type: "cancel" })
         return
       }
+      default: {
+        // Unreachable for a well-typed message, but a stale client (or anything
+        // else posting here) must still get a reply — the client keys pending
+        // promises by id and a dropped response would hang the export forever.
+        const unknown: never = request
+        throw new Error(
+          `Unknown mux worker request: ${(unknown as { type?: string }).type}`
+        )
+      }
     }
   } catch (err) {
     if (request.type === "frame") request.frame.close()

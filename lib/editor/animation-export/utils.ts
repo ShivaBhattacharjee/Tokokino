@@ -88,10 +88,27 @@ export function animationMimeAndExt(format: AnimationExportFormat): {
   return { contentType: "video/webm", extension: "webm" }
 }
 
+/**
+ * Longest a paint wait may block. `requestAnimationFrame` does not fire at all
+ * in a backgrounded tab, so an unbounded wait would stall an export that the
+ * user switched away from — including the one just before the download, leaving
+ * a finished file that never lands. Two frames is ~32ms in the normal case, so
+ * this only ever trips when rAF is genuinely paused.
+ */
+const MAX_PAINT_WAIT_MS = 1_000
+
 export function waitForPaint(): Promise<void> {
   return new Promise((resolve) => {
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(done, MAX_PAINT_WAIT_MS)
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve())
+      requestAnimationFrame(done)
     })
   })
 }
