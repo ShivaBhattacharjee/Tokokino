@@ -378,50 +378,48 @@ export const ImageCropContent = ({
       crop={crop}
       onChange={handleChange}
       onComplete={handleComplete}
-      renderSelectionAddon={
-        reactCropProps.aspect
-          ? () => (
-              <>
-                <div
-                  aria-hidden
-                  className="absolute top-0 left-1/2 z-10 flex h-3 w-9 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
-                  onPointerDown={(e) => startEdgeResize("n", e)}
-                >
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                </div>
-                <div
-                  aria-hidden
-                  className="absolute top-1/2 right-0 z-10 flex h-9 w-3 translate-x-1/2 -translate-y-1/2 cursor-ew-resize flex-col items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
-                  onPointerDown={(e) => startEdgeResize("e", e)}
-                >
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                </div>
-                <div
-                  aria-hidden
-                  className="absolute bottom-0 left-1/2 z-10 flex h-3 w-9 -translate-x-1/2 translate-y-1/2 cursor-ns-resize items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
-                  onPointerDown={(e) => startEdgeResize("s", e)}
-                >
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                </div>
-                <div
-                  aria-hidden
-                  className="absolute top-1/2 left-0 z-10 flex h-9 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize flex-col items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
-                  onPointerDown={(e) => startEdgeResize("w", e)}
-                >
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                  <span className="size-1 rounded-full bg-foreground/55" />
-                </div>
-              </>
-            )
-          : undefined
-      }
+      // The library hides midpoint handles for coarse pointers and fixed
+      // aspects. Keep our larger edge handles available in every crop mode.
+      renderSelectionAddon={() => (
+        <>
+          <div
+            aria-hidden
+            className="absolute top-0 left-1/2 z-10 flex h-3 w-9 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
+            onPointerDown={(e) => startEdgeResize("n", e)}
+          >
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+          </div>
+          <div
+            aria-hidden
+            className="absolute top-1/2 right-0 z-10 flex h-9 w-3 translate-x-1/2 -translate-y-1/2 cursor-ew-resize flex-col items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
+            onPointerDown={(e) => startEdgeResize("e", e)}
+          >
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+          </div>
+          <div
+            aria-hidden
+            className="absolute bottom-0 left-1/2 z-10 flex h-3 w-9 -translate-x-1/2 translate-y-1/2 cursor-ns-resize items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
+            onPointerDown={(e) => startEdgeResize("s", e)}
+          >
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+          </div>
+          <div
+            aria-hidden
+            className="absolute top-1/2 left-0 z-10 flex h-9 w-3 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize flex-col items-center justify-center gap-0.5 rounded-[2px] border border-border bg-background/80 shadow-sm"
+            onPointerDown={(e) => startEdgeResize("w", e)}
+          >
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+            <span className="size-1 rounded-full bg-foreground/55" />
+          </div>
+        </>
+      )}
       style={{ ...shadcnStyle, ...style }}
       {...reactCropProps}
     >

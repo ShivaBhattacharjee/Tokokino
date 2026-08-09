@@ -388,8 +388,9 @@ export function CropModal({
     node.scrollTop = anchor.y * node.scrollHeight - node.clientHeight / 2
   }, [displaySize])
 
-  // Nothing to zoom until we know what size the image is being drawn at.
-  const canZoom = !!fitSize
+  // Video crops use a still preview only, so magnifying it is misleading and
+  // adds no precision to the crop applied across the clip.
+  const canZoom = !!fitSize && !isVideo
 
   // A small screenshot is ready within a frame or two; showing the spinner
   // immediately would just flash. Only a genuinely heavy source waits.
