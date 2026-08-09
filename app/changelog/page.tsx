@@ -51,6 +51,10 @@ const releases: Release[] = [
         text: "Three new background packs in the inspector: warm wood grain, flowing colour, and clean minimal surfaces.",
       },
       {
+        title: "More clouds",
+        text: "The Cloud background pack grew from 7 to 28 images — sunsets, storm fronts, soft overcast and clear blue skies.",
+      },
+      {
         title: "Shapes behave like any other layer",
         text: "Move, resize, rotate, recolour, and reorder a shape exactly like an image you added yourself.",
       },
