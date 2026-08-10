@@ -103,7 +103,7 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "lint-staged": "^17.0.5",
     "oxfmt": "^0.60.0",
     "postcss": "^8",
@@ -111,7 +111,7 @@
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.3",
-    "vitest": "^4.1.8",
+    "vitest": "^4.1.10",
     "wrangler": "^4.110.0"
   },
   "pnpm": {
