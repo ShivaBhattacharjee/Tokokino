@@ -32,6 +32,10 @@ type GlossaryTerm = {
 
 const terms: GlossaryTerm[] = [
   {
+    term: "Animate mode",
+    body: "The editing mode that swaps the inspector for a timeline, letting you build a motion sequence from the same canvas you styled — then render it out as a video or GIF.",
+  },
+  {
     term: "Annotation",
     body: "A mark drawn directly over your capture — arrows, shapes, or freehand strokes. Annotations sit on their own layer so you can point at what matters without touching the underlying screenshot.",
   },
@@ -60,6 +64,10 @@ const terms: GlossaryTerm[] = [
     body: "How a layer's colors mix with what's beneath it — multiply, screen, overlay, and more. Applied per text layer, asset, or screenshot layer for compositing effects.",
   },
   {
+    term: "Border",
+    body: "An outline drawn around the screenshot, with its own color, width (0–12px), style, and inner padding (0–80px) — useful for lifting a light capture off a light background.",
+  },
+  {
     term: "Border radius",
     body: "The corner rounding of the screenshot (0–48px). Distinct from the canvas border radius, which rounds the outer canvas card (0–80px).",
   },
@@ -70,6 +78,18 @@ const terms: GlossaryTerm[] = [
   {
     term: "Canvas",
     body: "One styled screenshot card — the core unit of a Tokokino document. Each canvas holds its own screenshot, background, effects, layers, and framing. A project can hold up to 20.",
+  },
+  {
+    term: "Clip",
+    body: "The unit of animation on the timeline — a span with a start, a duration, and a set of effects it owns. Playback eases each effect from the committed baseline toward the clip's target values.",
+  },
+  {
+    term: "Color grade",
+    body: "Per-pixel adjustments applied to the screenshot or video itself — blur, brightness, contrast, saturation, hue, grayscale, sepia, and invert. Distinct from the backdrop's grade, which affects only the layer behind.",
+  },
+  {
+    term: "Crop",
+    body: "Trimming the capture down to a region of interest. Tokokino keeps the original untouched behind the crop, so you can re-crop or restore the full frame at any point.",
   },
   {
     term: "Custom preset",
@@ -84,6 +104,10 @@ const terms: GlossaryTerm[] = [
     body: "A saved, in-progress editor state stored to your account so you can leave and return to the same composition. Drafts keep the full state plus a thumbnail preview.",
   },
   {
+    term: "Easing",
+    body: "The curve a clip follows between its baseline and its target — linear, cubic, ease-in, ease-out, ease-in-out, out-circ, or a custom cubic-bezier you drag by hand. Easing is what separates mechanical motion from motion that feels designed.",
+  },
+  {
     term: "Enhance preset",
     body: "A one-tap image treatment applied to the screenshot — Auto, Vivid, Soft, Dramatic, or Sharp — that adjusts brightness, contrast, and saturation without manual sliders.",
   },
@@ -92,8 +116,12 @@ const terms: GlossaryTerm[] = [
     body: "The output width your image renders at: HD (1920px), 4K (3840px), or 8K (7680px). Resolution is separate from canvas zoom, which only affects your editing viewport.",
   },
   {
+    term: "Filter",
+    body: "A named look applied to a screenshot, video, or asset layer — B&W, Sepia, Vintage, Warm, Cool, Fade, Vivid, Noir, Dream, Mono, or Invert. Filters stack on top of any manual color grade.",
+  },
+  {
     term: "Keyframe",
-    body: "A point on the timeline that captures target values — position, zoom, tilt, shadow, lighting, background, filters — so the editor can animate smoothly between states for a demo.",
+    body: "A point on the timeline that captures target values — position, zoom, tilt, shadow, lighting, background, filters — so the editor can animate smoothly between states for a demo. In Tokokino a keyframe is expressed as a clip.",
   },
   {
     term: "Layer",
@@ -108,6 +136,10 @@ const terms: GlossaryTerm[] = [
     body: "How the screenshot sizes into its box: contain (fit whole image), cover (fill and crop), or fill (stretch to the box). Controls what happens when image and box proportions differ.",
   },
   {
+    term: "Offline editing",
+    body: "The editor keeps working with no network. Drafts persist locally and sync back to your account once you reconnect — only sharing and cloud capture need a connection.",
+  },
+  {
     term: "Overlay",
     body: "A texture laid over or under the screenshot — one of 100 presets — with adjustable opacity, used to add grain, light leaks, or surface character.",
   },
@@ -116,8 +148,24 @@ const terms: GlossaryTerm[] = [
     body: "The space (0–240px) between the screenshot and the edge of the canvas card, giving the capture room to breathe against the background.",
   },
   {
+    term: "Pattern",
+    body: "A repeating geometric texture drawn into the backdrop — grids, dots, lines, and more — with adjustable intensity, stroke thickness, and color.",
+  },
+  {
     term: "Portrait mode",
     body: "A depth-of-field effect — Soft, Studio, Spot, Frame, Iris, Blur, or Stage — that blurs around a focal region to draw the eye, tuned by intensity, position, and distance.",
+  },
+  {
+    term: "Preview mode",
+    body: "A distraction-free playback of your canvases in sequence, with slide, fade, zoom, or flip transitions and optional auto-scroll — a way to review a set before exporting it.",
+  },
+  {
+    term: "Scale",
+    body: "The size of the screenshot inside its canvas, from 10% to 300%. Scale changes the capture within the frame; it does not change the canvas or the exported resolution.",
+  },
+  {
+    term: "Screenshot placement",
+    body: "Where the capture sits inside the canvas — snapped to a point on a 5×5 grid or centered, then nudged by a pixel offset for fine positioning.",
   },
   {
     term: "Screenshot slot",
@@ -128,8 +176,24 @@ const terms: GlossaryTerm[] = [
     body: "The cast shadow beneath the screenshot. Six types — Drop, Soft, Hard, Glow, Float, and Linear — each with adjustable intensity, light-source direction, and custom color.",
   },
   {
+    term: "Shape",
+    body: "One of 106 rendered 3D objects you can drop onto a canvas. A shape becomes an ordinary asset layer, so it moves, scales, filters, and reorders like any other image.",
+  },
+  {
     term: "Share link",
-    body: "A public URL for a captured composition. Tokokino renders the canvas to an image, uploads it, and returns a link anyone can open — with view tracking and per-user deduplication.",
+    body: "A public URL for a captured composition — still or animated. Tokokino renders the canvas, uploads it, and returns a link anyone can open, with view tracking and per-user deduplication.",
+  },
+  {
+    term: "Social post mockup",
+    body: "An X or Bluesky post rendered as a card on the canvas in place of a screenshot. Paste a post URL and Tokokino rebuilds it, so you can style it like any other capture.",
+  },
+  {
+    term: "Template",
+    body: "One of 20 ready-made compositions — background, framing, layers, and in several cases a full animation — applied to a canvas in one click as a starting point rather than a locked result.",
+  },
+  {
+    term: "Text layer",
+    body: "Free-floating type placed over the canvas, with its own font, weight, size, spacing, color, stroke, shadow, alignment, opacity, and blend mode. Over 100 Google Fonts are available.",
   },
   {
     term: "Tilt",
@@ -137,7 +201,23 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Timeline",
-    body: "The animation track where keyframes live. Scrubbing the timeline plays the transitions between keyframes, which you can render out as a GIF or WebM product demo with optional audio.",
+    body: "The per-canvas animation track where clips live. Scrubbing the timeline plays the transitions between them, which you can render out as a WebM, MP4, or GIF product demo with optional audio.",
+  },
+  {
+    term: "Trim",
+    body: "Cutting a video down to the segment you want, and muting it if you don't want the audio. Trimmed segments map onto the animation timeline so motion and footage stay in sync.",
+  },
+  {
+    term: "Undo history",
+    body: "The stack of document states behind every edit — up to 100 steps back. Styling, layers, and layout changes are undoable; view state such as zoom and mode is not.",
+  },
+  {
+    term: "URL capture",
+    body: "Screenshotting a live webpage by pasting its address. Tokokino loads the page in a headless browser and returns the capture, optionally as a full-page shot you can scroll within the frame.",
+  },
+  {
+    term: "Video export",
+    body: "Encoding an animated canvas to WebM, MP4, or GIF. The entire encode runs on your device — frames are captured, muxed with any source audio, and written out without the footage leaving your machine.",
   },
   {
     term: "Watermark",
