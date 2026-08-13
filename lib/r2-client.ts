@@ -30,7 +30,7 @@ const collectR2Response: R2StreamCollector = async (stream) => {
     typeof stream === "object" &&
     typeof (stream as { getReader?: unknown }).getReader === "function"
   ) {
-    return collectWebStream(stream)
+    return collectWebStream(stream as ReadableStream)
   }
   if (
     stream &&

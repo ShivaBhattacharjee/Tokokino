@@ -43,7 +43,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@opennextjs/cloudflare": "^1.20.2",
     "@remixicon/react": "^4.9.0",
-    "@smithy/fetch-http-handler": "^5.4.3",
+    "@smithy/fetch-http-handler": "^5.6.13",
     "@xyflow/react": "^12.10.2",
     "better-auth": "^1.6.11",
     "class-variance-authority": "^0.7.1",
