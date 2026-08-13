@@ -34,6 +34,8 @@ export function ColorSwatches({
         {allowTransparent ? (
           <button
             onClick={() => onChange("transparent")}
+            aria-label={`${label}: transparent`}
+            aria-pressed={normalized === "transparent"}
             title="Transparent"
             className={cn(
               "bg-transparency-checker size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
@@ -45,6 +47,9 @@ export function ColorSwatches({
           <button
             key={c}
             onClick={() => onChange(c)}
+            aria-label={`${label}: ${c}`}
+            aria-pressed={normalized === c.trim().toLowerCase()}
+            title={c}
             className={cn(
               "size-8 cursor-pointer rounded-full border border-border/60 transition-transform hover:scale-110",
               normalized === c.trim().toLowerCase() && ACTIVE_COLOR_SWATCH_CLASS

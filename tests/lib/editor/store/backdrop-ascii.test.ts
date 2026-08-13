@@ -141,6 +141,26 @@ describe("ascii backdrop draft hydration", () => {
     )
   })
 
+  it("clamps a persisted resolution outside the schema's range", () => {
+    const canvas = createCanvas("saved", { x: 0, y: 0 })
+    const hydrate = (resolution: number) =>
+      normalizeEditorState({
+        activeCanvasId: "saved",
+        canvases: [
+          {
+            ...canvas,
+            backdrop: {
+              ...canvas.backdrop,
+              ascii: { ...DEFAULT_BACKDROP_ASCII, resolution },
+            },
+          },
+        ],
+      }).canvases[0]?.backdrop.ascii?.resolution
+
+    expect(hydrate(9999)).toBe(200)
+    expect(hydrate(1)).toBe(20)
+  })
+
   it("keeps saved ASCII settings and backfills fields added later", () => {
     const canvas = createCanvas("saved", { x: 0, y: 0 })
     const normalized = normalizeEditorState({

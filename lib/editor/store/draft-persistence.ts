@@ -1,4 +1,4 @@
-import { DEFAULT_BACKDROP_ASCII } from "../ascii-backdrop"
+import { DEFAULT_BACKDROP_ASCII, resolveBackdropAscii } from "../ascii-backdrop"
 import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../css-utils"
 import { getBlobForObjectUrl, registerObjectUrl } from "../media-type"
 import { BACKGROUND_LIBRARY } from "../presets"
@@ -547,11 +547,13 @@ function normalizeCanvasState(
         ...fallbackBackdrop.lighting,
         ...(sourceBackdrop?.lighting ?? {}),
       },
-      ascii: {
+      // Same normalizer the store writer uses, so a hand-edited or pre-clamp
+      // draft can't land an out-of-range column count in state.
+      ascii: resolveBackdropAscii({
         ...DEFAULT_BACKDROP_ASCII,
         ...(fallbackBackdrop.ascii ?? {}),
         ...(sourceBackdrop?.ascii ?? {}),
-      },
+      }),
     },
     mediaAdjustments: {
       ...NEUTRAL_MEDIA_ADJUSTMENTS,
