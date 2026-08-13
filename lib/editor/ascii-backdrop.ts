@@ -309,8 +309,17 @@ export function backgroundSampleKey(
  */
 const pendingSamples = new Set<Promise<void>>()
 
+/**
+ * Whether anything has sampled this session — i.e. whether glyphs can exist at
+ * all. An empty pending set does NOT mean the DOM is ready: a sample's tracking
+ * handler is attached before the caller's, so the set empties an earlier
+ * microtask than the `setPixels` that draws the result. Only a session that
+ * never sampled can skip the wait outright.
+ */
+let hasSampled = false
+
 export async function waitForAsciiBackdrops(): Promise<void> {
-  if (pendingSamples.size === 0) return
+  if (!hasSampled) return
   // No deadline: returning with work still pending is exactly the race this
   // exists to close — a bounded wait would hand the exporter a half-drawn
   // backdrop and call it done. Every sample is guaranteed to settle (see
@@ -320,7 +329,9 @@ export async function waitForAsciiBackdrops(): Promise<void> {
     await Promise.all([...pendingSamples])
   }
   // A settled sample is still only React state — give it the frames it needs to
-  // commit the grid into the DOM the exporter is about to read.
+  // commit the grid into the DOM the exporter is about to read. This runs even
+  // when nothing was pending, because "settled" and "painted" are not the same
+  // instant and the exporter reads the painted DOM.
   await new Promise<void>((resolve) => {
     if (typeof requestAnimationFrame !== "function") {
       resolve()
@@ -339,6 +350,7 @@ export function sampleBackgroundPixels(
   cols: number,
   rows: number
 ): Promise<Uint8ClampedArray | null> {
+  hasSampled = true
   const sample = sampleBackgroundPixelsUncached(background, cols, rows)
   // Never rejects, so the tracked copy can't raise an unhandled rejection —
   // the caller still sees the original promise's failure.

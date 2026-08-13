@@ -173,12 +173,36 @@ describe("ascii backdrop state", () => {
 })
 
 describe("waitForAsciiBackdrops", () => {
-  it("resolves straight away when nothing is sampling", async () => {
+  // Must stay the first test that touches the module's sampling state: it
+  // asserts the never-sampled path, which no later sample can restore.
+  it("resolves straight away when nothing has ever sampled", async () => {
     let done = false
     await waitForAsciiBackdrops().then(() => {
       done = true
     })
     expect(done).toBe(true)
+  })
+
+  it("still waits for a paint after the last sample has settled", async () => {
+    // The pending set empties an earlier microtask than the setPixels that
+    // draws the result, so an empty set is not proof the glyphs are in the DOM.
+    // Export reads the painted DOM, so the commit wait has to run anyway.
+    await sampleBackgroundPixels({ type: "solid", value: "#111" }, 4, 2)
+    // Drain the microtasks that retire the tracking entry, so the pending set
+    // is genuinely empty here — the exact state the early return keyed on.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const order: string[] = []
+    const frame = new Promise<void>((resolve) =>
+      requestAnimationFrame(() => {
+        order.push("frame")
+        resolve()
+      })
+    )
+    const wait = waitForAsciiBackdrops().then(() => order.push("wait"))
+
+    await Promise.all([frame, wait])
+    expect(order).toEqual(["frame", "wait"])
   })
 
   it("does not resolve until an in-flight sample has settled", async () => {
