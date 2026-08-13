@@ -432,6 +432,23 @@ function appendWatermark(node: HTMLElement, width: number, height: number) {
   node.appendChild(watermark)
 }
 
+/**
+ * SVG foreignObject export cannot reliably composite the glass frame's
+ * backdrop-filter against image/ASCII layers behind it. WebKit can expand the
+ * blur beyond the translucent cards and soften the entire exported backdrop.
+ * Keep the glass paint, borders, and shadows, but remove only that unsupported
+ * blur from the detached export clone.
+ */
+export function neutralizeUnsupportedExportBackdropFilters(root: HTMLElement) {
+  for (const layer of Array.from(
+    root.querySelectorAll<HTMLElement>("[data-glass-frame-layer]")
+  )) {
+    if (layer.dataset.glassFrameLayer === "chrome") continue
+    layer.style.backdropFilter = "none"
+    layer.style.setProperty("-webkit-backdrop-filter", "none")
+  }
+}
+
 function prepareExportNode(
   source: HTMLElement,
   width: number,
@@ -460,6 +477,7 @@ function prepareExportNode(
   node.style.height = `${height}px`
   node.style.pointerEvents = "none"
   node.style.transform = "none"
+  neutralizeUnsupportedExportBackdropFilters(node)
 
   document.head.appendChild(exportStyle)
   if (options.watermark) {
@@ -524,6 +542,18 @@ function filterExportHidden(node: Node) {
 type RasterOptions = {
   cacheBust?: boolean
   filter?: (node: Node) => boolean
+}
+
+/** Layout dimensions for HTML or SVG roots used by export sub-rasterization. */
+export function exportElementLayoutSize(
+  node: Element
+): { width: number; height: number } | null {
+  const htmlNode = node as HTMLElement
+  const width = htmlNode.offsetWidth || Number(node.getAttribute("width"))
+  const height = htmlNode.offsetHeight || Number(node.getAttribute("height"))
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null
+  if (width <= 0 || height <= 0) return null
+  return { width, height }
 }
 
 /**
@@ -606,6 +636,58 @@ async function rasterizeNodeToCanvas(
   return canvas
 }
 
+/**
+ * Replace each ASCII glyph tree in an animation clone with one transparent,
+ * output-resolution PNG. The outer ASCII layer stays in the DOM so its plate,
+ * filter, user opacity, and timeline crossfade keep their original geometry.
+ */
+async function flattenAnimationAsciiLayers(
+  node: HTMLElement,
+  renderedWidth: number,
+  outputWidth: number
+): Promise<void> {
+  const glyphTrees = Array.from(
+    node.querySelectorAll<HTMLElement>('[data-export-ascii-glyphs="true"]')
+  )
+  if (glyphTrees.length === 0 || renderedWidth <= 0 || outputWidth <= 0) return
+
+  const pixelRatio = outputWidth / renderedWidth
+  for (const glyphTree of glyphTrees) {
+    const size = exportElementLayoutSize(glyphTree)
+    if (!size) continue
+    const { width, height } = size
+
+    try {
+      const raster = await rasterizeNodeToCanvas(
+        glyphTree,
+        { cacheBust: false },
+        width,
+        height,
+        Math.max(1, Math.round(width * pixelRatio)),
+        Math.max(1, Math.round(height * pixelRatio))
+      )
+      const dataUrl = await readBlobAsDataUrl(
+        await canvasToBlob(raster, "image/png")
+      )
+      const image = document.createElement("img")
+      image.src = dataUrl
+      image.alt = ""
+      image.draggable = false
+      image.setAttribute("aria-hidden", "true")
+      image.style.display = "block"
+      image.style.width = `${width}px`
+      image.style.height = `${height}px`
+      image.style.maxWidth = "none"
+      image.style.pointerEvents = "none"
+      await waitForImageElement(image)
+      glyphTree.replaceWith(image)
+    } catch {
+      // Keep the original glyph DOM so one failed optimisation cannot fail the
+      // export or remove the ASCII treatment from the affected keyframe.
+    }
+  }
+}
+
 function canvasToBlob(
   canvas: HTMLCanvasElement,
   type: string,
@@ -673,7 +755,6 @@ export async function exportCanvas(
   try {
     await waitForExportAssets(assetUrls)
     await embedCloneImages(exportTarget.node)
-
     if (format === "png") {
       const canvas = await rasterizeNodeToCanvas(
         exportTarget.node,
@@ -862,6 +943,11 @@ export async function prepareAnimationCapture(
   // data URIs or html-to-image caches them and freezes the animated background
   // on one frame — see embedCloneBackgroundImages.
   await embedCloneBackgroundImages(exportTarget.node)
+  await flattenAnimationAsciiLayers(
+    exportTarget.node,
+    renderedWidth,
+    outputWidth
+  )
 
   const captureOptions = {
     cacheBust: false,
@@ -1074,6 +1160,11 @@ export async function prepareFastAnimationCapture(
   // export reads it back via getImageData).
   await embedCloneImages(exportTarget.node)
   await embedCloneBackgroundImages(exportTarget.node)
+  await flattenAnimationAsciiLayers(
+    exportTarget.node,
+    renderedWidth,
+    outputWidth
+  )
 
   // Element list for the per-frame computed-style bake (root + all descendants).
   // Re-read every frame rather than cached once: callers swap nodes into the

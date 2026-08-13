@@ -307,6 +307,7 @@ describe("asciiDiffer", () => {
     expect(asciiDiffer(base, { ...base, colored: !base.colored })).toBe(true)
     expect(asciiDiffer(base, { ...base, inverted: !base.inverted })).toBe(true)
     expect(asciiDiffer(base, { ...base, color: "#FF0000" })).toBe(true)
+    expect(asciiDiffer(base, { ...base, opacity: 40 })).toBe(true)
   })
 })
 

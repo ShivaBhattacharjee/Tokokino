@@ -942,7 +942,8 @@ export function asciiDiffer(a: BackdropAscii, b: BackdropAscii): boolean {
     a.charset !== b.charset ||
     a.colored !== b.colored ||
     a.inverted !== b.inverted ||
-    a.color !== b.color
+    a.color !== b.color ||
+    a.opacity !== b.opacity
   )
 }
 

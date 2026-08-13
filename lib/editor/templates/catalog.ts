@@ -33,6 +33,13 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     thumbnail: "https://assets.tokokino.com/templates/screenshot-glow.jpg",
   },
   {
+    id: "ascii-effect",
+    name: "ASCII Glass",
+    category: "image",
+    thumbnail:
+      "https://assets.tokokino.com/templates/glass-ascii-background.jpg",
+  },
+  {
     id: "silent-reveal",
     name: "Silent Reveal",
     category: "image",

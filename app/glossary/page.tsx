@@ -189,7 +189,7 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Template",
-    body: "One of 20 ready-made compositions — background, framing, layers, and in several cases a full animation — applied to a canvas in one click as a starting point rather than a locked result.",
+    body: "One of 21 ready-made compositions — background, framing, layers, and in several cases a full animation — applied to a canvas in one click as a starting point rather than a locked result.",
   },
   {
     term: "Text layer",

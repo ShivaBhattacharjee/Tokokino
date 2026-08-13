@@ -4,13 +4,21 @@ import {
   ASCII_CHARSETS,
   ASCII_CELL_ASPECT,
   ASCII_MAX_CELLS,
+  ASCII_MAX_OPACITY,
+  ASCII_MIN_OPACITY,
   ASCII_MIN_RESOLUTION,
+  ASCII_RESOLUTION_PREVIEW_VAR,
   asciiGridSize,
+  asciiImageCoverRect,
   asciiPlateColor,
+  asciiResolutionPreviewTransform,
   asciiRowCount,
+  asciiRunGeometry,
+  asciiSamplingSurfaceSize,
   DEFAULT_BACKDROP_ASCII,
   gridFromImageData,
   isAsciiBackdropActive,
+  normalizeAsciiOpacity,
   resolveBackdropAscii,
   sampleBackgroundPixels,
   waitForAsciiBackdrops,
@@ -139,6 +147,50 @@ describe("ascii backdrop layout", () => {
     expect(asciiRowCount(200, 500, 4)).toBe(1)
     expect(asciiRowCount(80, 0, 0)).toBe(0)
   })
+
+  it("samples a landscape background at the aspect represented by tall glyph cells", () => {
+    // 100×31 grid cells are 1 unit wide × 2 units tall, so the background
+    // surface they represent is 100×62. Sampling at 100×31 instead makes
+    // background-size: cover crop a different region than the canvas.
+    expect(asciiSamplingSurfaceSize(100, 31)).toEqual({
+      width: 100,
+      height: 62,
+    })
+  })
+
+  it("preserves the represented aspect for portrait and one-row grids", () => {
+    expect(asciiSamplingSurfaceSize(45, 80)).toEqual({
+      width: 45,
+      height: 160,
+    })
+    expect(asciiSamplingSurfaceSize(20, 1)).toEqual({
+      width: 20,
+      height: 2,
+    })
+  })
+
+  it("cover-crops an image against the represented canvas aspect", () => {
+    // A 400×300 image sampled for a 100×31 grid uses the grid's represented
+    // 100×62 surface. The old square-pixel 100×31 surface cropped to only 124px
+    // high and visibly moved the source beneath a transparent ASCII layer.
+    const [x, y, width, height] = asciiImageCoverRect(400, 300, 100, 31)
+    expect(x).toBeCloseTo(0, 5)
+    expect(y).toBeCloseTo(26, 0)
+    expect(width).toBeCloseTo(400, 5)
+    expect(height).toBeCloseTo(248, 0)
+  })
+
+  it("assigns every glyph run an exact cell-based x position and width", () => {
+    // Unicode stars/circles can fall through to a different font inside an
+    // exported foreignObject. Geometry must therefore come from the grid, not
+    // from whichever advance width that fallback font reports.
+    expect(asciiRunGeometry(0, 12, 8)).toEqual({ x: 0, width: 96 })
+    expect(asciiRunGeometry(12, 5, 8)).toEqual({ x: 96, width: 40 })
+  })
+
+  it("normalizes invalid run geometry without producing negative SVG lengths", () => {
+    expect(asciiRunGeometry(-3, -4, 0)).toEqual({ x: 0, width: 0 })
+  })
 })
 
 describe("ascii backdrop state", () => {
@@ -150,7 +202,17 @@ describe("ascii backdrop state", () => {
       enabled: true,
       charset: "blocks",
       resolution: DEFAULT_BACKDROP_ASCII.resolution,
+      opacity: DEFAULT_BACKDROP_ASCII.opacity,
     })
+  })
+
+  it("clamps a persisted opacity outside the schema's range", () => {
+    expect(resolveBackdropAscii({ opacity: 140 } as never).opacity).toBe(
+      ASCII_MAX_OPACITY
+    )
+    expect(resolveBackdropAscii({ opacity: -4 } as never).opacity).toBe(
+      ASCII_MIN_OPACITY
+    )
   })
 
   it("stays inactive without a background to sample", () => {
@@ -259,5 +321,28 @@ describe("asciiGridSize", () => {
   it("never trims below the minimum resolution", () => {
     const { cols } = asciiGridSize(200, 10, 40000)
     expect(cols).toBeGreaterThanOrEqual(ASCII_MIN_RESOLUTION)
+  })
+})
+
+describe("normalizeAsciiOpacity", () => {
+  it("clamps and rounds anything the UI or a draft can hand it", () => {
+    expect(normalizeAsciiOpacity(-8)).toBe(ASCII_MIN_OPACITY)
+    expect(normalizeAsciiOpacity(140)).toBe(ASCII_MAX_OPACITY)
+    expect(normalizeAsciiOpacity(66.4)).toBe(66)
+    expect(normalizeAsciiOpacity(Number.NaN)).toBe(
+      DEFAULT_BACKDROP_ASCII.opacity
+    )
+  })
+})
+
+describe("asciiResolutionPreviewTransform", () => {
+  it("scales the painted grid against the live-preview var", () => {
+    expect(asciiResolutionPreviewTransform(90, 90)).toBe(
+      `scale(calc(90 / var(${ASCII_RESOLUTION_PREVIEW_VAR}, 90)))`
+    )
+    // Stale sample after a commit: keep the drag scale until resample lands.
+    expect(asciiResolutionPreviewTransform(90, 140)).toBe(
+      `scale(calc(90 / var(${ASCII_RESOLUTION_PREVIEW_VAR}, 140)))`
+    )
   })
 })

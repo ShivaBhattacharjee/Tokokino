@@ -94,6 +94,23 @@ describe("ascii resolution validation", () => {
       .setBackdropAscii({ ...DEFAULT_BACKDROP_ASCII, resolution: 88.7 })
     expect(activeCanvas().backdrop.ascii?.resolution).toBe(89)
   })
+
+  it("clamps opacity to 0–100", () => {
+    store
+      .getState()
+      .setBackdropAscii({ ...DEFAULT_BACKDROP_ASCII, opacity: 140 })
+    expect(activeCanvas().backdrop.ascii?.opacity).toBe(100)
+
+    store
+      .getState()
+      .setBackdropAscii({ ...DEFAULT_BACKDROP_ASCII, opacity: -8 })
+    expect(activeCanvas().backdrop.ascii?.opacity).toBe(0)
+
+    store
+      .getState()
+      .setBackdropAscii({ ...DEFAULT_BACKDROP_ASCII, opacity: 66.4 })
+    expect(activeCanvas().backdrop.ascii?.opacity).toBe(66)
+  })
 })
 
 describe("ascii in animate mode", () => {

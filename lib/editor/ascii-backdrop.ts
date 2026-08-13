@@ -44,6 +44,43 @@ export function normalizeAsciiResolution(raw: number): number {
 }
 
 /**
+ * Live-preview var for the resolution slider. Written on the canvas (and
+ * preset thumbs) while dragging so glyphs can scale without a store commit
+ * or a resample. Cleared on pointer-up after the committed grid paints.
+ */
+export const ASCII_RESOLUTION_PREVIEW_VAR = "--bd-ascii-resolution"
+
+/**
+ * Scale the *currently painted* glyph grid so its cell size matches the
+ * live-previewed (or just-committed) column count.
+ *
+ * `displayedCols` is the grid on screen — the last sample, which lags one
+ * async resample behind the store. Using that as the numerator keeps the
+ * drag scale in place until the new sample arrives, instead of flashing
+ * back to 1× on a stale grid.
+ */
+export function asciiResolutionPreviewTransform(
+  displayedCols: number,
+  committedResolution: number
+): string {
+  const from = Math.max(1, displayedCols)
+  const to = normalizeAsciiResolution(committedResolution)
+  return `scale(calc(${from} / var(${ASCII_RESOLUTION_PREVIEW_VAR}, ${to})))`
+}
+
+const asciiOpacityRange = editorValueSchemas.opacity
+export const ASCII_MIN_OPACITY = asciiOpacityRange.minValue ?? 0
+export const ASCII_MAX_OPACITY = asciiOpacityRange.maxValue ?? 100
+
+/** Clamp and round a 0–100 opacity to the shared schema's range. */
+export function normalizeAsciiOpacity(raw: number): number {
+  return Math.round(
+    clampNumber(raw, ASCII_MIN_OPACITY, ASCII_MAX_OPACITY) ??
+      DEFAULT_BACKDROP_ASCII.opacity
+  )
+}
+
+/**
  * Character cell width ÷ height. Monospace glyphs are roughly twice as tall as
  * they are wide, so the sampling grid uses the same ratio and the picture keeps
  * the background's aspect instead of squashing it.
@@ -60,6 +97,7 @@ export const DEFAULT_BACKDROP_ASCII: BackdropAscii = {
   colored: true,
   inverted: false,
   color: "#FFFFFF",
+  opacity: 100,
 }
 
 export function resolveBackdropAscii(
@@ -68,7 +106,11 @@ export function resolveBackdropAscii(
   if (!ascii) return DEFAULT_BACKDROP_ASCII
   const merged = { ...DEFAULT_BACKDROP_ASCII, ...ascii }
   const resolution = normalizeAsciiResolution(merged.resolution)
-  return resolution === merged.resolution ? merged : { ...merged, resolution }
+  const opacity = normalizeAsciiOpacity(merged.opacity)
+  if (resolution === merged.resolution && opacity === merged.opacity) {
+    return merged
+  }
+  return { ...merged, resolution, opacity }
 }
 
 export function isAsciiBackdropActive(
@@ -88,6 +130,37 @@ export function asciiRowCount(
   const cellWidth = width / cols
   const cellHeight = cellWidth / ASCII_CELL_ASPECT
   return Math.max(1, Math.round(height / cellHeight))
+}
+
+/**
+ * Pixel surface whose aspect matches the canvas area represented by a glyph
+ * grid. Grid rows are counts, not square pixels: every cell is
+ * {@link ASCII_CELL_ASPECT} as wide as it is tall. Sampling a cover-fitted
+ * background at raw `cols × rows` would therefore crop a different region.
+ */
+export function asciiSamplingSurfaceSize(
+  cols: number,
+  rows: number
+): { width: number; height: number } {
+  return {
+    width: Math.max(1, Math.round(cols)),
+    height: Math.max(1, Math.round(rows / ASCII_CELL_ASPECT)),
+  }
+}
+
+/** Exact SVG geometry for a run of ASCII glyph cells. */
+export function asciiRunGeometry(
+  startCell: number,
+  cellCount: number,
+  cellWidth: number
+): { x: number; width: number } {
+  const safeStart = Math.max(0, startCell)
+  const safeCount = Math.max(0, cellCount)
+  const safeCellWidth = Math.max(0, cellWidth)
+  return {
+    x: safeStart * safeCellWidth,
+    width: safeCount * safeCellWidth,
+  }
 }
 
 /**
@@ -290,6 +363,17 @@ function coverRect(
   return [(sw - w) / 2, (sh - h) / 2, w, h]
 }
 
+/** Cover crop used when an image background is sampled into an ASCII grid. */
+export function asciiImageCoverRect(
+  sourceWidth: number,
+  sourceHeight: number,
+  cols: number,
+  rows: number
+): [number, number, number, number] {
+  const surface = asciiSamplingSurfaceSize(cols, rows)
+  return coverRect(sourceWidth, sourceHeight, surface.width, surface.height)
+}
+
 const sampleCache = new Map<string, Uint8ClampedArray>()
 const SAMPLE_CACHE_LIMIT = 24
 
@@ -373,27 +457,48 @@ async function sampleBackgroundPixelsUncached(
   const cached = sampleCache.get(key)
   if (cached) return cached
 
-  const canvas = document.createElement("canvas")
-  canvas.width = cols
-  canvas.height = rows
-  const ctx = canvas.getContext("2d", { willReadFrequently: true })
-  if (!ctx) return null
+  const sampleSize = asciiSamplingSurfaceSize(cols, rows)
+  const sourceCanvas = document.createElement("canvas")
+  sourceCanvas.width = sampleSize.width
+  sourceCanvas.height = sampleSize.height
+  const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true })
+  if (!sourceCtx) return null
 
   if (background.type === "image") {
     const img = await loadImage(readableImageUrl(background.value))
-    const [sx, sy, sw, sh] = coverRect(
+    const [sx, sy, sw, sh] = asciiImageCoverRect(
       img.naturalWidth,
       img.naturalHeight,
       cols,
       rows
     )
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cols, rows)
+    sourceCtx.drawImage(
+      img,
+      sx,
+      sy,
+      sw,
+      sh,
+      0,
+      0,
+      sampleSize.width,
+      sampleSize.height
+    )
   } else {
-    const img = await rasterizeCssBackground(background.value, cols, rows)
-    ctx.drawImage(img, 0, 0, cols, rows)
+    const img = await rasterizeCssBackground(
+      background.value,
+      sampleSize.width,
+      sampleSize.height
+    )
+    sourceCtx.drawImage(img, 0, 0, sampleSize.width, sampleSize.height)
   }
 
-  const { data } = ctx.getImageData(0, 0, cols, rows)
+  const gridCanvas = document.createElement("canvas")
+  gridCanvas.width = cols
+  gridCanvas.height = rows
+  const gridCtx = gridCanvas.getContext("2d", { willReadFrequently: true })
+  if (!gridCtx) return null
+  gridCtx.drawImage(sourceCanvas, 0, 0, cols, rows)
+  const { data } = gridCtx.getImageData(0, 0, cols, rows)
   if (sampleCache.size >= SAMPLE_CACHE_LIMIT) {
     const oldest = sampleCache.keys().next().value
     if (oldest !== undefined) sampleCache.delete(oldest)

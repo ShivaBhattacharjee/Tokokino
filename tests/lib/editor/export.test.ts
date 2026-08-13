@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { shouldProxyAssetUrl } from "@/lib/editor/export-assets"
-import { exportScaleStyle } from "@/lib/editor/export"
+import { exportElementLayoutSize, exportScaleStyle } from "@/lib/editor/export"
 
 describe("shouldProxyAssetUrl", () => {
   it("proxies external http and https assets", () => {
@@ -39,5 +39,15 @@ describe("exportScaleStyle — WebKit foreignObject scaling", () => {
     const style = exportScaleStyle(1920, 1080, 1)
     expect(style.transform).toBe("scale(1)")
     expect(style.width).toBe("1920px")
+  })
+})
+
+describe("exportElementLayoutSize", () => {
+  it("reads explicit SVG dimensions when offsetWidth is unavailable", () => {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+    svg.setAttribute("width", "1128")
+    svg.setAttribute("height", "634")
+
+    expect(exportElementLayoutSize(svg)).toEqual({ width: 1128, height: 634 })
   })
 })

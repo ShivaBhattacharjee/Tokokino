@@ -1,4 +1,7 @@
-import { normalizeAsciiResolution } from "../../ascii-backdrop"
+import {
+  normalizeAsciiOpacity,
+  normalizeAsciiResolution,
+} from "../../ascii-backdrop"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "../../present-presets"
 import {
   resolveActivePresetGeometry,
@@ -337,6 +340,7 @@ export const createCanvasStyleActions = ({
             ascii: {
               ...a,
               resolution: normalizeAsciiResolution(a.resolution),
+              opacity: normalizeAsciiOpacity(a.opacity),
             },
           },
         }),

@@ -76,6 +76,8 @@ export type BackdropAscii = {
   /** Reverse the ramp so bright pixels get the sparse characters. */
   inverted: boolean
   color: string
+  /** Glyph + plate opacity, 0–100. Independent of backdrop effects opacity. */
+  opacity: number
 }
 
 export type BackdropLightingTarget = "outer" | "inner"

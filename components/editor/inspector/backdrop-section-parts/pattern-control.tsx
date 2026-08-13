@@ -9,6 +9,7 @@ import {
   ASCII_CHARSETS,
   ASCII_MAX_RESOLUTION,
   ASCII_MIN_RESOLUTION,
+  ASCII_RESOLUTION_PREVIEW_VAR,
 } from "@/lib/editor/ascii-backdrop"
 import type { BackdropAscii, BackdropPattern } from "@/lib/editor/state-types"
 import { BACKDROP_PATTERNS, patternCssFor } from "@/lib/editor/store"
@@ -104,11 +105,29 @@ export function PatternControl({
             <EffectSlider
               label="Resolution"
               value={ascii.resolution}
-              onChange={(v) => setAscii({ resolution: v })}
+              onChange={(v) => {
+                setAscii({ resolution: v })
+                clearPreviewVarAfterPaint(ASCII_RESOLUTION_PREVIEW_VAR)
+              }}
+              onPreview={(v) =>
+                setPreviewVar(ASCII_RESOLUTION_PREVIEW_VAR, String(v))
+              }
               min={ASCII_MIN_RESOLUTION}
               max={ASCII_MAX_RESOLUTION}
               step={1}
               suffix=" cols"
+            />
+
+            <EffectSlider
+              label="Opacity"
+              value={ascii.opacity}
+              onChange={(v) => {
+                setAscii({ opacity: v })
+                clearPreviewVarAfterPaint("--bd-ascii-opacity")
+              }}
+              onPreview={(v) =>
+                setPreviewVar("--bd-ascii-opacity", `${v / 100}`)
+              }
             />
 
             <div className="min-w-0 space-y-2">
