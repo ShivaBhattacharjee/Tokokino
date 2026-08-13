@@ -117,13 +117,11 @@ export function requestVideoFrameReveal(
       finish(true)
     }
 
-    const rvfc = (
-      video as HTMLVideoElement & {
-        requestVideoFrameCallback?: (cb: () => void) => number
-      }
-    ).requestVideoFrameCallback
-    if (typeof rvfc === "function") {
-      rvfc.call(video, onFrame)
+    const rvfcVideo = video as HTMLVideoElement & {
+      requestVideoFrameCallback?: (cb: () => void) => number
+    }
+    if (typeof rvfcVideo.requestVideoFrameCallback === "function") {
+      rvfcVideo.requestVideoFrameCallback(onFrame)
     } else {
       video.addEventListener("seeked", onFrame, { once: true })
     }

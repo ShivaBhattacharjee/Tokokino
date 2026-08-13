@@ -31,6 +31,11 @@ updates:
           - typescript
           - typescript-eslint
           - "@types/*"
+    ignore:
+      # typescript-eslint (and so eslint-config-next) refuses to load under TS 7.
+      # Revisit once typescript-eslint ships TS >=7 support.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
