@@ -9,6 +9,8 @@ import {
   gridFromImageData,
   isAsciiBackdropActive,
   resolveBackdropAscii,
+  sampleBackgroundPixels,
+  waitForAsciiBackdrops,
 } from "@/lib/editor/ascii-backdrop"
 import type { Background } from "@/lib/editor/state-types"
 
@@ -164,5 +166,31 @@ describe("ascii backdrop state", () => {
       )
     ).toBe(true)
     expect(isAsciiBackdropActive(undefined, gradient)).toBe(false)
+  })
+})
+
+describe("waitForAsciiBackdrops", () => {
+  it("resolves straight away when nothing is sampling", async () => {
+    let done = false
+    await waitForAsciiBackdrops().then(() => {
+      done = true
+    })
+    expect(done).toBe(true)
+  })
+
+  it("does not resolve until an in-flight sample has settled", async () => {
+    const order: string[] = []
+    // jsdom has no 2d context, so this settles fast — the point is that the
+    // wait observes it at all. Export clones the DOM the instant this resolves,
+    // so a wait that races the sample would clone a backdrop with no glyphs.
+    const sample = sampleBackgroundPixels(
+      { type: "gradient", value: "linear-gradient(#000,#fff)" },
+      4,
+      2
+    ).then(() => order.push("sample"))
+    const wait = waitForAsciiBackdrops().then(() => order.push("wait"))
+
+    await Promise.all([sample, wait])
+    expect(order).toEqual(["sample", "wait"])
   })
 })

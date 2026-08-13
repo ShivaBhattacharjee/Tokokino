@@ -573,9 +573,6 @@ async function rasterizeNodeToCanvas(
   outputHeight: number,
   backgroundColor?: string
 ): Promise<HTMLCanvasElement> {
-  // ASCII backdrops paint their glyphs from an async sample of the background;
-  // capturing mid-sample would export a blank (or stale) backdrop.
-  await waitForAsciiBackdrops()
   const svgUrl = await toSvg(node, {
     ...options,
     width: outputWidth,
@@ -630,6 +627,10 @@ export async function exportCanvas(
   resolution: ExportResolution,
   options: ExportCaptureOptions = { watermark: true }
 ): Promise<string> {
+  // ASCII backdrops paint their glyphs from an async sample of the background,
+  // and the export clone below is a snapshot React never renders into again —
+  // so this must happen BEFORE prepareExportNode, not before the rasterize.
+  await waitForAsciiBackdrops()
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 
@@ -830,8 +831,9 @@ export async function prepareAnimationCapture(
   canvasId: string,
   targetWidth = 1280
 ): Promise<AnimationCapture> {
-  // The clone below is a snapshot: React never renders into it, so any ASCII
-  // sample still in flight would be missing from EVERY exported frame.
+  // ASCII backdrops paint their glyphs from an async sample of the background,
+  // and the export clone below is a snapshot React never renders into again —
+  // so this must happen BEFORE prepareExportNode, not before the rasterize.
   await waitForAsciiBackdrops()
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
@@ -1025,6 +1027,10 @@ export async function prepareFastAnimationCapture(
   canvasId: string,
   targetWidth = 1280
 ): Promise<AnimationCapture> {
+  // ASCII backdrops paint their glyphs from an async sample of the background,
+  // and the export clone below is a snapshot React never renders into again —
+  // so this must happen BEFORE prepareExportNode, not before the rasterize.
+  await waitForAsciiBackdrops()
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 
@@ -1162,6 +1168,10 @@ export async function captureCanvasAsPngBlob(
   targetWidth = SHARE_RESOLUTION_WIDTH,
   options: ExportCaptureOptions = {}
 ): Promise<Blob> {
+  // ASCII backdrops paint their glyphs from an async sample of the background,
+  // and the export clone below is a snapshot React never renders into again —
+  // so this must happen BEFORE prepareExportNode, not before the rasterize.
+  await waitForAsciiBackdrops()
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 
