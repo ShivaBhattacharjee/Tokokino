@@ -55,6 +55,10 @@ const releases: Release[] = [
         text: "The front glass rim stays even on every edge, full-page screenshots preview correctly in the frame picker, and each media slot uses its own frame geometry when cropping.",
       },
       {
+        title: "Smoother glass corners",
+        text: "Every glass corner now eases into its straight edges instead of snapping into a circular arc, so the rim reads as one continuous curve even in an 8K export.",
+      },
+      {
         title: "Export-ready on every browser",
         text: "Glass frames carry through to still and motion exports, with WebKit compositing and clipping fallbacks for Safari.",
       },

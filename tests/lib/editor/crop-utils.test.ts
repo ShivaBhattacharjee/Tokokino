@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   computeCoverCropRegion,
   computeCoverCropRegionForAspect,
+  computeCropTarget,
   CROP_ANIMATION_VARS,
   CROP_FIT_ORIGIN_VAR,
   CROP_FIT_SX_VAR,
@@ -21,6 +22,27 @@ import {
   supportsObjectViewBox,
   videoCropMediaStyle,
 } from "@/lib/editor/crop-utils"
+import type { DeviceFrame } from "@/lib/editor/state-types"
+
+const glassFrame: DeviceFrame = {
+  id: "glass-card",
+  color: "dark",
+  orientation: "horizontal",
+}
+
+function sizedImage(width: number, height: number) {
+  const img = document.createElement("img")
+  Object.defineProperty(img, "naturalWidth", { value: width })
+  Object.defineProperty(img, "naturalHeight", { value: height })
+  return img
+}
+
+function sizedVideo(width: number, height: number) {
+  const video = document.createElement("video")
+  Object.defineProperty(video, "videoWidth", { value: width })
+  Object.defineProperty(video, "videoHeight", { value: height })
+  return video
+}
 
 describe("crop utils", () => {
   it("computes side crops for wide images in narrow containers", () => {
@@ -167,5 +189,35 @@ describe("animated crop fit helpers", () => {
     ]) {
       expect(CROP_ANIMATION_VARS).toContain(name)
     }
+  })
+})
+
+describe("computeCropTarget", () => {
+  it("seeds cover-fit crop from a video's videoWidth, not naturalWidth", () => {
+    const video = sizedVideo(1920, 1080)
+    const fromVideo = computeCropTarget({
+      frame: glassFrame,
+      objectFit: "cover",
+      imageElement: video,
+    })
+    const fromImage = computeCropTarget({
+      frame: glassFrame,
+      objectFit: "cover",
+      imageElement: sizedImage(1920, 1080),
+    })
+
+    expect(fromVideo.initialRegion).not.toBeNull()
+    expect(fromVideo.initialRegion).toEqual(fromImage.initialRegion)
+  })
+
+  it("returns no initial region when a cover-fit video has no intrinsic size yet", () => {
+    const target = computeCropTarget({
+      frame: glassFrame,
+      objectFit: "cover",
+      imageElement: document.createElement("video"),
+    })
+
+    expect(target.aspect).not.toBeNull()
+    expect(target.initialRegion).toBeNull()
   })
 })

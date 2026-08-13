@@ -8,6 +8,7 @@ vi.mock("@/lib/editor/store", () => ({
 import { GlassFrame } from "@/components/ui/glass-frame"
 import {
   glassBackdropStyle,
+  glassCornerStyle,
   glassScreenClipStyle,
 } from "@/components/ui/glass-frame-styles"
 
@@ -120,5 +121,40 @@ describe("GlassFrame", () => {
     expect(glassScreenClipStyle()).toEqual({
       WebkitMaskImage: "-webkit-radial-gradient(white, black)",
     })
+  })
+
+  it("gives every glass rect a continuous-curvature corner", () => {
+    expect(glassCornerStyle(1.6667)).toEqual({
+      borderRadius: "1.6667cqw",
+      cornerShape: "var(--theme-corner-shape, superellipse(1.3))",
+    })
+  })
+
+  it("keeps the screen corner concentric with the shell corner", () => {
+    const { container } = render(
+      <GlassFrame frameId="glass-card" colorMode="dark" imageSrc="shot.png" />
+    )
+
+    const shell = container.querySelector(
+      "[data-glass-frame-shell]"
+    ) as HTMLElement
+    const screen = container.querySelector(
+      "[data-glass-frame-screen]"
+    ) as HTMLElement
+
+    const shellRadius = parseFloat(shell.style.borderRadius)
+    const screenRadius = parseFloat(screen.style.borderRadius)
+    const inset = parseFloat(screen.style.left)
+
+    expect(shellRadius - screenRadius).toBeCloseTo(inset, 5)
+  })
+
+  it("merges className so later Tailwind utilities win", () => {
+    const { container } = render(
+      <GlassFrame frameId="glass-card" className="block w-full" />
+    )
+    const root = container.firstElementChild as HTMLElement
+    expect(root.className.split(" ")).toContain("block")
+    expect(root.className.split(" ")).not.toContain("inline-block")
   })
 })

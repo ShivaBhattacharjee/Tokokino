@@ -252,8 +252,9 @@ export function findFrameOptionName(id: string) {
   return ALL_OPTIONS.find((o) => o.id === id)?.name ?? "None"
 }
 
-const BROWSER_TILE_PREVIEW_WIDTH = 112
-const BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH = 240
+const FRAME_TILE_PREVIEW_WIDTH = 112
+const FRAME_TILE_PREVIEW_VIRTUAL_WIDTH = 240
+const FRAME_TILE_PREVIEW_IMAGE_URL = BROWSER_FRAME_PREVIEW_IMAGE_URL
 
 const FRAME_SEARCH_ALIASES: Record<string, string[]> = {
   iphone_17: ["apple"],
@@ -1153,7 +1154,7 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
   mediaStyle?: React.CSSProperties
 }) {
   const frame = getBrowserFrame(frameId)
-  const scale = BROWSER_TILE_PREVIEW_WIDTH / BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH
+  const scale = FRAME_TILE_PREVIEW_WIDTH / FRAME_TILE_PREVIEW_VIRTUAL_WIDTH
   const isVideo = isVideoSrc(screenshot)
   // Video blob URLs can't be used as <img> src — pass them as videoSrc. When
   // there's no canvas media, fall back to the static browser preview image.
@@ -1164,14 +1165,14 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
     <div
       className="relative overflow-hidden drop-shadow-sm"
       style={{
-        width: BROWSER_TILE_PREVIEW_WIDTH,
+        width: FRAME_TILE_PREVIEW_WIDTH,
         aspectRatio: frame?.aspectRatio,
       }}
     >
       <div
         className="absolute top-0 left-0"
         style={{
-          width: BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH,
+          width: FRAME_TILE_PREVIEW_VIRTUAL_WIDTH,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}
@@ -1230,25 +1231,25 @@ const GlassTilePreview = React.memo(function GlassTilePreview({
   mediaStyle?: React.CSSProperties
 }) {
   const frame = getGlassFrame(frameId)
-  const scale = BROWSER_TILE_PREVIEW_WIDTH / BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH
+  const scale = FRAME_TILE_PREVIEW_WIDTH / FRAME_TILE_PREVIEW_VIRTUAL_WIDTH
   const isVideo = isVideoSrc(screenshot)
   const imageSrc = isVideo
     ? undefined
-    : (screenshot ?? BROWSER_FRAME_PREVIEW_IMAGE_URL)
+    : (screenshot ?? FRAME_TILE_PREVIEW_IMAGE_URL)
   const videoSrc = isVideo ? (screenshot ?? undefined) : undefined
 
   return (
     <div
       className="relative overflow-visible drop-shadow-sm"
       style={{
-        width: BROWSER_TILE_PREVIEW_WIDTH,
+        width: FRAME_TILE_PREVIEW_WIDTH,
         aspectRatio: frame?.aspectRatio,
       }}
     >
       <div
         className="absolute top-0 left-0"
         style={{
-          width: BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH,
+          width: FRAME_TILE_PREVIEW_VIRTUAL_WIDTH,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}

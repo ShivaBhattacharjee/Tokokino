@@ -11,6 +11,7 @@ import { useVideoPreload } from "@/components/editor/canvas/use-video-preload"
 import { assignMediaRef } from "@/components/ui/browser-frame-media"
 import {
   glassBackdropStyle,
+  glassCornerStyle,
   glassScreenClipStyle,
 } from "@/components/ui/glass-frame-styles"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
@@ -20,6 +21,7 @@ import {
   type GlassFrameColor,
   type GlassFrameSpec,
 } from "@/lib/glass-frame"
+import { cn } from "@/lib/utils"
 
 type ImageFit = "contain" | "cover" | "fill"
 
@@ -97,7 +99,10 @@ export function GlassFrame({
 
   return (
     <div
-      className={`relative inline-block w-full overflow-visible align-middle leading-none ${className ?? ""}`}
+      className={cn(
+        "relative inline-block w-full overflow-visible align-middle leading-none",
+        className
+      )}
       style={{
         aspectRatio: frame.aspectRatio,
         containerType: "inline-size",
@@ -243,7 +248,7 @@ function rectStyle(
     top: `${(rect.y / height) * 100}%`,
     width: `${(rect.width / width) * 100}%`,
     height: `${(rect.height / height) * 100}%`,
-    borderRadius: `${(rect.radius / width) * 100}cqw`,
+    ...glassCornerStyle((rect.radius / width) * 100),
   }
 }
 

@@ -171,11 +171,14 @@ export type CropTarget = {
   initialRegion: CropRegion | null
 }
 
+/** Canvas media node. Frames stash `<video>` in the same ref as `<img>`. */
+type CropMediaElement = HTMLImageElement | HTMLVideoElement
+
 type CropTargetOptions = {
   frame: DeviceFrame
   objectFit?: "contain" | "cover" | "fill"
   stageElement?: HTMLElement | null
-  imageElement?: HTMLImageElement | null
+  imageElement?: CropMediaElement | null
   fallbackAspect?: number | null
 }
 
@@ -304,8 +307,7 @@ export function computeCropTarget({
 
   if (!aspect) return { aspect: null, initialRegion: null }
 
-  const naturalW = imageElement?.naturalWidth ?? 0
-  const naturalH = imageElement?.naturalHeight ?? 0
+  const { w: naturalW, h: naturalH } = mediaNaturalSize(imageElement)
   const coverPosition = cropCoverPositionForFrame(frame)
   const coverRegion =
     objectFit === "cover"
@@ -335,6 +337,14 @@ export function cropRegionMatchesAspect(
   const cropH = (region.height / 100) * naturalH
   if (!cropW || !cropH) return false
   return Math.abs(cropW / cropH - targetAspect) < 0.01
+}
+
+function mediaNaturalSize(element: CropMediaElement | null | undefined) {
+  if (!element) return { w: 0, h: 0 }
+  if (element instanceof HTMLVideoElement) {
+    return { w: element.videoWidth, h: element.videoHeight }
+  }
+  return { w: element.naturalWidth, h: element.naturalHeight }
 }
 
 function elementAspect(element: HTMLElement | null | undefined) {

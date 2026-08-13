@@ -218,6 +218,7 @@ export function ScreenshotGlassFrame({
           }}
         >
           <div
+            data-export-hidden="true"
             className={cn(
               "pointer-events-none absolute top-1/2 left-1/2 z-40 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
               editOpen || isScreenshotSelected
