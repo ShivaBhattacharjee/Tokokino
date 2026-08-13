@@ -11,6 +11,7 @@ import { TextElementView } from "@/components/editor/text-element"
 import { bulkToolbarScale } from "@/components/editor/toolbar/primitives"
 import { cn } from "@/lib/utils"
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
+import { isGlassFrame, resolveGlassFrameColor } from "@/lib/glass-frame"
 import {
   MAIN_MEDIA_FX_PREVIEW_VAR,
   NEUTRAL_MEDIA_ADJUSTMENTS,
@@ -85,6 +86,10 @@ import {
   BrowserFrameEmptyState,
   ScreenshotBrowserFrame,
 } from "./screenshot-browser-frame"
+import {
+  GlassFrameEmptyState,
+  ScreenshotGlassFrame,
+} from "./screenshot-glass-frame"
 import { ScreenshotMockup } from "./screenshot-mockup"
 import { TweetCardView } from "./tweet-card"
 import { isVideoSrc } from "@/lib/editor/media-type"
@@ -424,8 +429,12 @@ function CanvasViewInner({
   const isPortraitOrSquareCanvas = ah >= aw
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
+  const glassFrame = isGlassFrame(frame.id)
+  const glassFrameColor = resolveGlassFrameColor(frame.color)
   const mockupDevice =
-    frame.id === "none" || browserFrame ? null : getDeviceMockup(frame.id)
+    frame.id === "none" || browserFrame || glassFrame
+      ? null
+      : getDeviceMockup(frame.id)
   const mockupOrientation = mockupDevice?.orientations.includes("portrait")
     ? "portrait"
     : "landscape"
@@ -671,7 +680,7 @@ function CanvasViewInner({
       ? -90
       : 0
   const mockupAsset =
-    frame.id === "none" || browserFrame
+    frame.id === "none" || browserFrame || glassFrame
       ? null
       : getDeviceMockupAsset(frame.id, frame.color, mockupOrientation)
   const mockupSpec = mockupAsset ? deviceMockupSpec(frame.id) : null
@@ -1098,6 +1107,51 @@ function CanvasViewInner({
                     onMediaElement={handleMediaElement}
                     mediaStyle={fullPageMediaStyle ?? videoMediaStyle}
                   />
+                ) : glassFrame ? (
+                  <ScreenshotGlassFrame
+                    screenshot={screenshot}
+                    frameId={frame.id}
+                    color={glassFrameColor}
+                    screenshotLayer={screenshotLayer}
+                    transform={transform}
+                    shadowFilter={computedShadowFilter}
+                    screenshotOffset={effectiveOffset}
+                    screenshotAnchor={screenshotAnchor}
+                    enhanceFilter={enhanceFilter}
+                    objectFit={effectiveObjectFit}
+                    isScreenshotSelected={isScreenshotSelected && isActive}
+                    isScreenshotDragging={isScreenshotDragging}
+                    hoverActionsDisabled={
+                      bulkCanvasDragging || isScreenshotDragging
+                    }
+                    activeTool={activeTool}
+                    stageRef={stageRef}
+                    imageRef={imageRef}
+                    onSelect={handleScreenshotClickSelect}
+                    onPointerDown={(e) => {
+                      if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur()
+                      }
+                      startMockupDrag(e)
+                    }}
+                    onPointerMove={moveMockup}
+                    onPointerUp={stopMockupDrag}
+                    onWheel={handleFullPageWheel}
+                    onImageLoad={handleImageLoad}
+                    onCropClick={openMainCropModal}
+                    onReplaceFile={readFile}
+                    onDelete={() => {
+                      setIsScreenshotSelected(false)
+                      setScreenshot(null)
+                    }}
+                    onCaptureWebsite={handleCaptureWebsite}
+                    onLoadTweet={handleLoadTweet}
+                    captureDefaultDevice={captureDefaultDevice}
+                    captureStateKey={mainCaptureStateKey}
+                    innerLightingStyle={innerLightingStyle}
+                    onMediaElement={handleMediaElement}
+                    mediaStyle={fullPageMediaStyle ?? videoMediaStyle}
+                  />
                 ) : mockupAsset && mockupSpec ? (
                   <ScreenshotMockup
                     screenshot={screenshot}
@@ -1232,6 +1286,41 @@ function CanvasViewInner({
                   activeTool={activeTool}
                   addressValue={frameAddress}
                   onAddressChange={setFrameAddress}
+                  onCapture={handleCaptureWebsite}
+                  onDemo={handleDemoScreenshot}
+                  defaultCaptureDevice={captureDefaultDevice}
+                  captureStateKey={mainCaptureStateKey}
+                  compact={
+                    isPortraitOrSquareCanvas ||
+                    tilt.rx !== 0 ||
+                    tilt.ry !== 0 ||
+                    tilt.rz !== 0 ||
+                    scale !== 100 ||
+                    screenshotSlots.length > 0
+                  }
+                  onPointerDown={(e) => {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur()
+                    }
+                    startMockupDrag(e)
+                  }}
+                  onPointerMove={moveMockup}
+                  onPointerUp={stopMockupDrag}
+                  innerLightingStyle={innerLightingStyle}
+                />
+              ) : glassFrame ? (
+                <GlassFrameEmptyState
+                  frameId={frame.id}
+                  color={glassFrameColor}
+                  isDragOver={isDragOver}
+                  onBrowse={() => fileInputRef.current?.click()}
+                  transform={transform}
+                  shadowFilter={computedShadowFilter}
+                  enhanceFilter={enhanceFilter}
+                  screenshotOffset={effectiveOffset}
+                  screenshotAnchor={screenshotAnchor}
+                  isScreenshotDragging={isScreenshotDragging}
+                  activeTool={activeTool}
                   onCapture={handleCaptureWebsite}
                   onDemo={handleDemoScreenshot}
                   defaultCaptureDevice={captureDefaultDevice}

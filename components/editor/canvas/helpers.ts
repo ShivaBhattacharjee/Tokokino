@@ -6,6 +6,7 @@ import {
   isBrowserFrame,
   SAFARI_BROWSER_FRAME_ID,
 } from "@/lib/browser-frame"
+import { isGlassFrame } from "@/lib/glass-frame"
 import { hexToRgb } from "@/lib/editor/color-utils"
 import { shadowDropFilterPreviewCss } from "@/lib/editor/css-utils"
 import {
@@ -217,6 +218,7 @@ export function clamp(n: number, min: number, max: number) {
 
 export function frameSelectionRadius(frameId: string, fallback: number) {
   if (frameId === "none") return fallback
+  if (isGlassFrame(frameId)) return 12
   if (frameId === CHROME_BROWSER_FRAME_ID) return 8
   if (frameId === SAFARI_BROWSER_FRAME_ID) return 14
   if (frameId === ARC_BROWSER_FRAME_ID) return 18

@@ -58,6 +58,7 @@ import {
 } from "@/lib/editor/store"
 import { getDeviceMockup } from "@/lib/mockups"
 import { BROWSER_FRAMES } from "@/lib/browser-frame"
+import { getGlassFrame } from "@/lib/glass-frame"
 import { cn } from "@/lib/utils"
 
 type EditableLayerType =
@@ -935,6 +936,7 @@ function FrameLockedLayer({
   onRemove: () => void
 }) {
   const browserFrame = BROWSER_FRAMES.find((f) => f.id === frame.id)
+  const glassFrame = getGlassFrame(frame.id)
   const deviceMockup = getDeviceMockup(frame.id)
 
   let name = "Frame"
@@ -943,6 +945,9 @@ function FrameLockedLayer({
   if (browserFrame) {
     name = browserFrame.name
     meta = "Browser frame · locked"
+  } else if (glassFrame) {
+    name = glassFrame.name
+    meta = "Glass frame · locked"
   } else if (deviceMockup) {
     name = deviceMockup.name
     meta = "Device frame · locked"
@@ -951,9 +956,11 @@ function FrameLockedLayer({
   // Get available colors for this frame
   const availableColors: string[] = browserFrame
     ? [...browserFrame.colors]
-    : deviceMockup
-      ? deviceMockup.colors
-      : []
+    : glassFrame
+      ? [...glassFrame.colors]
+      : deviceMockup
+        ? deviceMockup.colors
+        : []
 
   return (
     <div className="mt-1 rounded-md border border-border/60 bg-secondary/20 px-1.5 py-1.5">

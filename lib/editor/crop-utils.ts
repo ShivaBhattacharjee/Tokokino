@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react"
 
 import { getBrowserFrame, isBrowserFrame } from "@/lib/browser-frame"
+import { glassFrameScreenAspect } from "@/lib/glass-frame"
 import { DEVICE_MOCKUP_SPECS, getDeviceMockup } from "@/lib/mockups"
 
 import type { CropRegion, DeviceFrame } from "./state-types"
@@ -170,11 +171,14 @@ export type CropTarget = {
   initialRegion: CropRegion | null
 }
 
+/** Canvas media node. Frames stash `<video>` in the same ref as `<img>`. */
+type CropMediaElement = HTMLImageElement | HTMLVideoElement
+
 type CropTargetOptions = {
   frame: DeviceFrame
   objectFit?: "contain" | "cover" | "fill"
   stageElement?: HTMLElement | null
-  imageElement?: HTMLImageElement | null
+  imageElement?: CropMediaElement | null
   fallbackAspect?: number | null
 }
 
@@ -264,6 +268,9 @@ export function cropAspectForFrameScreen(frame: DeviceFrame): number | null {
     return browserFrame.size.w / browserFrame.size.h
   }
 
+  const glassAspect = glassFrameScreenAspect(frame.id)
+  if (glassAspect) return glassAspect
+
   const spec = DEVICE_MOCKUP_SPECS[frame.id]
   if (!spec) return null
 
@@ -277,6 +284,13 @@ export function cropAspectForFrameScreen(frame: DeviceFrame): number | null {
     screenAspect < 1
 
   return rotatesPortraitAsset ? 1 / screenAspect : screenAspect
+}
+
+export function resolveSlotCropFrame(
+  slotFrame: DeviceFrame | undefined,
+  canvasFrame: DeviceFrame
+): DeviceFrame {
+  return slotFrame ?? canvasFrame
 }
 
 export function computeCropTarget({
@@ -293,8 +307,7 @@ export function computeCropTarget({
 
   if (!aspect) return { aspect: null, initialRegion: null }
 
-  const naturalW = imageElement?.naturalWidth ?? 0
-  const naturalH = imageElement?.naturalHeight ?? 0
+  const { w: naturalW, h: naturalH } = mediaNaturalSize(imageElement)
   const coverPosition = cropCoverPositionForFrame(frame)
   const coverRegion =
     objectFit === "cover"
@@ -324,6 +337,14 @@ export function cropRegionMatchesAspect(
   const cropH = (region.height / 100) * naturalH
   if (!cropW || !cropH) return false
   return Math.abs(cropW / cropH - targetAspect) < 0.01
+}
+
+function mediaNaturalSize(element: CropMediaElement | null | undefined) {
+  if (!element) return { w: 0, h: 0 }
+  if (element instanceof HTMLVideoElement) {
+    return { w: element.videoWidth, h: element.videoHeight }
+  }
+  return { w: element.naturalWidth, h: element.naturalHeight }
 }
 
 function elementAspect(element: HTMLElement | null | undefined) {

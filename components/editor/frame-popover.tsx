@@ -11,6 +11,7 @@ import {
   RiMacLine,
   RiSearchLine,
   RiSmartphoneLine,
+  RiStackLine,
   RiTabletLine,
   RiWindow2Line,
 } from "@remixicon/react"
@@ -46,8 +47,14 @@ import {
 import type { DeviceFrame, FrameOrientation } from "@/lib/editor/store"
 import { useActiveCanvasField } from "@/lib/editor/store"
 import { isVideoSrc } from "@/lib/editor/media-type"
+import {
+  fullPageCaptureMediaStyle,
+  fullPageCaptureObjectFit,
+} from "@/lib/editor/full-page-capture"
+import type { FullPageCapture } from "@/lib/editor/state-types"
 import { VideoIdlePoster } from "@/components/editor/canvas/video-idle-poster"
 import { BoxEmptyState } from "@/components/editor/canvas/box-empty-state"
+import { GlassFrame } from "@/components/ui/glass-frame"
 
 const DEVICE_FRAME_EMPTY_VIRTUAL_WIDTH = 280
 import {
@@ -60,12 +67,19 @@ import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
 import {
   ARC_BROWSER_FRAME_ID,
+  BROWSER_FRAME_PREVIEW_IMAGE_URL,
   BROWSER_FRAMES,
   CHROME_BROWSER_FRAME_ID,
   getBrowserFrame,
   isBrowserFrame,
 } from "@/lib/browser-frame"
 import { cn } from "@/lib/utils"
+import {
+  GLASS_FRAMES,
+  getGlassFrame,
+  isGlassFrame,
+  resolveGlassFrameColor,
+} from "@/lib/glass-frame"
 
 const POP_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -93,7 +107,14 @@ function useLazyVisible(rootMargin = "200px") {
   return { ref, visible }
 }
 
-type FrameKind = "browser" | "phone" | "tablet" | "watch" | "desktop" | "none"
+type FrameKind =
+  | "glass"
+  | "browser"
+  | "phone"
+  | "tablet"
+  | "watch"
+  | "desktop"
+  | "none"
 type ImageFit = "contain" | "cover" | "fill"
 
 type FrameOption = {
@@ -141,6 +162,18 @@ const BROWSER_OPTIONS: FrameOption[] = BROWSER_FRAMES.map((frame) => ({
   isDevice: false,
 }))
 
+const GLASS_OPTIONS: FrameOption[] = GLASS_FRAMES.map((frame) => ({
+  id: frame.id,
+  name: frame.name,
+  w: frame.screen.width,
+  h: frame.screen.height,
+  kind: "glass",
+  colors: [...frame.colors],
+  previewSrc: null,
+  rotatePreview: false,
+  isDevice: false,
+}))
+
 const LANDSCAPE_THUMBNAIL_DEVICE_IDS = new Set([
   "ipad_air",
   "ipad_pro_11_m4",
@@ -152,6 +185,12 @@ const DEVICE_OPTIONS = DEVICE_MOCKUPS.map(deviceToOption).filter(
 )
 
 const SECTIONS: FrameSection[] = [
+  {
+    id: "glass",
+    label: "Glass",
+    icon: RiStackLine,
+    options: GLASS_OPTIONS,
+  },
   {
     id: "browser",
     label: "Browser",
@@ -213,8 +252,9 @@ export function findFrameOptionName(id: string) {
   return ALL_OPTIONS.find((o) => o.id === id)?.name ?? "None"
 }
 
-const BROWSER_TILE_PREVIEW_WIDTH = 112
-const BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH = 240
+const FRAME_TILE_PREVIEW_WIDTH = 112
+const FRAME_TILE_PREVIEW_VIRTUAL_WIDTH = 240
+const FRAME_TILE_PREVIEW_IMAGE_URL = BROWSER_FRAME_PREVIEW_IMAGE_URL
 
 const FRAME_SEARCH_ALIASES: Record<string, string[]> = {
   iphone_17: ["apple"],
@@ -241,6 +281,7 @@ export function FramePopover({
   value,
   onChange,
   previewImage,
+  previewFullPageCapture,
   imageFit = "cover",
   align = "start",
   disabled = false,
@@ -250,6 +291,7 @@ export function FramePopover({
   value: DeviceFrame
   onChange: (frame: DeviceFrame) => void
   previewImage?: string | null
+  previewFullPageCapture?: FullPageCapture | null
   imageFit?: ImageFit
   align?: "start" | "end"
   disabled?: boolean
@@ -259,14 +301,22 @@ export function FramePopover({
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
   const screenshot = useActiveCanvasField((c) => c.screenshot)
+  const fullPageCapture = useActiveCanvasField((c) => c.fullPageCapture)
   const previewScreenshot =
     previewImage === undefined ? screenshot : previewImage
+  const previewCapture =
+    previewFullPageCapture === undefined
+      ? fullPageCapture
+      : previewFullPageCapture
+  const previewImageFit = fullPageCaptureObjectFit(previewCapture, imageFit)
+  const previewMediaStyle = fullPageCaptureMediaStyle(previewCapture)
 
   const current = ALL_OPTIONS.find((o) => o.id === value.id) ?? ALL_OPTIONS[0]
   const currentDevice = getDeviceMockup(current.id)
-  const effectiveOrientation = isBrowserFrame(current.id)
-    ? "horizontal"
-    : value.orientation
+  const effectiveOrientation =
+    isBrowserFrame(current.id) || isGlassFrame(current.id)
+      ? "horizontal"
+      : value.orientation
   const CurrentIcon =
     SECTIONS.find((s) => s.options.some((o) => o.id === current.id))?.icon ??
     RiSmartphoneLine
@@ -308,7 +358,10 @@ export function FramePopover({
       onChange({
         id: option.id,
         color: resolveFrameColor(option, device, value.color),
-        orientation: isBrowserFrame(option.id) ? "horizontal" : "vertical",
+        orientation:
+          isBrowserFrame(option.id) || isGlassFrame(option.id)
+            ? "horizontal"
+            : "vertical",
       })
     },
     [onChange, value.color]
@@ -435,7 +488,8 @@ export function FramePopover({
                     selectedColor={currentColor}
                     active={value.id === option.id}
                     screenshot={previewScreenshot}
-                    imageFit={imageFit}
+                    imageFit={previewImageFit}
+                    mediaStyle={previewMediaStyle}
                     compact={isCompactFrameSection(section.id)}
                     onSelect={selectFrame}
                   />
@@ -550,23 +604,33 @@ export function MobileFramePicker({
   value,
   onChange,
   previewImage,
+  previewFullPageCapture,
   imageFit = "cover",
 }: {
   value: DeviceFrame
   onChange: (frame: DeviceFrame) => void
   previewImage?: string | null
+  previewFullPageCapture?: FullPageCapture | null
   imageFit?: ImageFit
 }) {
   const [query, setQuery] = React.useState("")
   const screenshot = useActiveCanvasField((c) => c.screenshot)
+  const fullPageCapture = useActiveCanvasField((c) => c.fullPageCapture)
   const previewScreenshot =
     previewImage === undefined ? screenshot : previewImage
+  const previewCapture =
+    previewFullPageCapture === undefined
+      ? fullPageCapture
+      : previewFullPageCapture
+  const previewImageFit = fullPageCaptureObjectFit(previewCapture, imageFit)
+  const previewMediaStyle = fullPageCaptureMediaStyle(previewCapture)
 
   const current = ALL_OPTIONS.find((o) => o.id === value.id) ?? ALL_OPTIONS[0]
   const currentDevice = getDeviceMockup(current.id)
-  const effectiveOrientation = isBrowserFrame(current.id)
-    ? "horizontal"
-    : value.orientation
+  const effectiveOrientation =
+    isBrowserFrame(current.id) || isGlassFrame(current.id)
+      ? "horizontal"
+      : value.orientation
   const currentColor = resolveFrameColor(current, currentDevice, value.color)
   const [activeSectionId, setActiveSectionId] = React.useState(ALL_CATEGORY_ID)
 
@@ -605,7 +669,10 @@ export function MobileFramePicker({
       onChange({
         id: option.id,
         color: resolveFrameColor(option, device, value.color),
-        orientation: isBrowserFrame(option.id) ? "horizontal" : "vertical",
+        orientation:
+          isBrowserFrame(option.id) || isGlassFrame(option.id)
+            ? "horizontal"
+            : "vertical",
       })
     },
     [onChange, value.color]
@@ -659,7 +726,8 @@ export function MobileFramePicker({
                   selectedColor={currentColor}
                   active={value.id === option.id}
                   screenshot={previewScreenshot}
-                  imageFit={imageFit}
+                  imageFit={previewImageFit}
+                  mediaStyle={previewMediaStyle}
                   compact={isCompactFrameSection(section.id)}
                   onSelect={selectFrame}
                 />
@@ -840,6 +908,7 @@ const DeviceTile = React.memo(function DeviceTile({
   active,
   screenshot,
   imageFit,
+  mediaStyle,
   compact = false,
   onSelect,
 }: {
@@ -848,6 +917,7 @@ const DeviceTile = React.memo(function DeviceTile({
   active: boolean
   screenshot: string | null
   imageFit: ImageFit
+  mediaStyle?: React.CSSProperties
   compact?: boolean
   onSelect: (option: FrameOption) => void
 }) {
@@ -885,12 +955,21 @@ const DeviceTile = React.memo(function DeviceTile({
       >
         {!visible ? (
           <div className="h-full w-full rounded-md bg-secondary/30" />
+        ) : option.kind === "glass" ? (
+          <GlassTilePreview
+            frameId={option.id}
+            color={tileColor}
+            screenshot={screenshot}
+            imageFit={imageFit}
+            mediaStyle={mediaStyle}
+          />
         ) : option.kind === "browser" ? (
           <BrowserTilePreview
             frameId={option.id}
             color={tileColor}
             screenshot={screenshot}
             imageFit={imageFit}
+            mediaStyle={mediaStyle}
           />
         ) : preview && spec ? (
           <DeviceTilePreview
@@ -899,6 +978,7 @@ const DeviceTile = React.memo(function DeviceTile({
             rotatePreview={rotatePreview}
             screenshot={screenshot}
             imageFit={imageFit}
+            mediaStyle={mediaStyle}
           />
         ) : preview ? (
           <ShimmerImage
@@ -948,12 +1028,14 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
   rotatePreview,
   screenshot,
   imageFit,
+  mediaStyle,
 }: {
   spec: ReturnType<typeof deviceMockupSpec>
   preview: string
   rotatePreview: boolean
   screenshot: string | null
   imageFit: ImageFit
+  mediaStyle?: React.CSSProperties
 }) {
   const screenRef = React.useRef<HTMLDivElement | null>(null)
   const [stageWidth, setStageWidth] = React.useState<number | undefined>(
@@ -1004,6 +1086,7 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
                     "relative z-10 h-full w-full object-center",
                     imageFitClassName(imageFit)
                   )}
+                  style={mediaStyle}
                 />
                 <VideoIdlePoster src={screenshot} interactive={false} />
               </div>
@@ -1031,6 +1114,7 @@ const DeviceTilePreview = React.memo(function DeviceTilePreview({
                     "relative z-10 h-full w-full object-center",
                     imageFitClassName(imageFit)
                   )}
+                  style={mediaStyle}
                   loading="lazy"
                 />
               </>
@@ -1061,14 +1145,16 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
   color,
   screenshot,
   imageFit,
+  mediaStyle,
 }: {
   frameId: string
   color: string
   screenshot: string | null
   imageFit: ImageFit
+  mediaStyle?: React.CSSProperties
 }) {
   const frame = getBrowserFrame(frameId)
-  const scale = BROWSER_TILE_PREVIEW_WIDTH / BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH
+  const scale = FRAME_TILE_PREVIEW_WIDTH / FRAME_TILE_PREVIEW_VIRTUAL_WIDTH
   const isVideo = isVideoSrc(screenshot)
   // Video blob URLs can't be used as <img> src — pass them as videoSrc. When
   // there's no canvas media, fall back to the static browser preview image.
@@ -1079,14 +1165,14 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
     <div
       className="relative overflow-hidden drop-shadow-sm"
       style={{
-        width: BROWSER_TILE_PREVIEW_WIDTH,
+        width: FRAME_TILE_PREVIEW_WIDTH,
         aspectRatio: frame?.aspectRatio,
       }}
     >
       <div
         className="absolute top-0 left-0"
         style={{
-          width: BROWSER_TILE_PREVIEW_VIRTUAL_WIDTH,
+          width: FRAME_TILE_PREVIEW_VIRTUAL_WIDTH,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}
@@ -1096,6 +1182,7 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
             imageSrc={imageSrc}
             videoSrc={videoSrc}
             imageFit={imageFit}
+            mediaStyle={mediaStyle}
             colorMode={color === "dark" ? "dark" : "light"}
             frameBorderRadius="5px"
             screenBorderRadius="4px"
@@ -1106,6 +1193,7 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
             imageSrc={imageSrc}
             videoSrc={videoSrc}
             imageFit={imageFit}
+            mediaStyle={mediaStyle}
             colorMode={color === "dark" ? "dark" : "light"}
             url={screenshot && !isVideo ? frame?.defaultUrl : frame?.previewUrl}
             frameBorderRadius="5px"
@@ -1117,12 +1205,64 @@ const BrowserTilePreview = React.memo(function BrowserTilePreview({
             imageSrc={imageSrc}
             videoSrc={videoSrc}
             imageFit={imageFit}
+            mediaStyle={mediaStyle}
             colorMode={color === "dark" ? "dark" : "light"}
             url={screenshot && !isVideo ? frame?.defaultUrl : frame?.previewUrl}
             screenBorderRadius="0 0 4px 4px"
             className="block w-full"
           />
         )}
+      </div>
+    </div>
+  )
+})
+
+const GlassTilePreview = React.memo(function GlassTilePreview({
+  frameId,
+  color,
+  screenshot,
+  imageFit,
+  mediaStyle,
+}: {
+  frameId: string
+  color: string
+  screenshot: string | null
+  imageFit: ImageFit
+  mediaStyle?: React.CSSProperties
+}) {
+  const frame = getGlassFrame(frameId)
+  const scale = FRAME_TILE_PREVIEW_WIDTH / FRAME_TILE_PREVIEW_VIRTUAL_WIDTH
+  const isVideo = isVideoSrc(screenshot)
+  const imageSrc = isVideo
+    ? undefined
+    : (screenshot ?? FRAME_TILE_PREVIEW_IMAGE_URL)
+  const videoSrc = isVideo ? (screenshot ?? undefined) : undefined
+
+  return (
+    <div
+      className="relative overflow-visible drop-shadow-sm"
+      style={{
+        width: FRAME_TILE_PREVIEW_WIDTH,
+        aspectRatio: frame?.aspectRatio,
+      }}
+    >
+      <div
+        className="absolute top-0 left-0"
+        style={{
+          width: FRAME_TILE_PREVIEW_VIRTUAL_WIDTH,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+      >
+        <GlassFrame
+          frameId={frameId}
+          colorMode={resolveGlassFrameColor(color)}
+          imageSrc={imageSrc}
+          videoSrc={videoSrc}
+          imageFit={imageFit}
+          mediaStyle={mediaStyle}
+          className="block w-full"
+        />
       </div>
     </div>
   )

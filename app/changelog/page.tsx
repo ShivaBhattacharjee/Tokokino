@@ -35,6 +35,36 @@ type Release = {
 
 const releases: Release[] = [
   {
+    id: "v2-2-0",
+    version: "2.2.0",
+    date: "August 13, 2026",
+    title: "Glass frames",
+    summary:
+      "Give screenshots and videos a polished glass treatment with a single card or layered stacks — designed to stay consistent from the live canvas through high-resolution export.",
+    changes: [
+      {
+        title: "Three new glass frames",
+        text: "Choose Glass Card for a clean single pane, Glass Cascade for layers beneath the canvas, or Glass Crown for layers rising behind it.",
+      },
+      {
+        title: "Dark and light glass",
+        text: "Each frame includes dark and light variants with translucent gradients, background blur, soft highlights, and depth-aware shadows.",
+      },
+      {
+        title: "Consistent media framing",
+        text: "The front glass rim stays even on every edge, full-page screenshots preview correctly in the frame picker, and each media slot uses its own frame geometry when cropping.",
+      },
+      {
+        title: "Smoother glass corners",
+        text: "Every glass corner now eases into its straight edges instead of snapping into a circular arc, so the rim reads as one continuous curve even in an 8K export.",
+      },
+      {
+        title: "Export-ready on every browser",
+        text: "Glass frames carry through to still and motion exports, with WebKit compositing and clipping fallbacks for Safari.",
+      },
+    ],
+  },
+  {
     id: "v2-1-0",
     version: "2.1.0",
     date: "August 2, 2026",

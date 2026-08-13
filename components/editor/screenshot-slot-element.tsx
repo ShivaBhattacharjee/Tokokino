@@ -41,7 +41,11 @@ import { slotBoxAspectRatio } from "@/lib/editor/screenshot-layout"
 import { resolveSlotScreenshotStyle } from "@/lib/editor/store/canvas-helpers"
 import { buildScreenshotImageStyle } from "@/lib/editor/screenshot-visual"
 import { slotMediaFxPreviewVar } from "@/lib/editor/css-utils"
-import { computeCropTarget, type CropTarget } from "@/lib/editor/crop-utils"
+import {
+  computeCropTarget,
+  resolveSlotCropFrame,
+  type CropTarget,
+} from "@/lib/editor/crop-utils"
 import { clipAffectsSlot, clipOwns } from "@/lib/editor/animation-playback"
 import {
   type AssetBlendMode,
@@ -648,7 +652,7 @@ export function ScreenshotSlotView({
 
   const requestCrop = React.useCallback(() => {
     const target = computeCropTarget({
-      frame: canvasFrame,
+      frame: resolveSlotCropFrame(slot.frame, canvasFrame),
       objectFit: slot.objectFit ?? "contain",
       stageElement: stageRef.current,
       imageElement: imageRef.current,
@@ -665,6 +669,7 @@ export function ScreenshotSlotView({
     imageRef,
     onCropRequest,
     slot.id,
+    slot.frame,
     slot.lastCropRegion,
     slot.objectFit,
     stageRef,

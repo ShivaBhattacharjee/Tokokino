@@ -1,4 +1,5 @@
 import { isBrowserFrame } from "@/lib/browser-frame"
+import { getGlassFrame } from "@/lib/glass-frame"
 import { DEVICE_MOCKUP_SPECS } from "@/lib/mockups"
 
 import type { DeviceFrame } from "@/lib/editor/state-types"
@@ -15,6 +16,8 @@ const NONE_PORTRAIT_ASPECT = 10 / 14
 export function frameNaturalAspect(frame: DeviceFrame): number | null {
   if (frame.id === "none") return null
   if (isBrowserFrame(frame.id)) return BROWSER_FRAME_ASPECT
+  const glassFrame = getGlassFrame(frame.id)
+  if (glassFrame) return glassFrame.size.width / glassFrame.size.height
   const spec = DEVICE_MOCKUP_SPECS[frame.id]
   if (!spec) return null
   const [w, h] = spec.aspectRatio.split("/").map((part) => Number(part.trim()))

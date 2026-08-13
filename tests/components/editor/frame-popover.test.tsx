@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
@@ -8,6 +8,7 @@ vi.mock("@/lib/editor/store", () => ({
     selector({
       screenshot: "data:video/mp4;base64,AAAA",
       objectFit: "cover",
+      fullPageCapture: null,
     }),
 }))
 
@@ -59,6 +60,12 @@ describe("findFrameOptionName", () => {
   it("returns a name for a known frame id", () => {
     expect(typeof findFrameOptionName("none")).toBe("string")
   })
+
+  it("exposes each glass treatment to frame consumers", () => {
+    expect(findFrameOptionName("glass-card")).toBe("Glass Card")
+    expect(findFrameOptionName("glass-stack")).toBe("Glass Cascade")
+    expect(findFrameOptionName("glass-stack-2")).toBe("Glass Crown")
+  })
 })
 
 describe("MobileFramePicker", () => {
@@ -86,5 +93,26 @@ describe("MobileFramePicker", () => {
     const videos = container.querySelectorAll("video")
     expect(videos.length).toBeGreaterThan(0)
     expect(videos[0]?.getAttribute("src")).toBe("data:video/mp4;base64,AAAA")
+  })
+
+  it("shows a full-page capture at its canvas crop in frame tiles", async () => {
+    const { container } = render(
+      <MobileFramePicker
+        value={frame}
+        onChange={() => {}}
+        previewImage="full-page.png"
+        previewFullPageCapture={{ scrollPosition: 38 }}
+        imageFit="contain"
+      />
+    )
+
+    await waitFor(() => {
+      const preview = Array.from(container.querySelectorAll("img")).find(
+        (image) => image.getAttribute("src") === "full-page.png"
+      )
+      expect(preview).toBeTruthy()
+      expect(preview).toHaveClass("object-cover")
+      expect(preview).toHaveStyle({ objectPosition: "50% 38%" })
+    })
   })
 })
