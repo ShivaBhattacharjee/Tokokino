@@ -47,10 +47,17 @@ function AsciiBackdropImpl({
   background,
   ascii,
   filter,
+  opacity,
 }: {
   background: Background
   ascii: BackdropAscii
   filter?: string
+  /**
+   * Animate mode: the layer's crossfade opacity, as a `var(…, <rest>)` string.
+   * Plain opacity on a plain element — no blend modes or backdrop-filter — so
+   * the transition composites identically on WebKit.
+   */
+  opacity?: string
 }) {
   const hostRef = React.useRef<HTMLDivElement>(null)
   const [size, setSize] = React.useState({ width: 0, height: 0 })
@@ -119,7 +126,11 @@ function AsciiBackdropImpl({
       ref={hostRef}
       aria-hidden
       className="pointer-events-none absolute inset-0 overflow-hidden"
-      style={{ background: plate, filter }}
+      style={{
+        background: plate,
+        filter,
+        opacity: opacity as React.CSSProperties["opacity"],
+      }}
     >
       {grid ? (
         <div

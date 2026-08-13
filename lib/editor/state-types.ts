@@ -440,6 +440,7 @@ export type AnimationEffect =
   | "mediaFilter"
   | "portrait"
   | "pattern"
+  | "ascii"
   | "overlay"
   | "border"
   | "borderRadius"
@@ -500,6 +501,7 @@ export type ClipBaseline = {
   mediaFilter?: AssetFilter
   portrait?: Portrait
   pattern?: BackdropPattern
+  ascii?: BackdropAscii
   overlay?: Overlay
   border?: Border
   borderRadius?: number

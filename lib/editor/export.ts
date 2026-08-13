@@ -1,6 +1,7 @@
 import { toSvg, getFontEmbedCSS } from "html-to-image"
 
 import { triggerAnchorDownload } from "@/lib/download"
+import { waitForAsciiBackdrops } from "./ascii-backdrop"
 import { supportsObjectViewBox } from "./crop-utils"
 import { shouldProxyAssetUrl } from "./export-assets"
 import { replaceCloneVideosWithFrames } from "./export-video-frames"
@@ -572,6 +573,9 @@ async function rasterizeNodeToCanvas(
   outputHeight: number,
   backgroundColor?: string
 ): Promise<HTMLCanvasElement> {
+  // ASCII backdrops paint their glyphs from an async sample of the background;
+  // capturing mid-sample would export a blank (or stale) backdrop.
+  await waitForAsciiBackdrops()
   const svgUrl = await toSvg(node, {
     ...options,
     width: outputWidth,
@@ -826,6 +830,9 @@ export async function prepareAnimationCapture(
   canvasId: string,
   targetWidth = 1280
 ): Promise<AnimationCapture> {
+  // The clone below is a snapshot: React never renders into it, so any ASCII
+  // sample still in flight would be missing from EVERY exported frame.
+  await waitForAsciiBackdrops()
   const node = findCanvasElement(canvasId)
   if (!node) throw new Error("Canvas not found")
 

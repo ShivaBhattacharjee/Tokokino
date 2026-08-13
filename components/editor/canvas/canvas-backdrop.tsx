@@ -4,6 +4,8 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import {
+  asciiLayerOpacityVar,
+  ASCII_BASE_OPACITY_VAR,
   backgroundLayerOpacityVar,
   filterLayerOpacityVar,
   patternLayerOpacityVar,
@@ -12,6 +14,7 @@ import {
   PORTRAIT_BASE_OPACITY_VAR,
   overlayLayerOpacityVar,
   OVERLAY_BASE_OPACITY_VAR,
+  type AnimateAsciiStack,
   type AnimateBgStack,
   type AnimateFilterStack,
   type AnimateOverlayStack,
@@ -34,6 +37,7 @@ import { remoteImagePreviewUrl } from "@/lib/editor/image-resize"
 import { isUnsplashImageUrl } from "@/lib/editor/unsplash"
 
 /** Stable empty layer list so the memo deps don't change every render. */
+const EMPTY_ASCII_LAYERS: AnimateAsciiStack["layers"] = []
 const EMPTY_BG_LAYERS: AnimateBgStack["layers"] = []
 const EMPTY_FILTER_LAYERS: AnimateFilterStack["layers"] = []
 const EMPTY_PORTRAIT_LAYERS: AnimatePortraitStack["layers"] = []
@@ -106,6 +110,13 @@ type CanvasBackdropProps = {
    */
   animatePatternStack?: AnimatePatternStack
   /**
+   * Animate mode only: one ASCII layer per ASCII keyframe (plus the pre-first
+   * base), crossfade-chained like the pattern stack. Layers whose keyframe has
+   * ASCII off render nothing, so the chain fades the layer beneath them out to
+   * reveal the untouched background. Empty → the committed ASCII renders.
+   */
+  animateAsciiStack?: AnimateAsciiStack
+  /**
    * Animate mode only: one texture-overlay layer per OVERLAY keyframe (plus the
    * pre-first base), crossfade-chained like the portrait/pattern stacks so the
    * additive textures transition instead of accumulating. Each layer renders in
@@ -135,6 +146,7 @@ function CanvasBackdropImpl({
   animateFilterStack,
   animatePortraitStack,
   animatePatternStack,
+  animateAsciiStack,
   animateOverlayStack,
   lightingAnimated = false,
 }: CanvasBackdropProps) {
@@ -240,6 +252,34 @@ function CanvasBackdropImpl({
     [backdrop.ascii]
   )
   const asciiActive = isAsciiBackdropActive(backdrop.ascii, background)
+  const asciiLayers = animateAsciiStack?.layers ?? EMPTY_ASCII_LAYERS
+  const hasAsciiStack = asciiLayers.length > 0
+  // Each ASCII layer samples ITS keyframe's background (downscaled the same way
+  // the rendered background is), so an animated background restyles the glyphs
+  // instead of leaving them on the committed one.
+  const effectiveAsciiLayers = React.useMemo(
+    () =>
+      asciiLayers
+        .filter((layer) => isAsciiBackdropActive(layer.ascii, layer.background))
+        .map((layer) => ({
+          ...layer,
+          background: resolveEffectiveBackground(layer.background),
+        })),
+    [asciiLayers, resolveEffectiveBackground]
+  )
+  const asciiStackBase = animateAsciiStack ?? null
+  const effectiveAsciiBase = React.useMemo(() => {
+    if (!asciiStackBase) return null
+    if (
+      !isAsciiBackdropActive(asciiStackBase.base, asciiStackBase.baseBackground)
+    ) {
+      return null
+    }
+    return {
+      ascii: asciiStackBase.base,
+      background: resolveEffectiveBackground(asciiStackBase.baseBackground),
+    }
+  }, [asciiStackBase, resolveEffectiveBackground])
 
   const filterStackBase = animateFilterStack?.base ?? "none"
   const filterLayers = animateFilterStack?.layers ?? EMPTY_FILTER_LAYERS
@@ -461,7 +501,33 @@ function CanvasBackdropImpl({
           />
         )}
 
-        {asciiActive ? (
+        {hasAsciiStack ? (
+          // Animate mode with animated ASCII: base layer + one per keyframe,
+          // crossfade-chained by the frame sampler. A keyframe that turns ASCII
+          // off renders nothing, so fading the layer beneath it back out is what
+          // reveals the untouched background.
+          <>
+            {effectiveAsciiBase ? (
+              <AsciiBackdrop
+                background={effectiveAsciiBase.background}
+                ascii={effectiveAsciiBase.ascii}
+                filter={filterValue}
+                opacity={`var(${ASCII_BASE_OPACITY_VAR}, 0)`}
+              />
+            ) : null}
+            {effectiveAsciiLayers.map((layer) => (
+              <AsciiBackdrop
+                key={layer.id}
+                background={layer.background}
+                ascii={layer.ascii}
+                filter={filterValue}
+                opacity={`var(${asciiLayerOpacityVar(layer.id)}, ${
+                  layer.restOpaque ? 1 : 0
+                })`}
+              />
+            ))}
+          </>
+        ) : asciiActive ? (
           <AsciiBackdrop
             background={effectiveBackground}
             ascii={ascii}

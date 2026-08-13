@@ -3,6 +3,7 @@ import type {
   BackdropAscii,
   BackdropAsciiCharset,
 } from "./state-types"
+import { clampNumber, editorValueSchemas } from "./value-schemas"
 
 export const ASCII_CHARSETS: Record<BackdropAsciiCharset, string> = {
   standard: " .:-=+*#%@",
@@ -28,8 +29,19 @@ export const ASCII_CHARSET_OPTIONS: {
   { id: "stars", label: "Stars" },
 ]
 
-export const ASCII_MIN_RESOLUTION = 20
-export const ASCII_MAX_RESOLUTION = 200
+// The one range for the ASCII column count — the slider, the store writer and
+// the renderer all read it from the Zod schema so they can't drift apart.
+const asciiResolutionRange = editorValueSchemas.asciiResolution
+export const ASCII_MIN_RESOLUTION = asciiResolutionRange.minValue ?? 20
+export const ASCII_MAX_RESOLUTION = asciiResolutionRange.maxValue ?? 200
+
+/** Clamp and round a column count to the schema's range. */
+export function normalizeAsciiResolution(raw: number): number {
+  return Math.round(
+    clampNumber(raw, ASCII_MIN_RESOLUTION, ASCII_MAX_RESOLUTION) ??
+      DEFAULT_BACKDROP_ASCII.resolution
+  )
+}
 
 /**
  * Character cell width ÷ height. Monospace glyphs are roughly twice as tall as
@@ -53,9 +65,10 @@ export const DEFAULT_BACKDROP_ASCII: BackdropAscii = {
 export function resolveBackdropAscii(
   ascii: BackdropAscii | undefined
 ): BackdropAscii {
-  return ascii
-    ? { ...DEFAULT_BACKDROP_ASCII, ...ascii }
-    : DEFAULT_BACKDROP_ASCII
+  if (!ascii) return DEFAULT_BACKDROP_ASCII
+  const merged = { ...DEFAULT_BACKDROP_ASCII, ...ascii }
+  const resolution = normalizeAsciiResolution(merged.resolution)
+  return resolution === merged.resolution ? merged : { ...merged, resolution }
 }
 
 export function isAsciiBackdropActive(
@@ -240,10 +253,57 @@ export function backgroundSampleKey(
 }
 
 /**
+ * Sampling is async, but export rasterizes (or clones) whatever is in the DOM
+ * *now* — so an export fired right after ASCII is switched on, or after its
+ * background/resolution changes, would capture a canvas with no glyphs on it.
+ * Every in-flight sample registers here and the export paths await this first.
+ */
+const pendingSamples = new Set<Promise<void>>()
+
+export async function waitForAsciiBackdrops(timeoutMs = 4000): Promise<void> {
+  if (pendingSamples.size === 0) return
+  const deadline = Date.now() + timeoutMs
+  while (pendingSamples.size > 0 && Date.now() < deadline) {
+    await Promise.race([
+      Promise.all([...pendingSamples]),
+      new Promise((resolve) =>
+        setTimeout(resolve, Math.max(0, deadline - Date.now()))
+      ),
+    ])
+  }
+  // A settled sample is still only React state — give it the frames it needs to
+  // commit the grid into the DOM the exporter is about to read.
+  await new Promise<void>((resolve) => {
+    if (typeof requestAnimationFrame !== "function") {
+      resolve()
+      return
+    }
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  })
+}
+
+/**
  * RGBA for a `cols × rows` downsample of the background, one pixel per
  * character cell.
  */
-export async function sampleBackgroundPixels(
+export function sampleBackgroundPixels(
+  background: Background,
+  cols: number,
+  rows: number
+): Promise<Uint8ClampedArray | null> {
+  const sample = sampleBackgroundPixelsUncached(background, cols, rows)
+  // Never rejects, so the tracked copy can't raise an unhandled rejection —
+  // the caller still sees the original promise's failure.
+  const settled = sample.then(
+    () => undefined,
+    () => undefined
+  )
+  pendingSamples.add(settled)
+  void settled.then(() => pendingSamples.delete(settled))
+  return sample
+}
+
+async function sampleBackgroundPixelsUncached(
   background: Background,
   cols: number,
   rows: number

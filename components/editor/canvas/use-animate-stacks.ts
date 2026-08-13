@@ -3,20 +3,24 @@
 import * as React from "react"
 
 import {
+  EMPTY_ASCII_STACK,
   EMPTY_BG_STACK,
   EMPTY_FILTER_STACK,
   EMPTY_OVERLAY_STACK,
   EMPTY_PATTERN_STACK,
   EMPTY_PORTRAIT_STACK,
+  resolveAnimateAsciiStack,
   resolveAnimateBgStack,
   resolveAnimateFilterStack,
   resolveAnimateOverlayStack,
   resolveAnimatePatternStack,
   resolveAnimatePortraitStack,
 } from "@/lib/editor/animation-playback"
+import { resolveBackdropAscii } from "@/lib/editor/ascii-backdrop"
 import type {
   AssetFilter,
   Background,
+  BackdropAscii,
   BackdropPattern,
   CanvasAnimation,
   Overlay,
@@ -40,6 +44,7 @@ export function useAnimateStacks({
   filter,
   portrait,
   pattern,
+  ascii,
   overlay,
 }: {
   isAnimateMode: boolean
@@ -49,6 +54,8 @@ export function useAnimateStacks({
   filter: AssetFilter
   portrait: Portrait
   pattern: BackdropPattern
+  /** Undefined on drafts saved before ASCII existed — resolved to defaults here. */
+  ascii: BackdropAscii | undefined
   overlay: Overlay
 }) {
   const clips = isAnimateMode ? (canvasAnimation?.clips ?? null) : null
@@ -81,6 +88,18 @@ export function useAnimateStacks({
         : EMPTY_PATTERN_STACK,
     [clips, pattern, selectedClipId]
   )
+  const asciiStack = React.useMemo(
+    () =>
+      clips
+        ? resolveAnimateAsciiStack(
+            clips,
+            resolveBackdropAscii(ascii),
+            background,
+            selectedClipId
+          )
+        : EMPTY_ASCII_STACK,
+    [clips, ascii, background, selectedClipId]
+  )
   const overlayStack = React.useMemo(
     () =>
       clips
@@ -89,5 +108,12 @@ export function useAnimateStacks({
     [clips, overlay, selectedClipId]
   )
 
-  return { bg, filterStack, portraitStack, patternStack, overlayStack }
+  return {
+    bg,
+    filterStack,
+    portraitStack,
+    patternStack,
+    asciiStack,
+    overlayStack,
+  }
 }

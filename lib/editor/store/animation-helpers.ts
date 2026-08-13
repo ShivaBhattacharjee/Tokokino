@@ -1,3 +1,4 @@
+import { DEFAULT_BACKDROP_ASCII } from "../ascii-backdrop"
 import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../css-utils"
 import {
   clipAffectsMain,
@@ -75,6 +76,7 @@ export const captureClipPose = (canvas: CanvasState): ClipBaseline => {
     mediaFilter: main.filter,
     portrait: canvas.portrait,
     pattern: canvas.backdrop.pattern,
+    ascii: canvas.backdrop.ascii ?? DEFAULT_BACKDROP_ASCII,
     overlay: canvas.overlay,
     border: main.border,
     borderRadius: main.borderRadius,
@@ -157,6 +159,8 @@ export const applyPoseToCanvas = (
     filter: pose.filter ?? canvas.backdrop.filter,
     // Fall back to the live value for poses captured before pattern animated.
     pattern: pose.pattern ?? canvas.backdrop.pattern,
+    // Fall back to the live value for poses captured before ASCII animated.
+    ascii: pose.ascii ?? canvas.backdrop.ascii,
   },
   screenshotSlots: canvas.screenshotSlots.map((s) => {
     const sp = pose.slots[s.id]
@@ -304,6 +308,7 @@ const EFFECT_MAIN_POSE_FIELDS: Record<
   mediaFilter: ["mediaFilter"],
   portrait: ["portrait"],
   pattern: ["pattern"],
+  ascii: ["ascii"],
   overlay: ["overlay"],
   border: ["border"],
   borderRadius: ["borderRadius"],
@@ -562,6 +567,10 @@ export const resolveKeyframePose = (
     ),
     portrait: mainReveal("portrait", (p) => p.portrait ?? canvas.portrait),
     pattern: mainReveal("pattern", (p) => p.pattern ?? canvas.backdrop.pattern),
+    ascii: mainReveal(
+      "ascii",
+      (p) => p.ascii ?? canvas.backdrop.ascii ?? DEFAULT_BACKDROP_ASCII
+    ),
     overlay: mainReveal("overlay", (p) => p.overlay ?? canvas.overlay),
     border: mainReveal("border", (p) => p.border ?? canvas.border),
     crop: mainReveal("crop", (p) => poseCrop(p, canvas.lastCropRegion)),

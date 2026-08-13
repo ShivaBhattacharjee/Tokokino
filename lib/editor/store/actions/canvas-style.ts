@@ -1,3 +1,4 @@
+import { normalizeAsciiResolution } from "../../ascii-backdrop"
 import { LAYOUT_PRESETS, PRESENT_PRESETS } from "../../present-presets"
 import {
   resolveActivePresetGeometry,
@@ -328,10 +329,19 @@ export const createCanvasStyleActions = ({
         "pattern"
       ),
     setBackdropAscii: (a, canvasId) =>
-      commitCanvas(
+      commitCanvasEffect(
         canvasId,
-        (canvas) => ({ backdrop: { ...canvas.backdrop, ascii: a } }),
-        "backdrop-ascii"
+        (canvas) => ({
+          backdrop: {
+            ...canvas.backdrop,
+            ascii: {
+              ...a,
+              resolution: normalizeAsciiResolution(a.resolution),
+            },
+          },
+        }),
+        "backdrop-ascii",
+        "ascii"
       ),
     setBackdropLighting: (l, canvasId) =>
       commitCanvasEffect(

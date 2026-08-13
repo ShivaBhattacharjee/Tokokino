@@ -51,6 +51,10 @@ const releases: Release[] = [
         text: "A resolution slider takes the grid from 20 to 200 columns, ink can sample the background's own colours or use one of your choosing, and the ramp can be inverted so bright areas read sparse.",
       },
       {
+        title: "Animate the ASCII",
+        text: "ASCII is a keyframable effect in Animate mode: crossfade between character sets, resolutions and colours, dissolve it on or off, and it re-renders when a keyframe swaps the background beneath it.",
+      },
+      {
         title: "Sharp at 8K",
         text: "The characters are real text rather than a rasterized layer, so ASCII backdrops stay crisp in every still and motion export, at any resolution.",
       },

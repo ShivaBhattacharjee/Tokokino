@@ -111,6 +111,7 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   filter: RiSunLine,
   portrait: RiSunLine,
   pattern: RiSunLine,
+  ascii: RiSunLine,
   overlay: RiSunLine,
   // The media grade has its own Effects / Filters controls — share their icons.
   mediaEffects: RiEqualizerLine,
