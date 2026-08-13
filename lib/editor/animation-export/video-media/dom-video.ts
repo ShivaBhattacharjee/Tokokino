@@ -86,12 +86,10 @@ export function seekTo(
  * paused seek can't hang the export.
  */
 export function waitForVideoFrame(video: HTMLVideoElement): Promise<void> {
-  const rvfc = (
-    video as HTMLVideoElement & {
-      requestVideoFrameCallback?: (cb: () => void) => number
-    }
-  ).requestVideoFrameCallback
-  if (typeof rvfc !== "function") {
+  const rvfcVideo = video as HTMLVideoElement & {
+    requestVideoFrameCallback?: (cb: () => void) => number
+  }
+  if (typeof rvfcVideo.requestVideoFrameCallback !== "function") {
     return new Promise((resolve) => setTimeout(resolve, 30))
   }
   return new Promise<void>((resolve) => {
@@ -104,6 +102,6 @@ export function waitForVideoFrame(video: HTMLVideoElement): Promise<void> {
     }
     // Safety net: rVFC isn't guaranteed to fire for a paused seek in every build.
     const timer = window.setTimeout(done, 100)
-    rvfc.call(video, done)
+    rvfcVideo.requestVideoFrameCallback(done)
   })
 }
