@@ -57,6 +57,27 @@ export type BackdropPattern = {
   color: string
 }
 
+export type BackdropAsciiCharset =
+  | "standard"
+  | "dense"
+  | "blocks"
+  | "binary"
+  | "dots"
+  | "circles"
+  | "stars"
+
+export type BackdropAscii = {
+  enabled: boolean
+  /** Number of character columns across the canvas. Higher = finer detail. */
+  resolution: number
+  charset: BackdropAsciiCharset
+  /** Sample the background's own colour per character instead of `color`. */
+  colored: boolean
+  /** Reverse the ramp so bright pixels get the sparse characters. */
+  inverted: boolean
+  color: string
+}
+
 export type BackdropLightingTarget = "outer" | "inner"
 
 export type BackdropLighting = {
@@ -71,6 +92,7 @@ export type Backdrop = {
   pattern: BackdropPattern
   lighting: BackdropLighting
   filter: AssetFilter
+  ascii?: BackdropAscii
 }
 
 export type ShadowType =

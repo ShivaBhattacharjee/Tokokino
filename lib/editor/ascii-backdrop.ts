@@ -1,0 +1,305 @@
+import type {
+  Background,
+  BackdropAscii,
+  BackdropAsciiCharset,
+} from "./state-types"
+
+export const ASCII_CHARSETS: Record<BackdropAsciiCharset, string> = {
+  standard: " .:-=+*#%@",
+  dense:
+    " .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+  blocks: " ░▒▓█",
+  binary: " ..01",
+  dots: " .·:∙•●",
+  circles: " ·○◔◑◕●",
+  stars: " ·˙*✳✻✼❋",
+}
+
+export const ASCII_CHARSET_OPTIONS: {
+  id: BackdropAsciiCharset
+  label: string
+}[] = [
+  { id: "standard", label: "Standard" },
+  { id: "dense", label: "Dense" },
+  { id: "blocks", label: "Blocks" },
+  { id: "binary", label: "Binary" },
+  { id: "dots", label: "Dots" },
+  { id: "circles", label: "Circles" },
+  { id: "stars", label: "Stars" },
+]
+
+export const ASCII_MIN_RESOLUTION = 20
+export const ASCII_MAX_RESOLUTION = 200
+
+/**
+ * Character cell width ÷ height. Monospace glyphs are roughly twice as tall as
+ * they are wide, so the sampling grid uses the same ratio and the picture keeps
+ * the background's aspect instead of squashing it.
+ */
+export const ASCII_CELL_ASPECT = 0.5
+
+export const ASCII_FONT_FAMILY =
+  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace'
+
+export const DEFAULT_BACKDROP_ASCII: BackdropAscii = {
+  enabled: false,
+  resolution: 90,
+  charset: "standard",
+  colored: true,
+  inverted: false,
+  color: "#FFFFFF",
+}
+
+export function resolveBackdropAscii(
+  ascii: BackdropAscii | undefined
+): BackdropAscii {
+  return ascii
+    ? { ...DEFAULT_BACKDROP_ASCII, ...ascii }
+    : DEFAULT_BACKDROP_ASCII
+}
+
+export function isAsciiBackdropActive(
+  ascii: BackdropAscii | undefined,
+  background: Background
+): boolean {
+  return Boolean(ascii?.enabled) && background.type !== "none"
+}
+
+/** Rows that keep square-ish cells for a canvas of the given aspect ratio. */
+export function asciiRowCount(
+  cols: number,
+  width: number,
+  height: number
+): number {
+  if (!(width > 0) || !(height > 0)) return 0
+  const cellWidth = width / cols
+  const cellHeight = cellWidth / ASCII_CELL_ASPECT
+  return Math.max(1, Math.round(height / cellHeight))
+}
+
+export type AsciiGrid = {
+  cols: number
+  rows: number
+  /** `cols * rows` characters, row-major. */
+  chars: string
+  /** `cols * rows` CSS colours, row-major. Empty when the grid is monochrome. */
+  colors: string[]
+}
+
+function luminance(r: number, g: number, b: number): number {
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+
+/** Quantize to 32 levels per channel so runs of near-identical colour merge. */
+function quantizedColor(r: number, g: number, b: number): string {
+  const q = (v: number) => Math.min(255, (v & 0xf8) + 4)
+  return `rgb(${q(r)},${q(g)},${q(b)})`
+}
+
+export function gridFromImageData(
+  data: Uint8ClampedArray,
+  cols: number,
+  rows: number,
+  options: {
+    charset: BackdropAsciiCharset
+    inverted: boolean
+    colored: boolean
+  }
+): AsciiGrid {
+  const ramp = ASCII_CHARSETS[options.charset] ?? ASCII_CHARSETS.standard
+  const last = ramp.length - 1
+  const chars = new Array<string>(cols * rows)
+  const colors = options.colored ? new Array<string>(cols * rows) : []
+  for (let i = 0; i < cols * rows; i++) {
+    const p = i * 4
+    const r = data[p]
+    const g = data[p + 1]
+    const b = data[p + 2]
+    const alpha = data[p + 3] / 255
+    // Unpainted pixels read as "dark" rather than as whatever the RGB happens
+    // to be, so a transparent background maps to the sparse end of the ramp.
+    const lum = luminance(r, g, b) * alpha
+    const level = options.inverted ? 1 - lum : lum
+    chars[i] = ramp[Math.max(0, Math.min(last, Math.round(level * last)))]
+    if (options.colored) colors[i] = quantizedColor(r, g, b)
+  }
+  return { cols, rows, chars: chars.join(""), colors }
+}
+
+/**
+ * The plate the glyphs sit on: the background's own darkest tone, dimmed. The
+ * ASCII layer covers the background it was sampled from, so drawing characters
+ * straight onto that background would leave them near-invisible — and picking
+ * the colour by hand is a knob nobody wants to turn. Deriving it keeps the
+ * canvas reading as the same artwork.
+ */
+export function asciiPlateColor(
+  data: Uint8ClampedArray,
+  cells: number
+): string {
+  let best = Number.POSITIVE_INFINITY
+  let rgb: [number, number, number] = [0, 0, 0]
+  for (let i = 0; i < cells; i++) {
+    const p = i * 4
+    const alpha = data[p + 3] / 255
+    const lum = luminance(data[p], data[p + 1], data[p + 2]) * alpha
+    if (lum < best) {
+      best = lum
+      rgb = [data[p] * alpha, data[p + 1] * alpha, data[p + 2] * alpha]
+    }
+  }
+  const dim = 0.55
+  return `rgb(${Math.round(rgb[0] * dim)},${Math.round(rgb[1] * dim)},${Math.round(
+    rgb[2] * dim
+  )})`
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
+function isSameOriginUrl(url: string): boolean {
+  try {
+    return new URL(url, window.location.href).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Reading pixels back needs an untainted canvas, so anything cross-origin goes
+ * through the same proxy the exporter uses.
+ */
+function readableImageUrl(url: string): string {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url
+  if (isSameOriginUrl(url)) return url
+  try {
+    const parsed = new URL(url)
+    if (!["http:", "https:"].includes(parsed.protocol)) return url
+    return `/api/export/image?url=${encodeURIComponent(url)}`
+  } catch {
+    return url
+  }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error(`ascii backdrop: cannot load ${src}`))
+    img.src = src
+  })
+}
+
+/**
+ * Rasterize a CSS background value at the grid's resolution. Gradients and
+ * solids have no canvas equivalent, so they are painted by the browser inside a
+ * `<foreignObject>` and read back — cheap here because the grid is tiny.
+ */
+async function rasterizeCssBackground(
+  value: string,
+  cols: number,
+  rows: number
+): Promise<HTMLImageElement> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${cols}" height="${rows}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${cols}px;height:${rows}px;background:${escapeXml(
+    value
+  )}"></div></foreignObject></svg>`
+  return loadImage(
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  )
+}
+
+/** Cover-fit source rect, matching `background-size: cover` on the canvas. */
+function coverRect(
+  sw: number,
+  sh: number,
+  dw: number,
+  dh: number
+): [number, number, number, number] {
+  if (!(sw > 0) || !(sh > 0)) return [0, 0, sw, sh]
+  const scale = Math.max(dw / sw, dh / sh)
+  const w = dw / scale
+  const h = dh / scale
+  return [(sw - w) / 2, (sh - h) / 2, w, h]
+}
+
+const sampleCache = new Map<string, Uint8ClampedArray>()
+const SAMPLE_CACHE_LIMIT = 24
+
+export function backgroundSampleKey(
+  background: Background,
+  cols: number,
+  rows: number
+): string {
+  return `${background.type}|${background.value}|${cols}x${rows}`
+}
+
+/**
+ * RGBA for a `cols × rows` downsample of the background, one pixel per
+ * character cell.
+ */
+export async function sampleBackgroundPixels(
+  background: Background,
+  cols: number,
+  rows: number
+): Promise<Uint8ClampedArray | null> {
+  if (background.type === "none" || cols < 1 || rows < 1) return null
+  const key = backgroundSampleKey(background, cols, rows)
+  const cached = sampleCache.get(key)
+  if (cached) return cached
+
+  const canvas = document.createElement("canvas")
+  canvas.width = cols
+  canvas.height = rows
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
+  if (!ctx) return null
+
+  if (background.type === "image") {
+    const img = await loadImage(readableImageUrl(background.value))
+    const [sx, sy, sw, sh] = coverRect(
+      img.naturalWidth,
+      img.naturalHeight,
+      cols,
+      rows
+    )
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cols, rows)
+  } else {
+    const img = await rasterizeCssBackground(background.value, cols, rows)
+    ctx.drawImage(img, 0, 0, cols, rows)
+  }
+
+  const { data } = ctx.getImageData(0, 0, cols, rows)
+  if (sampleCache.size >= SAMPLE_CACHE_LIMIT) {
+    const oldest = sampleCache.keys().next().value
+    if (oldest !== undefined) sampleCache.delete(oldest)
+  }
+  sampleCache.set(key, data)
+  return data
+}
+
+let advanceRatio: number | null = null
+
+/**
+ * Width of one glyph as a fraction of font size for {@link ASCII_FONT_FAMILY}.
+ * Measured once — the ratio differs per platform (Menlo ≈ 0.6, Consolas ≈ 0.55)
+ * and the grid has to line up with whichever font actually resolves.
+ */
+export function monospaceAdvanceRatio(): number {
+  if (advanceRatio !== null) return advanceRatio
+  const fallback = 0.6
+  try {
+    const ctx = document.createElement("canvas").getContext("2d")
+    if (!ctx) return fallback
+    ctx.font = `100px ${ASCII_FONT_FAMILY}`
+    const width = ctx.measureText("M").width / 100
+    advanceRatio = width > 0.2 && width < 1.5 ? width : fallback
+  } catch {
+    advanceRatio = fallback
+  }
+  return advanceRatio
+}

@@ -11,6 +11,7 @@ import type {
   AssetElement,
   AssetFilter,
   Background,
+  BackdropAscii,
   BackdropEffects,
   BackdropLighting,
   BackdropPattern,
@@ -203,6 +204,7 @@ export type EditorActions = {
   setMainScreenshotBorder: (b: Border, canvasId?: string) => void
   setBackdropEffects: (e: BackdropEffects, canvasId?: string) => void
   setBackdropPattern: (p: BackdropPattern, canvasId?: string) => void
+  setBackdropAscii: (a: BackdropAscii, canvasId?: string) => void
   setBackdropLighting: (l: BackdropLighting, canvasId?: string) => void
   setMainScreenshotBackdropLighting: (
     l: BackdropLighting,

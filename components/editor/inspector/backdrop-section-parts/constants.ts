@@ -52,6 +52,14 @@ export const LIGHTING_OPACITY_VAR = "--bd-light-op"
 export const ACTIVE_COLOR_SWATCH_CLASS =
   "border-primary shadow-[0_0_0_2px_hsl(var(--background)),0_0_0_4px_hsl(var(--primary)/0.9)]"
 
+export const ASCII_COLOR_PRESETS = [
+  "#FFFFFF",
+  "#7CFFB2",
+  "#8AB4FF",
+  "#FFD59E",
+  "#FF9EC4",
+]
+
 export type BackdropControlId =
   | "overlay"
   | "lighting"

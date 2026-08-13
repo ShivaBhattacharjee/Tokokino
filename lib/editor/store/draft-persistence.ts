@@ -1,3 +1,4 @@
+import { DEFAULT_BACKDROP_ASCII } from "../ascii-backdrop"
 import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../css-utils"
 import { getBlobForObjectUrl, registerObjectUrl } from "../media-type"
 import { BACKGROUND_LIBRARY } from "../presets"
@@ -545,6 +546,11 @@ function normalizeCanvasState(
       lighting: {
         ...fallbackBackdrop.lighting,
         ...(sourceBackdrop?.lighting ?? {}),
+      },
+      ascii: {
+        ...DEFAULT_BACKDROP_ASCII,
+        ...(fallbackBackdrop.ascii ?? {}),
+        ...(sourceBackdrop?.ascii ?? {}),
       },
     },
     mediaAdjustments: {

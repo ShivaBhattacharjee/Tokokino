@@ -25,6 +25,10 @@ import {
   NEUTRAL_MEDIA_ADJUSTMENTS,
   slotMediaFxPreviewVar,
 } from "@/lib/editor/css-utils"
+import {
+  DEFAULT_BACKDROP_ASCII,
+  resolveBackdropAscii,
+} from "@/lib/editor/ascii-backdrop"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
 import {
@@ -85,6 +89,7 @@ export function BackdropSection({
   const setBackdropEffects = useEditorStore((s) => s.setBackdropEffects)
   const setBackdropPattern = useEditorStore((s) => s.setBackdropPattern)
   const setBackdropFilter = useEditorStore((s) => s.setBackdropFilter)
+  const setBackdropAscii = useEditorStore((s) => s.setBackdropAscii)
   const setOverlay = useEditorStore((s) => s.setOverlay)
   const setPortrait = useEditorStore((s) => s.setPortrait)
   const setCanvasBorderRadius = useEditorStore((s) => s.setCanvasBorderRadius)
@@ -229,6 +234,15 @@ export function BackdropSection({
     [applyStyle]
   )
 
+  const ascii = React.useMemo(
+    () => resolveBackdropAscii(backdrop.ascii),
+    [backdrop.ascii]
+  )
+  const setAscii = React.useCallback(
+    (patch: Partial<typeof ascii>) => setBackdropAscii({ ...ascii, ...patch }),
+    [ascii, setBackdropAscii]
+  )
+
   const setPattern = React.useCallback(
     (patch: Partial<typeof pattern>) =>
       setBackdropPattern({ ...pattern, ...patch }),
@@ -318,6 +332,7 @@ export function BackdropSection({
   const effectsGrade = effectsTarget === "backdrop" ? backdropGrade : mediaGrade
   const overlayActive = overlay.id !== null
   const patternActive = pattern.ids.length > 0
+  const asciiActive = ascii.enabled
   const portraitActive = portrait.mode !== "off"
   const lightingActive = activeLighting.intensity > 0
   const shouldRenderControl = React.useCallback(
@@ -422,9 +437,11 @@ export function BackdropSection({
             pattern={pattern}
             patternActive={patternActive}
             patternColors={patternColors}
+            ascii={ascii}
+            asciiActive={asciiActive}
             pickerLayout={pickerLayout}
             onOpenChange={handleInlineControlOpenChange("pattern")}
-            onReset={() =>
+            onResetPattern={() =>
               setBackdropPattern({
                 ids: [],
                 intensity: 50,
@@ -432,7 +449,9 @@ export function BackdropSection({
                 color: "#FFFFFF",
               })
             }
+            onResetAscii={() => setBackdropAscii({ ...DEFAULT_BACKDROP_ASCII })}
             setPattern={setPattern}
+            setAscii={setAscii}
             setPreviewVar={setPreviewVar}
             clearPreviewVarAfterPaint={clearPreviewVarAfterPaint}
           />

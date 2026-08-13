@@ -327,6 +327,12 @@ export const createCanvasStyleActions = ({
         "backdrop-pattern",
         "pattern"
       ),
+    setBackdropAscii: (a, canvasId) =>
+      commitCanvas(
+        canvasId,
+        (canvas) => ({ backdrop: { ...canvas.backdrop, ascii: a } }),
+        "backdrop-ascii"
+      ),
     setBackdropLighting: (l, canvasId) =>
       commitCanvasEffect(
         canvasId,

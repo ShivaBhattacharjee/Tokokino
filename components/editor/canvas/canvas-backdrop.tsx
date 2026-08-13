@@ -41,6 +41,12 @@ const EMPTY_PATTERN_LAYERS: AnimatePatternStack["layers"] = []
 const EMPTY_OVERLAY_LAYERS: AnimateOverlayStack["layers"] = []
 
 import {
+  isAsciiBackdropActive,
+  resolveBackdropAscii,
+} from "@/lib/editor/ascii-backdrop"
+
+import { AsciiBackdrop } from "./ascii-backdrop"
+import {
   lightingOverlayCss,
   NOISE_DATA_URL,
   overlayLayerCss,
@@ -228,6 +234,12 @@ function CanvasBackdropImpl({
     [effectsFilter]
   )
   const filterValue = filterCssFor(backdrop.filter ?? "none")
+
+  const ascii = React.useMemo(
+    () => resolveBackdropAscii(backdrop.ascii),
+    [backdrop.ascii]
+  )
+  const asciiActive = isAsciiBackdropActive(backdrop.ascii, background)
 
   const filterStackBase = animateFilterStack?.base ?? "none"
   const filterLayers = animateFilterStack?.layers ?? EMPTY_FILTER_LAYERS
@@ -448,6 +460,14 @@ function CanvasBackdropImpl({
             }}
           />
         )}
+
+        {asciiActive ? (
+          <AsciiBackdrop
+            background={effectiveBackground}
+            ascii={ascii}
+            filter={filterValue}
+          />
+        ) : null}
 
         {hasPatternStack ? (
           // Animate mode with animated pattern: base group + one group per
