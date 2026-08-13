@@ -20,11 +20,11 @@ export function glassScreenClipStyle(): CSSProperties {
  * curvature continuous through that join; browsers without it drop the
  * declaration and keep the circular arc.
  */
-export function glassCornerStyle(radiusCqw: number): CSSProperties {
+type GlassCornerStyle = CSSProperties & { cornerShape: string }
+
+export function glassCornerStyle(radiusCqw: number): GlassCornerStyle {
   return {
     borderRadius: `${radiusCqw}cqw`,
-    ...({
-      cornerShape: "var(--theme-corner-shape, superellipse(1.3))",
-    } as CSSProperties),
+    cornerShape: "var(--theme-corner-shape, superellipse(1.3))",
   }
 }
