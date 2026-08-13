@@ -1011,32 +1011,32 @@ export function resolveAnimateAsciiStack(
   const restCutoff =
     selectedIndex === -1 ? asciiClips.length - 1 : selectedIndex
 
-  // A clip that only animates the background carries no ASCII edit of its own,
-  // so it inherits whatever ASCII was in force at that point in the timeline —
-  // otherwise a background swap would blank the glyphs mid-timeline.
+  // Each axis carries forward whatever was in force at that point in the
+  // timeline, taking a clip's pose only for the axis it actually OWNS — the
+  // same rule resolveKeyframePose applies via latestOwner(). A clip's captured
+  // pose holds a value for both axes regardless of ownership, so trusting it
+  // blindly would let an ASCII-only keyframe re-assert a stale background (and
+  // a background-only keyframe blank the glyphs).
   let carriedAscii = base
+  let carriedBackground = baseBackground
   const layers: AnimateAsciiLayer[] = asciiClips.map((c, i) => {
     const pose = clipPose(c)
-    const ascii =
-      c.id === selectedClipId
-        ? committedAscii
-        : clipOwns(c, "ascii")
-          ? (pose.ascii ?? carriedAscii)
-          : carriedAscii
+    // The open keyframe's edits live on the committed canvas, not in its stored
+    // pose, so both axes read from there — matching resolveAnimateBgStack.
+    const selected = c.id === selectedClipId
+    const ascii = selected
+      ? committedAscii
+      : clipOwns(c, "ascii")
+        ? (pose.ascii ?? carriedAscii)
+        : carriedAscii
+    const background = selected
+      ? committedBackground
+      : clipOwns(c, "background")
+        ? (pose.background ?? carriedBackground)
+        : carriedBackground
     carriedAscii = ascii
-    return {
-      id: c.id,
-      ascii,
-      // The open keyframe's edits live on the committed canvas, not in its
-      // stored pose — so read the background from there too, or the glyphs
-      // would sample the pre-edit background while the layer beneath shows
-      // the new one. Matches resolveAnimateBgStack.
-      background:
-        c.id === selectedClipId
-          ? committedBackground
-          : (pose.background ?? committedBackground),
-      restOpaque: i === restCutoff,
-    }
+    carriedBackground = background
+    return { id: c.id, ascii, background, restOpaque: i === restCutoff }
   })
   return { base, baseBackground, layers }
 }

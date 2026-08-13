@@ -122,6 +122,29 @@ describe("resolveAnimateAsciiStack", () => {
     expect(stack.layers[1].ascii.enabled).toBe(true)
   })
 
+  it("carries a background keyframe forward onto later ASCII-only keyframes", () => {
+    // The ASCII keyframe's own pose still holds the pre-swap background (a
+    // captured pose carries every axis, owned or not). Playback shows the
+    // swapped background at that point, so the glyphs must too.
+    const stack = resolveAnimateAsciiStack(
+      [
+        clip("bg", 0, ["background"], { background: otherBg }),
+        clip("k1", 1000, ["ascii"], {
+          ascii: ascii({ charset: "dots" }),
+          background: committedBg,
+        }),
+      ],
+      ascii(),
+      committedBg,
+      null
+    )
+
+    expect(stack.layers.map((l) => l.id)).toEqual(["bg", "k1"])
+    expect(stack.layers[0].background).toEqual(otherBg)
+    expect(stack.layers[1].background).toEqual(otherBg)
+    expect(stack.layers[1].ascii.charset).toBe("dots")
+  })
+
   it("shows only the selected keyframe's layer at rest, and reads it live", () => {
     const live = ascii({ charset: "stars", resolution: 120 })
     const stack = resolveAnimateAsciiStack(
@@ -157,8 +180,24 @@ describe("resolveAnimateAsciiStack", () => {
     )
 
     expect(stack.layers[0].background).toEqual(otherBg)
-    // Unselected keyframes still read their own stored pose.
-    expect(stack.layers[1].background).toEqual(committedBg)
+    // The later ASCII-only keyframe doesn't own the background, so it inherits
+    // the live edit rather than re-asserting the background in its own pose.
+    expect(stack.layers[1].background).toEqual(otherBg)
+  })
+
+  it("keeps a later background keyframe's own swap", () => {
+    const stack = resolveAnimateAsciiStack(
+      [
+        clip("k1", 0, ["ascii"], { ascii: ascii(), background: committedBg }),
+        clip("bg", 1000, ["background"], { background: otherBg }),
+      ],
+      ascii(),
+      committedBg,
+      null
+    )
+
+    expect(stack.layers[0].background).toEqual(committedBg)
+    expect(stack.layers[1].background).toEqual(otherBg)
   })
 
   it("holds the last layer at rest when no keyframe is open", () => {
