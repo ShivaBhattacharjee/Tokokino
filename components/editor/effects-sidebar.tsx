@@ -58,6 +58,7 @@ export function EffectsSidebar({
   const bulkEditMode = useEditorStore((s) => s.bulkEditMode)
   const frame = useActiveCanvasField((c) => c.frame)
   const objectFit = useActiveCanvasField((c) => c.objectFit)
+  const fullPageCapture = useActiveCanvasField((c) => c.fullPageCapture)
   const tweet = useActiveCanvasField((c) => c.tweet)
   const setAspect = useEditorStore((s) => s.setAspect)
   const setCanvasAspect = useEditorStore((s) => s.setCanvasAspect)
@@ -173,6 +174,11 @@ export function EffectsSidebar({
             value={displayFrame}
             align={popoverAlign}
             previewImage={selectedSlot ? selectedSlot.src : undefined}
+            previewFullPageCapture={
+              selectedSlot
+                ? (selectedSlot.fullPageCapture ?? null)
+                : fullPageCapture
+            }
             imageFit={selectedSlot?.objectFit ?? objectFit ?? "cover"}
             disabled={Boolean(tweet)}
             disabledLabel="Disabled for social posts"

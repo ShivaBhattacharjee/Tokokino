@@ -1,4 +1,5 @@
 import { getBrowserFrame, isBrowserFrame } from "@/lib/browser-frame"
+import { getGlassFrame } from "@/lib/glass-frame"
 import { DEVICE_MOCKUP_SPECS, getDeviceMockup } from "@/lib/mockups"
 import type { AspectState, DeviceFrame } from "./state-types"
 
@@ -68,6 +69,14 @@ function getFrameRatioInfo(frame: DeviceFrame) {
     return ratio && browserFrame
       ? { name: `${browserFrame.name} browser`, ratio }
       : null
+  }
+
+  const glassFrame = getGlassFrame(frame.id)
+  if (glassFrame) {
+    return {
+      name: glassFrame.name,
+      ratio: glassFrame.size.width / glassFrame.size.height,
+    }
   }
 
   const mockup = getDeviceMockup(frame.id)

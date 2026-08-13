@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { isBrowserFrame, resolveBrowserFrameColor } from "@/lib/browser-frame"
+import { isGlassFrame, resolveGlassFrameColor } from "@/lib/glass-frame"
 import type {
   DeviceFrame,
   EditorTool,
@@ -20,6 +21,10 @@ import {
   BrowserFrameEmptyState,
   ScreenshotBrowserFrame,
 } from "./screenshot-browser-frame"
+import {
+  GlassFrameEmptyState,
+  ScreenshotGlassFrame,
+} from "./screenshot-glass-frame"
 import { ScreenshotMockup } from "./screenshot-mockup"
 import type { CaptureDevice, CaptureSettings } from "./upload-card"
 
@@ -147,8 +152,12 @@ export function ScreenshotFrameContent({
 }: ScreenshotFrameContentProps) {
   const browserFrame = isBrowserFrame(frame.id)
   const browserFrameColor = resolveBrowserFrameColor(frame.color)
+  const glassFrame = isGlassFrame(frame.id)
+  const glassFrameColor = resolveGlassFrameColor(frame.color)
   const mockupDevice =
-    frame.id === "none" || browserFrame ? null : getDeviceMockup(frame.id)
+    frame.id === "none" || browserFrame || glassFrame
+      ? null
+      : getDeviceMockup(frame.id)
   const mockupOrientation = mockupDevice?.orientations.includes("portrait")
     ? "portrait"
     : "landscape"
@@ -157,7 +166,7 @@ export function ScreenshotFrameContent({
       ? -90
       : 0
   const mockupAsset =
-    frame.id === "none" || browserFrame
+    frame.id === "none" || browserFrame || glassFrame
       ? null
       : getDeviceMockupAsset(frame.id, frame.color, mockupOrientation)
   const mockupSpec = mockupAsset ? deviceMockupSpec(frame.id) : null
@@ -184,6 +193,44 @@ export function ScreenshotFrameContent({
           imageRef={imageRef}
           addressValue={addressValue}
           onAddressChange={onAddressChange}
+          onSelect={onSelect}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onImageLoad={handleImageLoad}
+          onCropClick={onCrop}
+          onReplaceFile={onReplaceFile}
+          onDelete={onDelete}
+          onCaptureWebsite={onCapture}
+          captureDefaultDevice={captureDefaultDevice}
+          captureStateKey={captureStateKey}
+          showHoverActions={false}
+          readMainPreviewVars={readMainPreviewVars}
+          innerLightingStyle={innerLightingStyle}
+          onMediaElement={onMediaElement}
+          mediaStyle={mediaStyle}
+        />
+      )
+    }
+
+    if (glassFrame) {
+      return (
+        <ScreenshotGlassFrame
+          screenshot={src}
+          frameId={frame.id}
+          color={glassFrameColor}
+          screenshotLayer={CONTENT_LAYER}
+          transform={contentTransform}
+          shadowFilter={shadowFilter}
+          screenshotOffset={screenshotOffset}
+          screenshotAnchor={screenshotAnchor}
+          enhanceFilter={imageFilter}
+          objectFit={objectFit}
+          isScreenshotSelected={false}
+          isScreenshotDragging={isDragging}
+          activeTool={activeTool}
+          stageRef={stageRef}
+          imageRef={imageRef}
           onSelect={onSelect}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -317,6 +364,35 @@ export function ScreenshotFrameContent({
         activeTool={activeTool}
         addressValue={addressValue}
         onAddressChange={onAddressChange}
+        onCapture={onCapture}
+        onDemo={onDemo}
+        defaultCaptureDevice={captureDefaultDevice}
+        captureStateKey={captureStateKey}
+        allowVideo={allowVideo}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        compact={emptyCompact}
+        readMainPreviewVars={readMainPreviewVars}
+        innerLightingStyle={innerLightingStyle}
+      />
+    )
+  }
+
+  if (glassFrame) {
+    return (
+      <GlassFrameEmptyState
+        frameId={frame.id}
+        color={glassFrameColor}
+        isDragOver={isDragOver}
+        onBrowse={onBrowse}
+        transform={contentTransform}
+        shadowFilter={shadowFilter}
+        enhanceFilter={imageFilter}
+        screenshotOffset={screenshotOffset}
+        screenshotAnchor={screenshotAnchor}
+        isScreenshotDragging={isDragging}
+        activeTool={activeTool}
         onCapture={onCapture}
         onDemo={onDemo}
         defaultCaptureDevice={captureDefaultDevice}

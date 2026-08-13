@@ -32,6 +32,11 @@ import {
   resolveBrowserFrameColor,
 } from "@/lib/browser-frame"
 import type { DeviceFrame, FrameOrientation } from "@/lib/editor/store"
+import {
+  GLASS_FRAMES,
+  getGlassFrame,
+  resolveGlassFrameColor,
+} from "@/lib/glass-frame"
 import { DEVICE_MOCKUPS, getDeviceMockup } from "@/lib/mockups"
 import { cn } from "@/lib/utils"
 
@@ -208,9 +213,14 @@ export function ScreenshotFrameSettings({
 }) {
   const currentDevice = getDeviceMockup(frame.id)
   const currentBrowserFrame = getBrowserFrame(frame.id)
+  const currentGlassFrame = getGlassFrame(frame.id)
   const deviceOptions = React.useMemo(
     () => [
       { id: "none", name: "None" },
+      ...GLASS_FRAMES.map((glassFrame) => ({
+        id: glassFrame.id,
+        name: glassFrame.name,
+      })),
       ...BROWSER_FRAMES.map((browserFrame) => ({
         id: browserFrame.id,
         name: browserFrame.name,
@@ -230,9 +240,12 @@ export function ScreenshotFrameSettings({
     ? [...currentDevice.colors]
     : currentBrowserFrame
       ? [...currentBrowserFrame.colors]
-      : []
+      : currentGlassFrame
+        ? [...currentGlassFrame.colors]
+        : []
   const availableOrientations = currentDevice?.orientations ?? []
   const isCurrentBrowserFrame = Boolean(currentBrowserFrame)
+  const isCurrentGlassFrame = Boolean(currentGlassFrame)
   const frameOrientationSupported = currentDevice
     ? frame.orientation === "vertical"
       ? availableOrientations.includes("portrait")
@@ -240,16 +253,19 @@ export function ScreenshotFrameSettings({
     : true
   const effectiveColor = currentBrowserFrame
     ? resolveBrowserFrameColor(frame.color)
-    : currentDevice && availableColors.includes(frame.color)
-      ? frame.color
-      : (availableColors[0] ?? frame.color)
-  const effectiveOrientation = isCurrentBrowserFrame
-    ? "horizontal"
-    : currentDevice && frameOrientationSupported
-      ? frame.orientation
-      : availableOrientations[0] === "landscape"
-        ? "horizontal"
-        : "vertical"
+    : currentGlassFrame
+      ? resolveGlassFrameColor(frame.color)
+      : currentDevice && availableColors.includes(frame.color)
+        ? frame.color
+        : (availableColors[0] ?? frame.color)
+  const effectiveOrientation =
+    isCurrentBrowserFrame || isCurrentGlassFrame
+      ? "horizontal"
+      : currentDevice && frameOrientationSupported
+        ? frame.orientation
+        : availableOrientations[0] === "landscape"
+          ? "horizontal"
+          : "vertical"
 
   const updateDevice = (id: string) => {
     if (id === "none") {
@@ -265,6 +281,15 @@ export function ScreenshotFrameSettings({
         )
           ? resolveBrowserFrameColor(frame.color)
           : nextBrowserFrame.colors[0],
+        orientation: "horizontal",
+      })
+      return
+    }
+    const nextGlassFrame = getGlassFrame(id)
+    if (nextGlassFrame) {
+      onFrameChange({
+        id,
+        color: resolveGlassFrameColor(frame.color),
         orientation: "horizontal",
       })
       return
@@ -309,7 +334,7 @@ export function ScreenshotFrameSettings({
         </Select>
       </div>
 
-      {currentDevice || currentBrowserFrame ? (
+      {currentDevice || currentBrowserFrame || currentGlassFrame ? (
         <>
           <div className="space-y-1.5">
             <span className="px-1 text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">

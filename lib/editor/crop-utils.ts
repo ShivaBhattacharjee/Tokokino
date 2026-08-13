@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react"
 
 import { getBrowserFrame, isBrowserFrame } from "@/lib/browser-frame"
+import { glassFrameScreenAspect } from "@/lib/glass-frame"
 import { DEVICE_MOCKUP_SPECS, getDeviceMockup } from "@/lib/mockups"
 
 import type { CropRegion, DeviceFrame } from "./state-types"
@@ -264,6 +265,9 @@ export function cropAspectForFrameScreen(frame: DeviceFrame): number | null {
     return browserFrame.size.w / browserFrame.size.h
   }
 
+  const glassAspect = glassFrameScreenAspect(frame.id)
+  if (glassAspect) return glassAspect
+
   const spec = DEVICE_MOCKUP_SPECS[frame.id]
   if (!spec) return null
 
@@ -277,6 +281,13 @@ export function cropAspectForFrameScreen(frame: DeviceFrame): number | null {
     screenAspect < 1
 
   return rotatesPortraitAsset ? 1 / screenAspect : screenAspect
+}
+
+export function resolveSlotCropFrame(
+  slotFrame: DeviceFrame | undefined,
+  canvasFrame: DeviceFrame
+): DeviceFrame {
+  return slotFrame ?? canvasFrame
 }
 
 export function computeCropTarget({

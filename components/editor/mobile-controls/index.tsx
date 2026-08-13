@@ -86,6 +86,7 @@ export function MobileControls({
   const activeCanvasId = useEditorStore((s) => s.present.activeCanvasId)
   const frame = useActiveCanvasField((c) => c.frame)
   const objectFit = useActiveCanvasField((c) => c.objectFit)
+  const fullPageCapture = useActiveCanvasField((c) => c.fullPageCapture)
   const screenshot = useActiveCanvasField((c) => c.screenshot)
   const tweet = useActiveCanvasField((c) => c.tweet)
   const screenshotSlots = useActiveCanvasField((c) => c.screenshotSlots)
@@ -755,6 +756,11 @@ export function MobileControls({
                 value={frame}
                 onChange={handleFrameChange}
                 previewImage={selectedSlot ? selectedSlot.src : undefined}
+                previewFullPageCapture={
+                  selectedSlot
+                    ? (selectedSlot.fullPageCapture ?? null)
+                    : fullPageCapture
+                }
                 imageFit={selectedSlot?.objectFit ?? objectFit ?? "cover"}
               />
             ) : null}
