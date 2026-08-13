@@ -193,4 +193,20 @@ describe("waitForAsciiBackdrops", () => {
     await Promise.all([sample, wait])
     expect(order).toEqual(["sample", "wait"])
   })
+
+  it("waits for a sample queued while an earlier one was settling", async () => {
+    const order: string[] = []
+    const bg: Background = { type: "solid", value: "#0a0a0a" }
+
+    const first = sampleBackgroundPixels(bg, 4, 2).then(() => {
+      order.push("first")
+      // A resolution change mid-wait queues another sample; returning before
+      // it settles would hand the exporter the half-updated grid.
+      return sampleBackgroundPixels(bg, 8, 4).then(() => order.push("second"))
+    })
+    const wait = waitForAsciiBackdrops().then(() => order.push("wait"))
+
+    await Promise.all([first, wait])
+    expect(order).toEqual(["first", "second", "wait"])
+  })
 })

@@ -199,12 +199,29 @@ function readableImageUrl(url: string): string {
   }
 }
 
+/**
+ * An `<img>` that never fires load or error (a stalled request) would otherwise
+ * leave a sample pending forever — and export waits for every pending sample.
+ * Bounding it here is what lets that wait be unbounded: every sample settles.
+ */
+const IMAGE_LOAD_TIMEOUT_MS = 15_000
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    const timer = setTimeout(() => {
+      img.src = ""
+      reject(new Error(`ascii backdrop: timed out loading ${src}`))
+    }, IMAGE_LOAD_TIMEOUT_MS)
     img.crossOrigin = "anonymous"
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error(`ascii backdrop: cannot load ${src}`))
+    img.onload = () => {
+      clearTimeout(timer)
+      resolve(img)
+    }
+    img.onerror = () => {
+      clearTimeout(timer)
+      reject(new Error(`ascii backdrop: cannot load ${src}`))
+    }
     img.src = src
   })
 }
@@ -260,16 +277,15 @@ export function backgroundSampleKey(
  */
 const pendingSamples = new Set<Promise<void>>()
 
-export async function waitForAsciiBackdrops(timeoutMs = 4000): Promise<void> {
+export async function waitForAsciiBackdrops(): Promise<void> {
   if (pendingSamples.size === 0) return
-  const deadline = Date.now() + timeoutMs
-  while (pendingSamples.size > 0 && Date.now() < deadline) {
-    await Promise.race([
-      Promise.all([...pendingSamples]),
-      new Promise((resolve) =>
-        setTimeout(resolve, Math.max(0, deadline - Date.now()))
-      ),
-    ])
+  // No deadline: returning with work still pending is exactly the race this
+  // exists to close — a bounded wait would hand the exporter a half-drawn
+  // backdrop and call it done. Every sample is guaranteed to settle (see
+  // IMAGE_LOAD_TIMEOUT_MS), and the loop re-checks because a settling sample
+  // can queue another one.
+  while (pendingSamples.size > 0) {
+    await Promise.all([...pendingSamples])
   }
   // A settled sample is still only React state — give it the frames it needs to
   // commit the grid into the DOM the exporter is about to read.

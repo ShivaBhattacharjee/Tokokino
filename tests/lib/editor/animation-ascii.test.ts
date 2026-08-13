@@ -139,6 +139,28 @@ describe("resolveAnimateAsciiStack", () => {
     expect(stack.layers[0].ascii).toBe(live)
   })
 
+  it("samples the open keyframe's glyphs from the live background", () => {
+    // Editing a keyframe writes to the committed canvas, not to the clip's
+    // stored pose — so a background change while it is open must reach the
+    // ASCII layer, or the glyphs would lag one edit behind the background.
+    const stack = resolveAnimateAsciiStack(
+      [
+        clip("k1", 0, ["ascii", "background"], {
+          ascii: ascii(),
+          background: committedBg,
+        }),
+        clip("k2", 1000, ["ascii"], { ascii: ascii({ charset: "dots" }) }),
+      ],
+      ascii(),
+      otherBg,
+      "k1"
+    )
+
+    expect(stack.layers[0].background).toEqual(otherBg)
+    // Unselected keyframes still read their own stored pose.
+    expect(stack.layers[1].background).toEqual(committedBg)
+  })
+
   it("holds the last layer at rest when no keyframe is open", () => {
     const stack = resolveAnimateAsciiStack(
       [

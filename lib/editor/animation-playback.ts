@@ -1027,7 +1027,14 @@ export function resolveAnimateAsciiStack(
     return {
       id: c.id,
       ascii,
-      background: pose.background ?? committedBackground,
+      // The open keyframe's edits live on the committed canvas, not in its
+      // stored pose — so read the background from there too, or the glyphs
+      // would sample the pre-edit background while the layer beneath shows
+      // the new one. Matches resolveAnimateBgStack.
+      background:
+        c.id === selectedClipId
+          ? committedBackground
+          : (pose.background ?? committedBackground),
       restOpaque: i === restCutoff,
     }
   })
