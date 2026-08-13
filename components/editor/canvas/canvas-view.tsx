@@ -229,6 +229,7 @@ function CanvasViewInner({
     filterStack: animateFilterStack,
     portraitStack: animatePortraitStack,
     patternStack: animatePatternStack,
+    asciiStack: animateAsciiStack,
     overlayStack: animateOverlayStack,
   } = useAnimateStacks({
     isAnimateMode,
@@ -238,6 +239,7 @@ function CanvasViewInner({
     filter: backdrop.filter ?? "none",
     portrait,
     pattern: backdrop.pattern,
+    ascii: backdrop.ascii,
     overlay,
   })
   // Previews share the live canvas' background, which the real canvas already
@@ -941,6 +943,7 @@ function CanvasViewInner({
             animateFilterStack={animateFilterStack}
             animatePortraitStack={animatePortraitStack}
             animatePatternStack={animatePatternStack}
+            animateAsciiStack={animateAsciiStack}
             animateOverlayStack={animateOverlayStack}
             lightingAnimated={lightingAnimated && lightingSides.outer}
           />

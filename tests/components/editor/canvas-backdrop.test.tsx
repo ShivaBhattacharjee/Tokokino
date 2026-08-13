@@ -81,13 +81,25 @@ describe("CanvasBackdrop", () => {
    */
   it("always reads the effects preview var, with an identity fallback", () => {
     const { container } = render(<CanvasBackdrop {...baseProps()} />)
-    const layer = container.querySelector<HTMLElement>(
-      ".bg-transparency-checker"
-    )
-    expect(layer?.style.filter).toBe("var(--bd-fx-preview, brightness(1))")
+    const grade = container.querySelector<HTMLElement>("[data-backdrop-grade]")
+    expect(grade?.style.filter).toBe("var(--bd-fx-preview, brightness(1))")
   })
 
-  it("keeps the preview var valid alongside a backdrop asset filter", () => {
+  it("uses the committed effects filter as the preview fallback", () => {
+    const { container } = render(
+      <CanvasBackdrop {...baseProps({ effectsFilter: "brightness(120%)" })} />
+    )
+    const grade = container.querySelector<HTMLElement>("[data-backdrop-grade]")
+    expect(grade?.style.filter).toBe("var(--bd-fx-preview, brightness(120%))")
+  })
+
+  /**
+   * The grade applies once, to the group — not to each layer inside it. An ASCII
+   * layer covers the background it was sampled from, so filtering both compounds
+   * them (a 50% `opacity()` leg rendering as ~75%). The asset-filter PRESET stays
+   * per layer, which is how a filter animation chains.
+   */
+  it("grades the composed group once, leaving the preset on the layer", () => {
     const { container } = render(
       <CanvasBackdrop
         {...baseProps({
@@ -95,20 +107,14 @@ describe("CanvasBackdrop", () => {
         })}
       />
     )
-    const filter = container.querySelector<HTMLElement>(
-      ".bg-transparency-checker"
-    )?.style.filter
-    expect(filter).toContain("var(--bd-fx-preview, brightness(1))")
-    expect(filter).not.toContain("none")
-  })
+    const grade = container.querySelector<HTMLElement>("[data-backdrop-grade]")
+    expect(grade?.style.filter).toBe("var(--bd-fx-preview, brightness(1))")
 
-  it("uses the committed effects filter as the preview fallback", () => {
-    const { container } = render(
-      <CanvasBackdrop {...baseProps({ effectsFilter: "brightness(120%)" })} />
-    )
     const layer = container.querySelector<HTMLElement>(
       ".bg-transparency-checker"
     )
-    expect(layer?.style.filter).toBe("var(--bd-fx-preview, brightness(120%))")
+    expect(layer?.style.filter).not.toContain("--bd-fx-preview")
+    expect(layer?.style.filter).not.toBe("none")
+    expect(layer?.style.filter.length).toBeGreaterThan(0)
   })
 })

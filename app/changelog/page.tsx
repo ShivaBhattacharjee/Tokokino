@@ -38,10 +38,26 @@ const releases: Release[] = [
     id: "v2-2-0",
     version: "2.2.0",
     date: "August 13, 2026",
-    title: "Glass frames",
+    title: "Glass frames & ASCII backdrops",
     summary:
-      "Give screenshots and videos a polished glass treatment with a single card or layered stacks — designed to stay consistent from the live canvas through high-resolution export.",
+      "Give screenshots and videos a polished glass treatment with a single card or layered stacks — designed to stay consistent from the live canvas through high-resolution export. Plus a new ASCII texture that redraws your background in characters.",
     changes: [
+      {
+        title: "ASCII backdrops",
+        text: "Turn any background — gradient, solid, or image — into ASCII art from the Texture control in Backdrop. Seven character sets, from a classic ramp to blocks, binary, dots, circles and stars.",
+      },
+      {
+        title: "Tune the ASCII look",
+        text: "A resolution slider takes the grid from 20 to 200 columns, ink can sample the background's own colours or use one of your choosing, and the ramp can be inverted so bright areas read sparse.",
+      },
+      {
+        title: "Animate the ASCII",
+        text: "ASCII is a keyframable effect in Animate mode: crossfade between character sets, resolutions and colours, dissolve it on or off, and it re-renders when a keyframe swaps the background beneath it.",
+      },
+      {
+        title: "Sharp at 8K",
+        text: "The characters are real text rather than a rasterized layer, so ASCII backdrops stay crisp in every still and motion export, at any resolution.",
+      },
       {
         title: "Three new glass frames",
         text: "Choose Glass Card for a clean single pane, Glass Cascade for layers beneath the canvas, or Glass Crown for layers rising behind it.",

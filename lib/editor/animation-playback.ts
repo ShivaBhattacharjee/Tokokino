@@ -7,6 +7,7 @@
 // turns that progress into concrete CSS override vars. Kept React-free so it's
 // testable and shared between live playback and (later) the exporter.
 
+import { DEFAULT_BACKDROP_ASCII } from "./ascii-backdrop"
 import { clipProgressEase, clipReleaseEase, clipReleaseMs } from "./clip-easing"
 import { hexToRgb } from "./color-utils"
 import {
@@ -24,6 +25,7 @@ import type {
   AnimationEffect,
   AssetFilter,
   Background,
+  BackdropAscii,
   BackdropEffects,
   BackdropLighting,
   BackdropPattern,
@@ -68,6 +70,7 @@ export const DEFAULT_BASELINE: ClipBaseline = {
   mediaFilter: DEFAULT_CANVAS_BASE.mediaFilter ?? "none",
   portrait: DEFAULT_CANVAS_BASE.portrait,
   pattern: DEFAULT_CANVAS_BASE.backdrop.pattern,
+  ascii: DEFAULT_CANVAS_BASE.backdrop.ascii ?? DEFAULT_BACKDROP_ASCII,
   overlay: DEFAULT_CANVAS_BASE.overlay,
   border: DEFAULT_CANVAS_BASE.border,
   borderRadius: DEFAULT_CANVAS_BASE.borderRadius,
@@ -931,6 +934,174 @@ export function resolveAnimatePatternStack(
   return { base, layers }
 }
 
+/** True when two ASCII treatments render differently. */
+export function asciiDiffer(a: BackdropAscii, b: BackdropAscii): boolean {
+  return (
+    a.enabled !== b.enabled ||
+    a.resolution !== b.resolution ||
+    a.charset !== b.charset ||
+    a.colored !== b.colored ||
+    a.inverted !== b.inverted ||
+    a.color !== b.color
+  )
+}
+
+/** CSS var carrying an ASCII keyframe layer's crossfade opacity. */
+export const asciiLayerOpacityVar = (clipId: string) =>
+  `--canvas-ascii-op-${clipId}`
+
+/** CSS var for the pre-first-keyframe base ASCII layer's crossfade opacity. */
+export const ASCII_BASE_OPACITY_VAR = "--canvas-ascii-op-base"
+
+export type AnimateAsciiLayer = {
+  id: string
+  ascii: BackdropAscii
+  /** The background THIS layer's glyphs are sampled from. */
+  background: Background
+  /** The filter preset THIS layer renders with. */
+  filter: AssetFilter
+  /** Opacity at REST (not playing): true (1) ONLY for the selected keyframe. */
+  restOpaque: boolean
+}
+
+export type AnimateAsciiStack = {
+  /** ASCII shown before the first ASCII/background/filter keyframe. */
+  base: BackdropAscii
+  /** The background the base layer's glyphs are sampled from. */
+  baseBackground: Background
+  /** The filter preset the base layer renders with. */
+  baseFilter: AssetFilter
+  /**
+   * True when the BASE holds at rest — the selected keyframe sits before the
+   * first ASCII layer (or is one nothing owns), so no layer should be showing.
+   */
+  baseRestOpaque: boolean
+  /** One layer per ASCII/background/filter keyframe, chronological (bottom → top). */
+  layers: AnimateAsciiLayer[]
+}
+
+export const EMPTY_ASCII_STACK: AnimateAsciiStack = {
+  base: DEFAULT_CANVAS_BASE.backdrop.ascii ?? DEFAULT_BACKDROP_ASCII,
+  baseBackground: DEFAULT_CANVAS_BASE.background,
+  baseFilter: DEFAULT_CANVAS_BASE.backdrop.filter,
+  baseRestOpaque: false,
+  layers: [],
+}
+
+/**
+ * A clip that needs its own ASCII layer. Background and filter keyframes count
+ * as well as ASCII ones: an active ASCII layer COVERS the background it was
+ * sampled from, so a background swap has to re-render the characters and a
+ * filter swap has to re-grade them — animating the (hidden) layer underneath
+ * would show nothing. The frame sampler chains the same clip set.
+ */
+export const clipOwnsAsciiLayer = (c: AnimationClip) =>
+  clipAffectsMain(c) &&
+  (clipOwns(c, "ascii") || clipOwns(c, "background") || clipOwns(c, "filter"))
+
+/**
+ * Build the ASCII keyframe layers for Animate mode — the crossfade chain, not
+ * the opaque one the background/filter stacks use. An ASCII keyframe that turns
+ * the effect OFF renders an empty layer, and only a chain can fade the layer
+ * BENEATH it back out to reveal the untouched background; plain stacked opacity
+ * would leave the previous ASCII sitting there forever.
+ */
+export function resolveAnimateAsciiStack(
+  clips: readonly AnimationClip[],
+  committed: {
+    ascii: BackdropAscii
+    background: Background
+    filter: AssetFilter
+  },
+  selectedClipId: string | null
+): AnimateAsciiStack {
+  const {
+    ascii: committedAscii,
+    background: committedBackground,
+    filter: committedFilter,
+  } = committed
+  const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
+  const asciiClips = sorted.filter(clipOwnsAsciiLayer)
+  if (asciiClips.length === 0) return EMPTY_ASCII_STACK
+
+  // Each axis reveals FROM the first clip that owns THAT axis — the same clip
+  // the sibling stack reads its base from (bgClips[0], filterClips[0]). Taking
+  // all three from the combined set's first clip would sample the base glyphs
+  // from one background while the background stack renders another beneath
+  // them, since per-clip baselines are captured at different times.
+  const firstOwnerBaseline = (effect: AnimationEffect) => {
+    const owner = asciiClips.find((c) => clipOwns(c, effect))
+    return owner ? clipBaseline(owner) : null
+  }
+  const base = firstOwnerBaseline("ascii")?.ascii ?? committedAscii
+  const baseBackground =
+    firstOwnerBaseline("background")?.background ?? committedBackground
+  const baseFilter = firstOwnerBaseline("filter")?.filter ?? committedFilter
+
+  // Which layer holds at rest. A selected keyframe that owns none of these
+  // effects still has a POSITION on the timeline, so the layer in force there
+  // is the last one starting at or before it — showing the final layer instead
+  // would preview a state that never exists at that playhead.
+  const selectedClip = selectedClipId
+    ? (clips.find((c) => c.id === selectedClipId) ?? null)
+    : null
+  const directIndex = asciiClips.findIndex((c) => c.id === selectedClipId)
+  let restCutoff: number
+  if (directIndex !== -1) {
+    restCutoff = directIndex
+  } else if (selectedClip) {
+    // -1 when the selection precedes every ASCII layer: the base holds.
+    restCutoff = asciiClips.reduce(
+      (last, c, i) => (c.startMs <= selectedClip.startMs ? i : last),
+      -1
+    )
+  } else {
+    restCutoff = asciiClips.length - 1
+  }
+
+  // Each axis carries forward whatever was in force at that point in the
+  // timeline, taking a clip's pose only for the axis it actually OWNS — the
+  // same rule resolveKeyframePose applies via latestOwner(). A clip's captured
+  // pose holds a value for both axes regardless of ownership, so trusting it
+  // blindly would let an ASCII-only keyframe re-assert a stale background (and
+  // a background-only keyframe blank the glyphs).
+  let carriedAscii = base
+  let carriedBackground = baseBackground
+  let carriedFilter = baseFilter
+  const layers: AnimateAsciiLayer[] = asciiClips.map((c, i) => {
+    const pose = clipPose(c)
+    // The open keyframe's edits live on the committed canvas, not in its stored
+    // pose, so every axis reads from there — matching resolveAnimateBgStack.
+    const selected = c.id === selectedClipId
+    const ascii = selected
+      ? committedAscii
+      : clipOwns(c, "ascii")
+        ? (pose.ascii ?? carriedAscii)
+        : carriedAscii
+    const background = selected
+      ? committedBackground
+      : clipOwns(c, "background")
+        ? (pose.background ?? carriedBackground)
+        : carriedBackground
+    const filter = selected
+      ? committedFilter
+      : clipOwns(c, "filter")
+        ? (pose.filter ?? carriedFilter)
+        : carriedFilter
+    carriedAscii = ascii
+    carriedBackground = background
+    carriedFilter = filter
+    return { id: c.id, ascii, background, filter, restOpaque: i === restCutoff }
+  })
+  return {
+    base,
+    baseBackground,
+    baseFilter,
+    baseRestOpaque: restCutoff === -1,
+    layers,
+  }
+}
+
 /** True when two overlays are a different selection (texture, opacity, side). */
 export function overlaysDiffer(a: Overlay, b: Overlay): boolean {
   return a.id !== b.id || a.opacity !== b.opacity || a.position !== b.position
@@ -1261,6 +1432,7 @@ export function poseAtCut(
     if (owns("portrait"))
       mid.portrait = disc(fromPose.portrait, toPose.portrait)
     if (owns("pattern")) mid.pattern = disc(fromPose.pattern, toPose.pattern)
+    if (owns("ascii")) mid.ascii = disc(fromPose.ascii, toPose.ascii)
     if (owns("overlay")) mid.overlay = disc(fromPose.overlay, toPose.overlay)
   }
 

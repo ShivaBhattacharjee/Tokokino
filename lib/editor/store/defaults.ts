@@ -1,3 +1,4 @@
+import { DEFAULT_BACKDROP_ASCII } from "../ascii-backdrop"
 import { NEUTRAL_MEDIA_ADJUSTMENTS } from "../css-utils"
 import { DEFAULT_IMAGE_BACKGROUND_ENTRY } from "../presets"
 import type { CanvasState, EditorState } from "../state-types"
@@ -64,6 +65,7 @@ export const DEFAULT_CANVAS_BASE: Omit<CanvasState, "id" | "position"> = {
       color: "#FFFFFF",
     },
     filter: "none",
+    ascii: { ...DEFAULT_BACKDROP_ASCII },
   },
   tilt: { rx: 0, ry: 0, rz: 0 },
   scale: 100,

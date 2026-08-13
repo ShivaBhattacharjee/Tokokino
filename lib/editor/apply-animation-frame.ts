@@ -47,6 +47,9 @@ import {
   lerp,
   patternLayerOpacityVar,
   PATTERN_BASE_OPACITY_VAR,
+  asciiLayerOpacityVar,
+  ASCII_BASE_OPACITY_VAR,
+  clipOwnsAsciiLayer,
   portraitLayerOpacityVar,
   PORTRAIT_BASE_OPACITY_VAR,
   overlayLayerOpacityVar,
@@ -313,12 +316,14 @@ export function clearAnimationFrameVars(
   for (const v of CANVAS_FX_VARS) setVar(canvasEl, v, null)
   setVar(canvasEl, PORTRAIT_BASE_OPACITY_VAR, null)
   setVar(canvasEl, PATTERN_BASE_OPACITY_VAR, null)
+  setVar(canvasEl, ASCII_BASE_OPACITY_VAR, null)
   setVar(canvasEl, OVERLAY_BASE_OPACITY_VAR, null)
   for (const c of clips) {
     setVar(canvasEl, backgroundLayerOpacityVar(c.id), null)
     setVar(canvasEl, filterLayerOpacityVar(c.id), null)
     setVar(canvasEl, portraitLayerOpacityVar(c.id), null)
     setVar(canvasEl, patternLayerOpacityVar(c.id), null)
+    setVar(canvasEl, asciiLayerOpacityVar(c.id), null)
     setVar(canvasEl, overlayLayerOpacityVar(c.id), null)
   }
   for (const v of SCOPE_VARS) setVar(mainScopeEl, v, null)
@@ -823,6 +828,25 @@ export function applyAnimationFrameAtTime({
         const next = patternClips[i + 1]
         const pOut = next ? clipsProgressAt([next], playheadMs) : 0
         setVar(canvasEl, patternLayerOpacityVar(c.id), String(pIn * (1 - pOut)))
+      })
+    }
+
+    // ascii crossfade chain
+    // Background keyframes get an ASCII layer too — see clipOwnsAsciiLayer.
+    const asciiClips = clips
+      .filter(clipOwnsAsciiLayer)
+      .sort((a, b) => a.startMs - b.startMs)
+    if (asciiClips.length > 0) {
+      setVar(
+        canvasEl,
+        ASCII_BASE_OPACITY_VAR,
+        String(1 - clipsProgressAt([asciiClips[0]], playheadMs))
+      )
+      asciiClips.forEach((c, i) => {
+        const pIn = clipsProgressAt([c], playheadMs)
+        const next = asciiClips[i + 1]
+        const pOut = next ? clipsProgressAt([next], playheadMs) : 0
+        setVar(canvasEl, asciiLayerOpacityVar(c.id), String(pIn * (1 - pOut)))
       })
     }
 

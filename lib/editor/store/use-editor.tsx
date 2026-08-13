@@ -371,6 +371,8 @@ export function useEditor(): EditorContext {
       store.setBackdropEffects(e, canvasId ?? targetId),
     setBackdropPattern: (p, canvasId) =>
       store.setBackdropPattern(p, canvasId ?? targetId),
+    setBackdropAscii: (a, canvasId) =>
+      store.setBackdropAscii(a, canvasId ?? targetId),
     setBackdropLighting: (l, canvasId) =>
       store.setBackdropLighting(l, canvasId ?? targetId),
     setMainScreenshotBackdropLighting: (l, canvasId) =>

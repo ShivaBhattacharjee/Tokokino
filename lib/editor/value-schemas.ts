@@ -19,6 +19,7 @@ export const editorValueSchemas = {
   borderRadius: rangeSchema(0, 48),
   canvasRadius: rangeSchema(0, 80),
   patternThickness: rangeSchema(1, 10),
+  asciiResolution: rangeSchema(20, 200),
   brightness: rangeSchema(0, 200),
   contrast: rangeSchema(0, 200),
   saturation: rangeSchema(0, 200),
