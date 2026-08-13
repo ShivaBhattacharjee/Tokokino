@@ -14,6 +14,7 @@ import {
 import { DEFAULT_CANVAS_BASE } from "@/lib/editor/store/defaults"
 import type {
   AnimationClip,
+  AssetFilter,
   BackdropAscii,
   Background,
 } from "@/lib/editor/state-types"
@@ -34,7 +35,11 @@ const clip = (
   id: string,
   startMs: number,
   effects: AnimationClip["effects"],
-  pose?: Partial<{ ascii: BackdropAscii; background: Background }>
+  pose?: Partial<{
+    ascii: BackdropAscii
+    background: Background
+    filter: AssetFilter
+  }>
 ): AnimationClip => ({
   id,
   startMs,
@@ -68,6 +73,7 @@ const clip = (
         backdropEffects: DEFAULT_CANVAS_BASE.backdrop.effects,
         background: pose.background ?? committedBg,
         ascii: pose.ascii,
+        filter: pose.filter,
         slots: {},
       }
     : undefined,
@@ -77,8 +83,7 @@ describe("resolveAnimateAsciiStack", () => {
   it("is empty when no clip touches ASCII or the background", () => {
     const stack = resolveAnimateAsciiStack(
       [clip("a", 0, ["tilt"])],
-      ascii(),
-      committedBg,
+      { ascii: ascii(), background: committedBg, filter: "none" },
       null
     )
     expect(stack).toBe(EMPTY_ASCII_STACK)
@@ -90,8 +95,7 @@ describe("resolveAnimateAsciiStack", () => {
         clip("k2", 1000, ["ascii"], { ascii: ascii({ charset: "blocks" }) }),
         clip("k1", 0, ["ascii"], { ascii: ascii({ charset: "dots" }) }),
       ],
-      ascii(),
-      committedBg,
+      { ascii: ascii(), background: committedBg, filter: "none" },
       null
     )
 
@@ -108,8 +112,7 @@ describe("resolveAnimateAsciiStack", () => {
         clip("bg", 500, ["background"], { background: otherBg }),
         clip("k1", 0, ["ascii"], { ascii: ascii({ charset: "blocks" }) }),
       ],
-      ascii(),
-      committedBg,
+      { ascii: ascii(), background: committedBg, filter: "none" },
       null
     )
 
@@ -134,8 +137,7 @@ describe("resolveAnimateAsciiStack", () => {
           background: committedBg,
         }),
       ],
-      ascii(),
-      committedBg,
+      { ascii: ascii(), background: committedBg, filter: "none" },
       null
     )
 
@@ -152,8 +154,7 @@ describe("resolveAnimateAsciiStack", () => {
         clip("k1", 0, ["ascii"], { ascii: ascii({ charset: "dots" }) }),
         clip("k2", 1000, ["ascii"], { ascii: ascii({ charset: "blocks" }) }),
       ],
-      live,
-      committedBg,
+      { ascii: live, background: committedBg, filter: "none" },
       "k1"
     )
 
@@ -174,8 +175,7 @@ describe("resolveAnimateAsciiStack", () => {
         }),
         clip("k2", 1000, ["ascii"], { ascii: ascii({ charset: "dots" }) }),
       ],
-      ascii(),
-      otherBg,
+      { ascii: ascii(), background: otherBg, filter: "none" },
       "k1"
     )
 
@@ -191,13 +191,58 @@ describe("resolveAnimateAsciiStack", () => {
         clip("k1", 0, ["ascii"], { ascii: ascii(), background: committedBg }),
         clip("bg", 1000, ["background"], { background: otherBg }),
       ],
-      ascii(),
-      committedBg,
+      { ascii: ascii(), background: committedBg, filter: "none" },
       null
     )
 
     expect(stack.layers[0].background).toEqual(committedBg)
     expect(stack.layers[1].background).toEqual(otherBg)
+  })
+
+  it("gives a filter keyframe its own layer and carries the preset forward", () => {
+    // An active ASCII layer COVERS the background, so animating the filter on
+    // the hidden background beneath would show nothing.
+    const stack = resolveAnimateAsciiStack(
+      [
+        clip("k1", 0, ["ascii"], { ascii: ascii() }),
+        clip("fx", 1000, ["filter"], { filter: "noir" }),
+        clip("k2", 2000, ["ascii"], { ascii: ascii({ charset: "dots" }) }),
+      ],
+      { ascii: ascii(), background: committedBg, filter: "none" },
+      null
+    )
+
+    expect(stack.layers.map((l) => l.id)).toEqual(["k1", "fx", "k2"])
+    expect(stack.layers.map((l) => l.filter)).toEqual(["none", "noir", "noir"])
+  })
+
+  it("holds the layer in force when the selected keyframe owns nothing of its own", () => {
+    // Selecting a tilt-only keyframe between two ASCII keyframes must preview
+    // the state at ITS point on the timeline, not the timeline's end state.
+    const clips = [
+      clip("k1", 0, ["ascii"], { ascii: ascii({ charset: "blocks" }) }),
+      clip("tilt", 500, ["tilt"]),
+      clip("k2", 1000, ["ascii"], { ascii: ascii({ charset: "stars" }) }),
+    ]
+    const committed = {
+      ascii: ascii(),
+      background: committedBg,
+      filter: "none" as const,
+    }
+
+    const mid = resolveAnimateAsciiStack(clips, committed, "tilt")
+    expect(mid.layers.map((l) => l.restOpaque)).toEqual([true, false])
+    expect(mid.layers[0].ascii.charset).toBe("blocks")
+    expect(mid.baseRestOpaque).toBe(false)
+
+    // A selection before every ASCII keyframe falls back to the base layer.
+    const early = resolveAnimateAsciiStack(
+      [clip("tilt", 0, ["tilt"]), clips[2]],
+      committed,
+      "tilt"
+    )
+    expect(early.layers.every((l) => !l.restOpaque)).toBe(true)
+    expect(early.baseRestOpaque).toBe(true)
   })
 
   it("holds the last layer at rest when no keyframe is open", () => {
@@ -206,8 +251,7 @@ describe("resolveAnimateAsciiStack", () => {
         clip("k1", 0, ["ascii"], { ascii: ascii() }),
         clip("k2", 1000, ["ascii"], { ascii: ascii({ enabled: false }) }),
       ],
-      ascii(),
-      committedBg,
+      { ascii: ascii(), background: committedBg, filter: "none" },
       null
     )
     expect(stack.layers.map((l) => l.restOpaque)).toEqual([false, true])

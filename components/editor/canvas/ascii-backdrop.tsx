@@ -4,17 +4,14 @@ import * as React from "react"
 
 import {
   ASCII_FONT_FAMILY,
-  ASCII_MAX_RESOLUTION,
-  ASCII_MIN_RESOLUTION,
+  asciiGridSize,
   asciiPlateColor,
-  asciiRowCount,
   gridFromImageData,
   monospaceAdvanceRatio,
   sampleBackgroundPixels,
   type AsciiGrid,
 } from "@/lib/editor/ascii-backdrop"
 import type { BackdropAscii, Background } from "@/lib/editor/state-types"
-import { clampNumber } from "@/lib/editor/value-schemas"
 
 type Segment = { text: string; color: string }
 
@@ -78,13 +75,14 @@ function AsciiBackdropImpl({
     return () => observer.disconnect()
   }, [])
 
-  const cols = Math.round(
-    clampNumber(ascii.resolution, ASCII_MIN_RESOLUTION, ASCII_MAX_RESOLUTION) ??
-      ASCII_MIN_RESOLUTION
-  )
   // Rows follow the canvas aspect only, so zooming the editor viewport rescales
-  // the glyphs without resampling the background.
-  const rows = asciiRowCount(cols, size.width, size.height)
+  // the glyphs without resampling the background. The budget only bites on very
+  // tall canvases, where the row count would otherwise multiply out of hand.
+  const { cols, rows } = asciiGridSize(
+    ascii.resolution,
+    size.width,
+    size.height
+  )
 
   React.useEffect(() => {
     if (rows < 1) return

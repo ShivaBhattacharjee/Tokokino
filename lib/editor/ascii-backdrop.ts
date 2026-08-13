@@ -90,6 +90,38 @@ export function asciiRowCount(
   return Math.max(1, Math.round(height / cellHeight))
 }
 
+/**
+ * Ceiling on cells (≈ DOM nodes) in one grid. Rows scale with the canvas's
+ * aspect, so the column count alone doesn't bound the grid: 200 columns is
+ * ~11k cells on 16:9 but ~36k on a 9:16 story canvas, and Animate mode mounts
+ * one grid per ASCII/background/filter keyframe. This trades a few columns on
+ * tall canvases for a bounded node count. Landscape at full resolution is
+ * unaffected.
+ */
+export const ASCII_MAX_CELLS = 12_000
+
+/**
+ * The grid to actually render: the requested columns, reduced if the resulting
+ * cell count would blow the budget. Both dimensions shrink together so the
+ * characters keep their aspect.
+ */
+export function asciiGridSize(
+  requestedCols: number,
+  width: number,
+  height: number
+): { cols: number; rows: number } {
+  const cols = normalizeAsciiResolution(requestedCols)
+  const rows = asciiRowCount(cols, width, height)
+  if (rows < 1) return { cols, rows: 0 }
+  const cells = cols * rows
+  if (cells <= ASCII_MAX_CELLS) return { cols, rows }
+  const scaled = Math.max(
+    ASCII_MIN_RESOLUTION,
+    Math.floor(cols * Math.sqrt(ASCII_MAX_CELLS / cells))
+  )
+  return { cols: scaled, rows: asciiRowCount(scaled, width, height) }
+}
+
 export type AsciiGrid = {
   cols: number
   rows: number

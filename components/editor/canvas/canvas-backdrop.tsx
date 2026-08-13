@@ -231,21 +231,22 @@ function CanvasBackdropImpl({
         })
       : null
 
-  // Combine the backdrop-effects filter with a given asset filter preset into one
-  // CSS `filter`. The layer always reads `--bd-fx-preview`, even when the
-  // committed effects are neutral: slider drags and the animation player both
-  // drive that var, and a layer with no `filter` at all has nothing to drive.
-  // The neutral fallback is `brightness(1)` rather than `none` because `none`
-  // cannot sit next to a filter function when an asset filter is also applied.
-  const filterCssFor = React.useCallback(
-    (assetFilterId: AssetFilter): string => {
-      const fxPart = `var(--bd-fx-preview, ${effectsFilter ?? "brightness(1)"})`
-      const af = assetFilterCss(assetFilterId)
-      return af ? `${fxPart} ${af}` : fxPart
-    },
-    [effectsFilter]
+  // The backdrop colour grade, applied ONCE to the whole composed group (see
+  // the wrapper below) rather than per layer. It always reads `--bd-fx-preview`,
+  // even when the committed effects are neutral: slider drags and the animation
+  // player both drive that var, and an element with no `filter` at all has
+  // nothing to drive. The neutral fallback is `brightness(1)` rather than `none`
+  // because `none` cannot sit next to another filter function.
+  const gradeFilter = `var(--bd-fx-preview, ${effectsFilter ?? "brightness(1)"})`
+  // The per-layer half: each keyframe layer carries its own preset, which is
+  // how a filter animation chains. Undefined for "none" so a layer that needs
+  // no filter doesn't pay for a stacking context.
+  const presetFilter = React.useCallback(
+    (assetFilterId: AssetFilter): string | undefined =>
+      assetFilterCss(assetFilterId) || undefined,
+    []
   )
-  const filterValue = filterCssFor(backdrop.filter ?? "none")
+  const committedPresetFilter = presetFilter(backdrop.filter ?? "none")
 
   const ascii = React.useMemo(
     () => resolveBackdropAscii(backdrop.ascii),
@@ -278,6 +279,8 @@ function CanvasBackdropImpl({
     return {
       ascii: asciiStackBase.base,
       background: resolveEffectiveBackground(asciiStackBase.baseBackground),
+      filter: asciiStackBase.baseFilter,
+      restOpaque: asciiStackBase.baseRestOpaque,
     }
   }, [asciiStackBase, resolveEffectiveBackground])
 
@@ -372,168 +375,187 @@ function CanvasBackdropImpl({
         className="absolute inset-0"
         style={{ isolation: "isolate" }}
       >
-        {hasFilterStack ? (
-          // Animate mode with animated filter(s): the committed background is
-          // rendered once per FILTER keyframe (chronological, bottom → top) over
-          // a base (the filter before the first keyframe). AnimationLayer fades
-          // each layer in at its keyframe so multiple filter changes chain, each
-          // cross-fading over the one beneath — the mirror of the bg stack. At
-          // rest each layer falls back to its rest opacity so the selected
-          // keyframe's filter shows.
-          <>
-            <div
-              aria-hidden
-              className={cn(
-                "absolute inset-0",
-                effectiveBackground.type === "none" && "bg-transparency-checker"
-              )}
-              data-bg-source-url={
-                effectiveBackground.type === "image" &&
-                effectiveBackground.sourceUrl &&
-                effectiveBackground.sourceUrl !== effectiveBackground.value
-                  ? effectiveBackground.sourceUrl
-                  : undefined
-              }
-              style={{
-                ...backgroundCss(effectiveBackground),
-                filter: filterCssFor(filterStackBase),
-              }}
-            />
-            {filterLayers.map((layer) => {
-              const layerFilter = filterCssFor(layer.filter)
-              return (
+        {/*
+          The colour grade (and its `opacity()` leg) applies ONCE, here, to the
+          composed background-plus-ASCII result. Filtering both the background
+          and the ASCII layer that covers it compounded them — 50% opacity
+          rendered as ~75%. Per-keyframe filter PRESETS stay on the individual
+          layers, which is how a filter animation chains.
+        */}
+        <div
+          aria-hidden
+          data-backdrop-grade="true"
+          className="absolute inset-0"
+          style={{ filter: gradeFilter }}
+        >
+          {hasFilterStack ? (
+            // Animate mode with animated filter(s): the committed background is
+            // rendered once per FILTER keyframe (chronological, bottom → top) over
+            // a base (the filter before the first keyframe). AnimationLayer fades
+            // each layer in at its keyframe so multiple filter changes chain, each
+            // cross-fading over the one beneath — the mirror of the bg stack. At
+            // rest each layer falls back to its rest opacity so the selected
+            // keyframe's filter shows.
+            <>
+              <div
+                aria-hidden
+                className={cn(
+                  "absolute inset-0",
+                  effectiveBackground.type === "none" &&
+                    "bg-transparency-checker"
+                )}
+                data-bg-source-url={
+                  effectiveBackground.type === "image" &&
+                  effectiveBackground.sourceUrl &&
+                  effectiveBackground.sourceUrl !== effectiveBackground.value
+                    ? effectiveBackground.sourceUrl
+                    : undefined
+                }
+                style={{
+                  ...backgroundCss(effectiveBackground),
+                  filter: presetFilter(filterStackBase),
+                }}
+              />
+              {filterLayers.map((layer) => {
+                const layerFilter = presetFilter(layer.filter)
+                return (
+                  <div
+                    key={layer.id}
+                    aria-hidden
+                    className={cn(
+                      "absolute inset-0",
+                      effectiveBackground.type === "none" &&
+                        "bg-transparency-checker"
+                    )}
+                    data-bg-source-url={
+                      effectiveBackground.type === "image" &&
+                      effectiveBackground.sourceUrl &&
+                      effectiveBackground.sourceUrl !==
+                        effectiveBackground.value
+                        ? effectiveBackground.sourceUrl
+                        : undefined
+                    }
+                    style={{
+                      ...backgroundCss(effectiveBackground),
+                      filter: layerFilter,
+                      opacity: `var(${filterLayerOpacityVar(layer.id)}, ${
+                        layer.restOpaque ? 1 : 0
+                      })` as unknown as number,
+                    }}
+                  />
+                )
+              })}
+            </>
+          ) : hasBgStack ? (
+            // Animate mode with animated background(s): a stack of layers, one per
+            // background keyframe (chronological, bottom → top), over an optional
+            // base (the background before the first keyframe). AnimationLayer fades
+            // each layer in at its keyframe so multiple swaps chain, each
+            // cross-fading over the one beneath. At rest each layer falls back to
+            // its rest opacity so the selected keyframe's background shows.
+            <>
+              {effectiveBgBase ? (
+                <div
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-0",
+                    effectiveBgBase.type === "none" && "bg-transparency-checker"
+                  )}
+                  data-bg-source-url={
+                    effectiveBgBase.type === "image" &&
+                    effectiveBgBase.sourceUrl &&
+                    effectiveBgBase.sourceUrl !== effectiveBgBase.value
+                      ? effectiveBgBase.sourceUrl
+                      : undefined
+                  }
+                  style={{
+                    ...backgroundCss(effectiveBgBase),
+                    filter: committedPresetFilter,
+                  }}
+                />
+              ) : null}
+              {effectiveBgLayers.map((layer) => (
                 <div
                   key={layer.id}
                   aria-hidden
                   className={cn(
                     "absolute inset-0",
-                    effectiveBackground.type === "none" &&
+                    layer.background.type === "none" &&
                       "bg-transparency-checker"
                   )}
                   data-bg-source-url={
-                    effectiveBackground.type === "image" &&
-                    effectiveBackground.sourceUrl &&
-                    effectiveBackground.sourceUrl !== effectiveBackground.value
-                      ? effectiveBackground.sourceUrl
+                    layer.background.type === "image" &&
+                    layer.background.sourceUrl &&
+                    layer.background.sourceUrl !== layer.background.value
+                      ? layer.background.sourceUrl
                       : undefined
                   }
                   style={{
-                    ...backgroundCss(effectiveBackground),
-                    filter: layerFilter,
-                    opacity: `var(${filterLayerOpacityVar(layer.id)}, ${
+                    ...backgroundCss(layer.background),
+                    filter: committedPresetFilter,
+                    opacity: `var(${backgroundLayerOpacityVar(layer.id)}, ${
                       layer.restOpaque ? 1 : 0
                     })` as unknown as number,
                   }}
                 />
-              )
-            })}
-          </>
-        ) : hasBgStack ? (
-          // Animate mode with animated background(s): a stack of layers, one per
-          // background keyframe (chronological, bottom → top), over an optional
-          // base (the background before the first keyframe). AnimationLayer fades
-          // each layer in at its keyframe so multiple swaps chain, each
-          // cross-fading over the one beneath. At rest each layer falls back to
-          // its rest opacity so the selected keyframe's background shows.
-          <>
-            {effectiveBgBase ? (
-              <div
-                aria-hidden
-                className={cn(
-                  "absolute inset-0",
-                  effectiveBgBase.type === "none" && "bg-transparency-checker"
-                )}
-                data-bg-source-url={
-                  effectiveBgBase.type === "image" &&
-                  effectiveBgBase.sourceUrl &&
-                  effectiveBgBase.sourceUrl !== effectiveBgBase.value
-                    ? effectiveBgBase.sourceUrl
-                    : undefined
-                }
-                style={{
-                  ...backgroundCss(effectiveBgBase),
-                  filter: filterValue,
-                }}
-              />
-            ) : null}
-            {effectiveBgLayers.map((layer) => (
-              <div
-                key={layer.id}
-                aria-hidden
-                className={cn(
-                  "absolute inset-0",
-                  layer.background.type === "none" && "bg-transparency-checker"
-                )}
-                data-bg-source-url={
-                  layer.background.type === "image" &&
-                  layer.background.sourceUrl &&
-                  layer.background.sourceUrl !== layer.background.value
-                    ? layer.background.sourceUrl
-                    : undefined
-                }
-                style={{
-                  ...backgroundCss(layer.background),
-                  filter: filterValue,
-                  opacity: `var(${backgroundLayerOpacityVar(layer.id)}, ${
-                    layer.restOpaque ? 1 : 0
-                  })` as unknown as number,
-                }}
-              />
-            ))}
-          </>
-        ) : (
-          <div
-            className={cn(
-              "absolute inset-0",
-              background.type === "none" && "bg-transparency-checker"
-            )}
-            data-bg-source-url={
-              background.type === "image" &&
-              background.sourceUrl &&
-              background.sourceUrl !== background.value
-                ? background.sourceUrl
-                : undefined
-            }
-            style={{
-              ...backgroundCss(effectiveBackground),
-              filter: filterValue,
-            }}
-          />
-        )}
+              ))}
+            </>
+          ) : (
+            <div
+              className={cn(
+                "absolute inset-0",
+                background.type === "none" && "bg-transparency-checker"
+              )}
+              data-bg-source-url={
+                background.type === "image" &&
+                background.sourceUrl &&
+                background.sourceUrl !== background.value
+                  ? background.sourceUrl
+                  : undefined
+              }
+              style={{
+                ...backgroundCss(effectiveBackground),
+                filter: committedPresetFilter,
+              }}
+            />
+          )}
 
-        {hasAsciiStack ? (
-          // Animate mode with animated ASCII: base layer + one per keyframe,
-          // crossfade-chained by the frame sampler. A keyframe that turns ASCII
-          // off renders nothing, so fading the layer beneath it back out is what
-          // reveals the untouched background.
-          <>
-            {effectiveAsciiBase ? (
-              <AsciiBackdrop
-                background={effectiveAsciiBase.background}
-                ascii={effectiveAsciiBase.ascii}
-                filter={filterValue}
-                opacity={`var(${ASCII_BASE_OPACITY_VAR}, 0)`}
-              />
-            ) : null}
-            {effectiveAsciiLayers.map((layer) => (
-              <AsciiBackdrop
-                key={layer.id}
-                background={layer.background}
-                ascii={layer.ascii}
-                filter={filterValue}
-                opacity={`var(${asciiLayerOpacityVar(layer.id)}, ${
-                  layer.restOpaque ? 1 : 0
-                })`}
-              />
-            ))}
-          </>
-        ) : asciiActive ? (
-          <AsciiBackdrop
-            background={effectiveBackground}
-            ascii={ascii}
-            filter={filterValue}
-          />
-        ) : null}
+          {hasAsciiStack ? (
+            // Animate mode with animated ASCII: base layer + one per keyframe,
+            // crossfade-chained by the frame sampler. A keyframe that turns ASCII
+            // off renders nothing, so fading the layer beneath it back out is what
+            // reveals the untouched background.
+            <>
+              {effectiveAsciiBase ? (
+                <AsciiBackdrop
+                  background={effectiveAsciiBase.background}
+                  ascii={effectiveAsciiBase.ascii}
+                  filter={presetFilter(effectiveAsciiBase.filter)}
+                  opacity={`var(${ASCII_BASE_OPACITY_VAR}, ${
+                    effectiveAsciiBase.restOpaque ? 1 : 0
+                  })`}
+                />
+              ) : null}
+              {effectiveAsciiLayers.map((layer) => (
+                <AsciiBackdrop
+                  key={layer.id}
+                  background={layer.background}
+                  ascii={layer.ascii}
+                  filter={presetFilter(layer.filter)}
+                  opacity={`var(${asciiLayerOpacityVar(layer.id)}, ${
+                    layer.restOpaque ? 1 : 0
+                  })`}
+                />
+              ))}
+            </>
+          ) : asciiActive ? (
+            <AsciiBackdrop
+              background={effectiveBackground}
+              ascii={ascii}
+              filter={committedPresetFilter}
+            />
+          ) : null}
+        </div>
 
         {hasPatternStack ? (
           // Animate mode with animated pattern: base group + one group per

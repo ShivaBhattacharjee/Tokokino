@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest"
 import {
   ASCII_CHARSETS,
   ASCII_CELL_ASPECT,
+  ASCII_MAX_CELLS,
+  ASCII_MIN_RESOLUTION,
+  asciiGridSize,
   asciiPlateColor,
   asciiRowCount,
   DEFAULT_BACKDROP_ASCII,
@@ -208,5 +211,29 @@ describe("waitForAsciiBackdrops", () => {
 
     await Promise.all([first, wait])
     expect(order).toEqual(["first", "second", "wait"])
+  })
+})
+
+describe("asciiGridSize", () => {
+  it("leaves a landscape canvas at its requested resolution", () => {
+    const { cols, rows } = asciiGridSize(200, 1600, 900)
+    expect(cols).toBe(200)
+    expect(cols * rows).toBeLessThanOrEqual(ASCII_MAX_CELLS)
+  })
+
+  it("trims columns on a tall canvas, where rows multiply the cell count", () => {
+    // 200 columns on 9:16 is ~36k cells before the budget, and Animate mode
+    // mounts one grid per ASCII/background/filter keyframe.
+    const unbounded = 200 * asciiRowCount(200, 900, 1600)
+    expect(unbounded).toBeGreaterThan(ASCII_MAX_CELLS)
+
+    const { cols, rows } = asciiGridSize(200, 900, 1600)
+    expect(cols).toBeLessThan(200)
+    expect(cols * rows).toBeLessThanOrEqual(ASCII_MAX_CELLS)
+  })
+
+  it("never trims below the minimum resolution", () => {
+    const { cols } = asciiGridSize(200, 10, 40000)
+    expect(cols).toBeGreaterThanOrEqual(ASCII_MIN_RESOLUTION)
   })
 })

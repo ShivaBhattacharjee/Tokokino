@@ -958,33 +958,46 @@ export type AnimateAsciiLayer = {
   ascii: BackdropAscii
   /** The background THIS layer's glyphs are sampled from. */
   background: Background
+  /** The filter preset THIS layer renders with. */
+  filter: AssetFilter
   /** Opacity at REST (not playing): true (1) ONLY for the selected keyframe. */
   restOpaque: boolean
 }
 
 export type AnimateAsciiStack = {
-  /** ASCII shown before the first ASCII/background keyframe (changed FROM). */
+  /** ASCII shown before the first ASCII/background/filter keyframe. */
   base: BackdropAscii
   /** The background the base layer's glyphs are sampled from. */
   baseBackground: Background
-  /** One layer per ASCII/background keyframe, chronological (bottom → top). */
+  /** The filter preset the base layer renders with. */
+  baseFilter: AssetFilter
+  /**
+   * True when the BASE holds at rest — the selected keyframe sits before the
+   * first ASCII layer (or is one nothing owns), so no layer should be showing.
+   */
+  baseRestOpaque: boolean
+  /** One layer per ASCII/background/filter keyframe, chronological (bottom → top). */
   layers: AnimateAsciiLayer[]
 }
 
 export const EMPTY_ASCII_STACK: AnimateAsciiStack = {
   base: DEFAULT_CANVAS_BASE.backdrop.ascii ?? DEFAULT_BACKDROP_ASCII,
   baseBackground: DEFAULT_CANVAS_BASE.background,
+  baseFilter: DEFAULT_CANVAS_BASE.backdrop.filter,
+  baseRestOpaque: false,
   layers: [],
 }
 
 /**
- * A clip that needs its own ASCII layer. Background keyframes count as well as
- * ASCII ones: the glyphs are sampled FROM the background, so a background swap
- * under a live ASCII treatment has to re-render the characters, not just the
- * (covered) background beneath them. The frame sampler chains the same clip set.
+ * A clip that needs its own ASCII layer. Background and filter keyframes count
+ * as well as ASCII ones: an active ASCII layer COVERS the background it was
+ * sampled from, so a background swap has to re-render the characters and a
+ * filter swap has to re-grade them — animating the (hidden) layer underneath
+ * would show nothing. The frame sampler chains the same clip set.
  */
 export const clipOwnsAsciiLayer = (c: AnimationClip) =>
-  clipAffectsMain(c) && (clipOwns(c, "ascii") || clipOwns(c, "background"))
+  clipAffectsMain(c) &&
+  (clipOwns(c, "ascii") || clipOwns(c, "background") || clipOwns(c, "filter"))
 
 /**
  * Build the ASCII keyframe layers for Animate mode — the crossfade chain, not
@@ -995,10 +1008,18 @@ export const clipOwnsAsciiLayer = (c: AnimationClip) =>
  */
 export function resolveAnimateAsciiStack(
   clips: readonly AnimationClip[],
-  committedAscii: BackdropAscii,
-  committedBackground: Background,
+  committed: {
+    ascii: BackdropAscii
+    background: Background
+    filter: AssetFilter
+  },
   selectedClipId: string | null
 ): AnimateAsciiStack {
+  const {
+    ascii: committedAscii,
+    background: committedBackground,
+    filter: committedFilter,
+  } = committed
   const sorted = [...clips].sort((a, b) => a.startMs - b.startMs)
   const asciiClips = sorted.filter(clipOwnsAsciiLayer)
   if (asciiClips.length === 0) return EMPTY_ASCII_STACK
@@ -1006,10 +1027,28 @@ export function resolveAnimateAsciiStack(
   const firstBaseline = clipBaseline(asciiClips[0])
   const base = firstBaseline.ascii ?? committedAscii
   const baseBackground = firstBaseline.background ?? committedBackground
+  const baseFilter = firstBaseline.filter ?? committedFilter
 
-  const selectedIndex = asciiClips.findIndex((c) => c.id === selectedClipId)
-  const restCutoff =
-    selectedIndex === -1 ? asciiClips.length - 1 : selectedIndex
+  // Which layer holds at rest. A selected keyframe that owns none of these
+  // effects still has a POSITION on the timeline, so the layer in force there
+  // is the last one starting at or before it — showing the final layer instead
+  // would preview a state that never exists at that playhead.
+  const selectedClip = selectedClipId
+    ? (clips.find((c) => c.id === selectedClipId) ?? null)
+    : null
+  const directIndex = asciiClips.findIndex((c) => c.id === selectedClipId)
+  let restCutoff: number
+  if (directIndex !== -1) {
+    restCutoff = directIndex
+  } else if (selectedClip) {
+    // -1 when the selection precedes every ASCII layer: the base holds.
+    restCutoff = asciiClips.reduce(
+      (last, c, i) => (c.startMs <= selectedClip.startMs ? i : last),
+      -1
+    )
+  } else {
+    restCutoff = asciiClips.length - 1
+  }
 
   // Each axis carries forward whatever was in force at that point in the
   // timeline, taking a clip's pose only for the axis it actually OWNS — the
@@ -1019,10 +1058,11 @@ export function resolveAnimateAsciiStack(
   // a background-only keyframe blank the glyphs).
   let carriedAscii = base
   let carriedBackground = baseBackground
+  let carriedFilter = baseFilter
   const layers: AnimateAsciiLayer[] = asciiClips.map((c, i) => {
     const pose = clipPose(c)
     // The open keyframe's edits live on the committed canvas, not in its stored
-    // pose, so both axes read from there — matching resolveAnimateBgStack.
+    // pose, so every axis reads from there — matching resolveAnimateBgStack.
     const selected = c.id === selectedClipId
     const ascii = selected
       ? committedAscii
@@ -1034,11 +1074,23 @@ export function resolveAnimateAsciiStack(
       : clipOwns(c, "background")
         ? (pose.background ?? carriedBackground)
         : carriedBackground
+    const filter = selected
+      ? committedFilter
+      : clipOwns(c, "filter")
+        ? (pose.filter ?? carriedFilter)
+        : carriedFilter
     carriedAscii = ascii
     carriedBackground = background
-    return { id: c.id, ascii, background, restOpaque: i === restCutoff }
+    carriedFilter = filter
+    return { id: c.id, ascii, background, filter, restOpaque: i === restCutoff }
   })
-  return { base, baseBackground, layers }
+  return {
+    base,
+    baseBackground,
+    baseFilter,
+    baseRestOpaque: restCutoff === -1,
+    layers,
+  }
 }
 
 /** True when two overlays are a different selection (texture, opacity, side). */

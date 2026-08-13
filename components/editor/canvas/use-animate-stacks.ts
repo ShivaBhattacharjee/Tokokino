@@ -93,12 +93,15 @@ export function useAnimateStacks({
       clips
         ? resolveAnimateAsciiStack(
             clips,
-            resolveBackdropAscii(ascii),
-            background,
+            {
+              ascii: resolveBackdropAscii(ascii),
+              background,
+              filter,
+            },
             selectedClipId
           )
         : EMPTY_ASCII_STACK,
-    [clips, ascii, background, selectedClipId]
+    [clips, ascii, background, filter, selectedClipId]
   )
   const overlayStack = React.useMemo(
     () =>
