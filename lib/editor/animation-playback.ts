@@ -1024,10 +1024,19 @@ export function resolveAnimateAsciiStack(
   const asciiClips = sorted.filter(clipOwnsAsciiLayer)
   if (asciiClips.length === 0) return EMPTY_ASCII_STACK
 
-  const firstBaseline = clipBaseline(asciiClips[0])
-  const base = firstBaseline.ascii ?? committedAscii
-  const baseBackground = firstBaseline.background ?? committedBackground
-  const baseFilter = firstBaseline.filter ?? committedFilter
+  // Each axis reveals FROM the first clip that owns THAT axis — the same clip
+  // the sibling stack reads its base from (bgClips[0], filterClips[0]). Taking
+  // all three from the combined set's first clip would sample the base glyphs
+  // from one background while the background stack renders another beneath
+  // them, since per-clip baselines are captured at different times.
+  const firstOwnerBaseline = (effect: AnimationEffect) => {
+    const owner = asciiClips.find((c) => clipOwns(c, effect))
+    return owner ? clipBaseline(owner) : null
+  }
+  const base = firstOwnerBaseline("ascii")?.ascii ?? committedAscii
+  const baseBackground =
+    firstOwnerBaseline("background")?.background ?? committedBackground
+  const baseFilter = firstOwnerBaseline("filter")?.filter ?? committedFilter
 
   // Which layer holds at rest. A selected keyframe that owns none of these
   // effects still has a POSITION on the timeline, so the layer in force there

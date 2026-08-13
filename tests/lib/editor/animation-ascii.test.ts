@@ -199,6 +199,45 @@ describe("resolveAnimateAsciiStack", () => {
     expect(stack.layers[1].background).toEqual(otherBg)
   })
 
+  it("reveals each axis from the first clip that owns it", () => {
+    // Baselines are captured per clip at different times, so the ASCII-only
+    // keyframe's baseline background can differ from the background keyframe's.
+    // The base layer has to sample the one the background stack renders (which
+    // reads bgClips[0]'s baseline), or the pre-keyframe glyphs would be drawn
+    // from a background nobody is looking at.
+    const asciiFirst = clip("k1", 0, ["ascii"], { ascii: ascii() })
+    const bgLater: AnimationClip = {
+      ...clip("bg", 1000, ["background"], { background: otherBg }),
+      baseline: {
+        ...clip("bg", 1000, ["background"]).baseline!,
+        background: otherBg,
+      },
+    }
+
+    const stack = resolveAnimateAsciiStack(
+      [asciiFirst, bgLater],
+      { ascii: ascii(), background: committedBg, filter: "none" },
+      null
+    )
+
+    // asciiFirst's baseline says committedBg; the background stack reveals from
+    // bgLater's baseline, so the ASCII base must too.
+    expect(stack.baseBackground).toEqual(otherBg)
+    expect(stack.base).toEqual(DEFAULT_BACKDROP_ASCII)
+  })
+
+  it("falls back to the committed values when no clip owns an axis", () => {
+    const stack = resolveAnimateAsciiStack(
+      [clip("k1", 0, ["ascii"], { ascii: ascii() })],
+      { ascii: ascii(), background: committedBg, filter: "bw" },
+      null
+    )
+    // No background or filter keyframe exists, so both hold at the committed
+    // value for the whole timeline.
+    expect(stack.baseBackground).toEqual(committedBg)
+    expect(stack.baseFilter).toBe("bw")
+  })
+
   it("gives a filter keyframe its own layer and carries the preset forward", () => {
     // An active ASCII layer COVERS the background, so animating the filter on
     // the hidden background beneath would show nothing.
