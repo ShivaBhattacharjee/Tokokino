@@ -4,6 +4,7 @@ import { shouldProxyAssetUrl } from "@/lib/editor/export-assets"
 import {
   INITIAL_SETTLE_PROGRESS,
   advanceSettle,
+  collectEmbeddedImageUrls,
   exportElementLayoutSize,
   exportScaleStyle,
   isRasterEssentiallyEmpty,
@@ -219,6 +220,50 @@ describe("advanceSettle — WebKit raster settling", () => {
     ])
     expect(bestAt).toBe(1)
     expect(doneAt).toBe(5)
+  })
+})
+
+describe("collectEmbeddedImageUrls", () => {
+  function clone(html: string) {
+    const root = document.createElement("div")
+    root.innerHTML = html
+    return root
+  }
+
+  const PNG = "data:image/png;base64,iVBORw0KGgo="
+  const GIF = "data:image/gif;base64,R0lGODlh"
+
+  it("finds img sources and inline background images", () => {
+    const root = clone(
+      `<img src="${PNG}" />` +
+        `<div style="background-image: url('${GIF}')"></div>`
+    )
+    expect(collectEmbeddedImageUrls(root).sort()).toEqual([GIF, PNG].sort())
+  })
+
+  it("finds every layer of a multi-layer background", () => {
+    // The glass frost slides its texture under the authored gradient, so the
+    // pane carries a gradient and a data URI in one declaration.
+    const root = clone(
+      `<div style="background-image: linear-gradient(red, blue), url('${PNG}')"></div>`
+    )
+    expect(collectEmbeddedImageUrls(root)).toEqual([PNG])
+  })
+
+  it("reports each distinct url once", () => {
+    const root = clone(`<img src="${PNG}" /><img src="${PNG}" />`)
+    expect(collectEmbeddedImageUrls(root)).toEqual([PNG])
+  })
+
+  it("ignores anything the SVG raster will not decode", () => {
+    const root = clone(
+      `<img src="https://cdn.example.com/a.png" />` +
+        `<img src="blob:http://localhost:3000/id" />` +
+        `<div style="background-image: url('https://cdn.example.com/b.png')"></div>` +
+        `<div style="background-image: linear-gradient(red, blue)"></div>` +
+        `<img src="data:text/plain,nope" />`
+    )
+    expect(collectEmbeddedImageUrls(root)).toEqual([])
   })
 })
 

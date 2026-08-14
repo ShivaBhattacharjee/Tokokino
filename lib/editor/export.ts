@@ -291,6 +291,77 @@ async function embedCloneImages(root: HTMLElement): Promise<void> {
   )
 }
 
+/** Every distinct `data:` image the clone will ask the SVG raster to paint. */
+export function collectEmbeddedImageUrls(root: HTMLElement): string[] {
+  const urls = new Set<string>()
+
+  for (const img of Array.from(root.querySelectorAll("img"))) {
+    const src = img.getAttribute("src")
+    if (src?.startsWith("data:image/")) urls.add(src)
+  }
+
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+    const value = el.style.backgroundImage
+    if (!value || !value.includes("url(")) continue
+    for (const match of value.matchAll(URL_FUNCTION_RE)) {
+      const url = match[2]
+      if (url?.startsWith("data:image/")) urls.add(url)
+    }
+  }
+
+  return Array.from(urls)
+}
+
+/** Bound the warm-up so one pathological decode cannot hang an export. */
+const EMBEDDED_DECODE_TIMEOUT_MS = 8_000
+
+/**
+ * Decode every embedded image once, in this document, before the SVG raster
+ * asks for them.
+ *
+ * This is the cause of the settling loop rather than another mitigation of it.
+ * WebKit paints an SVG image's `<foreignObject>` with whatever subresources have
+ * decoded at that instant, which is why an export could come back missing the
+ * screenshot — and why re-rasterizing the same SVG gradually recovers it, each
+ * attempt leaving more of the decode cache warm. Warming those decodes directly
+ * costs one pass over the images instead of repeated passes over a
+ * multi-megabyte SVG, and it happens before the first raster rather than after
+ * several bad ones.
+ *
+ * It reduces the race, it does not close it: the cache is the engine's to
+ * evict, and nothing here can prove the raster used it. {@link settleRasterCanvas}
+ * still backs it up.
+ */
+async function warmEmbeddedImageDecodes(root: HTMLElement): Promise<void> {
+  const urls = collectEmbeddedImageUrls(root)
+  if (urls.length === 0) return
+
+  await Promise.all(
+    urls.map(
+      (url) =>
+        new Promise<void>((resolve) => {
+          const image = new Image()
+          let settled = false
+          const finish = () => {
+            if (settled) return
+            settled = true
+            window.clearTimeout(timeoutId)
+            resolve()
+          }
+          const timeoutId = window.setTimeout(
+            finish,
+            EMBEDDED_DECODE_TIMEOUT_MS
+          )
+          image.onerror = finish
+          image.src = url
+          // decode() resolves only once the bitmap is ready to paint; the load
+          // event alone would put us back to guessing.
+          image.decode().then(finish, finish)
+        })
+    )
+  )
+}
+
 /**
  * Inline every CSS `background-image: url(...)` in the clone as a data URI.
  *
@@ -1335,6 +1406,8 @@ export async function exportCanvas(
     await waitForExportAssets(assetUrls)
     await embedCloneImages(exportTarget.node)
     await bakeGlassFrost(exportTarget.node, renderedWidth, renderedHeight)
+    // After the frost, so its textures are warmed with everything else.
+    await warmEmbeddedImageDecodes(exportTarget.node)
     if (format === "png") {
       const canvas = await rasterizeExportNode(
         exportTarget.node,
@@ -1868,6 +1941,8 @@ export async function captureCanvasAsPngBlob(
     await embedCloneImages(exportTarget.node)
     replaceCloneVideosWithFrames(node, exportTarget.node)
     await bakeGlassFrost(exportTarget.node, renderedWidth, renderedHeight)
+    // After the frost, so its textures are warmed with everything else.
+    await warmEmbeddedImageDecodes(exportTarget.node)
 
     // html-to-image is flaky on the first call (fonts/images not yet embedded
     // in the cloned document). Two attempts is the standard workaround.
