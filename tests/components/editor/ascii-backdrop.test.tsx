@@ -81,12 +81,12 @@ describe("AsciiBackdrop SVG image", () => {
     )
     const svg = svgDocument.documentElement
     const rows = Array.from(svgDocument.querySelectorAll("text"))
-    expect(svg).toHaveAttribute("viewBox", "0 0 200 100")
+    expect(svg.getAttribute("viewBox")).toBe("0 0 200 100")
     expect(rows).toHaveLength(5)
     for (const row of rows) {
-      expect(row).toHaveAttribute("x", "0")
-      expect(row).toHaveAttribute("textLength", "200")
-      expect(row).toHaveAttribute("lengthAdjust", "spacingAndGlyphs")
+      expect(row.getAttribute("x")).toBe("0")
+      expect(row.getAttribute("textLength")).toBe("200")
+      expect(row.getAttribute("lengthAdjust")).toBe("spacingAndGlyphs")
     }
   })
 })
