@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import type { SampledInnerLighting } from "@/lib/editor/apply-animation-frame"
 
 const mocks = vi.hoisted(() => ({
   captureLayeredAnimationFrame: vi.fn(),
   applyAnimationFrameAtTime: vi.fn(),
   measureBareStageDims: vi.fn(() => null),
   sampleMainMediaGrade: vi.fn(() => null),
+  sampleMainInnerLighting: vi.fn((): SampledInnerLighting | null => null),
 }))
 
 vi.mock("@/lib/editor/animation-export/webkit-layered-frame", () => ({
@@ -14,6 +16,7 @@ vi.mock("@/lib/editor/apply-animation-frame", () => ({
   applyAnimationFrameAtTime: mocks.applyAnimationFrameAtTime,
   measureBareStageDims: mocks.measureBareStageDims,
   sampleMainMediaGrade: mocks.sampleMainMediaGrade,
+  sampleMainInnerLighting: mocks.sampleMainInnerLighting,
 }))
 vi.mock("@/lib/editor/export", () => ({
   prepareAnimationCapture: vi.fn(),
@@ -94,7 +97,18 @@ afterEach(() => {
 describe("captureStableFrame — layered WebKit path integration", () => {
   it("applies the keyframe, then prefers the layered capture when it lands", async () => {
     const capture = makeCapture()
-    mocks.captureLayeredAnimationFrame.mockResolvedValue(makeFrame())
+    const layeredFrame = makeFrame()
+    const sampledLighting = {
+      target: "inner",
+      intensity: 42,
+      direction: "1-3",
+      color: "#ffeedd",
+    } as const
+    mocks.sampleMainInnerLighting.mockReturnValue({
+      lighting: sampledLighting,
+      opacityScale: 0.75,
+    })
+    mocks.captureLayeredAnimationFrame.mockResolvedValue(layeredFrame)
 
     const frame = await captureStableFrame(
       capture,
@@ -121,6 +135,8 @@ describe("captureStableFrame — layered WebKit path integration", () => {
           enhance: "vivid",
           filter: "noir",
           adjustments: { brightness: 120, blur: 4 },
+          innerLighting: sampledLighting,
+          innerLightingOpacity: 0.75,
         }) as unknown,
       })
     )
@@ -133,6 +149,9 @@ describe("captureStableFrame — layered WebKit path integration", () => {
     // The plain single-pass capture must not run — its raster would flatten
     // the perspective the layered path exists to preserve.
     expect(capture.captureFrame).not.toHaveBeenCalled()
+    // Layered capture already owns a detached frame canvas; copying it again
+    // doubles peak 4K/8K RGBA memory for no alias-safety benefit.
+    expect(frame).toBe(layeredFrame)
   })
 
   it("skips the per-frame <img> JPEG paint when the layered path draws the video", async () => {

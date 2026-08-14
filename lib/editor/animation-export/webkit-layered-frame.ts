@@ -24,8 +24,9 @@
  *      radius / enhance via `paintFrameToLocalBox`) — no JPEG round-trip into
  *      the clone, no re-raster — and the result is GPU-warped onto the
  *      frame's current quad.
- *   3. device-frame chrome re-projected over the media, then above-media
- *      foreground layers (per-frame captures; only present when used).
+ *   3. device-frame chrome is captured once and re-projected over the media.
+ *      Flat foreground rasters are cached until their visual state changes;
+ *      inner lighting is painted natively instead of using foreignObject.
  *
  * Bent shells are collected with `includeFlat`, so a tilt animating through 0
  * stays on this one pipeline every frame — no flip-flopping against the plain
@@ -35,6 +36,7 @@
 import { supportsObjectViewBox } from "../crop-utils"
 import type { AnimationCapture } from "../export"
 import { waitForPaint } from "./utils"
+import { createPassProfiler } from "./pass-profiler"
 import type { CloneVideoLayer } from "./video-layer"
 import {
   applyExportStackVisibility,
@@ -54,8 +56,10 @@ import {
   paintsAboveVideo,
   warpProjectedTexture,
   type ProjectedElementTexture,
+  type LayerRasterCache,
   type VideoMediaFx,
 } from "./video-media/frame-renderer"
+import { buildNativeInnerLightingLayer } from "./video-media/frame-inner-lighting"
 
 export type LayeredFrameOptions = {
   /** Timeline position of this frame, for the decoded-video draw. */
@@ -191,7 +195,9 @@ async function captureUnderlayPass(
 
     // The capture engine reuses one internal canvas — detach before the next
     // captureFrame() overwrites it.
-    latest = copyCanvas(frame)
+    const next = copyCanvas(frame)
+    if (latest) releaseCanvas(latest)
+    latest = next
     const sample = sampleRaster(latest)
     if (sample && samplesMatch(previousSample, sample)) return latest
     previousSample = sample
@@ -211,6 +217,12 @@ const UNDERLAY_CACHE_MAX_BYTES = 96 * 1024 * 1024
 /** RGBA byte size of a canvas buffer (width × height × 4). */
 const canvasBytes = (canvas: HTMLCanvasElement) =>
   canvas.width * canvas.height * 4
+
+/** Drop the browser-managed RGBA backing store immediately instead of at GC. */
+function releaseCanvas(canvas: HTMLCanvasElement) {
+  canvas.width = 0
+  canvas.height = 0
+}
 
 /** Look up a settled underlay raster for this capture + backdrop-var key. */
 function cachedUnderlay(
@@ -240,16 +252,42 @@ function storeUnderlay(
       total > UNDERLAY_CACHE_MAX_BYTES)
   ) {
     const evicted = entries.shift()
-    if (evicted) total -= canvasBytes(evicted.canvas)
+    if (evicted) {
+      total -= canvasBytes(evicted.canvas)
+      releaseCanvas(evicted.canvas)
+    }
   }
   underlayCache.set(capture, entries)
 }
 
-type ShellTextureEntry = { key: string; tex: ProjectedElementTexture }
+type ShellTextureEntry = {
+  key: string
+  tex: ProjectedElementTexture
+  composed?: HTMLCanvasElement
+}
 const shellTextureCache = new WeakMap<
   AnimationCapture,
   Map<HTMLElement, ShellTextureEntry>
 >()
+const layerRasterCache = new WeakMap<AnimationCapture, LayerRasterCache>()
+const passProfilerCache = new WeakMap<
+  AnimationCapture,
+  ReturnType<typeof createPassProfiler>
+>()
+
+function cachesFor(capture: AnimationCapture) {
+  let layers = layerRasterCache.get(capture)
+  if (!layers) {
+    layers = {}
+    layerRasterCache.set(capture, layers)
+  }
+  let profiler = passProfilerCache.get(capture)
+  if (!profiler) {
+    profiler = createPassProfiler(process.env.NODE_ENV !== "production")
+    passProfilerCache.set(capture, profiler)
+  }
+  return { layers, profiler }
+}
 
 /**
  * Draw this frame's decoded video pixels into a copy of the shell texture, at
@@ -262,7 +300,8 @@ async function composeShellWithVideo(
   timelineMs: number,
   mediaFx: VideoMediaFx | null | undefined,
   scale: number,
-  shell: HTMLElement
+  shell: HTMLElement,
+  scratch?: HTMLCanvasElement
 ): Promise<HTMLCanvasElement> {
   if (!tex.mediaBox) return tex.texture
   const frame = await videoLayer.getFrame(timelineMs)
@@ -289,9 +328,18 @@ async function composeShellWithVideo(
   )
   if (!local) return tex.texture
 
-  const composed = copyCanvas(tex.texture)
+  const composed = scratch ?? document.createElement("canvas")
+  if (
+    composed.width !== tex.texture.width ||
+    composed.height !== tex.texture.height
+  ) {
+    composed.width = tex.texture.width
+    composed.height = tex.texture.height
+  }
   const ctx = composed.getContext("2d")
   if (!ctx) return tex.texture
+  ctx.clearRect(0, 0, composed.width, composed.height)
+  ctx.drawImage(tex.texture, 0, 0)
   ctx.drawImage(local, tex.mediaBox.x * scale, tex.mediaBox.y * scale)
   return composed
 }
@@ -306,6 +354,9 @@ export async function captureLayeredAnimationFrame(
   options: LayeredFrameOptions
 ): Promise<HTMLCanvasElement | null> {
   if (supportsObjectViewBox()) return null
+  const frameStartedAt = performance.now()
+  const caches = cachesFor(capture)
+  const profiler = caches.profiler
   const node = capture.node
   const { timelineMs, videoLayer, mediaFx } = options
 
@@ -342,7 +393,9 @@ export async function captureLayeredAnimationFrame(
       alsoHide: layers.map(({ el }) => el),
     })
     try {
-      underlay = await captureUnderlayPass(capture)
+      underlay = await profiler.measure("underlay raster", () =>
+        captureUnderlayPass(capture)
+      )
     } finally {
       restoreUnderlay()
     }
@@ -362,23 +415,38 @@ export async function captureLayeredAnimationFrame(
   // (inner lighting), the descendant rule correctly keeps them above.
   const shell = underlayProjected[0].el
 
+  const nativeInnerLighting = mediaFx?.innerLighting
+    ? foregroundEls.filter(
+        (el) =>
+          el.hasAttribute("data-export-inner-lighting") && shell.contains(el)
+      )
+    : []
+  const compositedForegroundEls = foregroundEls.filter(
+    (el) => !nativeInnerLighting.includes(el)
+  )
+
   // Foreground layers the user ordered behind the media composite under it.
   const aboveEls: HTMLElement[] = []
   const belowEls: HTMLElement[] = []
-  for (const el of foregroundEls) {
+  for (const el of compositedForegroundEls) {
     if (paintsAboveVideo(el, shell, node)) aboveEls.push(el)
     else belowEls.push(el)
   }
 
   if (belowEls.length > 0) {
-    const layer = await buildForegroundLayer(
-      capture,
-      belowEls,
-      scale,
-      base.width,
-      base.height
+    const layer = await profiler.measure("foreground below", () =>
+      buildForegroundLayer(
+        capture,
+        belowEls,
+        scale,
+        base.width,
+        base.height,
+        "webkit below",
+        caches.layers,
+        ctx
+      )
     )
-    if (layer) ctx.drawImage(layer, 0, 0)
+    if (layer && layer !== base) ctx.drawImage(layer, 0, 0)
   }
 
   let textures = shellTextureCache.get(capture)
@@ -393,61 +461,101 @@ export async function captureLayeredAnimationFrame(
     const textureKey = shellTextureKey(node, layer)
     let entry = textures.get(layer.el)
     if (!entry || entry.key !== textureKey) {
-      const tex = await captureProjectedElementTexture(
-        capture,
-        layer,
-        scale,
-        foregroundEls,
-        isMediaShell ? videoLayer.mediaElement : null
+      const tex = await profiler.measure("shell texture raster", () =>
+        captureProjectedElementTexture(
+          capture,
+          layer,
+          scale,
+          foregroundEls,
+          isMediaShell ? videoLayer.mediaElement : null,
+          true
+        )
       )
       // A shell that fails to rasterize would leave a frame with no media at
       // all; the flattened single-pass frame is the lesser artifact.
       if (!tex) return null
+      if (entry) {
+        releaseCanvas(entry.tex.texture)
+        if (entry.composed) releaseCanvas(entry.composed)
+      }
       entry = { key: textureKey, tex }
       textures.set(layer.el, entry)
     }
 
-    const source =
-      isMediaShell && videoLayer
-        ? await composeShellWithVideo(
-            entry.tex,
-            videoLayer,
-            timelineMs,
-            mediaFx,
-            scale,
-            layer.el
-          )
-        : entry.tex.texture
-    const projected = warpProjectedTexture(
-      { ...entry.tex, texture: source },
-      layer.quad,
-      scale,
-      base.width,
-      base.height
+    let source = entry.tex.texture
+    if (isMediaShell && videoLayer) {
+      source = await profiler.measure("video composite", () =>
+        composeShellWithVideo(
+          entry.tex,
+          videoLayer,
+          timelineMs,
+          mediaFx,
+          scale,
+          layer.el,
+          entry.composed
+        )
+      )
+      if (source !== entry.tex.texture) entry.composed = source
+    }
+    const projected = profiler.measureSync("shell warp", () =>
+      warpProjectedTexture(
+        { ...entry.tex, texture: source },
+        layer.quad,
+        scale,
+        base.width,
+        base.height,
+        ctx
+      )
     )
     if (!projected) return null
-    ctx.drawImage(projected, 0, 0)
+    if (projected !== base) ctx.drawImage(projected, 0, 0)
   }
 
-  const chrome = await buildFrameChromeLayer(
-    capture,
-    shell,
-    scale,
-    base.width,
-    base.height
-  )
-  if (chrome) ctx.drawImage(chrome, 0, 0)
+  const lighting = mediaFx?.innerLighting
+    ? profiler.measureSync("inner lighting", () =>
+        buildNativeInnerLightingLayer(
+          node,
+          nativeInnerLighting,
+          mediaFx.innerLighting!,
+          scale,
+          base.width,
+          base.height,
+          ctx,
+          mediaFx.innerLightingOpacity ?? 1
+        )
+      )
+    : null
+  if (lighting && lighting !== base) ctx.drawImage(lighting, 0, 0)
 
-  if (aboveEls.length > 0) {
-    const layer = await buildForegroundLayer(
+  const chrome = await profiler.measure("frame chrome", () =>
+    buildFrameChromeLayer(
       capture,
-      aboveEls,
+      shell,
       scale,
       base.width,
-      base.height
+      base.height,
+      caches.layers,
+      ctx
     )
-    if (layer) ctx.drawImage(layer, 0, 0)
+  )
+  if (chrome && chrome !== base) ctx.drawImage(chrome, 0, 0)
+
+  if (aboveEls.length > 0) {
+    const layer = await profiler.measure("foreground above", () =>
+      buildForegroundLayer(
+        capture,
+        aboveEls,
+        scale,
+        base.width,
+        base.height,
+        "webkit above",
+        caches.layers,
+        ctx
+      )
+    )
+    if (layer && layer !== base) ctx.drawImage(layer, 0, 0)
   }
 
+  profiler.finishFrame(frameStartedAt)
   return base
 }

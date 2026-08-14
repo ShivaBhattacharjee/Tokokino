@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   paintFrameToLocalBox: vi.fn(),
   buildForegroundLayer: vi.fn(),
   buildFrameChromeLayer: vi.fn(),
+  buildNativeInnerLightingLayer: vi.fn(),
   paintsAboveVideo: vi.fn(),
   applyExportStackVisibility: vi.fn(),
   queryForeground: vi.fn(),
@@ -40,6 +41,12 @@ vi.mock("@/lib/editor/animation-export/video-media/frame-renderer", () => ({
   buildFrameChromeLayer: mocks.buildFrameChromeLayer,
   paintsAboveVideo: mocks.paintsAboveVideo,
 }))
+vi.mock(
+  "@/lib/editor/animation-export/video-media/frame-inner-lighting",
+  () => ({
+    buildNativeInnerLightingLayer: mocks.buildNativeInnerLightingLayer,
+  })
+)
 vi.mock("@/lib/editor/animation-export/video-media/export-stack", () => ({
   applyExportStackVisibility: mocks.applyExportStackVisibility,
   queryForeground: mocks.queryForeground,
@@ -154,6 +161,7 @@ beforeEach(() => {
   mocks.paintFrameToLocalBox.mockReturnValue(makeFrame(99))
   mocks.buildForegroundLayer.mockResolvedValue(null)
   mocks.buildFrameChromeLayer.mockResolvedValue(null)
+  mocks.buildNativeInnerLightingLayer.mockReturnValue(null)
   mocks.paintsAboveVideo.mockReturnValue(true)
 })
 
@@ -306,6 +314,63 @@ describe("captureLayeredAnimationFrame — composition", () => {
     expect(belowOrder).toBeLessThan(shellOrder)
     expect(shellOrder).toBeLessThan(aboveOrder)
   })
+
+  it("paints the main inner lighting natively instead of rasterizing it", async () => {
+    const layer = shellLayer()
+    const lighting = document.createElement("div")
+    lighting.dataset.exportStack = "foreground"
+    lighting.dataset.exportInnerLighting = ""
+    const text = document.createElement("div")
+    text.dataset.exportStack = "foreground"
+    layer.el.appendChild(lighting)
+    mocks.collectProjectedLayers.mockReturnValue([layer])
+    mocks.queryForeground.mockReturnValue([lighting, text])
+    mocks.buildNativeInnerLightingLayer.mockReturnValue(makeFrame(66))
+    const capture = makeCapture([10, 10])
+    const innerLighting = {
+      intensity: 60,
+      color: "#ffffff",
+      direction: "2-2",
+      target: "inner",
+    } as const
+
+    await captureLayeredAnimationFrame(capture, {
+      timelineMs: 0,
+      mediaFx: { innerLighting },
+    })
+
+    expect(mocks.buildNativeInnerLightingLayer).toHaveBeenCalledWith(
+      capture.node,
+      [lighting],
+      innerLighting,
+      expect.any(Number),
+      1080,
+      675,
+      expect.anything(),
+      1
+    )
+    expect(mocks.buildForegroundLayer).toHaveBeenCalledTimes(1)
+    expect(mocks.buildForegroundLayer.mock.calls[0][1]).toEqual([text])
+  })
+
+  it("shares one layer cache across every frame of a capture", async () => {
+    const foreground = document.createElement("div")
+    mocks.queryForeground.mockReturnValue([foreground])
+    const capture = makeCapture([10, 10])
+
+    await captureLayeredAnimationFrame(capture, OPTS)
+    await captureLayeredAnimationFrame(capture, { timelineMs: 33 })
+
+    const foregroundCacheA: unknown =
+      mocks.buildForegroundLayer.mock.calls[0][6]
+    const foregroundCacheB: unknown =
+      mocks.buildForegroundLayer.mock.calls[1][6]
+    const chromeCacheA: unknown = mocks.buildFrameChromeLayer.mock.calls[0][5]
+    const chromeCacheB: unknown = mocks.buildFrameChromeLayer.mock.calls[1][5]
+    expect(foregroundCacheA).toBeTruthy()
+    expect(foregroundCacheB).toBe(foregroundCacheA)
+    expect(chromeCacheB).toBe(chromeCacheA)
+  })
 })
 
 describe("captureLayeredAnimationFrame — video pixels", () => {
@@ -408,6 +473,10 @@ describe("captureLayeredAnimationFrame — video pixels", () => {
     expect(mocks.captureProjectedElementTexture).toHaveBeenCalledTimes(1)
     expect(mocks.warpProjectedTexture).toHaveBeenCalledTimes(3)
     expect(videoLayer.getFrame).toHaveBeenCalledTimes(3)
+    const composedTextures = mocks.warpProjectedTexture.mock.calls.map(
+      ([input]) => (input as { texture: HTMLCanvasElement }).texture
+    )
+    expect(new Set(composedTextures).size).toBe(1)
   })
 })
 
@@ -422,6 +491,25 @@ describe("captureLayeredAnimationFrame — caches", () => {
       captureLayeredAnimationFrame(capture, OPTS)
     ).resolves.not.toBeNull()
     expect(capture.captureFrame).toHaveBeenCalledTimes(3)
+  })
+
+  it("releases superseded full-size underlay retry buffers", async () => {
+    const created: HTMLCanvasElement[] = []
+    const createElement = document.createElement.bind(document)
+    vi.spyOn(document, "createElement").mockImplementation(
+      (tagName: string, options?: ElementCreationOptions) => {
+        const element = createElement(tagName, options)
+        if (element instanceof HTMLCanvasElement) created.push(element)
+        return element
+      }
+    )
+    const capture = makeCapture([1, 60, 60])
+
+    await captureLayeredAnimationFrame(capture, OPTS)
+
+    expect(
+      created.some((canvas) => canvas.width === 0 && canvas.height === 0)
+    ).toBe(true)
   })
 
   it("gives up settling after the attempt budget and uses the last raster", async () => {
@@ -493,6 +581,11 @@ describe("captureLayeredAnimationFrame — caches", () => {
     const scope = capture.node.querySelector<HTMLElement>(
       '[data-editor-shadow-preview-scope="canvas"]'
     )
+    const firstTexture = makeTexture(70)
+    const secondTexture = makeTexture(80)
+    mocks.captureProjectedElementTexture
+      .mockResolvedValueOnce(firstTexture)
+      .mockResolvedValueOnce(secondTexture)
 
     await captureLayeredAnimationFrame(capture, OPTS)
     await captureLayeredAnimationFrame(capture, OPTS)
@@ -502,6 +595,8 @@ describe("captureLayeredAnimationFrame — caches", () => {
     scope?.style.setProperty("--editor-shadow-preview", "0 0 10px red")
     await captureLayeredAnimationFrame(capture, OPTS)
     expect(mocks.captureProjectedElementTexture).toHaveBeenCalledTimes(2)
+    expect(firstTexture.texture.width).toBe(0)
+    expect(firstTexture.texture.height).toBe(0)
   })
 
   it("bounds the underlay cache by bytes and re-captures evicted states", async () => {

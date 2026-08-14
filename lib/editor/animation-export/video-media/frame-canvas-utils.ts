@@ -32,25 +32,47 @@ export function copyCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
   return out
 }
 
-/** Fraction of sampled pixels with meaningful alpha (0–100). */
-export function opaquePct(canvas: HTMLCanvasElement): number {
-  const ctx = canvas.getContext("2d", { willReadFrequently: true })
-  if (!ctx || !canvas.width || !canvas.height) return 0
+/** Bounded alpha sample used by Safari foreground retries. */
+export function alphaSample(canvas: HTMLCanvasElement): {
+  opaquePct: number
+  signature: number
+} {
+  if (!canvas.width || !canvas.height) {
+    return { opaquePct: 0, signature: 0 }
+  }
+  const width = Math.min(128, canvas.width)
+  const height = Math.min(80, canvas.height)
+  const sample = document.createElement("canvas")
+  sample.width = width
+  sample.height = height
+  const ctx = sample.getContext("2d", { willReadFrequently: true })
+  if (!ctx) return { opaquePct: 0, signature: 0 }
+  ctx.drawImage(canvas, 0, 0, width, height)
   let data: Uint8ClampedArray
   try {
-    data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    data = ctx.getImageData(0, 0, width, height).data
   } catch {
-    return 0
+    return { opaquePct: 0, signature: 0 }
   }
-  // Stride the buffer — full scans of an 8K frame are needlessly slow here.
-  const step = Math.max(1, Math.floor(data.length / 4 / 20000)) * 4
-  let seen = 0
   let opaque = 0
-  for (let i = 3; i < data.length; i += step) {
-    seen++
-    if (data[i] > 8) opaque++
+  let signature = 2166136261
+  for (let i = 0; i < data.length; i += 4) {
+    const alpha = data[i + 3]
+    if (alpha > 0) opaque++
+    signature = Math.imul(signature ^ data[i], 16777619)
+    signature = Math.imul(signature ^ data[i + 1], 16777619)
+    signature = Math.imul(signature ^ data[i + 2], 16777619)
+    signature = Math.imul(signature ^ alpha, 16777619)
   }
-  return seen ? (opaque / seen) * 100 : 0
+  return {
+    opaquePct: (opaque / (data.length / 4)) * 100,
+    signature: signature >>> 0,
+  }
+}
+
+/** Fraction of sampled pixels with meaningful alpha (0–100). */
+export function opaquePct(canvas: HTMLCanvasElement): number {
+  return alphaSample(canvas).opaquePct
 }
 
 /** Fraction of sampled pixels that are not effectively black (0–100). */

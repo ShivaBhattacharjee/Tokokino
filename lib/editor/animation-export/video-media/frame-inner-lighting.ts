@@ -15,7 +15,6 @@ import type {
   MediaAdjustments,
 } from "../../state-types"
 import {
-  chooseQuadSubdivision,
   drawImageToQuadWarp,
   projectionFor,
   type UvProjectorH,
@@ -50,6 +49,8 @@ export type VideoMediaFx = {
    * rasterized from CSS in Safari's SVG foreignObject implementation.
    */
   innerLighting?: BackdropLighting | null
+  /** Inner-side weight while an animated light crossfades outer → inner. */
+  innerLightingOpacity?: number
 }
 
 /** Map a lighting direction token (center or `row-col`) to percent coords. */
@@ -76,7 +77,8 @@ export function paintInnerLighting(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  lighting: BackdropLighting | null | undefined
+  lighting: BackdropLighting | null | undefined,
+  opacityScale = 1
 ) {
   if (!lighting || lighting.intensity <= 0 || !width || !height) return
   const intensity = Math.max(0, Math.min(100, lighting.intensity)) / 100
@@ -92,7 +94,7 @@ export function paintInnerLighting(
   )
 
   ctx.save()
-  ctx.globalAlpha = opacity
+  ctx.globalAlpha = opacity * Math.max(0, Math.min(1, opacityScale))
   const radial = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
   radial.addColorStop(0, rgba(lighting.color, 0.56))
   radial.addColorStop(0.22, rgba(lighting.color, 0.32))
@@ -126,13 +128,17 @@ export function buildNativeInnerLightingLayer(
   lighting: BackdropLighting,
   scale: number,
   width: number,
-  height: number
+  height: number,
+  destination?: CanvasRenderingContext2D,
+  opacityScale = 1
 ): HTMLCanvasElement | null {
   if (layers.length === 0) return null
-  const out = document.createElement("canvas")
-  out.width = width
-  out.height = height
-  const outCtx = out.getContext("2d")
+  const out = destination?.canvas ?? document.createElement("canvas")
+  if (!destination) {
+    out.width = width
+    out.height = height
+  }
+  const outCtx = destination ?? out.getContext("2d")
   if (!outCtx) return null
 
   let painted = false
@@ -160,7 +166,13 @@ export function buildNativeInnerLightingLayer(
       textureCtx.roundRect(0, 0, texture.width, texture.height, radius)
       textureCtx.clip()
     }
-    paintInnerLighting(textureCtx, texture.width, texture.height, lighting)
+    paintInnerLighting(
+      textureCtx,
+      texture.width,
+      texture.height,
+      lighting,
+      opacityScale
+    )
 
     if (projected) {
       const { quad } = projected
@@ -173,8 +185,7 @@ export function buildNativeInnerLightingLayer(
         texture,
         texture.width,
         texture.height,
-        projectUV,
-        chooseQuadSubdivision(projectUV)
+        projectUV
       )
     } else {
       const rootRect = root.getBoundingClientRect()

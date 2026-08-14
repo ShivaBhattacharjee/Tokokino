@@ -218,6 +218,46 @@ export function sampleMainMediaGrade(
   )
 }
 
+export type SampledInnerLighting = {
+  lighting: BackdropLighting
+  /** Crossfade weight when lighting moves between outer and inner targets. */
+  opacityScale: number
+}
+
+/** The main screenshot's native inner-lighting pose at `timeMs`. */
+export function sampleMainInnerLighting(
+  canvas: CanvasState,
+  mainClips: AnimationClip[],
+  poseOf: (clip: AnimationClip) => ClipBaseline,
+  timeMs: number
+): SampledInnerLighting | null {
+  const owners = mainClips
+    .filter((clip) => clipOwns(clip, "lighting"))
+    .sort((a, b) => a.startMs - b.startMs)
+  if (owners.length === 0) {
+    const committed = canvas.backdrop.lighting
+    return committed.target === "inner" && committed.intensity > 0
+      ? { lighting: committed, opacityScale: 1 }
+      : null
+  }
+
+  const frames = owners.map((clip) => ({
+    startMs: clip.startMs,
+    durationMs: clip.durationMs,
+    value: poseOf(clip).lighting ?? REST_LIGHTING,
+    ease: clipProgressEase(clip),
+    releaseMs: clipReleaseMs(clip),
+    releaseEase: clipReleaseEase(clip),
+  }))
+  const baseline = clipBaseline(owners[0]).lighting ?? REST_LIGHTING
+  const rest =
+    baseline.intensity > 0 ? baseline : lightingEntranceRest(frames[0]?.value)
+  const lighting = sampleKeyframes(frames, timeMs, rest, lightingBetween)
+  const opacityScale = lightingTargetMixAt(frames, timeMs, rest)
+  if (!lighting || lighting.intensity <= 0 || opacityScale <= 1e-6) return null
+  return { lighting, opacityScale }
+}
+
 const tiltLerp = (a: Tilt, b: Tilt, p: number): Tilt => ({
   rx: lerp(a.rx, b.rx, p),
   ry: lerp(a.ry, b.ry, p),
