@@ -77,12 +77,13 @@ describe("glass frame geometry", () => {
     }
   })
 
-  it("places Stack behind the lower edge and Stack 2 behind the upper edge", () => {
+  it("places Card and Stack behind the lower edge and Stack 2 behind the upper edge", () => {
     const card = getGlassFrame(GLASS_CARD_FRAME_ID)
     const stack = getGlassFrame(GLASS_STACK_FRAME_ID)
     const stack2 = getGlassFrame(GLASS_STACK_2_FRAME_ID)
 
-    expect(card?.layers).toHaveLength(0)
+    expect(card?.layers).toHaveLength(1)
+    expect(card?.layers.every((layer) => layer.y > card.front.y)).toBe(true)
     expect(stack?.layers).toHaveLength(2)
     expect(stack?.layers.every((layer) => layer.y > stack.front.y)).toBe(true)
     const cascadeExposure = stack?.layers.map(

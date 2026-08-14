@@ -54,7 +54,16 @@ export const GLASS_FRAMES = [
       height: SCREEN_HEIGHT,
       radius: 11,
     },
-    layers: [],
+    layers: [
+      {
+        x: -28,
+        y: 28,
+        width: 1208,
+        height: 750,
+        radius: 20,
+        rotation: -0.35,
+      },
+    ],
     colors: GLASS_FRAME_COLORS,
   },
   {

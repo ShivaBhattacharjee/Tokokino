@@ -50,6 +50,23 @@ describe("GlassFrame", () => {
     }
   })
 
+  it("gives Glass Card depth with a real blurred glass pane", () => {
+    const { container } = render(
+      <GlassFrame frameId="glass-card" colorMode="dark" imageSrc="shot.png" />
+    )
+
+    const rear = container.querySelector(
+      '[data-glass-frame-layer="rear"]'
+    ) as HTMLElement
+
+    expect(
+      container.querySelectorAll('[data-glass-frame-layer="rear"]')
+    ).toHaveLength(1)
+    expect(rear.style.backdropFilter).toBe("blur(18px) saturate(135%)")
+    expect(rear.style.background).toContain("linear-gradient")
+    expect(rear.style.border).not.toBe("")
+  })
+
   it("uses the rear-card glass treatment for the front media rim", () => {
     const { container } = render(
       <GlassFrame frameId="glass-stack" colorMode="dark" imageSrc="shot.png" />
