@@ -35,13 +35,13 @@ class FakeResizeObserver {
   disconnect() {}
 }
 
-describe("AsciiBackdrop fixed-cell SVG rows", () => {
+describe("AsciiBackdrop SVG image", () => {
   afterEach(() => {
     resize = null
     vi.unstubAllGlobals()
   })
 
-  it("gives every rendered row an explicit full-grid text length", async () => {
+  it("renders fixed-cell rows inside one SVG-backed image", async () => {
     vi.stubGlobal("ResizeObserver", FakeResizeObserver)
     const { container } = render(
       <AsciiBackdrop
@@ -67,14 +67,26 @@ describe("AsciiBackdrop fixed-cell SVG rows", () => {
       )
     })
 
-    const svg = container.querySelector("svg")
-    const rows = Array.from(container.querySelectorAll("svg text"))
-    expect(svg).toHaveAttribute("viewBox", "0 0 200 100")
+    const image = container.querySelector<HTMLImageElement>(
+      'img[data-export-ascii-glyphs="true"]'
+    )
+    expect(image).not.toBeNull()
+    expect(container.querySelector("svg")).toBeNull()
+
+    const source = image?.getAttribute("src") ?? ""
+    const encodedSvg = source.slice(source.indexOf(",") + 1)
+    const svgDocument = new DOMParser().parseFromString(
+      decodeURIComponent(encodedSvg),
+      "image/svg+xml"
+    )
+    const svg = svgDocument.documentElement
+    const rows = Array.from(svgDocument.querySelectorAll("text"))
+    expect(svg.getAttribute("viewBox")).toBe("0 0 200 100")
     expect(rows).toHaveLength(5)
     for (const row of rows) {
-      expect(row).toHaveAttribute("x", "0")
-      expect(row).toHaveAttribute("textLength", "200")
-      expect(row).toHaveAttribute("lengthAdjust", "spacingAndGlyphs")
+      expect(row.getAttribute("x")).toBe("0")
+      expect(row.getAttribute("textLength")).toBe("200")
+      expect(row.getAttribute("lengthAdjust")).toBe("spacingAndGlyphs")
     }
   })
 })

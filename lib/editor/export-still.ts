@@ -5,7 +5,11 @@ import {
   rewriteExportAssets,
   waitForExportAssets,
 } from "./export-asset-rewrite"
-import { WATERMARK_LOGO_SRC, prepareExportNode } from "./export-clone"
+import {
+  measureExportWatermarkLogo,
+  prepareExportNode,
+  type ExportWatermarkLogoPlacement,
+} from "./export-clone"
 import {
   COPY_RESOLUTION_WIDTHS,
   EXPORT_FORMAT_EXTENSION,
@@ -32,9 +36,44 @@ import { bakeGlassFrost } from "./export-glass"
 import { canvasToBlob, clipCanvasToRoundedRect } from "./export-raster"
 import { rasterizeExportNode } from "./export-settle"
 import { replaceCloneVideosWithFrames } from "./export-video-frames"
+import { loadWatermarkLogo } from "./animation-export/watermark"
 
 function triggerDownload(url: string, filename: string) {
   triggerAnchorDownload(url, filename)
+}
+
+/**
+ * Paint the logo after the DOM clone has been rasterized. Safari can omit an
+ * image nested in the foreignObject while leaving its flex box and surrounding
+ * text intact; drawing onto the returned canvas removes that decode race.
+ */
+function paintExportWatermarkLogo(
+  canvas: HTMLCanvasElement,
+  placement: ExportWatermarkLogoPlacement | null,
+  renderedWidth: number,
+  renderedHeight: number,
+  logo: HTMLImageElement | null
+): void {
+  if (!placement || !logo || renderedWidth <= 0 || renderedHeight <= 0) return
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return
+
+  const scaleX = canvas.width / renderedWidth
+  const scaleY = canvas.height / renderedHeight
+  ctx.save()
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = "high"
+  ctx.shadowColor = "rgba(0, 0, 0, 0.18)"
+  ctx.shadowBlur = Math.max(scaleX, scaleY)
+  ctx.shadowOffsetY = scaleY
+  ctx.drawImage(
+    logo,
+    placement.x * scaleX,
+    placement.y * scaleY,
+    placement.width * scaleX,
+    placement.height * scaleY
+  )
+  ctx.restore()
 }
 
 export async function exportCanvas(
@@ -67,9 +106,9 @@ export async function exportCanvas(
     options
   )
   const { rewrites, preloadUrls } = rewriteExportAssets(exportTarget.node)
-  const assetUrls = options.watermark
-    ? [...preloadUrls, WATERMARK_LOGO_SRC]
-    : preloadUrls
+  const watermarkLogoPromise = options.watermark
+    ? loadWatermarkLogo()
+    : Promise.resolve(null)
 
   // No pixelRatio — rasterizeNodeToCanvas owns the scale (see exportScaleStyle).
   const baseOptions = {
@@ -87,11 +126,15 @@ export async function exportCanvas(
   })
 
   try {
-    await waitForExportAssets(assetUrls)
+    await waitForExportAssets(preloadUrls)
     await embedCloneImages(exportTarget.node)
     await bakeGlassFrost(exportTarget.node, renderedWidth, renderedHeight)
     // After the frost, so its textures are warmed with everything else.
     await warmEmbeddedImageDecodes(exportTarget.node)
+    const watermarkLogo = await watermarkLogoPromise
+    const watermarkPlacement = options.watermark
+      ? measureExportWatermarkLogo(exportTarget.node)
+      : null
     if (format === "png") {
       const canvas = await rasterizeExportNode(
         exportTarget.node,
@@ -100,6 +143,13 @@ export async function exportCanvas(
         renderedHeight,
         outputWidth,
         outputHeight
+      )
+      paintExportWatermarkLogo(
+        canvas,
+        watermarkPlacement,
+        renderedWidth,
+        renderedHeight,
+        watermarkLogo
       )
       const clipped = await clipCanvasToRoundedRect(
         canvas,
@@ -123,6 +173,13 @@ export async function exportCanvas(
         outputHeight,
         "#ffffff"
       )
+      paintExportWatermarkLogo(
+        canvas,
+        watermarkPlacement,
+        renderedWidth,
+        renderedHeight,
+        watermarkLogo
+      )
       const url = canvas.toDataURL("image/jpeg", 0.95)
       triggerDownload(url, filename)
       return filename
@@ -134,6 +191,13 @@ export async function exportCanvas(
       renderedHeight,
       outputWidth,
       outputHeight
+    )
+    paintExportWatermarkLogo(
+      canvas,
+      watermarkPlacement,
+      renderedWidth,
+      renderedHeight,
+      watermarkLogo
     )
     const webpBlob = await canvasToBlob(canvas, "image/webp", 0.95)
     const objectUrl = URL.createObjectURL(webpBlob)
@@ -176,17 +240,21 @@ export async function captureCanvasAsPngBlob(
     options
   )
   const { rewrites, preloadUrls } = rewriteExportAssets(exportTarget.node)
-  const assetUrls = options.watermark
-    ? [...preloadUrls, WATERMARK_LOGO_SRC]
-    : preloadUrls
+  const watermarkLogoPromise = options.watermark
+    ? loadWatermarkLogo()
+    : Promise.resolve(null)
 
   try {
-    await waitForExportAssets(assetUrls)
+    await waitForExportAssets(preloadUrls)
     await embedCloneImages(exportTarget.node)
     replaceCloneVideosWithFrames(node, exportTarget.node)
     await bakeGlassFrost(exportTarget.node, renderedWidth, renderedHeight)
     // After the frost, so its textures are warmed with everything else.
     await warmEmbeddedImageDecodes(exportTarget.node)
+    const watermarkLogo = await watermarkLogoPromise
+    const watermarkPlacement = options.watermark
+      ? measureExportWatermarkLogo(exportTarget.node)
+      : null
 
     // html-to-image is flaky on the first call (fonts/images not yet embedded
     // in the cloned document). Two attempts is the standard workaround.
@@ -206,6 +274,13 @@ export async function captureCanvasAsPngBlob(
           renderedHeight,
           Math.round(renderedWidth * pixelRatio),
           Math.round(renderedHeight * pixelRatio)
+        )
+        paintExportWatermarkLogo(
+          canvas,
+          watermarkPlacement,
+          renderedWidth,
+          renderedHeight,
+          watermarkLogo
         )
         blob = await canvasToBlob(canvas, "image/png")
         if (blob) break
