@@ -116,7 +116,6 @@ export function TopBarButton({
   tooltip,
   disabled,
   className,
-  alwaysShowLabel = false,
 }: {
   label: string
   icon: React.ComponentType<{ className?: string }>
@@ -125,7 +124,6 @@ export function TopBarButton({
   tooltip?: string
   disabled?: boolean
   className?: string
-  alwaysShowLabel?: boolean
 }) {
   const button = (
     <Button
@@ -134,11 +132,12 @@ export function TopBarButton({
       onClick={onClick}
       disabled={disabled}
       className={className}
+      // Below xl the label is display:none and the icon is decorative, which
+      // leaves the control with no accessible name at all.
+      aria-label={label}
     >
       <Icon />
-      <span className={cn(!alwaysShowLabel && "hidden xl:inline")}>
-        {label}
-      </span>
+      <span className="hidden xl:inline">{label}</span>
     </Button>
   )
 

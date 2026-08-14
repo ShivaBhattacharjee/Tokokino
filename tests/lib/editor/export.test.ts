@@ -2,10 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { shouldProxyAssetUrl } from "@/lib/editor/export-assets"
 import {
+  INITIAL_SETTLE_PROGRESS,
+  advanceSettle,
+  collectEmbeddedImageUrls,
   exportElementLayoutSize,
   exportScaleStyle,
   isRasterEssentiallyEmpty,
   rasterSignatureDelta,
+  settleDelayMs,
+  signatureCoverage,
 } from "@/lib/editor/export"
 
 describe("shouldProxyAssetUrl", () => {
@@ -111,6 +116,179 @@ describe("rasterSignatureDelta — WebKit raster settling", () => {
     expect(
       rasterSignatureDelta(new Uint8ClampedArray(4), new Uint8ClampedArray(8))
     ).toBe(255)
+  })
+})
+
+describe("signatureCoverage — WebKit raster completeness", () => {
+  /** One 32×32 signature: `colorFor` returns [r,g,b,a] per pixel. */
+  function signature(colorFor: (index: number) => number[]) {
+    const pixels = 32 * 32
+    const data = new Uint8ClampedArray(pixels * 4)
+    for (let i = 0; i < pixels; i++) {
+      const [r, g, b, a] = colorFor(i)
+      data.set([r, g, b, a], i * 4)
+    }
+    return data
+  }
+
+  it("ranks a complete raster above one that dropped the screenshot", () => {
+    // Safari's partial capture: the background and chrome painted opaque, but
+    // the largest data URI never decoded, so the frame is flat where the
+    // screenshot should be.
+    const complete = signature((i) => [i % 251, (i * 7) % 251, i % 97, 255])
+    const missingScreenshot = signature((i) =>
+      i < 200 ? [i % 251, (i * 7) % 251, i % 97, 255] : [10, 10, 12, 255]
+    )
+    expect(signatureCoverage(complete)).toBeGreaterThan(
+      signatureCoverage(missingScreenshot)
+    )
+  })
+
+  it("ranks an opaque raster above one that dropped its background", () => {
+    const opaque = signature(() => [20, 20, 20, 255])
+    const transparent = signature((i) => [20, 20, 20, i < 256 ? 255 : 0])
+    expect(signatureCoverage(opaque)).toBeGreaterThan(
+      signatureCoverage(transparent)
+    )
+  })
+
+  it("treats an unreadable signature as worse than any raster", () => {
+    expect(signatureCoverage(null)).toBeLessThan(
+      signatureCoverage(signature(() => [0, 0, 0, 0]))
+    )
+  })
+})
+
+describe("advanceSettle — WebKit raster settling", () => {
+  /** Run a sequence of sampled coverages, reporting when it settled. */
+  function run(samples: { coverage: number; unchanged: boolean }[]) {
+    let progress = INITIAL_SETTLE_PROGRESS
+    let bestAt = -1
+    for (const [index, sample] of samples.entries()) {
+      const next = advanceSettle(progress, sample)
+      progress = {
+        bestCoverage: next.bestCoverage,
+        improved: next.improved,
+        confirmations: next.confirmations,
+      }
+      if (next.take) bestAt = index
+      if (next.done) return { doneAt: index, bestAt }
+    }
+    return { doneAt: -1, bestAt }
+  }
+
+  it("never settles on a raster that only ever repeated itself", () => {
+    // WebKit reproduces an incomplete capture exactly — the export was landing
+    // on the screenshot-less raster because two identical draws read as settled.
+    const broken = { coverage: 0.92, unchanged: true }
+    expect(
+      run([{ coverage: 0.92, unchanged: false }, broken, broken, broken])
+    ).toEqual({ doneAt: -1, bestAt: 0 })
+  })
+
+  it("settles once coverage rose and then held", () => {
+    // The real sequence: incomplete, background lands, screenshot lands, holds.
+    const { doneAt, bestAt } = run([
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.22, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 1.39, unchanged: true },
+      { coverage: 1.39, unchanged: true },
+    ])
+    expect(doneAt).toBe(4)
+    expect(bestAt).toBe(2)
+  })
+
+  it("keeps sampling while the raster is still changing", () => {
+    const { doneAt } = run([
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+    ])
+    expect(doneAt).toBe(-1)
+  })
+
+  it("keeps the best raster when a later one comes back worse", () => {
+    const { doneAt, bestAt } = run([
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.2, unchanged: false },
+      { coverage: 1.2, unchanged: true },
+      { coverage: 1.2, unchanged: true },
+    ])
+    expect(bestAt).toBe(1)
+    expect(doneAt).toBe(5)
+  })
+})
+
+describe("collectEmbeddedImageUrls", () => {
+  function clone(html: string) {
+    const root = document.createElement("div")
+    root.innerHTML = html
+    return root
+  }
+
+  const PNG = "data:image/png;base64,iVBORw0KGgo="
+  const GIF = "data:image/gif;base64,R0lGODlh"
+
+  it("finds img sources and inline background images", () => {
+    const root = clone(
+      `<img src="${PNG}" />` +
+        `<div style="background-image: url('${GIF}')"></div>`
+    )
+    expect(collectEmbeddedImageUrls(root).sort()).toEqual([GIF, PNG].sort())
+  })
+
+  it("finds every layer of a multi-layer background", () => {
+    // The glass frost slides its texture under the authored gradient, so the
+    // pane carries a gradient and a data URI in one declaration.
+    const root = clone(
+      `<div style="background-image: linear-gradient(red, blue), url('${PNG}')"></div>`
+    )
+    expect(collectEmbeddedImageUrls(root)).toEqual([PNG])
+  })
+
+  it("reports each distinct url once", () => {
+    const root = clone(`<img src="${PNG}" /><img src="${PNG}" />`)
+    expect(collectEmbeddedImageUrls(root)).toEqual([PNG])
+  })
+
+  it("ignores anything the SVG raster will not decode", () => {
+    const root = clone(
+      `<img src="https://cdn.example.com/a.png" />` +
+        `<img src="blob:http://localhost:3000/id" />` +
+        `<div style="background-image: url('https://cdn.example.com/b.png')"></div>` +
+        `<div style="background-image: linear-gradient(red, blue)"></div>` +
+        `<img src="data:text/plain,nope" />`
+    )
+    expect(collectEmbeddedImageUrls(root)).toEqual([])
+  })
+})
+
+describe("settleDelayMs", () => {
+  it("keeps the first retries short, where captures usually settle", () => {
+    expect(settleDelayMs(2)).toBe(20)
+    expect(settleDelayMs(3)).toBe(40)
+    expect(settleDelayMs(4)).toBe(80)
+  })
+
+  it("backs off steeply once the quick retries have not helped", () => {
+    // A stuck decode only recovers with time; the old flat schedule gave the
+    // whole run two thirds of a second regardless of how heavy the canvas was.
+    expect(settleDelayMs(5)).toBeGreaterThan(settleDelayMs(4))
+    expect(settleDelayMs(6)).toBeGreaterThan(settleDelayMs(5))
+    const total = [2, 3, 4, 5, 6, 7, 8].reduce(
+      (sum, attempt) => sum + settleDelayMs(attempt),
+      0
+    )
+    expect(total).toBeGreaterThan(1000)
+  })
+
+  it("caps a single wait so one export cannot stall indefinitely", () => {
+    expect(settleDelayMs(12)).toBe(400)
+    expect(settleDelayMs(40)).toBe(400)
   })
 })
 
