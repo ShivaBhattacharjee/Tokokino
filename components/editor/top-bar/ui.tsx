@@ -116,7 +116,6 @@ export function TopBarButton({
   tooltip,
   disabled,
   className,
-  alwaysShowLabel = false,
 }: {
   label: string
   icon: React.ComponentType<{ className?: string }>
@@ -125,7 +124,6 @@ export function TopBarButton({
   tooltip?: string
   disabled?: boolean
   className?: string
-  alwaysShowLabel?: boolean
 }) {
   const button = (
     <Button
@@ -136,9 +134,7 @@ export function TopBarButton({
       className={className}
     >
       <Icon />
-      <span className={cn(!alwaysShowLabel && "hidden xl:inline")}>
-        {label}
-      </span>
+      <span className="hidden xl:inline">{label}</span>
     </Button>
   )
 

@@ -45,7 +45,6 @@ type GlassPalette = {
   panelHighlight: string
   panelShadow: string
   layer: string
-  exportLayer: string
   layerBorder: string
   layerShadow: string
   screenBackground: string
@@ -56,8 +55,6 @@ const DARK_GLASS: GlassPalette = {
   panelShadow: "0 36px 80px rgba(2,6,14,0.42), 0 12px 28px rgba(2,6,14,0.28)",
   layer:
     "linear-gradient(145deg, rgba(255,255,255,0.13), rgba(18,25,38,0.52) 42%, rgba(4,8,15,0.78))",
-  exportLayer:
-    "linear-gradient(145deg, rgba(132,145,161,0.94), rgba(77,91,110,0.94) 42%, rgba(38,50,68,0.96))",
   layerBorder: "rgba(255,255,255,0.17)",
   layerShadow: "0 24px 60px rgba(2,6,14,0.30)",
   screenBackground: "#0a0c11",
@@ -69,8 +66,6 @@ const LIGHT_GLASS: GlassPalette = {
     "0 36px 80px rgba(25,35,55,0.20), 0 12px 28px rgba(25,35,55,0.13)",
   layer:
     "linear-gradient(145deg, rgba(255,255,255,0.74), rgba(228,235,245,0.48) 48%, rgba(196,208,225,0.54))",
-  exportLayer:
-    "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(228,235,245,0.96) 48%, rgba(196,208,225,0.96))",
   layerBorder: "rgba(255,255,255,0.72)",
   layerShadow: "0 24px 60px rgba(25,35,55,0.16)",
   screenBackground: "#e8edf4",
@@ -122,7 +117,6 @@ export function GlassFrame({
           key={`${frame.id}-layer-${index}`}
           aria-hidden
           data-glass-frame-layer="rear"
-          data-export-glass-background={palette.exportLayer}
           className="pointer-events-none absolute"
           style={{
             ...rectStyle(frame, layer),
@@ -140,7 +134,6 @@ export function GlassFrame({
       <div
         data-glass-frame-shell=""
         data-glass-frame-layer="front"
-        data-export-glass-background={palette.exportLayer}
         className="absolute"
         style={{
           ...rectStyle(frame, frame.front),

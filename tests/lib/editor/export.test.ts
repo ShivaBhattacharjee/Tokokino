@@ -6,6 +6,7 @@ import {
   exportScaleStyle,
   isRasterEssentiallyEmpty,
   rasterSignatureDelta,
+  signatureCoverage,
 } from "@/lib/editor/export"
 
 describe("shouldProxyAssetUrl", () => {
@@ -111,6 +112,46 @@ describe("rasterSignatureDelta — WebKit raster settling", () => {
     expect(
       rasterSignatureDelta(new Uint8ClampedArray(4), new Uint8ClampedArray(8))
     ).toBe(255)
+  })
+})
+
+describe("signatureCoverage — WebKit raster completeness", () => {
+  /** One 32×32 signature: `colorFor` returns [r,g,b,a] per pixel. */
+  function signature(colorFor: (index: number) => number[]) {
+    const pixels = 32 * 32
+    const data = new Uint8ClampedArray(pixels * 4)
+    for (let i = 0; i < pixels; i++) {
+      const [r, g, b, a] = colorFor(i)
+      data.set([r, g, b, a], i * 4)
+    }
+    return data
+  }
+
+  it("ranks a complete raster above one that dropped the screenshot", () => {
+    // Safari's partial capture: the background and chrome painted opaque, but
+    // the largest data URI never decoded, so the frame is flat where the
+    // screenshot should be.
+    const complete = signature((i) => [i % 251, (i * 7) % 251, i % 97, 255])
+    const missingScreenshot = signature((i) =>
+      i < 200 ? [i % 251, (i * 7) % 251, i % 97, 255] : [10, 10, 12, 255]
+    )
+    expect(signatureCoverage(complete)).toBeGreaterThan(
+      signatureCoverage(missingScreenshot)
+    )
+  })
+
+  it("ranks an opaque raster above one that dropped its background", () => {
+    const opaque = signature(() => [20, 20, 20, 255])
+    const transparent = signature((i) => [20, 20, 20, i < 256 ? 255 : 0])
+    expect(signatureCoverage(opaque)).toBeGreaterThan(
+      signatureCoverage(transparent)
+    )
+  })
+
+  it("treats an unreadable signature as worse than any raster", () => {
+    expect(signatureCoverage(null)).toBeLessThan(
+      signatureCoverage(signature(() => [0, 0, 0, 0]))
+    )
   })
 })
 

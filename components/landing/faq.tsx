@@ -56,7 +56,7 @@ const faqs = [
   },
   {
     q: "What browsers and devices does Tokokino support?",
-    a: "Tokokino's editor supports Chromium-based browsers such as Chrome, Edge, and Arc. Firefox is also available, though some CSS blend modes and backdrop filters may render differently. Safari is not supported because its graphics and export APIs do not produce reliable results. The editor is optimized for desktop use.",
+    a: "Tokokino runs in any modern browser — no installation required. It works best in Chromium-based browsers (Chrome, Edge, Arc) and Safari on macOS. Firefox is supported but some CSS blend modes and backdrop filters may render slightly differently. On mobile, the editor loads but is optimized for desktop use; exporting and sharing work on all devices.",
   },
   {
     q: "Do you sell or share my personal data?",
