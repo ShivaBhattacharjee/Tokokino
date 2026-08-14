@@ -31,7 +31,7 @@ flowchart LR
 | Shadow | type, intensity, light, color | `shadow` |
 | Tilt | rx/ry/rz + scale | `tilt`, `scale` |
 | Position | placement grid + offset | `screenshotPosition`, `screenshotOffset` |
-| Backdrop | effects, filter, pattern, lighting, portrait, overlay | `backdrop.*`, `portrait`, `overlay`, `mediaAdjustments`, `mediaFilter` |
+| Backdrop | effects, filter, pattern, **ASCII**, lighting, portrait, overlay | `backdrop.*`, `portrait`, `overlay`, `mediaAdjustments`, `mediaFilter` |
 | Tweet | theme / metrics / font (when tweet loaded) | `tweet` |
 
 The Backdrop section's **Effects** and **Filters** controls each carry an
@@ -69,11 +69,12 @@ Color helpers: `lib/editor/color-utils.ts` (sampling, gradients for `background.
 |---|---|
 | `canvas.tsx` | Shell / scope |
 | `canvas/canvas-view.tsx` | Main composition, media intake handlers |
-| `canvas/canvas-backdrop.tsx` | BG, patterns, lighting, animate stacks |
+| `canvas/canvas-backdrop.tsx` | BG, patterns, ASCII, lighting, animate stacks |
 | `canvas/canvas-surface.tsx` | Surface chrome |
 | `screenshot-bare.tsx` | Unframed screenshot |
 | `screenshot-mockup.tsx` | Device mockup bezel + media |
 | `screenshot-browser-frame.tsx` | Safari/Chrome/Arc chrome |
+| `screenshot-glass-frame.tsx` | Glass Card / Cascade / Crown |
 | `screenshot-stage.tsx` | Stage / placement |
 | `tweet-card.tsx` | X/Bluesky DOM card |
 | `inner-lighting-overlay.tsx` | Inner lighting paint |
@@ -88,6 +89,7 @@ Color helpers: `lib/editor/color-utils.ts` (sampling, gradients for `background.
 | `data-selection-border` | Strip selection UI |
 | `data-export-stack` | underlay / media / foreground for video encode |
 | `data-bg-source-url` | Full BG URL for export upgrade |
+| `data-glass-frame-layer` | Glass frost panes vs chrome (export bake) |
 | `data-editor-shadow-*` | Shadow filter/box targets for animate |
 
 ---
@@ -106,20 +108,23 @@ Color helpers: `lib/editor/color-utils.ts` (sampling, gradients for `background.
 
 Edit-time progressive load: [canvas.md](./canvas.md).
 
+**ASCII textures:** Texture tab under Backdrop. Samples the background into a glyph grid (seven charsets, resolution, colour from source or a solid). Keyframeable. Full pipeline: [ascii-backdrop.md](./ascii-backdrop.md).
+
 ---
 
-## Device & browser frames
+## Device, browser & glass frames
 
 | Kind | Code |
 |---|---|
 | Device mockups | `lib/mockups/index.ts` — assets on `assets.tokokino.com/Device-Mockups/…` |
 | Browser frames | `lib/browser-frame.ts` + `components/ui/{safari,chrome,arc}.tsx` |
+| Glass frames | `lib/glass-frame.ts` + `components/ui/glass-frame.tsx` — Glass Card, Cascade, Crown |
 | Frame picker | `frame-popover.tsx`, inspector frame controls |
 | Aspect vs frame | `frame-aspect-compatibility.ts` |
 
-`DeviceFrame`: `{ id, color, orientation }`. `"none"` = bare screenshot.
+`DeviceFrame`: `{ id, color, orientation }`. `"none"` = bare screenshot. Glass IDs: `glass-card`, `glass-stack`, `glass-stack-2`.
 
-**Full architecture** (catalog, screen specs, export chrome/warp, video-in-frame): [device-frames.md](./device-frames.md). Live slider/drag vars (no store commit): [live-preview.md](./live-preview.md).
+**Full architecture** (catalog, screen specs, glass frost bake, export chrome/warp, video-in-frame): [device-frames.md](./device-frames.md). Live slider/drag vars (no store commit): [live-preview.md](./live-preview.md).
 
 ---
 
@@ -174,7 +179,11 @@ State flags live on the store outside pure `CanvasState` (see store UI fields).
 | `lib/editor/present-presets.ts` | Built-in layout/tilt |
 | `lib/mockups/index.ts` | Device assets |
 | `lib/browser-frame.ts` | Browser chrome constants |
+| `lib/glass-frame.ts` | Glass Card / Cascade / Crown |
+| `lib/editor/ascii-backdrop.ts` | ASCII sample + wait |
 | `components/editor/inspector/*` | Controls |
 | `components/editor/canvas/*` | Paint |
 | [canvas.md](./canvas.md) | Image intake & sizes |
+| [device-frames.md](./device-frames.md) | Mockups, browser chrome, glass |
+| [ascii-backdrop.md](./ascii-backdrop.md) | ASCII texture |
 | [animate-mode.md](./animate-mode.md) | Live CSS-var overrides |

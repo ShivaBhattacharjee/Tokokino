@@ -51,9 +51,9 @@ AnimationClip {
 
 `AnimationEffect` union (`state-types.ts`):
 
-`position` · `zoom` · `tilt` · `padding` · `shadow` · `background` · `backdrop` · `canvasRadius` · `lighting` · `filter` · `mediaEffects` · `mediaFilter` · `portrait` · `pattern` · `overlay` · `border` · `borderRadius` · `crop`
+`position` · `zoom` · `tilt` · `padding` · `shadow` · `background` · `backdrop` · `canvasRadius` · `lighting` · `filter` · `mediaEffects` · `mediaFilter` · `portrait` · `pattern` · `overlay` · `ascii` · `border` · `borderRadius` · `crop`
 
-`backdrop`/`filter` grade the canvas backdrop; `mediaEffects`/`mediaFilter` grade the screenshot or video's own pixels.
+`backdrop`/`filter` grade the canvas backdrop; `mediaEffects`/`mediaFilter` grade the screenshot or video's own pixels. `ascii` turns that backdrop into a glyph grid ([ascii-backdrop.md](./ascii-backdrop.md)).
 
 Slot-limited set: `tilt` · `zoom` · `shadow` · `position` · `border` · `borderRadius` · `padding` · `lighting` · `mediaEffects` · `mediaFilter` — see `SLOT_ANIMATABLE_EFFECTS` in `store.tsx`. Everything else is main-canvas only.
 
@@ -114,12 +114,14 @@ tilt, zoom, padding, canvasRadius, shadow, border, lighting, crop, mediaEffects,
 
 ### Layered overlay stacks
 
-background, filter, portrait, pattern, overlay — each keyframe owns a layer; player drives per-layer opacity.
+background, filter, portrait, pattern, overlay, **ascii** — each keyframe owns a layer; player drives per-layer opacity.
 
 | Stack kind | Opacity rule |
 |---|---|
 | Opaque (background, filter) | later covers earlier: `progress(clip)` |
-| Additive (portrait, pattern, overlay) | crossfade-chain: `p_i · (1 − p_{i+1})` |
+| Additive (portrait, pattern, overlay, ascii) | crossfade-chain: `p_i · (1 − p_{i+1})` |
+
+ASCII also rides along when a clip owns `background` or `filter` (`clipOwnsAsciiLayer`), so an ASCII-only keyframe still inherits the timeline's background to sample. Resolver: `resolveAnimateAsciiStack`. Details: [ascii-backdrop.md](./ascii-backdrop.md#animate-mode).
 
 Resolvers: `resolveAnimateXStack` in `animation-playback.ts`. Render: `canvas-backdrop.tsx` (+ overlay over/under in `canvas-view.tsx`).
 
@@ -192,7 +194,9 @@ Checklist (also in `agents.md`):
 | `lib/editor/animation-playback.ts` | Interpolation core |
 | `lib/editor/apply-animation-frame.ts` | DOM application (live + export) |
 | `lib/editor/clip-easing.ts` | Easing functions |
+| `lib/editor/ascii-backdrop.ts` | ASCII sample + wait (export) |
 | `components/editor/animate/animation-layer.tsx` | Player loop |
 | `hooks/use-animation-player.ts` | Playhead state |
 | `lib/editor/store.tsx` | Clip CRUD + pose helpers |
+| [ascii-backdrop.md](./ascii-backdrop.md) | ASCII effect stack |
 | [animation-export.md](./animation-export.md) | Encode pipeline |

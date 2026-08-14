@@ -18,8 +18,9 @@ Engineering notes for how major subsystems fit together. Not product docs; not s
 | [core/editor-store.md](./core/editor-store.md) | Zustand store, history, types, commit paths |
 | [core/canvas.md](./core/canvas.md) | Canvas images — drop, URL→screenshot, X/Bluesky, WebP thumbs |
 | [core/video-canvas.md](./core/video-canvas.md) | Video/GIF intake, control bar, trim, export routing |
-| [core/device-frames.md](./core/device-frames.md) | Device mockups + browser chrome + export chrome |
+| [core/device-frames.md](./core/device-frames.md) | Device mockups + browser chrome + glass frames + export chrome |
 | [core/styling-canvas.md](./core/styling-canvas.md) | Inspector → store → CSS → canvas paint pipeline |
+| [core/ascii-backdrop.md](./core/ascii-backdrop.md) | ASCII backdrop texture + Animate stack |
 | [core/live-preview.md](./core/live-preview.md) | Slider/drag CSS vars without store commits |
 | [core/layers.md](./core/layers.md) | Text, assets, annotations, multi-screenshot slots |
 | [core/animate-mode.md](./core/animate-mode.md) | Animate timeline, playback, effect ownership |
@@ -35,8 +36,8 @@ Engineering notes for how major subsystems fit together. Not product docs; not s
 | [core/templates.md](./core/templates.md) | Curated in-repo templates gallery |
 | [core/share.md](./core/share.md) | Share image, animation, video + public playback |
 | [core/shares-gallery.md](./core/shares-gallery.md) | User share library (`/app/shares`) + stats |
-| [core/still-export.md](./core/still-export.md) | Still PNG/JPEG/WebP capture & download |
-| [core/animation-export.md](./core/animation-export.md) | Keyframe / Animate-mode encode |
+| [core/still-export.md](./core/still-export.md) | Still PNG/JPEG/WebP capture & download (WebKit settle, glass frost) |
+| [core/animation-export.md](./core/animation-export.md) | Keyframe / Animate-mode encode (Safari layer cache, workers) |
 | [core/video-export.md](./core/video-export.md) | Styled video-media encode (+ dav1d WASM) |
 
 ### Platform, site & integrations

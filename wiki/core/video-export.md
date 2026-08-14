@@ -33,11 +33,13 @@ lib/editor/animation-export/video-media/
 ├── decoded-frames.ts        # Mediabunny WebCodecs decode + dav1d gate
 ├── dav1d-av1-decoder.ts     # Custom Mediabunny AV1 decoder
 ├── dav1d-wasm/              # decoder.wasm + decoder.mjs + licenses
-├── encode-video.ts          # MP4 / WebM via Mediabunny
-├── encode-gif.ts            # GIF (+ memory / pixel-budget guard)
+├── encode-video.ts          # MP4 / WebM via Mediabunny (worker mux)
+├── encode-gif.ts            # GIF (+ memory / pixel-budget guard, worker)
 ├── audio.ts                 # Remux / re-encode / skip source audio
 └── dom-video.ts             # seek / requestVideoFrameCallback helpers
 ```
+
+Workers live one folder up: `lib/editor/animation-export/workers/` — see [animation-export.md](./animation-export.md#encode-workers).
 
 **Shared with keyframe export:** `../types.ts`, `../utils.ts`, `../watermark.ts`, plus `lib/editor/export.ts` capture prep.
 
@@ -148,7 +150,9 @@ flowchart TD
 | Local media box paint | `paintFrameToLocalBox` (video or stand-in `<img>`) |
 | Media buffer resolution | `mediaBufferScale` — buffer is sized at the export scale, not the CSS box |
 | Texture margin | `fittedTexturePad` — capped so the padded box fits the capture canvas |
+| Clip radius | `resolveVideoClipRadius` — walks to the first rounded ancestor (glass screen, mockup hole) |
 | Inner lighting on WebKit | `frame-inner-lighting.ts` |
+| Layer raster cache | `LayerRasterCache` — reused by Animate's Safari path |
 | Canvas probes / copies | `frame-canvas-utils.ts` |
 | Stack show/hide | `export-stack.ts` |
 
@@ -200,6 +204,8 @@ flowchart LR
 
 Remux is judged against `containerAudioCodecs`, **not** the muxer's own capability list. Mediabunny's MP4 muxer will write Opus, FLAC and PCM; X, QuickTime and most NLEs reject those, so an Opus source (i.e. any WebM/MKV clip) is re-encoded to AAC rather than copied through. The keyframe path applies the same narrowing via `animation-audio.ts`.
 
+GIF palette/dither and Mediabunny mux run in the same encode workers as keyframe export (`createGifEncoderSession` / `createVideoMuxSession`). Main thread only rasterizes; the worker encodes the previous frame while the next one is captured.
+
 ---
 
 ## Module responsibility map
@@ -248,6 +254,7 @@ Remux is judged against `containerAudioCodecs`, **not** the muxer's own capabili
 6. **dav1d only for rejected AV1** — other unsupported codecs fall through to DOM seek.
 7. **Even output dimensions** — codec friendliness.
 8. **WebM unsupported on Safari** — same UI gate as keyframe export.
+9. **Glass / mockup clip radius** — decoded video is clipped to the screen hole, not the square outer shell (`resolveVideoClipRadius`).
 
 ---
 

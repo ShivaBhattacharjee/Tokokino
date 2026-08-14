@@ -1,6 +1,6 @@
 # Video canvas
 
-When the main screenshot is a **video** (or a GIF that was transcoded to WebM), the canvas becomes a video project: docked transport controls, optional Animate **trim** clips (`videoClips`), device/browser frames around live media, and export via **styled video-media** or **keyframe animation** depending on whether visual keyframes exist.
+When the main screenshot is a **video** (or a GIF that was transcoded to WebM), the canvas becomes a video project: docked transport controls, optional Animate **trim** clips (`videoClips`), device / browser / glass frames around live media, and export via **styled video-media** or **keyframe animation** depending on whether visual keyframes exist.
 
 Stills and image-only intake: [canvas.md](./canvas.md). Encode pipelines: [video-export.md](./video-export.md) / [animation-export.md](./animation-export.md).
 
@@ -16,7 +16,7 @@ flowchart TD
   Kind -->|GIF fail / still| Img["data: image or animated img"]
   Blob --> Store["canvas.screenshot = video src"]
   GIF --> Store
-  Store --> Paint["&lt;video&gt; in bare / mockup / browser frame"]
+  Store --> Paint["&lt;video&gt; in bare / mockup / browser / glass frame"]
   Paint --> Reg["useVideoRegistry.registerVideo"]
   Reg --> Bar["VideoControlBar play/scrub/mute"]
   Store --> Route{"Export / share"}

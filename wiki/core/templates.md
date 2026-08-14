@@ -59,6 +59,8 @@ Template {
 
 Categories drive gallery filters. Animation templates should include a short loop preview when possible.
 
+**ASCII Glass** (`ascii-effect`) is an image template that pairs Glass Cascade with a binary ASCII backdrop — see [ascii-backdrop.md](./ascii-backdrop.md) and [device-frames.md](./device-frames.md#glass-frames).
+
 ---
 
 ## Apply flows

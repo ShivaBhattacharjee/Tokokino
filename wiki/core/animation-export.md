@@ -17,14 +17,16 @@ lib/editor/animation-export/
 ├── types.ts                 # Formats, phases, CaptureCtx
 ├── capture.ts               # Engine selection + captureStableFrame
 ├── webkit-layered-frame.ts  # WebKit perspective fix — layered underlay/shell/FG
+├── pass-profiler.ts         # Optional Safari pass timings (dev)
 ├── video.ts                 # Mediabunny encode + MediaRecorder WebM fallback
-├── gif.ts                   # gifenc palette encode
+├── gif.ts                   # gifenc palette encode (worker)
 ├── video-layer.ts           # Decode → JPEG <img> bridge (+ getFrame for layered)
 ├── animation-audio.ts       # Re-timed audio for trimmed/shifted video
 ├── watermark.ts             # Logo + Inter font credit
 ├── draw-utils.ts            # safeDrawImage / blank / snapshot helpers
 ├── utils.ts                 # Abort, progress, mime, download, even()
 ├── error-message.ts         # User-facing error copy
+├── workers/                 # GIF encode + video mux off the main thread
 └── video-media/             # Shared geometry/warp + styled-video path (see video-export.md)
 ```
 
@@ -154,6 +156,21 @@ flowchart TD
 
 `collectProjectedLayers(root, { includeFlat: true })` keeps zero-tilt frames on this pipeline so a tilt animating through 0° does not flip-flop against the plain raster (and a flat main over a tilted slot still gets live video).
 
+### Safari performance — reuse layers that don't change
+
+Safari used to recapture the whole canvas for every frame of a video or GIF export. Layers that don't change from frame to frame are now reused:
+
+| Layer | Cache | Invalidation |
+|---|---|---|
+| Underlay | WeakMap on the capture, keyed by underlay-affecting CSS vars | Tilt / position / crop / inner-lighting vars are **excluded** so those animations keep hitting one cached underlay |
+| Shell texture | Per shell-var + layout size | Untransformed; tilt is applied by warp, not recapture |
+| Flat foreground | `LayerRasterCache.flatForeground` | Visual state key of the foreground nodes |
+| Frame chrome | `LayerRasterCache.frameChrome` | Re-projected over the media each frame |
+
+Underlay cache is bounded (~6 entries / 96 MB) so a crossfade segment cannot retain hundreds of MB of 4K rasters. Underlay capture itself settles (two consecutive downsampled rasters agree) because WebKit can fire SVG image load before data-URI backgrounds decode.
+
+The optional `pass-profiler.ts` logs these pass timings in development; it is off in production.
+
 Shared primitives live in video-media and are now exported for reuse: `captureProjectedElementTexture`, `warpProjectedTexture`, `paintFrameToLocalBox`, `buildForegroundLayer`, `buildFrameChromeLayer`, `paintsAboveVideo`.
 
 ---
@@ -219,6 +236,17 @@ flowchart TD
 - Safari: WebM disabled in UI (`isWebmExportSupported` false).
 - **GIF fps is clamped to `MAX_GIF_FPS = 50`** in `index.ts`, before `frameCount` is computed. Delays are whole centiseconds with a 2cs floor (viewers clamp anything shorter to ~10cs), so 50fps is the fastest cadence a GIF can express — asking for 60 doesn't play faster, it emits 2cs anyway and runs the clip 20% long. The UI already only offers GIF `[20, 25, 50]`; the clamp makes the encoder correct for direct API callers too.
 
+### Encode workers
+
+GIF palette/dither/gifenc and Mediabunny mux run **off the main thread** so the UI stays responsive and the next frame can rasterize while the previous one encodes.
+
+| Worker | Client | Fallback |
+|---|---|---|
+| `workers/gif-encoder.worker.ts` | `createGifEncoderSession` | In-process `GifStreamEncoder` (SSR / jsdom / worker boot failure) |
+| `workers/video-muxer.worker.ts` | `createVideoMuxSession` | `null` — caller keeps the existing main-thread Mediabunny path |
+
+Both clients bound in-flight frames to **2** (`MAX_FRAMES_IN_FLIGHT`). Handshake timeouts (GIF 10 s, mux 30 s) so a hung worker cannot stall the export with no way to cancel. Video mux requires `Worker` + `VideoFrame` + `VideoEncoder`; otherwise the session is skipped. Shared with [video-export.md](./video-export.md).
+
 ### Frame budgets
 
 There is **no global frame cap**. A `MAX_FRAMES = 600` clamp used to live in `index.ts` and silently truncated any timeline past 20 s @ 30fps (10 s @ 60fps) — the file just ended mid-motion, with the audio window cut to match so it looked deliberate. It was really a blunt guard for the two encoders that buffer; each now carries its own bound, and only where the memory pressure is real.
@@ -262,8 +290,10 @@ MediaRecorder fallback has **no** audio.
 | `types.ts` | Shared options, phases, `CaptureCtx`, constants |
 | `capture.ts` | Engine acquire; `captureStableFrame`; layered-then-plain; incomplete-frame hold |
 | `webkit-layered-frame.ts` | WebKit Animate capture: underlay/shell caches + projected compose |
+| `pass-profiler.ts` | Dev-only Safari pass timings |
 | `video.ts` | Mediabunny encode; MediaRecorder fallback; WebM capability probe |
 | `gif.ts` | GIF encode: sampled shared palette, then streaming dither/write |
+| `workers/*` | Off-main-thread GIF encode + video mux |
 | `video-layer.ts` | Timeline↔source mapping; JPEG bridge; `getFrame` for layered |
 | `animation-audio.ts` | Segment-aware audio for keyframe export |
 | `watermark.ts` | Per-frame credit overlay |
@@ -295,6 +325,7 @@ MediaRecorder fallback has **no** audio.
 6. **Audio is best-effort** — missing tracks never fail export.
 7. **No silent truncation** — the timeline exports in full, or the export fails with a reason. Memory bounds live on the two encoders that actually buffer (GIF, MediaRecorder), expressed as frames × area; the WebCodecs path streams and is unbounded.
 8. **WebM gated on Safari** — UI + `isWebmExportSupported`.
+9. **Safari still/FO rasters settle** — layered underlay uses the same "two consecutive samples agree" idea as still export; still PNG/JPEG uses `settleRasterCanvas` in `export.ts` ([still-export.md](./still-export.md#webkit-raster-settle)).
 
 ---
 
@@ -305,6 +336,7 @@ MediaRecorder fallback has **no** audio.
 | `tests/lib/editor/animation-export/capture-engines.test.ts` | auto/fast/legacy selection + fallback |
 | `tests/lib/editor/animation-export/capture-stable-frame.test.ts` | layered preferred; skip JPEG when layered; decline → plain; throw → plain |
 | `tests/lib/editor/animation-export/webkit-layered-frame.test.ts` | gating, compose/warp, video `getFrame`, underlay settle + caches |
+| `tests/lib/editor/animation-export/frame-renderer-cache.test.ts` | Safari layer raster cache reuse / blank-capture refusal |
 | `tests/lib/editor/animation-export/export-video.integration.test.ts` | video layer → Mediabunny → cleanup; long timelines are not truncated; GIF fps clamp |
 | `tests/lib/editor/animation-export/mediarecorder-budget.test.ts` | fallback pixel budget rejects before any frame is captured |
 | `tests/lib/editor/animation-export/video-layer.test.ts` | segment math; JPEG bridge; hold outside clips |

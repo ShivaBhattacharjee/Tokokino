@@ -115,8 +115,8 @@ flowchart LR
   subgraph Style["Style"]
     BG["Background"]
     FX["Shadow / border / tilt / scale"]
-    Frame["Device / browser frame"]
-    BD["Backdrop / lighting / portrait"]
+    Frame["Device / browser / glass frame"]
+    BD["Backdrop / ASCII / lighting / portrait"]
     OV["Overlay textures"]
   end
 
@@ -153,8 +153,9 @@ flowchart LR
 | Editor state & undo | `lib/editor/store.tsx`, `store/*` | [editor-store.md](./editor-store.md) |
 | Image onto canvas | `canvas/*`, `image-resize.ts` | [canvas.md](./canvas.md) |
 | Video / GIF canvas | `media-type`, `gif-to-video`, `video-*`, control bar | [video-canvas.md](./video-canvas.md) |
-| Device / browser frames | `lib/mockups`, `browser-frame.ts`, mockup paint | [device-frames.md](./device-frames.md) |
+| Device / browser / glass frames | `lib/mockups`, `browser-frame.ts`, `glass-frame.ts`, mockup/glass paint | [device-frames.md](./device-frames.md) |
 | Styling + paint | `inspector/*`, `css-utils.ts`, `canvas-view.tsx` | [styling-canvas.md](./styling-canvas.md) |
+| ASCII backdrops | `ascii-backdrop.ts`, Texture tab | [ascii-backdrop.md](./ascii-backdrop.md) |
 | Live preview vars | `live-preview-vars.ts` | [live-preview.md](./live-preview.md) |
 | Text / assets / annotations / slots | `text-element*`, `asset-element*`, `annotation*`, slots | [layers.md](./layers.md) |
 | Animate playback | `animate/*`, `animation-playback.ts` | [animate-mode.md](./animate-mode.md) |
@@ -184,7 +185,7 @@ flowchart LR
 - Canvas paint, inspector controls, tilt/perspective, layer editing
 - Animate timeline scrub + CSS-var playback
 - Undo/redo, IndexedDB autosave
-- Still capture (`html-to-image`) and all video/GIF encode
+- Still capture (`html-to-image`) and all video/GIF encode (WebKit stills settle the FO raster; GIF/mux run in workers)
 - Layout/preset geometry math, fonts catalogue
 
 ### Server required
@@ -314,6 +315,21 @@ flowchart TD
 ```
 
 Gate for share path selection: `lib/editor/share-export-choice.ts` — details in [share.md](./share.md) and [core/README.md](./README.md).
+
+### Safari / WebKit
+
+Safari is a supported editor. Encode takes different paths because SVG `foreignObject` and `ctx.filter` are unreliable there:
+
+| Concern | Safari path | Chromium |
+|---|---|---|
+| Still raster | `settleRasterCanvas` — sample until coverage plateaus | Single `drawImage` |
+| Glass frost | Pixel bake (`image-blur.ts`); live `backdrop-filter` stripped | Same bake (FO drops blur in every engine) |
+| Animate tilt | Layered underlay / shell / warp; unchanged layers cached | Single-pass FO (`supportsObjectViewBox`) |
+| Video decode | WebCodecs + dav1d for rejected AV1 | DOM seek inside FO |
+| WebM | UI gated off (`isWebmExportSupported`) | VP9 / VP8 |
+| Encode | GIF + mux workers (same as Chromium) | Same workers |
+
+Details: [still-export.md](./still-export.md#webkit-raster-settle), [animation-export.md](./animation-export.md#safari-performance--reuse-layers-that-dont-change), [video-export.md](./video-export.md).
 
 ---
 

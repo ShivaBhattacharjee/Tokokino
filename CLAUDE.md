@@ -86,7 +86,19 @@ pnpm build:shapes                 # 3D shape manifest + thumbnails
   store.tsx               Zustand public facade + domain-action composition
   store/                  Contracts, commit/history, action factories, helpers, persistence
   state-types.ts          All TypeScript types
-  export.ts               Still image capture & export
+  export.ts               Still image capture & export — public barrel over the export-* modules
+  export-constants.ts     Formats, resolutions, output widths
+  export-dom.ts           Canvas node lookup + layout measurement
+  export-asset-rewrite.ts CORS-proxy rewrite of the clone's assets + preload
+  export-embed.ts         Inlines images/backgrounds as data URIs, warms decodes
+  export-raster.ts        foreignObject serialization + canvas encoding
+  export-settle.ts        WebKit "best of N rasters" settle loop
+  export-glass.ts         Bakes glass-frame frost backdrop-filter can't render
+  export-clone.ts         Offscreen clone, override stylesheet, watermark
+  export-still.ts         exportCanvas / captureCanvasAsPngBlob / clipboard copy
+  export-share.ts         Share capture with the JPEG size fallback
+  export-thumbnail.ts     Draft + image thumbnails
+  export-animation-capture.ts  The two Animate-mode frame capture strategies
   animation-export/       Video/GIF encode pipeline (Mediabunny + WebCodecs)
   animation-playback.ts   Clip sampling, interpolation, effect stacks
   animation-timeline.ts   Timeline math

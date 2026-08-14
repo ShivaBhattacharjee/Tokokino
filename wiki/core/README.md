@@ -59,8 +59,9 @@ flowchart TB
 | [editor-store.md](./editor-store.md) | Zustand store, history, commits |
 | [canvas.md](./canvas.md) | Drop/upload, URL→screenshot, X/Bluesky, WebP thumbs |
 | [video-canvas.md](./video-canvas.md) | Video/GIF → control bar → trim → export gate |
-| [device-frames.md](./device-frames.md) | Device mockups, browser chrome, export re-project |
+| [device-frames.md](./device-frames.md) | Device mockups, browser chrome, glass frames, export re-project |
 | [styling-canvas.md](./styling-canvas.md) | Inspector → CSS → canvas paint |
+| [ascii-backdrop.md](./ascii-backdrop.md) | ASCII texture from the background, keyframeable |
 | [live-preview.md](./live-preview.md) | Live CSS vars during slider/drag |
 | [layers.md](./layers.md) | Text, assets, 3D shapes, annotations, multi-screenshot slots |
 | [animate-mode.md](./animate-mode.md) | Timeline, playback, effect ownership |
@@ -76,8 +77,8 @@ flowchart TB
 | [templates.md](./templates.md) | Curated in-repo templates gallery |
 | [share.md](./share.md) | Share image / animation / video, resumable upload, public player |
 | [shares-gallery.md](./shares-gallery.md) | User library `/app/shares` + stats |
-| [still-export.md](./still-export.md) | Still PNG/JPEG/WebP capture & download |
-| [animation-export.md](./animation-export.md) | Keyframe timeline → GIF/WebM/MP4 |
+| [still-export.md](./still-export.md) | Still PNG/JPEG/WebP capture & download (WebKit raster settle) |
+| [animation-export.md](./animation-export.md) | Keyframe timeline → GIF/WebM/MP4 (Safari layer cache + encode workers) |
 | [video-export.md](./video-export.md) | Styled video canvas → GIF/WebM/MP4 (+ dav1d) |
 
 ### Platform, site & integrations
@@ -191,9 +192,10 @@ Details: [canvas.md](./canvas.md).
 Still / animation / video encode internals:
 
 - Shared capture prep: `lib/editor/export.ts` (`AnimationCapture`, asset rewrite, portrait DoF)
-- Stills: [still-export.md](./still-export.md)
-- Keyframes: [animation-export.md](./animation-export.md) (WebKit uses layered underlay/shell/warp when tilt flattens in FO)
+- Stills: [still-export.md](./still-export.md) — WebKit settles the FO raster; glass frost is baked as pixels
+- Keyframes: [animation-export.md](./animation-export.md) (WebKit uses layered underlay/shell/warp when tilt flattens in FO; unchanged layers are cached across frames)
 - Styled video: [video-export.md](./video-export.md)
+- ASCII glyphs: wait for sample+paint before clone — [ascii-backdrop.md](./ascii-backdrop.md)
 
 ```mermaid
 flowchart LR
@@ -201,7 +203,7 @@ flowchart LR
   CLONE --> CAP["AnimationCapture"]
   CAP --> ANIM["Keyframe loop"]
   CAP --> VID["Once-rasterize + composite"]
-  ANIM --> ENC["gifenc / Mediabunny / MediaRecorder"]
+  ANIM --> ENC["gifenc / Mediabunny workers / MediaRecorder"]
   VID --> ENC
   ENC --> OUT["Blob → download or Share"]
 ```
