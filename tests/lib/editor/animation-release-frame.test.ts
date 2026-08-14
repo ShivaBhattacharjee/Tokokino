@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { applyAnimationFrameAtTime } from "@/lib/editor/apply-animation-frame"
+import {
+  applyAnimationFrameAtTime,
+  sampleMainInnerLighting,
+} from "@/lib/editor/apply-animation-frame"
 import {
   backgroundLayerOpacityVar,
+  clipPose,
   DEFAULT_BASELINE,
   filterLayerOpacityVar,
   FULL_CROP_REGION,
@@ -271,6 +275,49 @@ describe("release reaches every effect family", () => {
 
     applyAt(el, clips, 99000)
     expect(readVars(el)).toEqual(justAfter)
+  })
+})
+
+describe("sampleMainInnerLighting", () => {
+  beforeEach(() => useEditorStore.getState().reset())
+
+  it("returns committed inner lighting when no keyframe owns it", () => {
+    const canvas = baseCanvas()
+    canvas.backdrop.lighting = {
+      target: "inner",
+      intensity: 40,
+      direction: "1-3",
+      color: "#ffeecc",
+    }
+
+    expect(sampleMainInnerLighting(canvas, [], clipPose, 500)).toEqual({
+      lighting: canvas.backdrop.lighting,
+      opacityScale: 1,
+    })
+  })
+
+  it("carries the inner-side weight during an outer-to-inner crossfade", () => {
+    const canvas = baseCanvas()
+    const outer = {
+      target: "outer" as const,
+      intensity: 60,
+      direction: "2-2",
+      color: "#ffffff",
+    }
+    const inner = { ...outer, target: "inner" as const }
+    const clip: AnimationClip = {
+      id: "light",
+      startMs: 0,
+      durationMs: 1000,
+      easing: "linear",
+      effects: ["lighting"],
+      baseline: { ...DEFAULT_BASELINE, lighting: outer },
+      pose: { ...DEFAULT_BASELINE, lighting: inner },
+    }
+
+    const sampled = sampleMainInnerLighting(canvas, [clip], clipPose, 500)
+    expect(sampled?.lighting.intensity).toBe(60)
+    expect(sampled?.opacityScale).toBeCloseTo(0.5, 5)
   })
 })
 

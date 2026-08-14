@@ -28,9 +28,9 @@ import type { AnimationCapture } from "../../export"
 import { drawPortraitDepthOfField } from "../capture"
 import { waitForPaint } from "../utils"
 import {
+  alphaSample,
   copyCanvas,
   nonBlackPct,
-  opaquePct,
   setImageSource,
   shadowExtentPx,
   sleep,
@@ -39,7 +39,6 @@ import type { DecodedFrameSource } from "./decoded-frames"
 import { seekTo, waitForVideoFrame } from "./dom-video"
 import { applyExportStackVisibility, queryForeground } from "./export-stack"
 import {
-  chooseQuadSubdivision,
   collectProjectedLayers,
   drawImageToQuadWarp,
   IDENTITY_TRANSFORM,
@@ -60,6 +59,71 @@ import { measureVideoRegion } from "./region"
 export { chooseQuadSubdivision, quadAffineError } from "./frame-geometry"
 export type { UvProjector, UvProjectorH } from "./frame-geometry"
 export type { VideoMediaFx } from "./frame-inner-lighting"
+
+type CachedRaster = { key: string; canvas: HTMLCanvasElement }
+type CachedChromeTexture = { key: string; tex: ProjectedElementTexture }
+
+/** Reusable foreignObject results owned by one animation capture. */
+export type LayerRasterCache = {
+  flatForeground?: Map<string, CachedRaster>
+  frameChrome?: WeakMap<HTMLElement, CachedChromeTexture>
+}
+
+function elementStateKey(
+  root: HTMLElement,
+  elements: HTMLElement[],
+  includeBounds = true
+) {
+  const nodes = new Set<HTMLElement>([root])
+  for (const element of elements) {
+    let current: HTMLElement | null = element
+    while (current) {
+      nodes.add(current)
+      if (current === root) break
+      current = current.parentElement
+    }
+  }
+  const parts: string[] = []
+  for (const node of nodes) {
+    const computed = getComputedStyle(node)
+    const target = elements.includes(node)
+    // Only resolved properties that can alter this isolated raster belong in
+    // the key. Root animation vars for backgrounds/crop/media otherwise caused
+    // unrelated foreground and bezel caches to miss every frame.
+    const style = [
+      computed.opacity,
+      computed.visibility,
+      computed.filter,
+      computed.mixBlendMode,
+      computed.clipPath,
+      computed.overflow,
+      computed.borderRadius,
+      includeBounds ? computed.transform : "",
+      target ? computed.color : "",
+      target ? computed.backgroundColor : "",
+      target ? computed.backgroundImage : "",
+      target ? computed.border : "",
+      target ? computed.boxShadow : "",
+      target ? computed.textShadow : "",
+      target ? computed.font : "",
+      target ? node.style.cssText : "",
+    ]
+    const bounds =
+      includeBounds && target
+        ? (() => {
+            const r = node.getBoundingClientRect()
+            return `${r.left},${r.top},${r.width},${r.height}`
+          })()
+        : ""
+    parts.push(`${style.join(";")}|${bounds}`)
+  }
+  return parts.join("||")
+}
+
+function releaseCachedCanvas(canvas: HTMLCanvasElement) {
+  canvas.width = 0
+  canvas.height = 0
+}
 
 /**
  * How much bigger than its CSS layout box the decoded-frame buffer should be.
@@ -252,12 +316,14 @@ async function captureSceneTemplate(
  * and WebKit only gets retries when we know something *should* be there.
  */
 async function captureForegroundLayer(
-  capture: AnimationCapture
+  capture: AnimationCapture,
+  settleBeforeCache = false
 ): Promise<HTMLCanvasElement | null> {
   const isWebKit = !supportsObjectViewBox()
   const maxAttempts = isWebKit ? 6 : 1
   let best: HTMLCanvasElement | null = null
   let bestScore = -1
+  let previousSignature: number | null = null
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) await sleep(20 + attempt * 15)
@@ -270,12 +336,23 @@ async function captureForegroundLayer(
       continue
     }
     if (!frame.width || !frame.height) continue
-    const score = opaquePct(frame)
-    if (score > bestScore) {
+    const sample = alphaSample(frame)
+    const score = sample.opaquePct
+    // Equal sparse scores prefer the later attempt: a valid hairline can
+    // downsample to the same fraction as an earlier blank WebKit capture.
+    if (score >= bestScore) {
       bestScore = score
+      if (best) releaseCachedCanvas(best)
       best = copyCanvas(frame)
     }
-    if (score > 0.05) {
+    const converged =
+      settleBeforeCache &&
+      score > 0 &&
+      previousSignature !== null &&
+      previousSignature === sample.signature
+    previousSignature = sample.signature
+    if (converged) return best
+    if (!settleBeforeCache && score > 0.05) {
       return best
     }
   }
@@ -397,7 +474,8 @@ export async function captureProjectedElementTexture(
   scale: number,
   /** Foreground nodes inside `el` — they composite above the video, not here. */
   excludeForeground: HTMLElement[] = [],
-  hideMedia: HTMLElement | null = null
+  hideMedia: HTMLElement | null = null,
+  settleBeforeCache = false
 ): Promise<ProjectedElementTexture | null> {
   const { el, carrier, quad } = layer
 
@@ -469,7 +547,7 @@ export async function captureProjectedElementTexture(
 
   let raster: HTMLCanvasElement | null = null
   try {
-    raster = await captureForegroundLayer(capture)
+    raster = await captureForegroundLayer(capture, settleBeforeCache)
   } finally {
     carrier.style.transform = prevTransform
     if (hideMedia) hideMedia.style.visibility = prevMediaVisibility ?? ""
@@ -494,23 +572,39 @@ export async function captureProjectedElementTexture(
   local.width = cropW
   local.height = cropH
   const lctx = local.getContext("2d")
-  if (!lctx) return null
-  lctx.drawImage(raster, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+  if (!lctx) {
+    releaseCachedCanvas(raster)
+    return null
+  }
+  try {
+    lctx.drawImage(raster, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+  } finally {
+    releaseCachedCanvas(raster)
+  }
   return { texture: local, pad, boxW, boxH, mediaBox }
 }
 
-/** Project a captured texture onto `quad`, into a fresh width×height canvas. */
+/**
+ * Project a captured texture onto `quad`.
+ *
+ * Supplying `destination` paints directly into an existing frame canvas. The
+ * Animate WebKit path uses that form to avoid allocating and then copying one
+ * full output-sized RGBA canvas per projected layer and frame.
+ */
 export function warpProjectedTexture(
   tex: Pick<ProjectedElementTexture, "texture" | "pad" | "boxW" | "boxH">,
   quad: ProjectedLayer["quad"],
   scale: number,
   width: number,
-  height: number
+  height: number,
+  destination?: CanvasRenderingContext2D
 ): HTMLCanvasElement | null {
-  const out = document.createElement("canvas")
-  out.width = width
-  out.height = height
-  const octx = out.getContext("2d")
+  const out = destination?.canvas ?? document.createElement("canvas")
+  if (!destination) {
+    out.width = width
+    out.height = height
+  }
+  const octx = destination ?? out.getContext("2d")
   if (!octx) return null
   // The padded box maps through the same matrix — it is linear, so points
   // outside the border box project just as correctly as the corners.
@@ -518,14 +612,12 @@ export function warpProjectedTexture(
     const p = quad.projectH(u * tex.boxW - tex.pad, v * tex.boxH - tex.pad)
     return { x: p.x * scale, y: p.y * scale, w: p.w }
   }
-  const subdivisions = chooseQuadSubdivision(projectUV)
   drawImageToQuadWarp(
     octx,
     tex.texture,
     tex.texture.width,
     tex.texture.height,
-    projectUV,
-    subdivisions
+    projectUV
   )
   return out
 }
@@ -542,7 +634,8 @@ export async function captureProjectedElement(
   width: number,
   height: number,
   /** Foreground nodes inside `el` — they composite above the video, not here. */
-  excludeForeground: HTMLElement[] = []
+  excludeForeground: HTMLElement[] = [],
+  destination?: CanvasRenderingContext2D
 ): Promise<HTMLCanvasElement | null> {
   const tex = await captureProjectedElementTexture(
     capture,
@@ -551,7 +644,18 @@ export async function captureProjectedElement(
     excludeForeground
   )
   if (!tex) return null
-  return warpProjectedTexture(tex, layer.quad, scale, width, height)
+  try {
+    return warpProjectedTexture(
+      tex,
+      layer.quad,
+      scale,
+      width,
+      height,
+      destination
+    )
+  } finally {
+    releaseCachedCanvas(tex.texture)
+  }
 }
 
 /**
@@ -617,7 +721,9 @@ export async function buildForegroundLayer(
   scale: number,
   width: number,
   height: number,
-  _label = "foreground groups"
+  label = "foreground groups",
+  cache?: LayerRasterCache,
+  destination?: CanvasRenderingContext2D
 ): Promise<HTMLCanvasElement | null> {
   const all = els
   if (all.length === 0) return null
@@ -631,10 +737,12 @@ export async function buildForegroundLayer(
     else flat.push(el)
   }
 
-  const out = document.createElement("canvas")
-  out.width = width
-  out.height = height
-  const ctx = out.getContext("2d")
+  const out = destination?.canvas ?? document.createElement("canvas")
+  if (!destination) {
+    out.width = width
+    out.height = height
+  }
+  const ctx = destination ?? out.getContext("2d")
   if (!ctx) return null
   let painted = false
 
@@ -644,26 +752,45 @@ export async function buildForegroundLayer(
       layer,
       scale,
       width,
-      height
+      height,
+      [],
+      ctx
     )
     if (canvas) {
-      ctx.drawImage(canvas, 0, 0)
+      if (canvas !== out) ctx.drawImage(canvas, 0, 0)
       painted = true
     }
   }
 
   if (flat.length > 0) {
-    const restore = applyExportStackVisibility(capture.node, "foreground", {
-      only: flat,
-    })
-    try {
-      const layer = await captureForegroundLayer(capture)
-      if (layer) {
-        ctx.drawImage(layer, 0, 0)
-        painted = true
+    const flatKey = `${width}x${height}@${scale}|${elementStateKey(
+      capture.node,
+      flat
+    )}`
+    const flatCache = cache
+      ? (cache.flatForeground ??= new Map<string, CachedRaster>())
+      : null
+    let raster = flatCache?.get(label)?.canvas ?? null
+    if (!raster || flatCache?.get(label)?.key !== flatKey) {
+      const restore = applyExportStackVisibility(capture.node, "foreground", {
+        only: flat,
+      })
+      try {
+        raster = await captureForegroundLayer(capture, Boolean(flatCache))
+      } finally {
+        restore()
       }
-    } finally {
-      restore()
+      if (raster && flatCache) {
+        const previous = flatCache.get(label)
+        if (previous && previous.canvas !== raster) {
+          releaseCachedCanvas(previous.canvas)
+        }
+        flatCache.set(label, { key: flatKey, canvas: raster })
+      }
+    }
+    if (raster) {
+      ctx.drawImage(raster, 0, 0)
+      painted = true
     }
   }
 
@@ -685,17 +812,21 @@ export async function buildFrameChromeLayer(
   shell: HTMLElement,
   scale: number,
   width: number,
-  height: number
+  height: number,
+  cache?: LayerRasterCache,
+  destination?: CanvasRenderingContext2D
 ): Promise<HTMLCanvasElement | null> {
   const chromes = Array.from(
     shell.querySelectorAll<HTMLElement>("[data-export-frame-chrome]")
   )
   if (chromes.length === 0) return null
 
-  const out = document.createElement("canvas")
-  out.width = width
-  out.height = height
-  const ctx = out.getContext("2d")
+  const out = destination?.canvas ?? document.createElement("canvas")
+  if (!destination) {
+    out.width = width
+    out.height = height
+  }
+  const ctx = destination ?? out.getContext("2d")
   if (!ctx) return null
   let painted = false
 
@@ -706,17 +837,40 @@ export async function buildFrameChromeLayer(
     const prevFilter = shadowHost?.style.filter
     if (shadowHost) shadowHost.style.filter = "none"
     try {
-      const layer = projectionFor(capture.node, chrome)
+      const layer = projectionFor(capture.node, chrome, { includeFlat: true })
       if (layer) {
-        const canvas = await captureProjectedElement(
-          capture,
-          layer,
-          scale,
-          width,
-          height
-        )
-        if (canvas) {
-          ctx.drawImage(canvas, 0, 0)
+        const chromeCache = cache
+          ? (cache.frameChrome ??= new WeakMap<
+              HTMLElement,
+              CachedChromeTexture
+            >())
+          : null
+        const key = `${width}x${height}@${scale}|${layer.quad.localW}x${
+          layer.quad.localH
+        }|${elementStateKey(capture.node, [chrome], false)}`
+        let tex = chromeCache?.get(chrome)?.tex ?? null
+        if (!tex || chromeCache?.get(chrome)?.key !== key) {
+          const next = await captureProjectedElementTexture(
+            capture,
+            layer,
+            scale,
+            [],
+            null,
+            Boolean(chromeCache)
+          )
+          if (next) {
+            const previous = chromeCache?.get(chrome)
+            if (previous && previous.tex.texture !== next.texture) {
+              releaseCachedCanvas(previous.tex.texture)
+            }
+            tex = next
+            chromeCache?.set(chrome, { key, tex: next })
+          }
+        }
+        if (
+          tex &&
+          warpProjectedTexture(tex, layer.quad, scale, width, height, ctx)
+        ) {
           painted = true
         }
       } else {
@@ -921,7 +1075,6 @@ async function createCompositeRenderer(
     : null
 
   const useQuad = !!projectUV
-  const subdivisions = projectUV ? chooseQuadSubdivision(projectUV) : 1
 
   // Corner rounding that clips the video's own box. It is NOT on the tilt shell:
   // for a device frame that outer div is square-cornered and the rounded screen
@@ -974,8 +1127,7 @@ async function createCompositeRenderer(
               local,
               local.width,
               local.height,
-              projectUV,
-              subdivisions
+              projectUV
             )
           }
         } else if (region) {

@@ -7,6 +7,7 @@
 import {
   applyAnimationFrameAtTime,
   measureBareStageDims,
+  sampleMainInnerLighting,
   sampleMainMediaGrade,
 } from "../apply-animation-frame"
 import { clipAffectsMain, clipPose } from "../animation-playback"
@@ -405,6 +406,12 @@ export async function captureStableFrame(
   // runs. Deliberately does not feed lastCompleteCaptureFrame: its passes
   // retry internally, and holding one of its frames could hand a mismatched
   // fallback to the plain path's incomplete-capture recovery.
+  const sampledInnerLighting = sampleMainInnerLighting(
+    canvas,
+    clips.filter(clipAffectsMain),
+    clipPose,
+    timeMs
+  )
   const layered = await captureLayeredAnimationFrame(capture, {
     timelineMs: timeMs,
     videoLayer,
@@ -412,6 +419,8 @@ export async function captureStableFrame(
       enhance: canvas.enhance,
       filter: canvas.mediaFilter,
       adjustments: canvas.mediaAdjustments,
+      innerLighting: sampledInnerLighting?.lighting ?? null,
+      innerLightingOpacity: sampledInnerLighting?.opacityScale ?? 0,
       // The layered path draws the decoded frame itself, so it never sees the
       // grade var `applyExportFrame` just wrote. Hand it this frame's chain
       // whenever a keyframe animates the grade; null keeps the committed one.
@@ -424,9 +433,10 @@ export async function captureStableFrame(
     },
   }).catch(() => null)
   if (layered) {
-    const frame = snapshotFrame(layered, capture.width, capture.height)
-    drawPortraitDepthOfField(frame, capture.node)
-    return frame
+    // This path creates a detached base per frame, so it cannot be overwritten
+    // by the capture engine and does not need another full-resolution copy.
+    drawPortraitDepthOfField(layered, capture.node)
+    return layered
   }
 
   // Non-null only for a video canvas: paints this frame's decoded pixels into

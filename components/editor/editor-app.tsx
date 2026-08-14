@@ -16,6 +16,7 @@ import { AnimateToggle } from "@/components/editor/animate/animate-toggle"
 import { AnimationLayer } from "@/components/editor/animate/animation-layer"
 import { AnimationPreviewControls } from "@/components/editor/animate/animation-preview-controls"
 import { AnimationPlayerProvider } from "@/hooks/use-animation-player"
+import { EditorFooter } from "@/components/editor/editor-footer"
 import { Inspector } from "@/components/editor/inspector"
 import { IpadSidebar } from "@/components/editor/ipad-sidebar"
 import { MobileControls } from "@/components/editor/mobile-controls"
@@ -289,66 +290,71 @@ function EditorLayout() {
               <IpadSidebar className="hidden md:flex xl:hidden" />
             </DeferredMount>
           )}
-          <div
-            className={cn(
-              "relative isolate flex min-h-0 flex-1 overflow-hidden"
-            )}
-            // Reserve room for the bottom timeline so the canvas shifts up into
-            // the empty top space instead of sitting behind it. The timeline
-            // grows by one 48px row per extra screenshot layer, so grow the
-            // reserved space to match. Skip in preview — the timeline is hidden
-            // there, so the reserved strip would just expose the outer bg.
-            style={
-              isAnimateMode && !isPreviewMode
-                ? { paddingBottom: 120 + extraSlotCount * 48 }
-                : undefined
-            }
-          >
-            {!isAnimateMode && <BulkBar />}
-            <EditorErrorBoundary
-              label="Canvas"
-              resetKeys={[activeCanvasId, isPreviewMode]}
-            >
-              <DeferredMount priority={1} fallback={<CanvasSkeleton />}>
-                <Canvas />
-              </DeferredMount>
-            </EditorErrorBoundary>
-            {/* Enter-animate trigger (still image only) */}
-            {!hideBottomToolbar && <AnimateToggle />}
-            {/* Animate mode: drives on-canvas motion + bottom timeline.
-                AnimatePresence lets the timeline bar slide/fade out on exit
-                (it defines its own enter/exit motion). */}
-            {isAnimateMode && <AnimationLayer />}
-            {/* Hide the timeline UI in preview — it overlaps the preview controls
-                and its capture-phase Esc handler would otherwise steal Esc from
-                Exit Preview. Playback keeps working (AnimationLayer + player stay
-                mounted; preview shows its own play/pause). */}
-            <AnimatePresence>
-              {isAnimateMode && !isPreviewMode && <AnimateBar />}
-            </AnimatePresence>
-          </div>
-          {!hideBottomToolbar && (
-            <div
-              className={cn(
-                // Phone: the toolbar is gated behind the bottom bar's tools button.
-                !floatingOpen && "max-md:hidden",
-                mobilePanelOpen && "max-md:hidden"
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="relative flex min-h-0 flex-1 overflow-hidden">
+              <div
+                className={cn(
+                  "relative isolate flex min-h-0 flex-1 overflow-hidden"
+                )}
+                // Reserve room for the bottom timeline so the canvas shifts up into
+                // the empty top space instead of sitting behind it. The timeline
+                // grows by one 48px row per extra screenshot layer, so grow the
+                // reserved space to match. Skip in preview — the timeline is hidden
+                // there, so the reserved strip would just expose the outer bg.
+                style={
+                  isAnimateMode && !isPreviewMode
+                    ? { paddingBottom: 120 + extraSlotCount * 48 }
+                    : undefined
+                }
+              >
+                {!isAnimateMode && <BulkBar />}
+                <EditorErrorBoundary
+                  label="Canvas"
+                  resetKeys={[activeCanvasId, isPreviewMode]}
+                >
+                  <DeferredMount priority={1} fallback={<CanvasSkeleton />}>
+                    <Canvas />
+                  </DeferredMount>
+                </EditorErrorBoundary>
+                {/* Enter-animate trigger (still image only) */}
+                {!hideBottomToolbar && <AnimateToggle />}
+                {/* Animate mode: drives on-canvas motion + bottom timeline.
+                    AnimatePresence lets the timeline bar slide/fade out on exit
+                    (it defines its own enter/exit motion). */}
+                {isAnimateMode && <AnimationLayer />}
+                {/* Hide the timeline UI in preview — it overlaps the preview controls
+                    and its capture-phase Esc handler would otherwise steal Esc from
+                    Exit Preview. Playback keeps working (AnimationLayer + player stay
+                    mounted; preview shows its own play/pause). */}
+                <AnimatePresence>
+                  {isAnimateMode && !isPreviewMode && <AnimateBar />}
+                </AnimatePresence>
+                {!hideBottomToolbar && (
+                  <div
+                    className={cn(
+                      // Phone: the toolbar is gated behind the bottom bar's tools button.
+                      !floatingOpen && "max-md:hidden",
+                      mobilePanelOpen && "max-md:hidden"
+                    )}
+                  >
+                    <FloatingToolbar />
+                  </div>
+                )}
+              </div>
+              {!isPreviewMode && (
+                <DeferredMount
+                  priority={2}
+                  fallback={<InspectorSkeleton className="hidden xl:flex" />}
+                >
+                  <Inspector
+                    className="hidden xl:flex"
+                    animateMode={isAnimateMode}
+                  />
+                </DeferredMount>
               )}
-            >
-              <FloatingToolbar />
             </div>
-          )}
-          {!isPreviewMode && (
-            <DeferredMount
-              priority={2}
-              fallback={<InspectorSkeleton className="hidden xl:flex" />}
-            >
-              <Inspector
-                className="hidden xl:flex"
-                animateMode={isAnimateMode}
-              />
-            </DeferredMount>
-          )}
+            {!hideEditorChrome && <EditorFooter />}
+          </div>
           {!hideBottomToolbar && (
             <MobileControls
               onOpenChange={setMobilePanelOpen}

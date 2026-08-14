@@ -1,23 +1,9 @@
 import type { Metadata } from "next"
-import Link from "next/link"
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 
-import { Footer } from "@/components/landing/footer"
-import { Nav } from "@/components/landing/nav"
-import { ScrollToTop } from "@/components/landing/scroll-to-top"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { DocPage } from "@/components/landing/doc-page"
 
 import { GlossaryIndex } from "./glossary-index"
-
-const CONTENT_WIDTH =
-  "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
 
 export const metadata: Metadata = {
   title: "Glossary — Tokokino",
@@ -256,118 +242,54 @@ const indexItems = groups.map((group) => ({
 
 export default function GlossaryPage() {
   return (
-    <main
-      className="relative isolate min-h-svh bg-background text-foreground"
-      style={
-        {
-          "--rail": "color-mix(in oklch, var(--foreground) 20%, transparent)",
-        } as CSSProperties
+    <DocPage
+      eyebrow="Glossary"
+      title="Glossary"
+      summary={
+        <>
+          Definitions for every editor term, from backdrops and device frames to
+          keyframes and export resolutions.
+          <span className="mt-1 block font-mono text-[10px] tracking-widest text-primary/80 uppercase">
+            {terms.length} terms · {groups.length} sections
+          </span>
+        </>
       }
+      index={<GlossaryIndex items={indexItems} />}
     >
-      <div className={CONTENT_WIDTH}>
-        <Nav />
-      </div>
-
-      <section className="border-b border-border/70 bg-card/30">
-        <div
-          className={`flex w-full flex-col gap-10 px-5 py-7 sm:px-8 lg:px-12 ${CONTENT_WIDTH}`}
-        >
-          <Breadcrumb>
-            <BreadcrumbList className="label-eyebrow gap-1.5 text-muted-foreground">
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild className="hover:text-foreground">
-                  <Link href="/">Home</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-muted-foreground">
-                  Glossary
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-
-          <div className="min-w-0 space-y-4 text-left">
-            <h1 className="max-w-full text-[clamp(1.75rem,5.2vw,5.05rem)] leading-[0.95] font-semibold tracking-[-0.04em]">
-              Glossary
-            </h1>
-            <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-              The vocabulary of the Tokokino editor — every term you&rsquo;ll
-              meet while styling a capture, from backdrops and device frames to
-              keyframes, portrait modes, and export resolutions.
-            </p>
-            <p className="text-sm leading-7 text-muted-foreground">
-              <strong className="font-semibold text-foreground">
-                {terms.length}
-              </strong>{" "}
-              terms across{" "}
-              <strong className="font-semibold text-foreground">
-                {groups.length}
-              </strong>{" "}
-              sections.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section
-        className={`grid w-full gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[240px_1fr] lg:px-12 lg:py-14 ${CONTENT_WIDTH}`}
-      >
-        <aside className="hidden lg:block">
-          <GlossaryIndex items={indexItems} />
-        </aside>
-
-        <article className="min-w-0 space-y-9">
-          <div className="border-l-2 border-primary/60 pl-5 text-sm leading-7 text-muted-foreground">
-            <p>
-              Terms are grouped alphabetically. Jump straight to a letter from
-              the index, or scroll through to build a mental model of how the
-              editor fits together.
-            </p>
-          </div>
-
-          {groups.map((group) => (
-            <section
-              key={group.id}
-              id={group.id}
-              className="scroll-mt-8 border-t border-border/70 pt-8"
-            >
-              <h2 className="flex items-baseline gap-3 text-xl font-semibold tracking-[-0.02em]">
-                <span className="text-primary tabular-nums">
-                  {group.letter}
-                </span>
-                <span className="text-xs font-medium text-muted-foreground">
-                  {group.terms.length}{" "}
-                  {group.terms.length === 1 ? "term" : "terms"}
-                </span>
-              </h2>
-              <dl className="mt-5 space-y-6">
-                {group.terms.map((entry) => (
-                  <div
-                    key={entry.term}
-                    id={slugify(entry.term)}
-                    className="scroll-mt-8"
-                  >
-                    <dt className="text-base font-medium tracking-[-0.01em] text-foreground">
-                      {entry.term}
-                    </dt>
-                    <dd className="mt-1.5 max-w-2xl text-sm leading-7 text-muted-foreground">
-                      {entry.body}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          ))}
-        </article>
-      </section>
-
-      <div className={CONTENT_WIDTH}>
-        <Footer showRail={false} />
-      </div>
-      <ScrollToTop />
-    </main>
+      <article className="max-w-2xl space-y-10">
+        {groups.map((group) => (
+          <section
+            key={group.id}
+            id={group.id}
+            className="scroll-mt-8 border-t border-border/50 pt-10"
+          >
+            <h2 className="flex items-baseline gap-3 text-base font-medium tracking-tight sm:text-lg">
+              <span className="text-primary tabular-nums">{group.letter}</span>
+              <span className="text-xs font-medium text-foreground/40">
+                {group.terms.length}{" "}
+                {group.terms.length === 1 ? "term" : "terms"}
+              </span>
+            </h2>
+            <dl className="mt-5 space-y-6">
+              {group.terms.map((entry) => (
+                <div
+                  key={entry.term}
+                  id={slugify(entry.term)}
+                  className="scroll-mt-8"
+                >
+                  <dt className="text-[15px] font-medium tracking-tight text-foreground sm:text-base">
+                    {entry.term}
+                  </dt>
+                  <dd className="mt-1.5 text-sm leading-7 text-foreground/58">
+                    {entry.body}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+      </article>
+    </DocPage>
   )
 }
 

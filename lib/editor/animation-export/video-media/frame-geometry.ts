@@ -272,12 +272,15 @@ export type ProjectedLayer = {
  */
 export function projectionFor(
   root: HTMLElement,
-  el: HTMLElement
+  el: HTMLElement,
+  options: { includeFlat?: boolean } = {}
 ): ProjectedLayer | null {
   const carrier = resolveTransformCarrier(el, root)
   if (!carrier) return null
   const quad = projectElementQuad(root, carrier, el)
-  return quad?.hasPerspective ? { el, carrier, quad } : null
+  return quad && (quad.hasPerspective || options.includeFlat)
+    ? { el, carrier, quad }
+    : null
 }
 
 /**
@@ -467,8 +470,7 @@ export function drawImageToQuadWarp(
   image: HTMLCanvasElement,
   srcW: number,
   srcH: number,
-  project: UvProjectorH,
-  subdivisions: number
+  project: UvProjectorH
 ): "gl" | "grid" {
   const corners: [QuadCornerH, QuadCornerH, QuadCornerH, QuadCornerH] = [
     project(0, 0),
@@ -477,6 +479,7 @@ export function drawImageToQuadWarp(
     project(0, 1),
   ]
   if (drawImageToQuadGL(ctx, image, srcW, srcH, corners)) return "gl"
+  const subdivisions = chooseQuadSubdivision(project)
   drawImageToQuad(ctx, image, srcW, srcH, project, subdivisions)
   return "grid"
 }

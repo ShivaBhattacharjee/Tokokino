@@ -269,17 +269,14 @@ export function AccountTile() {
   const user = session?.user
   if (!isHydrated || isAuthPending) {
     return (
-      <div className="shrink-0 border-t border-dashed border-border/70 px-4 py-2.5">
+      <div className="flex h-11 shrink-0 items-center border-t border-dashed border-border/70 px-4">
         <div
-          className="flex h-12 w-full items-center gap-2.5 rounded-md px-1.5"
+          className="flex h-9 w-full items-center gap-2.5 rounded-md px-1.5"
           aria-hidden
         >
-          <span className="size-8 shrink-0 rounded-full bg-secondary ring-1 ring-border/70" />
-          <span className="min-w-0 flex-1 space-y-1.5">
-            <span className="block h-3 w-24 rounded bg-secondary" />
-            <span className="block h-2.5 w-32 rounded bg-secondary/80" />
-          </span>
-          <span className="size-4 shrink-0 rounded bg-secondary/80" />
+          <span className="size-7 shrink-0 rounded-md bg-secondary ring-1 ring-border/70" />
+          <span className="h-3 w-24 rounded bg-secondary" />
+          <span className="ml-auto size-4 shrink-0 rounded bg-secondary/80" />
         </div>
       </div>
     )
@@ -287,10 +284,10 @@ export function AccountTile() {
 
   if (!user) {
     return (
-      <div className="shrink-0 border-t border-dashed border-border/70 px-4 py-2.5">
+      <div className="flex h-11 shrink-0 items-center border-t border-dashed border-border/70 px-4">
         <Link
           href="/login"
-          className="group relative flex h-10 w-full items-center rounded-md bg-primary px-3 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+          className="group relative flex h-9 w-full items-center rounded-md bg-primary px-3 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
         >
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
             Login{" "}
@@ -322,29 +319,22 @@ export function AccountTile() {
   }
 
   return (
-    <div className="shrink-0 border-t border-dashed border-border/70 px-4 py-2.5">
+    <div className="flex h-11 shrink-0 items-center border-t border-dashed border-border/70 px-4">
       <Popover open={expanded} onOpenChange={setExpanded}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex h-12 w-full items-center gap-2.5 rounded-md px-1.5 text-left focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+            className="flex h-9 w-full items-center gap-2.5 rounded-md px-1.5 text-left focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
             aria-expanded={expanded}
           >
             <AccountAvatar
               src={user.image}
               name={displayName}
-              className="size-8 rounded-full ring-1 ring-border/70"
-              iconClassName="size-4"
+              className="size-7 rounded-md ring-1 ring-border/70"
+              iconClassName="size-3.5"
             />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium text-foreground">
-                {displayName}
-              </span>
-              {user.email && user.email !== displayName ? (
-                <span className="block truncate text-[11px] text-muted-foreground">
-                  {user.email}
-                </span>
-              ) : null}
+            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+              {displayName}
             </span>
             <RiArrowDownSLine
               className={cn(
