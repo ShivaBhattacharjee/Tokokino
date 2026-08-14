@@ -54,6 +54,10 @@ const releases: Release[] = [
         title: "ASCII Glass template",
         text: "A ready-made look that pairs Glass Cascade with a binary ASCII backdrop. Open it from Templates and drop your shot in.",
       },
+      {
+        title: "Faster animation exports in Safari",
+        text: "Safari recaptured the whole canvas for every frame of a video or GIF export, so a long clip could take a while. Layers that don't change from frame to frame are now reused, so the same export finishes faster and uses less memory.",
+      },
     ],
   },
   {
