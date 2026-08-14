@@ -136,7 +136,9 @@ export function TopBarButton({
       className={className}
     >
       <Icon />
-      <span className={cn(!alwaysShowLabel && "hidden xl:inline")}>{label}</span>
+      <span className={cn(!alwaysShowLabel && "hidden xl:inline")}>
+        {label}
+      </span>
     </Button>
   )
 

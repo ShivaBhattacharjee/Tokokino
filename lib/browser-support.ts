@@ -4,7 +4,6 @@ const NON_SAFARI_BROWSER_TOKENS =
 
 export function isSafariUserAgent(userAgent: string): boolean {
   return (
-    SAFARI_TOKEN.test(userAgent) &&
-    !NON_SAFARI_BROWSER_TOKENS.test(userAgent)
+    SAFARI_TOKEN.test(userAgent) && !NON_SAFARI_BROWSER_TOKENS.test(userAgent)
   )
 }
