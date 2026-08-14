@@ -4,9 +4,15 @@ import {
   neutralizeUnsupportedExportBackdropFilters,
 } from "./export-glass"
 
-export const WATERMARK_LOGO_SRC = "/logo.png"
 const WATERMARK_PREFIX = "Designed by"
 const WATERMARK_APP_NAME = "Tokokino"
+
+export type ExportWatermarkLogoPlacement = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
 function makeExportStyle(scopeId: string, neutralizePortraitFx = false) {
   const exportStyle = document.createElement("style")
@@ -50,7 +56,10 @@ function makeExportStyle(scopeId: string, neutralizePortraitFx = false) {
 function appendWatermark(node: HTMLElement, width: number, height: number) {
   const watermark = document.createElement("div")
   const prefix = document.createElement("span")
-  const logo = document.createElement("img")
+  // Keep only a layout placeholder in the foreignObject clone. WebKit can drop
+  // decoded <img> subresources while rasterizing it, so the real logo is drawn
+  // onto the finished canvas at this placeholder's measured position.
+  const logo = document.createElement("span")
   const label = document.createElement("span")
   const minEdge = Math.max(1, Math.min(width, height))
   const scale = Math.max(0.72, Math.min(1.35, minEdge / 720))
@@ -82,12 +91,12 @@ function appendWatermark(node: HTMLElement, width: number, height: number) {
   prefix.style.opacity = "0.78"
   prefix.style.whiteSpace = "nowrap"
 
-  logo.src = WATERMARK_LOGO_SRC
-  logo.alt = ""
+  logo.setAttribute("data-export-watermark-logo", "true")
+  logo.setAttribute("aria-hidden", "true")
   logo.style.width = `${Math.round(20 * scale)}px`
   logo.style.height = `${Math.round(20 * scale)}px`
   logo.style.display = "block"
-  logo.style.filter = "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18))"
+  logo.style.flexShrink = "0"
 
   label.textContent = WATERMARK_APP_NAME
   label.style.whiteSpace = "nowrap"
@@ -96,6 +105,26 @@ function appendWatermark(node: HTMLElement, width: number, height: number) {
   watermark.appendChild(logo)
   watermark.appendChild(label)
   node.appendChild(watermark)
+}
+
+export function measureExportWatermarkLogo(
+  root: HTMLElement
+): ExportWatermarkLogoPlacement | null {
+  const logo = root.querySelector<HTMLElement>(
+    '[data-export-watermark-logo="true"]'
+  )
+  if (!logo) return null
+
+  const rootRect = root.getBoundingClientRect()
+  const logoRect = logo.getBoundingClientRect()
+  if (!(logoRect.width > 0) || !(logoRect.height > 0)) return null
+
+  return {
+    x: logoRect.left - rootRect.left,
+    y: logoRect.top - rootRect.top,
+    width: logoRect.width,
+    height: logoRect.height,
+  }
 }
 
 export function prepareExportNode(
