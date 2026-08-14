@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { shouldProxyAssetUrl } from "@/lib/editor/export-assets"
-import { exportElementLayoutSize, exportScaleStyle } from "@/lib/editor/export"
+import {
+  exportElementLayoutSize,
+  exportScaleStyle,
+  isRasterEssentiallyEmpty,
+  rasterSignatureDelta,
+} from "@/lib/editor/export"
 
 describe("shouldProxyAssetUrl", () => {
   it("proxies external http and https assets", () => {
@@ -39,6 +44,73 @@ describe("exportScaleStyle — WebKit foreignObject scaling", () => {
     const style = exportScaleStyle(1920, 1080, 1)
     expect(style.transform).toBe("scale(1)")
     expect(style.width).toBe("1920px")
+  })
+})
+
+describe("isRasterEssentiallyEmpty", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function rasterWithAlpha(alphaFor: (index: number) => number) {
+    const size = 32 * 32
+    const data = new Uint8ClampedArray(size * 4)
+    for (let i = 0; i < size; i++) data[i * 4 + 3] = alphaFor(i)
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+      getImageData: () => ({ data }),
+    } as unknown as CanvasRenderingContext2D)
+    return document.createElement("canvas")
+  }
+
+  it("flags a WebKit capture that dropped everything but the watermark", () => {
+    // ~0.6% of the frame covered — the signature of Safari painting the SVG
+    // before its subresources decoded.
+    const canvas = rasterWithAlpha((i) => (i < 6 ? 255 : 0))
+    expect(isRasterEssentiallyEmpty(canvas)).toBe(true)
+  })
+
+  it("keeps a transparent-background composition with real content", () => {
+    const canvas = rasterWithAlpha((i) => (i % 4 === 0 ? 255 : 0))
+    expect(isRasterEssentiallyEmpty(canvas)).toBe(false)
+  })
+
+  it("treats an unavailable 2d context as not empty", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null)
+    expect(isRasterEssentiallyEmpty(document.createElement("canvas"))).toBe(
+      false
+    )
+  })
+})
+
+describe("rasterSignatureDelta — WebKit raster settling", () => {
+  it("reports zero for two identical rasters", () => {
+    const a = new Uint8ClampedArray([10, 20, 30, 255, 40, 50, 60, 255])
+    const b = new Uint8ClampedArray([10, 20, 30, 255, 40, 50, 60, 255])
+    expect(rasterSignatureDelta(a, b)).toBe(0)
+  })
+
+  it("separates a raster missing a layer from the settled one", () => {
+    // A dropped background leaves a large area at a different value; the mean
+    // must clear the 1.5 threshold two consecutive rasters are compared against.
+    const settled = new Uint8ClampedArray(64).fill(180)
+    const missing = new Uint8ClampedArray(64).fill(0)
+    expect(rasterSignatureDelta(settled, missing)).toBeGreaterThan(1.5)
+  })
+
+  it("stays under the threshold for antialiasing-level jitter", () => {
+    const a = new Uint8ClampedArray(64).fill(180)
+    const b = new Uint8ClampedArray(64).fill(180)
+    b[0] = 190
+    b[7] = 171
+    expect(rasterSignatureDelta(a, b)).toBeLessThan(1.5)
+  })
+
+  it("treats an unreadable signature as maximally different", () => {
+    expect(rasterSignatureDelta(null, new Uint8ClampedArray(4))).toBe(255)
+    expect(
+      rasterSignatureDelta(new Uint8ClampedArray(4), new Uint8ClampedArray(8))
+    ).toBe(255)
   })
 })
 

@@ -594,16 +594,15 @@ export function exportScaleStyle(
  * whose content carries the scale as a transform. A fresh canvas per call,
  * matching what those returned — callers hold frames across captures.
  */
-async function rasterizeNodeToCanvas(
+function serializeExportSvg(
   node: HTMLElement,
   options: RasterOptions,
   renderedWidth: number,
   renderedHeight: number,
   outputWidth: number,
-  outputHeight: number,
-  backgroundColor?: string
-): Promise<HTMLCanvasElement> {
-  const svgUrl = await toSvg(node, {
+  outputHeight: number
+): Promise<string> {
+  return toSvg(node, {
     ...options,
     width: outputWidth,
     height: outputHeight,
@@ -614,15 +613,25 @@ async function rasterizeNodeToCanvas(
       outputWidth / renderedWidth
     ),
   })
+}
+
+function loadRasterImage(svgUrl: string): Promise<HTMLImageElement> {
   // `Image.decode()` rejects on SVG-with-<foreignObject> in some Firefox
   // builds, so wait on load/error events — reliable in every engine.
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
     image.onerror = () => reject(new Error("Export raster failed to load"))
     image.src = svgUrl
   })
+}
 
+function drawRasterImage(
+  image: HTMLImageElement,
+  outputWidth: number,
+  outputHeight: number,
+  backgroundColor?: string
+): HTMLCanvasElement {
   const canvas = document.createElement("canvas")
   canvas.width = outputWidth
   canvas.height = outputHeight
@@ -632,8 +641,29 @@ async function rasterizeNodeToCanvas(
     ctx.fillStyle = backgroundColor
     ctx.fillRect(0, 0, outputWidth, outputHeight)
   }
-  ctx.drawImage(img, 0, 0, outputWidth, outputHeight)
+  ctx.drawImage(image, 0, 0, outputWidth, outputHeight)
   return canvas
+}
+
+async function rasterizeNodeToCanvas(
+  node: HTMLElement,
+  options: RasterOptions,
+  renderedWidth: number,
+  renderedHeight: number,
+  outputWidth: number,
+  outputHeight: number,
+  backgroundColor?: string
+): Promise<HTMLCanvasElement> {
+  const svgUrl = await serializeExportSvg(
+    node,
+    options,
+    renderedWidth,
+    renderedHeight,
+    outputWidth,
+    outputHeight
+  )
+  const image = await loadRasterImage(svgUrl)
+  return drawRasterImage(image, outputWidth, outputHeight, backgroundColor)
 }
 
 /**
@@ -686,6 +716,140 @@ async function flattenAnimationAsciiLayers(
       // export or remove the ASCII treatment from the affected keyframe.
     }
   }
+}
+
+/** Mean alpha (0–255) below which a raster is treated as a failed capture. */
+const EMPTY_RASTER_ALPHA = 4
+
+/**
+ * True when a raster is transparent enough that nothing of the composition can
+ * have painted. WebKit's dropped-subresource failure leaves only the DOM-drawn
+ * chrome (the watermark) behind, so a plain "all pixels transparent" test is not
+ * enough — sample the whole frame and look at how much of it is covered.
+ */
+export function isRasterEssentiallyEmpty(canvas: HTMLCanvasElement): boolean {
+  const size = 32
+  const probe = document.createElement("canvas")
+  probe.width = size
+  probe.height = size
+  const ctx = probe.getContext("2d", { willReadFrequently: true })
+  if (!ctx) return false
+  ctx.drawImage(canvas, 0, 0, size, size)
+  const { data } = ctx.getImageData(0, 0, size, size)
+  let alpha = 0
+  for (let i = 3; i < data.length; i += 4) alpha += data[i]
+  return alpha / (size * size) < EMPTY_RASTER_ALPHA
+}
+
+/** Downsampled RGBA fingerprint, small enough to diff two rasters cheaply. */
+const RASTER_SIGNATURE_SIZE = 32
+/** Per-channel mean difference under which two rasters count as the same image. */
+const SETTLED_SIGNATURE_DELTA = 1.5
+const SETTLE_MAX_ATTEMPTS = 8
+
+function rasterSignature(source: CanvasImageSource): Uint8ClampedArray | null {
+  const size = RASTER_SIGNATURE_SIZE
+  const probe = document.createElement("canvas")
+  probe.width = size
+  probe.height = size
+  const ctx = probe.getContext("2d", { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(source, 0, 0, size, size)
+  return ctx.getImageData(0, 0, size, size).data
+}
+
+export function rasterSignatureDelta(
+  a: Uint8ClampedArray | null,
+  b: Uint8ClampedArray | null
+): number {
+  if (!a || !b || a.length !== b.length) return 255
+  let total = 0
+  for (let i = 0; i < a.length; i++) total += Math.abs(a[i] - b[i])
+  return total / a.length
+}
+
+/**
+ * Reload the same export SVG until two consecutive loads rasterize the same
+ * image, and answer with the settled one.
+ *
+ * WebKit fires an SVG image's load before its data-URI subresources decode, so
+ * an early raster can paint the foreignObject's DOM and drop every embedded
+ * image with it — Safari exported this canvas with no background and no
+ * screenshot, just the glass panes and the watermark. A missing layer is
+ * invisible to any alpha heuristic once something opaque paints above it, so
+ * the test is that the raster stopped changing; the animation underlay pass
+ * settles the same way (`webkit-layered-frame.ts`). Reloading rather than
+ * redrawing gets a fresh render off a now-warm decode cache, and reuses the
+ * serialized SVG so the retries stay cheap.
+ */
+async function settleRasterImage(
+  svgUrl: string,
+  first: HTMLImageElement
+): Promise<HTMLImageElement> {
+  let previous = rasterSignature(first)
+  let latest = first
+
+  for (let attempt = 1; attempt <= SETTLE_MAX_ATTEMPTS; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 20 + attempt * 15))
+    let next: HTMLImageElement
+    try {
+      next = await loadRasterImage(svgUrl)
+    } catch {
+      // Settling only — the caller's draw surfaces its own errors.
+      continue
+    }
+    latest = next
+    const signature = rasterSignature(next)
+    if (
+      signature &&
+      previous &&
+      rasterSignatureDelta(signature, previous) <= SETTLED_SIGNATURE_DELTA
+    ) {
+      return latest
+    }
+    previous = signature
+  }
+  return latest
+}
+
+/**
+ * {@link rasterizeNodeToCanvas}, but on WebKit the raster is settled first (see
+ * {@link settleRasterImage}) and a result that still comes back empty is drawn
+ * once more.
+ */
+async function rasterizeExportNode(
+  node: HTMLElement,
+  options: RasterOptions,
+  renderedWidth: number,
+  renderedHeight: number,
+  outputWidth: number,
+  outputHeight: number,
+  backgroundColor?: string
+): Promise<HTMLCanvasElement> {
+  const svgUrl = await serializeExportSvg(
+    node,
+    options,
+    renderedWidth,
+    renderedHeight,
+    outputWidth,
+    outputHeight
+  )
+  let image = await loadRasterImage(svgUrl)
+  if (supportsObjectViewBox()) {
+    return drawRasterImage(image, outputWidth, outputHeight, backgroundColor)
+  }
+
+  image = await settleRasterImage(svgUrl, image)
+  const canvas = drawRasterImage(
+    image,
+    outputWidth,
+    outputHeight,
+    backgroundColor
+  )
+  if (!isRasterEssentiallyEmpty(canvas)) return canvas
+
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  return drawRasterImage(image, outputWidth, outputHeight, backgroundColor)
 }
 
 function canvasToBlob(
@@ -756,7 +920,7 @@ export async function exportCanvas(
     await waitForExportAssets(assetUrls)
     await embedCloneImages(exportTarget.node)
     if (format === "png") {
-      const canvas = await rasterizeNodeToCanvas(
+      const canvas = await rasterizeExportNode(
         exportTarget.node,
         baseOptions,
         renderedWidth,
@@ -777,7 +941,7 @@ export async function exportCanvas(
       return filename
     }
     if (format === "jpeg") {
-      const canvas = await rasterizeNodeToCanvas(
+      const canvas = await rasterizeExportNode(
         exportTarget.node,
         baseOptions,
         renderedWidth,
@@ -790,7 +954,7 @@ export async function exportCanvas(
       triggerDownload(url, filename)
       return filename
     }
-    const canvas = await rasterizeNodeToCanvas(
+    const canvas = await rasterizeExportNode(
       exportTarget.node,
       baseOptions,
       renderedWidth,
@@ -1299,7 +1463,7 @@ export async function captureCanvasAsPngBlob(
     let lastError: unknown
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const canvas = await rasterizeNodeToCanvas(
+        const canvas = await rasterizeExportNode(
           exportTarget.node,
           captureOptions,
           renderedWidth,
