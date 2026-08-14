@@ -8,6 +8,7 @@ import {
   exportScaleStyle,
   isRasterEssentiallyEmpty,
   rasterSignatureDelta,
+  settleDelayMs,
   signatureCoverage,
 } from "@/lib/editor/export"
 
@@ -218,6 +219,31 @@ describe("advanceSettle — WebKit raster settling", () => {
     ])
     expect(bestAt).toBe(1)
     expect(doneAt).toBe(5)
+  })
+})
+
+describe("settleDelayMs", () => {
+  it("keeps the first retries short, where captures usually settle", () => {
+    expect(settleDelayMs(2)).toBe(20)
+    expect(settleDelayMs(3)).toBe(40)
+    expect(settleDelayMs(4)).toBe(80)
+  })
+
+  it("backs off steeply once the quick retries have not helped", () => {
+    // A stuck decode only recovers with time; the old flat schedule gave the
+    // whole run two thirds of a second regardless of how heavy the canvas was.
+    expect(settleDelayMs(5)).toBeGreaterThan(settleDelayMs(4))
+    expect(settleDelayMs(6)).toBeGreaterThan(settleDelayMs(5))
+    const total = [2, 3, 4, 5, 6, 7, 8].reduce(
+      (sum, attempt) => sum + settleDelayMs(attempt),
+      0
+    )
+    expect(total).toBeGreaterThan(1000)
+  })
+
+  it("caps a single wait so one export cannot stall indefinitely", () => {
+    expect(settleDelayMs(12)).toBe(400)
+    expect(settleDelayMs(40)).toBe(400)
   })
 })
 

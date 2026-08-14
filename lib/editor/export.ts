@@ -1121,6 +1121,19 @@ export function advanceSettle(
 }
 
 /**
+ * Backoff before settle attempt `attempt`.
+ *
+ * The early waits stay short because a capture normally completes by the third
+ * attempt, and the export is blocking a click. The tail grows steeply because
+ * the only thing that fixes a still-incomplete raster is giving the decodes
+ * more time — a flat schedule gave a slow one (an 8K export of a large
+ * screenshot) the same two thirds of a second as a trivial canvas.
+ */
+export function settleDelayMs(attempt: number): number {
+  return Math.min(400, 20 * 2 ** (attempt - 2))
+}
+
+/**
  * Rasterize the export SVG repeatedly and answer with the best canvas sampled —
  * never a fresh draw of it.
  *
@@ -1136,6 +1149,13 @@ export function advanceSettle(
  * So the sampled pixels have to be *kept*: each attempt draws into its own
  * output canvas, and the one handed back is a canvas that was scored, not a
  * redraw of the image that produced it. {@link advanceSettle} owns when to stop.
+ *
+ * Running the budget out is not a failure signal: it is also what happens when
+ * the very first raster was already complete, since nothing improves on it.
+ * There is no oracle for "complete" — coverage ranks two rasters of the same
+ * scene, it cannot judge one alone — so exhaustion returns the best sample
+ * rather than throwing, and the defence against a genuinely stuck decode is the
+ * length of the window (see {@link settleDelayMs}), not a verdict at the end.
  */
 async function settleRasterCanvas(
   svgUrl: string,
@@ -1150,7 +1170,9 @@ async function settleRasterCanvas(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1) {
-      await new Promise((resolve) => setTimeout(resolve, 20 + attempt * 15))
+      await new Promise((resolve) =>
+        setTimeout(resolve, settleDelayMs(attempt))
+      )
     }
     let image: HTMLImageElement
     try {
@@ -1173,7 +1195,10 @@ async function settleRasterCanvas(
 
     const next = advanceSettle(progress, {
       coverage: signatureCoverage(signature),
-      unchanged,
+      // A raster with nothing painted in it is never the answer, however
+      // faithfully the engine keeps reproducing it — refuse to confirm one and
+      // spend the rest of the budget waiting for the decodes.
+      unchanged: unchanged && !isRasterEssentiallyEmpty(canvas),
     })
     progress = {
       bestCoverage: next.bestCoverage,
