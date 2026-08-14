@@ -132,6 +132,9 @@ export function TopBarButton({
       onClick={onClick}
       disabled={disabled}
       className={className}
+      // Below xl the label is display:none and the icon is decorative, which
+      // leaves the control with no accessible name at all.
+      aria-label={label}
     >
       <Icon />
       <span className="hidden xl:inline">{label}</span>

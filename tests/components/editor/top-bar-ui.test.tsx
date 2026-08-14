@@ -107,6 +107,12 @@ describe("TopBarButton", () => {
     withTooltip(<TopBarButton label="Export" icon={Icon} disabled />)
     expect(screen.getByRole("button")).toBeDisabled()
   })
+
+  it("keeps an accessible name where the label is hidden", () => {
+    // Under xl the label span is display:none and only the icon renders.
+    withTooltip(<TopBarButton label="Export" icon={Icon} />)
+    expect(screen.getByRole("button", { name: "Export" })).toBeInTheDocument()
+  })
 })
 
 describe("IconAction", () => {

@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { shouldProxyAssetUrl } from "@/lib/editor/export-assets"
 import {
+  INITIAL_SETTLE_PROGRESS,
+  advanceSettle,
   exportElementLayoutSize,
   exportScaleStyle,
   isRasterEssentiallyEmpty,
@@ -152,6 +154,70 @@ describe("signatureCoverage — WebKit raster completeness", () => {
     expect(signatureCoverage(null)).toBeLessThan(
       signatureCoverage(signature(() => [0, 0, 0, 0]))
     )
+  })
+})
+
+describe("advanceSettle — WebKit raster settling", () => {
+  /** Run a sequence of sampled coverages, reporting when it settled. */
+  function run(samples: { coverage: number; unchanged: boolean }[]) {
+    let progress = INITIAL_SETTLE_PROGRESS
+    let bestAt = -1
+    for (const [index, sample] of samples.entries()) {
+      const next = advanceSettle(progress, sample)
+      progress = {
+        bestCoverage: next.bestCoverage,
+        improved: next.improved,
+        confirmations: next.confirmations,
+      }
+      if (next.take) bestAt = index
+      if (next.done) return { doneAt: index, bestAt }
+    }
+    return { doneAt: -1, bestAt }
+  }
+
+  it("never settles on a raster that only ever repeated itself", () => {
+    // WebKit reproduces an incomplete capture exactly — the export was landing
+    // on the screenshot-less raster because two identical draws read as settled.
+    const broken = { coverage: 0.92, unchanged: true }
+    expect(
+      run([{ coverage: 0.92, unchanged: false }, broken, broken, broken])
+    ).toEqual({ doneAt: -1, bestAt: 0 })
+  })
+
+  it("settles once coverage rose and then held", () => {
+    // The real sequence: incomplete, background lands, screenshot lands, holds.
+    const { doneAt, bestAt } = run([
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.22, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 1.39, unchanged: true },
+      { coverage: 1.39, unchanged: true },
+    ])
+    expect(doneAt).toBe(4)
+    expect(bestAt).toBe(2)
+  })
+
+  it("keeps sampling while the raster is still changing", () => {
+    const { doneAt } = run([
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+    ])
+    expect(doneAt).toBe(-1)
+  })
+
+  it("keeps the best raster when a later one comes back worse", () => {
+    const { doneAt, bestAt } = run([
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.39, unchanged: false },
+      { coverage: 0.92, unchanged: false },
+      { coverage: 1.2, unchanged: false },
+      { coverage: 1.2, unchanged: true },
+      { coverage: 1.2, unchanged: true },
+    ])
+    expect(bestAt).toBe(1)
+    expect(doneAt).toBe(5)
   })
 })
 

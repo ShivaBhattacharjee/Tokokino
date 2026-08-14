@@ -557,7 +557,9 @@ async function rasterizeUnderlayBelow(
       renderedWidth,
       renderedHeight,
       underlayWidth,
-      underlayHeight
+      underlayHeight,
+      undefined,
+      UNDERLAY_SETTLE_MAX_ATTEMPTS
     )
   } catch {
     return null
@@ -667,30 +669,39 @@ async function bakeGlassFrost(
       pad
     )
 
-    const image = paddedCtx.getImageData(0, 0, padded.width, padded.height)
-    blurRgba(image.data, padded.width, padded.height, sigma)
-    saturateRgba(image.data, GLASS_FROST_SATURATE)
-    paddedCtx.setTransform(1, 0, 0, 1, 0, 0)
-    paddedCtx.putImageData(image, 0, 0)
+    let frostUrl: string
+    try {
+      const image = paddedCtx.getImageData(0, 0, padded.width, padded.height)
+      blurRgba(image.data, padded.width, padded.height, sigma)
+      saturateRgba(image.data, GLASS_FROST_SATURATE)
+      paddedCtx.setTransform(1, 0, 0, 1, 0, 0)
+      paddedCtx.putImageData(image, 0, 0)
 
-    const canvas = document.createElement("canvas")
-    canvas.width = textureWidth
-    canvas.height = textureHeight
-    const ctx = canvas.getContext("2d")
-    if (!ctx) continue
-    ctx.drawImage(
-      padded,
-      pad,
-      pad,
-      textureWidth,
-      textureHeight,
-      0,
-      0,
-      textureWidth,
-      textureHeight
-    )
+      const canvas = document.createElement("canvas")
+      canvas.width = textureWidth
+      canvas.height = textureHeight
+      const ctx = canvas.getContext("2d")
+      if (!ctx) continue
+      ctx.drawImage(
+        padded,
+        pad,
+        pad,
+        textureWidth,
+        textureHeight,
+        0,
+        0,
+        textureWidth,
+        textureHeight
+      )
+      frostUrl = canvas.toDataURL("image/png")
+    } catch {
+      // Reading the pixels back throws on a tainted canvas. Leave this pane as
+      // clear glass rather than failing the export or the clipboard copy over
+      // an effect — the same call the frost needs is how the export is encoded,
+      // so a pane losing it is the softest way for that to surface.
+      continue
+    }
 
-    const frostUrl = canvas.toDataURL("image/png")
     const authored = layer.style.backgroundImage
     // Authored gradient first: background layers paint front to back.
     layer.style.backgroundImage =
@@ -1002,6 +1013,13 @@ const RASTER_SIGNATURE_SIZE = 32
 /** Per-channel mean difference under which two rasters count as the same image. */
 const SETTLED_SIGNATURE_DELTA = 1.5
 const SETTLE_MAX_ATTEMPTS = 8
+/**
+ * Retry budget for the glass frost underlays. One runs per pane, and every
+ * pixel of the result is read back through an 18px blur at 960px, so they do
+ * not need the full budget the exported raster gets — without a lower cap a
+ * four-pane frame could spend five settle loops on one export.
+ */
+const UNDERLAY_SETTLE_MAX_ATTEMPTS = 4
 
 function rasterSignature(source: CanvasImageSource): Uint8ClampedArray | null {
   const size = RASTER_SIGNATURE_SIZE
@@ -1049,9 +1067,62 @@ function releaseCanvas(canvas: HTMLCanvasElement) {
   canvas.height = 0
 }
 
+/** Consecutive unchanged, no-better rasters before a plateau is trusted. */
+const SETTLE_CONFIRM_ATTEMPTS = 2
+
+export type SettleProgress = {
+  bestCoverage: number
+  /** Coverage has risen at least once, i.e. decodes were still landing. */
+  improved: boolean
+  confirmations: number
+}
+
+export const INITIAL_SETTLE_PROGRESS: SettleProgress = {
+  bestCoverage: -1,
+  improved: false,
+  confirmations: 0,
+}
+
 /**
- * Rasterize the export SVG repeatedly until the output stops changing, and
- * answer with the canvas that was checked — never a fresh draw of it.
+ * Decide what one sampled raster means: whether to keep it as the best so far,
+ * and whether the sequence has settled.
+ *
+ * A raster that merely repeats is not evidence of anything — WebKit reproduces
+ * an incomplete capture exactly, and three identical rasters missing the
+ * screenshot is a shape this bug actually takes. What is evidence is coverage
+ * having *risen* at some point: that means subresource decodes were landing,
+ * so a plateau after it is the engine finishing rather than the engine not
+ * having started. Until that happens the loop keeps sampling and simply keeps
+ * the best it has seen.
+ */
+export function advanceSettle(
+  progress: SettleProgress,
+  sample: { coverage: number; unchanged: boolean }
+): SettleProgress & { take: boolean; done: boolean } {
+  if (sample.coverage > progress.bestCoverage) {
+    return {
+      bestCoverage: sample.coverage,
+      // The first sample sets the baseline; it has improved on nothing.
+      improved: progress.bestCoverage >= 0,
+      confirmations: 0,
+      take: true,
+      done: false,
+    }
+  }
+
+  const confirmations =
+    sample.unchanged && progress.improved ? progress.confirmations + 1 : 0
+  return {
+    ...progress,
+    confirmations,
+    take: false,
+    done: confirmations >= SETTLE_CONFIRM_ATTEMPTS,
+  }
+}
+
+/**
+ * Rasterize the export SVG repeatedly and answer with the best canvas sampled —
+ * never a fresh draw of it.
  *
  * WebKit paints an SVG image's `<foreignObject>` with whatever data-URI
  * subresources have decoded at that instant, and every `drawImage` of that
@@ -1062,23 +1133,22 @@ function releaseCanvas(canvas: HTMLCanvasElement) {
  * have landed. The largest image loses most often, which is why Safari exported
  * this canvas as bare glass panes over a gradient, watermark logo and all.
  *
- * So the settled pixels have to be *kept*. Each attempt draws into its own
- * output canvas and is scored, the best-covered one is retained, and the
- * moment an attempt matches its predecessor without losing coverage that exact
- * canvas is returned. Stability alone is not enough — two consecutive draws can
- * agree on an incomplete raster — so coverage is what breaks the tie.
+ * So the sampled pixels have to be *kept*: each attempt draws into its own
+ * output canvas, and the one handed back is a canvas that was scored, not a
+ * redraw of the image that produced it. {@link advanceSettle} owns when to stop.
  */
 async function settleRasterCanvas(
   svgUrl: string,
   outputWidth: number,
   outputHeight: number,
-  backgroundColor: string | undefined
+  backgroundColor: string | undefined,
+  maxAttempts: number
 ): Promise<HTMLCanvasElement | null> {
   let best: HTMLCanvasElement | null = null
-  let bestCoverage = -1
+  let progress = INITIAL_SETTLE_PROGRESS
   let previous: Uint8ClampedArray | null = null
 
-  for (let attempt = 1; attempt <= SETTLE_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1) {
       await new Promise((resolve) => setTimeout(resolve, 20 + attempt * 15))
     }
@@ -1096,19 +1166,28 @@ async function settleRasterCanvas(
       backgroundColor
     )
     const signature = rasterSignature(canvas)
-    const coverage = signatureCoverage(signature)
-    const delta = rasterSignatureDelta(signature, previous)
-    const stable = previous !== null && delta <= SETTLED_SIGNATURE_DELTA
+    const unchanged =
+      previous !== null &&
+      rasterSignatureDelta(signature, previous) <= SETTLED_SIGNATURE_DELTA
     previous = signature
 
-    if (coverage >= bestCoverage) {
+    const next = advanceSettle(progress, {
+      coverage: signatureCoverage(signature),
+      unchanged,
+    })
+    progress = {
+      bestCoverage: next.bestCoverage,
+      improved: next.improved,
+      confirmations: next.confirmations,
+    }
+
+    if (next.take) {
       if (best) releaseCanvas(best)
       best = canvas
-      bestCoverage = coverage
-      if (stable) return best
     } else {
       releaseCanvas(canvas)
     }
+    if (next.done) return best
   }
 
   return best
@@ -1125,7 +1204,8 @@ async function rasterizeExportNode(
   renderedHeight: number,
   outputWidth: number,
   outputHeight: number,
-  backgroundColor?: string
+  backgroundColor?: string,
+  settleAttempts = SETTLE_MAX_ATTEMPTS
 ): Promise<HTMLCanvasElement> {
   const svgUrl = await serializeExportSvg(
     node,
@@ -1151,7 +1231,8 @@ async function rasterizeExportNode(
     svgUrl,
     outputWidth,
     outputHeight,
-    backgroundColor
+    backgroundColor,
+    settleAttempts
   )
   // Every attempt failed to load; let the caller see the load error.
   if (!settled) {
