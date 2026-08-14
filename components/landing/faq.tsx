@@ -56,7 +56,7 @@ const faqs = [
   },
   {
     q: "What browsers and devices does Tokokino support?",
-    a: "Tokokino runs in any modern browser — no installation required. It works best in Chromium-based browsers (Chrome, Edge, Arc) and Safari on macOS. Firefox is supported but some CSS blend modes and backdrop filters may render slightly differently. On mobile, the editor loads but is optimized for desktop use; exporting and sharing work on all devices.",
+    a: "Tokokino's editor supports Chromium-based browsers such as Chrome, Edge, and Arc. Firefox is also available, though some CSS blend modes and backdrop filters may render differently. Safari is not supported because its graphics and export APIs do not produce reliable results. The editor is optimized for desktop use.",
   },
   {
     q: "Do you sell or share my personal data?",
@@ -108,7 +108,7 @@ export function Faq() {
       {/* Desktop: title left, accordion right. Mobile: stacked */}
       <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between md:gap-16">
         {/* Left — sticky title */}
-        <div className="flex-shrink-0 md:w-64 md:pt-1">
+        <div className="shrink-0 md:w-64 md:pt-1">
           <span className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
             {"// FAQ"}
           </span>

@@ -75,7 +75,7 @@ export const COMPARISONS: Comparison[] = [
       },
       {
         feature: "Motion export",
-        tokokino: "GIF, WebM, and MP4, including on Safari",
+        tokokino: "GIF, WebM, and MP4 in supported browsers",
         competitor: "Available on Pro",
       },
       {

@@ -107,6 +107,13 @@ describe("TopBarButton", () => {
     withTooltip(<TopBarButton label="Export" icon={Icon} disabled />)
     expect(screen.getByRole("button")).toBeDisabled()
   })
+
+  it("can keep its label visible outside the responsive top bar", () => {
+    withTooltip(
+      <TopBarButton label="Open Chrome" icon={Icon} alwaysShowLabel />
+    )
+    expect(screen.getByText("Open Chrome")).not.toHaveClass("hidden")
+  })
 })
 
 describe("IconAction", () => {

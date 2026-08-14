@@ -9,7 +9,7 @@ import { GlassFrame } from "@/components/ui/glass-frame"
 import { neutralizeUnsupportedExportBackdropFilters } from "@/lib/editor/export"
 
 describe("export glass backdrop filters", () => {
-  it("removes Glass Cascade backdrop blur from the export clone only", () => {
+  it("replaces Glass Cascade blur with medium frost on the export clone only", () => {
     const { container } = render(
       <GlassFrame frameId="glass-stack" colorMode="dark" imageSrc="shot.png" />
     )
@@ -29,9 +29,12 @@ describe("export glass backdrop filters", () => {
     expect(clonedLayers).toHaveLength(3)
     for (const layer of sourceLayers) {
       expect(layer.style.backdropFilter).toBe("blur(18px) saturate(135%)")
+      expect(layer.style.background).not.toContain("0.96")
     }
     for (const layer of clonedLayers) {
       expect(layer.style.backdropFilter).toBe("none")
+      expect(layer.style.background).toContain("0.96")
+      expect(layer.style.background).toContain("132, 145, 161")
     }
   })
 

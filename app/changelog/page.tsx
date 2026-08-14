@@ -37,7 +37,7 @@ const releases: Release[] = [
   {
     id: "v2-2-0",
     version: "2.2.0",
-    date: "August 13, 2026",
+    date: "August 14, 2026",
     title: "Glass frames & ASCII backdrops",
     summary:
       "Wrap shots in glass, a single pane or stacked layers, and turn any background into ASCII art. Plus ASCII Glass, a template that uses both.",
@@ -55,8 +55,8 @@ const releases: Release[] = [
         text: "A ready-made look that pairs Glass Cascade with a binary ASCII backdrop. Open it from Templates and drop your shot in.",
       },
       {
-        title: "Faster animation exports in Safari",
-        text: "Safari recaptured the whole canvas for every frame of a video or GIF export, so a long clip could take a while. Layers that don't change from frame to frame are now reused, so the same export finishes faster and uses less memory.",
+        title: "Safari editor availability",
+        text: "The editor now shows a compatibility notice in Safari and directs users to Chrome or Edge. Safari's canvas and export APIs can drop image layers without warning, so Tokokino no longer claims Safari support.",
       },
     ],
   },
@@ -101,8 +101,8 @@ const releases: Release[] = [
         text: "Leaving Animate mode used to leave the last keyframe's look painted onto the canvas, so a still export showed the end of the animation instead of your composition. The canvas now returns to where the animation starts.",
       },
       {
-        title: "Grades and filters export correctly in Safari",
-        text: "Video exports in Safari dropped every colour grade and filter preset from the finished file, even though the canvas showed them. They are now applied to the exported frames.",
+        title: "Grades and filters export correctly",
+        text: "Video exports now preserve every colour grade and filter preset shown on the canvas.",
       },
       {
         title: "Custom transition curves",
@@ -148,7 +148,7 @@ const releases: Release[] = [
       },
       {
         title: "Export as GIF, WebM, or MP4",
-        text: "Export animations in the format you need, including on Safari.",
+        text: "Export animations in the format you need from a supported browser.",
       },
       {
         title: "Account settings",
@@ -163,8 +163,8 @@ const releases: Release[] = [
         text: "Live preset previews, rename and delete for projects and presets, and cleaner multi-screenshot framing.",
       },
       {
-        title: "Safari & playback fixes",
-        text: "Video export on Safari, blur effects with device frames, and template playback glitches are fixed.",
+        title: "Playback & frame fixes",
+        text: "Blur effects with device frames and template playback glitches are fixed.",
       },
       {
         title: "Drafts with any video format",

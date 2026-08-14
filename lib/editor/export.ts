@@ -433,17 +433,17 @@ function appendWatermark(node: HTMLElement, width: number, height: number) {
 }
 
 /**
- * SVG foreignObject export cannot reliably composite the glass frame's
- * backdrop-filter against image/ASCII layers behind it. WebKit can expand the
- * blur beyond the translucent cards and soften the entire exported backdrop.
- * Keep the glass paint, borders, and shadows, but remove only that unsupported
- * blur from the detached export clone.
+ * SVG foreignObject cannot contain backdrop-filter to the pane: WebKit drops
+ * it, while Chromium expands the blur across the exported background. Replace
+ * it with the authored static frost before serialization.
  */
 export function neutralizeUnsupportedExportBackdropFilters(root: HTMLElement) {
   for (const layer of Array.from(
     root.querySelectorAll<HTMLElement>("[data-glass-frame-layer]")
   )) {
     if (layer.dataset.glassFrameLayer === "chrome") continue
+    const exportBackground = layer.dataset.exportGlassBackground
+    if (exportBackground) layer.style.background = exportBackground
     layer.style.backdropFilter = "none"
     layer.style.setProperty("-webkit-backdrop-filter", "none")
   }
