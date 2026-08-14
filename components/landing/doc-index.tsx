@@ -1,16 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { ShieldCheck } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-type PolicyIndexItem = {
+export type DocIndexItem = {
   id: string
   label: string
 }
 
-export function PolicyIndex({ items }: { items: PolicyIndexItem[] }) {
+export function DocIndex({ items }: { items: DocIndexItem[] }) {
   const [activeId, setActiveId] = React.useState(items[0]?.id ?? "")
 
   React.useEffect(() => {
@@ -33,7 +32,7 @@ export function PolicyIndex({ items }: { items: PolicyIndexItem[] }) {
         return
       }
 
-      const anchorLine = window.innerHeight * 0.55
+      const anchorLine = window.innerHeight * 0.4
       const current =
         sectionElements.findLast(
           (section) => section.getBoundingClientRect().top <= anchorLine
@@ -43,7 +42,7 @@ export function PolicyIndex({ items }: { items: PolicyIndexItem[] }) {
     }
 
     const observer = new IntersectionObserver(syncActiveSection, {
-      rootMargin: "-20% 0px -45% 0px",
+      rootMargin: "-15% 0px -60% 0px",
       threshold: [0, 0.1, 0.35, 0.6],
     })
 
@@ -60,34 +59,37 @@ export function PolicyIndex({ items }: { items: PolicyIndexItem[] }) {
   }, [items])
 
   return (
-    <div className="sticky top-8 space-y-5">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <ShieldCheck className="size-4 text-primary" aria-hidden />
-        Policy index
-      </div>
-      <ol className="space-y-1.5 text-xs leading-5">
-        {items.map((item) => {
-          const isActive = activeId === item.id
+    <nav className="sticky top-8 flex flex-col gap-2.5 py-1">
+      {items.map((item) => {
+        const isActive = activeId === item.id
 
-          return (
-            <li key={item.id}>
-              <a
-                href={`#${item.id}`}
-                aria-current={isActive ? "location" : undefined}
-                className={cn(
-                  "block border-l py-0.5 pl-3 transition-colors",
-                  isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
-                )}
-                onClick={() => setActiveId(item.id)}
-              >
-                {item.label}
-              </a>
-            </li>
-          )
-        })}
-      </ol>
-    </div>
+        return (
+          <a
+            key={item.id}
+            href={`#${item.id}`}
+            aria-current={isActive ? "location" : undefined}
+            onClick={() => setActiveId(item.id)}
+            className="group flex items-start gap-3"
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "mt-[0.6rem] h-px w-6 shrink-0 bg-primary/30 transition-[width,background-color]",
+                isActive && "w-10 bg-primary",
+                !isActive && "group-hover:bg-primary"
+              )}
+            />
+            <span
+              className={cn(
+                "text-sm leading-6 text-muted-foreground transition-colors group-hover:text-primary",
+                isActive && "text-primary"
+              )}
+            >
+              {item.label}
+            </span>
+          </a>
+        )
+      })}
+    </nav>
   )
 }

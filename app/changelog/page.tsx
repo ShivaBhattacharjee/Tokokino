@@ -40,43 +40,19 @@ const releases: Release[] = [
     date: "August 13, 2026",
     title: "Glass frames & ASCII backdrops",
     summary:
-      "Give screenshots and videos a polished glass treatment with a single card or layered stacks — designed to stay consistent from the live canvas through high-resolution export. Plus a new ASCII texture that redraws your background in characters.",
+      "Wrap shots in glass, a single pane or stacked layers, and turn any background into ASCII art. Plus ASCII Glass, a template that uses both.",
     changes: [
       {
+        title: "Glass frames",
+        text: "Glass Card is one pane. Glass Cascade stacks layers under the canvas. Glass Crown stacks them behind it. Each comes in dark and light.",
+      },
+      {
         title: "ASCII backdrops",
-        text: "Turn any background — gradient, solid, or image — into ASCII art from the Texture control in Backdrop. Seven character sets, from a classic ramp to blocks, binary, dots, circles and stars.",
+        text: "Turn any background into ASCII from Texture under Backdrop. Seven character sets, a resolution slider, and colour from the background or one you pick. Keyframe it in Animate mode.",
       },
       {
-        title: "Tune the ASCII look",
-        text: "A resolution slider takes the grid from 20 to 200 columns, ink can sample the background's own colours or use one of your choosing, and the ramp can be inverted so bright areas read sparse.",
-      },
-      {
-        title: "Animate the ASCII",
-        text: "ASCII is a keyframable effect in Animate mode: crossfade between character sets, resolutions and colours, dissolve it on or off, and it re-renders when a keyframe swaps the background beneath it.",
-      },
-      {
-        title: "Sharp at 8K",
-        text: "The characters are real text rather than a rasterized layer, so ASCII backdrops stay crisp in every still and motion export, at any resolution.",
-      },
-      {
-        title: "Three new glass frames",
-        text: "Choose Glass Card for a clean single pane, Glass Cascade for layers beneath the canvas, or Glass Crown for layers rising behind it.",
-      },
-      {
-        title: "Dark and light glass",
-        text: "Each frame includes dark and light variants with translucent gradients, background blur, soft highlights, and depth-aware shadows.",
-      },
-      {
-        title: "Consistent media framing",
-        text: "The front glass rim stays even on every edge, full-page screenshots preview correctly in the frame picker, and each media slot uses its own frame geometry when cropping.",
-      },
-      {
-        title: "Smoother glass corners",
-        text: "Every glass corner now eases into its straight edges instead of snapping into a circular arc, so the rim reads as one continuous curve even in an 8K export.",
-      },
-      {
-        title: "Export-ready on every browser",
-        text: "Glass frames carry through to still and motion exports, with WebKit compositing and clipping fallbacks for Safari.",
+        title: "ASCII Glass template",
+        text: "A ready-made look that pairs Glass Cascade with a binary ASCII backdrop. Open it from Templates and drop your shot in.",
       },
     ],
   },

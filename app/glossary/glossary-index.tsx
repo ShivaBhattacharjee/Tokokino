@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { BookMarked } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -60,12 +59,11 @@ export function GlossaryIndex({ items }: { items: GlossaryIndexItem[] }) {
   }, [items])
 
   return (
-    <div className="sticky top-8 space-y-5">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <BookMarked className="size-4 text-primary" aria-hidden />
-        Jump to letter
-      </div>
-      <div className="grid grid-cols-6 gap-1.5">
+    <div className="sticky top-8">
+      <p className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
+        {"// Letters"}
+      </p>
+      <div className="mt-4 grid grid-cols-5 gap-1">
         {items.map((item) => {
           const isActive = activeId === item.id
 
@@ -76,10 +74,10 @@ export function GlossaryIndex({ items }: { items: GlossaryIndexItem[] }) {
               aria-current={isActive ? "location" : undefined}
               onClick={() => setActiveId(item.id)}
               className={cn(
-                "flex aspect-square items-center justify-center rounded-md border text-xs font-medium tabular-nums transition-colors",
+                "flex aspect-square items-center justify-center text-xs font-medium tabular-nums transition-colors",
                 isActive
-                  ? "border-primary/60 bg-primary/10 text-primary"
-                  : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground"
+                  ? "text-primary"
+                  : "text-foreground/40 hover:text-foreground"
               )}
             >
               {item.label}

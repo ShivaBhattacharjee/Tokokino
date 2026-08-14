@@ -109,7 +109,7 @@ function FooterLink({
   }
 
   return (
-    <Link href={href} className={className}>
+    <Link href={href} scroll className={className}>
       {children}
     </Link>
   )

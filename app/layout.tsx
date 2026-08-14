@@ -20,6 +20,7 @@ import {
 import NextTopLoader from "nextjs-toploader"
 
 import "./globals.css"
+import { ResetScrollOnNavigate } from "@/components/landing/reset-scroll-on-navigate"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -257,6 +258,7 @@ export default function RootLayout({
         />
         <div className="mx-auto max-w-[1800px]">
           <ThemeProvider defaultTheme="dark">
+            <ResetScrollOnNavigate />
             <TooltipProvider delayDuration={150}>
               {children}
               <WebMcpProvider />

@@ -1,23 +1,9 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 
-import { Footer } from "@/components/landing/footer"
-import { Nav } from "@/components/landing/nav"
-import { ScrollToTop } from "@/components/landing/scroll-to-top"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-
-import { TermsIndex } from "./terms-index"
-
-const CONTENT_WIDTH =
-  "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
+import { DocIndex } from "@/components/landing/doc-index"
+import { DocPage } from "@/components/landing/doc-page"
 
 export const metadata: Metadata = {
   title: "Terms & Conditions — Tokokino",
@@ -189,98 +175,39 @@ const indexItems = sections.map((section) => ({
 
 export default function TermsPage() {
   return (
-    <main
-      className="relative isolate min-h-svh bg-background text-foreground"
-      style={
-        {
-          "--rail": "color-mix(in oklch, var(--foreground) 20%, transparent)",
-        } as CSSProperties
+    <DocPage
+      eyebrow="Terms"
+      title="Terms & Conditions"
+      summary={
+        <>
+          The rules for using Tokokino, including content you upload, liability
+          limits, and how to contact the project.
+          <span className="mt-1 block font-mono text-[10px] tracking-widest text-primary/80 uppercase">
+            Effective {EFFECTIVE_DATE}
+          </span>
+        </>
       }
+      index={<DocIndex items={indexItems} />}
     >
-      <div className={CONTENT_WIDTH}>
-        <Nav />
-      </div>
-
-      <section className="border-b border-border/70 bg-card/30">
-        <div
-          className={`flex w-full flex-col gap-10 px-5 py-7 sm:px-8 lg:px-12 ${CONTENT_WIDTH}`}
-        >
-          <Breadcrumb>
-            <BreadcrumbList className="label-eyebrow gap-1.5 text-muted-foreground">
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild className="hover:text-foreground">
-                  <Link href="/">Home</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-muted-foreground">
-                  Terms &amp; Conditions
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-
-          <div className="min-w-0 space-y-4 text-left">
-            <h1 className="max-w-full text-[clamp(1.75rem,5.2vw,5.05rem)] leading-[0.95] font-semibold tracking-[-0.04em] whitespace-nowrap">
-              Terms &amp; Conditions
-            </h1>
-            <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-              These terms define the rules for accessing, using, saving,
-              exporting, and sharing work through Tokokino as an open-source
-              project and hosted screenshot tool.
-            </p>
-            <p className="text-sm leading-7 text-muted-foreground">
-              Effective date:{" "}
-              <strong className="font-semibold text-foreground">
-                {EFFECTIVE_DATE}
-              </strong>
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section
-        className={`grid w-full gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[240px_1fr] lg:px-12 lg:py-14 ${CONTENT_WIDTH}`}
-      >
-        <aside className="hidden lg:block">
-          <TermsIndex items={indexItems} />
-        </aside>
-
-        <article className="min-w-0 space-y-9">
-          <div className="border-l-2 border-primary/60 pl-5 text-sm leading-7 text-muted-foreground">
-            <p>
-              Please read these Terms carefully. They contain important
-              provisions affecting your legal rights, including disclaimers,
-              limits of liability, and obligations relating to content that you
-              upload or share.
-            </p>
-          </div>
-
-          {sections.map((section) => (
-            <section
-              key={section.title}
-              id={slugify(section.title)}
-              className="scroll-mt-8 border-t border-border/70 pt-8"
-            >
-              <h2 className="text-xl font-semibold tracking-[-0.02em]">
-                {section.title}
-              </h2>
-              <div className="mt-4 space-y-4 text-sm leading-7 text-muted-foreground">
-                {section.body.map((paragraph, index) => (
-                  <p key={`${section.title}-${index}`}>{paragraph}</p>
-                ))}
-              </div>
-            </section>
-          ))}
-        </article>
-      </section>
-
-      <div className={CONTENT_WIDTH}>
-        <Footer showRail={false} />
-      </div>
-      <ScrollToTop />
-    </main>
+      <article className="max-w-2xl space-y-10">
+        {sections.map((section) => (
+          <section
+            key={section.title}
+            id={slugify(section.title)}
+            className="scroll-mt-8 border-t border-border/50 pt-10"
+          >
+            <h2 className="text-base font-medium tracking-tight sm:text-lg">
+              {section.title}
+            </h2>
+            <div className="mt-4 space-y-4 text-sm leading-7 text-foreground/58">
+              {section.body.map((paragraph, index) => (
+                <p key={`${section.title}-${index}`}>{paragraph}</p>
+              ))}
+            </div>
+          </section>
+        ))}
+      </article>
+    </DocPage>
   )
 }
 
