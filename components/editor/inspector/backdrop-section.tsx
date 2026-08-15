@@ -28,6 +28,7 @@ import {
 import {
   DEFAULT_BACKDROP_ASCII,
   resolveBackdropAscii,
+  setAsciiResolutionPreview,
 } from "@/lib/editor/ascii-backdrop"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import { useScreenshotStyleTarget } from "@/lib/editor/screenshot-style-target"
@@ -117,6 +118,14 @@ export function BackdropSection({
       requestAnimationFrame(() => setPreviewVar(name, null))
     },
     [setPreviewVar]
+  )
+  // ASCII resolution can't preview through a CSS var: the glyph grid has to be
+  // resampled to change, so the drag feeds the renderer a resolution instead.
+  const previewAsciiResolution = React.useCallback(
+    (resolution: number | null) => {
+      setAsciiResolutionPreview(activeCanvasId, resolution)
+    },
+    [activeCanvasId]
   )
   const [imageColors, setImageColors] = React.useState<string[] | null>(null)
 
@@ -454,6 +463,7 @@ export function BackdropSection({
             setAscii={setAscii}
             setPreviewVar={setPreviewVar}
             clearPreviewVarAfterPaint={clearPreviewVarAfterPaint}
+            previewAsciiResolution={previewAsciiResolution}
           />
         ) : null}
 

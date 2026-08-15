@@ -66,6 +66,7 @@ export {
   useCanvases,
   useCanvasPreviewMode,
   useCanvasScopeId,
+  useCanvasSourceId,
   useEditor,
   useSelectedScreenshotSlot,
   type EditorContext,

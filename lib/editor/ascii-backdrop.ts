@@ -44,28 +44,68 @@ export function normalizeAsciiResolution(raw: number): number {
 }
 
 /**
- * Live-preview var for the resolution slider. Written on the canvas (and
- * preset thumbs) while dragging so glyphs can scale without a store commit
- * or a resample. Cleared on pointer-up after the committed grid paints.
+ * The resolution a slider drag is currently showing, per canvas.
+ *
+ * The grid is resampled for real on every step instead of scaling the painted
+ * one: scaling a stale grid either lands the wrong glyph density or leaves the
+ * canvas's far edges uncovered, and which of the two you get differs between
+ * Blink and WebKit. Keeping the value here rather than in the editor store
+ * keeps a drag off the undo stack and re-renders only the ASCII layers.
+ *
+ * Previews are keyed by canvas so a drag doesn't restyle every other canvas in
+ * bulk edit; preset thumbnails read their source canvas's key, which is how
+ * they track the drag too.
  */
-export const ASCII_RESOLUTION_PREVIEW_VAR = "--bd-ascii-resolution"
+const previewResolutions = new Map<string, number>()
+const previewListeners = new Set<() => void>()
+let previewFlushHandle: number | null = null
+
+function flushAsciiResolutionPreview(): void {
+  previewFlushHandle = null
+  for (const listener of previewListeners) listener()
+}
 
 /**
- * Scale the *currently painted* glyph grid so its cell size matches the
- * live-previewed (or just-committed) column count.
- *
- * `displayedCols` is the grid on screen — the last sample, which lags one
- * async resample behind the store. Using that as the numerator keeps the
- * drag scale in place until the new sample arrives, instead of flashing
- * back to 1× on a stale grid.
+ * Coalesce to one notification per frame: a resample plus a glyph-tree rebuild
+ * is far too much work to run twice for one painted frame, and pointermove can
+ * outpace the compositor.
  */
-export function asciiResolutionPreviewTransform(
-  displayedCols: number,
-  committedResolution: number
-): string {
-  const from = Math.max(1, displayedCols)
-  const to = normalizeAsciiResolution(committedResolution)
-  return `scale(calc(${from} / var(${ASCII_RESOLUTION_PREVIEW_VAR}, ${to})))`
+function scheduleAsciiResolutionPreviewFlush(): void {
+  if (typeof requestAnimationFrame === "undefined") {
+    flushAsciiResolutionPreview()
+    return
+  }
+  if (previewFlushHandle !== null) return
+  previewFlushHandle = requestAnimationFrame(flushAsciiResolutionPreview)
+}
+
+export function setAsciiResolutionPreview(
+  canvasId: string | null | undefined,
+  resolution: number | null
+): void {
+  if (!canvasId) return
+  const current = previewResolutions.get(canvasId) ?? null
+  const next = resolution === null ? null : normalizeAsciiResolution(resolution)
+  if (current === next) return
+  if (next === null) previewResolutions.delete(canvasId)
+  else previewResolutions.set(canvasId, next)
+  scheduleAsciiResolutionPreviewFlush()
+}
+
+export function getAsciiResolutionPreview(
+  canvasId: string | null | undefined
+): number | null {
+  if (!canvasId) return null
+  return previewResolutions.get(canvasId) ?? null
+}
+
+export function subscribeAsciiResolutionPreview(
+  listener: () => void
+): () => void {
+  previewListeners.add(listener)
+  return () => {
+    previewListeners.delete(listener)
+  }
 }
 
 const asciiOpacityRange = editorValueSchemas.opacity
@@ -332,6 +372,28 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Decoded source images, keyed by URL. A resolution drag resamples on every
+ * step, and each step is a different `cols × rows` — so the sample cache below
+ * misses every time while the source image is always the same one.
+ */
+const sourceImages = new Map<string, Promise<HTMLImageElement>>()
+const SOURCE_IMAGE_CACHE_LIMIT = 8
+
+function loadSourceImage(src: string): Promise<HTMLImageElement> {
+  const cached = sourceImages.get(src)
+  if (cached) return cached
+  const pending = loadImage(src)
+  // A failure must not be cached, or the retry inherits it forever.
+  void pending.catch(() => sourceImages.delete(src))
+  if (sourceImages.size >= SOURCE_IMAGE_CACHE_LIMIT) {
+    const oldest = sourceImages.keys().next().value
+    if (oldest !== undefined) sourceImages.delete(oldest)
+  }
+  sourceImages.set(src, pending)
+  return pending
+}
+
+/**
  * Rasterize a CSS background value at the grid's resolution. Gradients and
  * solids have no canvas equivalent, so they are painted by the browser inside a
  * `<foreignObject>` and read back — cheap here because the grid is tiny.
@@ -465,7 +527,7 @@ async function sampleBackgroundPixelsUncached(
   if (!sourceCtx) return null
 
   if (background.type === "image") {
-    const img = await loadImage(readableImageUrl(background.value))
+    const img = await loadSourceImage(readableImageUrl(background.value))
     const [sx, sy, sw, sh] = asciiImageCoverRect(
       img.naturalWidth,
       img.naturalHeight,

@@ -9,7 +9,6 @@ import {
   ASCII_CHARSETS,
   ASCII_MAX_RESOLUTION,
   ASCII_MIN_RESOLUTION,
-  ASCII_RESOLUTION_PREVIEW_VAR,
 } from "@/lib/editor/ascii-backdrop"
 import type { BackdropAscii, BackdropPattern } from "@/lib/editor/state-types"
 import { BACKDROP_PATTERNS, patternCssFor } from "@/lib/editor/store"
@@ -51,6 +50,7 @@ export function PatternControl({
   setAscii,
   setPreviewVar,
   clearPreviewVarAfterPaint,
+  previewAsciiResolution,
 }: {
   popoverSide: "left" | "top"
   controlsVariant: "popover" | "inline"
@@ -69,6 +69,8 @@ export function PatternControl({
   setAscii: (patch: Partial<BackdropAscii>) => void
   setPreviewVar: (name: string, value: string | null) => void
   clearPreviewVarAfterPaint: (name: string) => void
+  /** Resolution the ASCII grid resamples at while the slider is dragged. */
+  previewAsciiResolution: (resolution: number | null) => void
 }) {
   const [tab, setTab] = React.useState<TextureTab>(
     asciiActive && !patternActive ? "ascii" : "pattern"
@@ -107,11 +109,11 @@ export function PatternControl({
               value={ascii.resolution}
               onChange={(v) => {
                 setAscii({ resolution: v })
-                clearPreviewVarAfterPaint(ASCII_RESOLUTION_PREVIEW_VAR)
+                // The committed grid is the one already on screen, so clearing
+                // the preview here resamples nothing.
+                previewAsciiResolution(null)
               }}
-              onPreview={(v) =>
-                setPreviewVar(ASCII_RESOLUTION_PREVIEW_VAR, String(v))
-              }
+              onPreview={(v) => previewAsciiResolution(v)}
               min={ASCII_MIN_RESOLUTION}
               max={ASCII_MAX_RESOLUTION}
               step={1}

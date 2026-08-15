@@ -6,14 +6,16 @@ import {
   ASCII_FONT_FAMILY,
   asciiGridSize,
   asciiPlateColor,
-  asciiResolutionPreviewTransform,
   asciiRunGeometry,
+  getAsciiResolutionPreview,
   gridFromImageData,
   monospaceAdvanceRatio,
   sampleBackgroundPixels,
+  subscribeAsciiResolutionPreview,
   type AsciiGrid,
 } from "@/lib/editor/ascii-backdrop"
 import type { BackdropAscii, Background } from "@/lib/editor/state-types"
+import { useCanvasScopeId, useCanvasSourceId } from "@/lib/editor/store"
 
 type Segment = { text: string; color: string; start: number }
 
@@ -45,8 +47,8 @@ function rowSegments(grid: AsciiGrid, row: number): Segment[] {
 /**
  * Package the glyph tree as one SVG image resource. Keeping the thousands of
  * coloured text runs out of the live DOM lets WebKit cache/composite the layer
- * as a replaced image while the screenshot moves, without sacrificing vector
- * text when html-to-image captures a high-resolution export.
+ * as a single image while the screenshot moves, without sacrificing vector text
+ * when html-to-image captures a high-resolution export.
  */
 function asciiSvgDataUrl({
   grid,
@@ -122,10 +124,20 @@ function AsciiBackdropImpl({
   opacity?: string
 }) {
   const hostRef = React.useRef<HTMLDivElement>(null)
+  const scopeId = useCanvasScopeId()
+  const sourceCanvasId = useCanvasSourceId()
+  // Preset thumbnails mount under a synthetic scope id but mirror a real
+  // canvas, so they read the source canvas's preview and track the drag too.
+  const previewCanvasId = sourceCanvasId ?? scopeId
+  const previewResolution = React.useSyncExternalStore(
+    subscribeAsciiResolutionPreview,
+    () => getAsciiResolutionPreview(previewCanvasId),
+    () => null
+  )
   const [size, setSize] = React.useState({ width: 0, height: 0 })
-  // Keep the last successful sample so a resolution commit (or a live-preview
-  // scale) can stay on screen until the next resample lands — swapping to
-  // `null` mid-drag is what made the backdrop blink.
+  // Keep the last successful sample so the next resolution can stay off screen
+  // until its resample lands — swapping to `null` mid-drag is what made the
+  // backdrop blink.
   const [sample, setSample] = React.useState<{
     pixels: Uint8ClampedArray
     cols: number
@@ -151,7 +163,7 @@ function AsciiBackdropImpl({
   // the glyphs without resampling the background. The budget only bites on very
   // tall canvases, where the row count would otherwise multiply out of hand.
   const { cols, rows } = asciiGridSize(
-    ascii.resolution,
+    previewResolution ?? ascii.resolution,
     size.width,
     size.height
   )
@@ -242,11 +254,6 @@ function AsciiBackdropImpl({
               height: size.height,
               maxWidth: "none",
               overflow: "hidden",
-              transform: asciiResolutionPreviewTransform(
-                displayCols,
-                ascii.resolution
-              ),
-              transformOrigin: "0 0",
             }}
           />
         ) : null}

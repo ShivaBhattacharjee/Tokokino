@@ -22,7 +22,11 @@ vi.mock("@/lib/editor/ascii-backdrop", async (importOriginal) => {
 })
 
 import { AsciiBackdrop } from "@/components/editor/canvas/ascii-backdrop"
-import { DEFAULT_BACKDROP_ASCII } from "@/lib/editor/ascii-backdrop"
+import {
+  DEFAULT_BACKDROP_ASCII,
+  setAsciiResolutionPreview,
+} from "@/lib/editor/ascii-backdrop"
+import { CanvasScope } from "@/lib/editor/store"
 
 let resize: ResizeObserverCallback | null = null
 
@@ -33,6 +37,19 @@ class FakeResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
+}
+
+function parseGlyphSvg(image: HTMLImageElement | null): Document {
+  const source = image?.getAttribute("src") ?? ""
+  const encodedSvg = source.slice(source.indexOf(",") + 1)
+  return new DOMParser().parseFromString(
+    decodeURIComponent(encodedSvg),
+    "image/svg+xml"
+  )
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
 describe("AsciiBackdrop SVG image", () => {
@@ -72,13 +89,12 @@ describe("AsciiBackdrop SVG image", () => {
     )
     expect(image).not.toBeNull()
     expect(container.querySelector("svg")).toBeNull()
+    // The plane is always exactly canvas-sized: nothing scales a stale grid.
+    expect(image?.style.width).toBe("200px")
+    expect(image?.style.height).toBe("100px")
+    expect(image?.style.transform).toBe("")
 
-    const source = image?.getAttribute("src") ?? ""
-    const encodedSvg = source.slice(source.indexOf(",") + 1)
-    const svgDocument = new DOMParser().parseFromString(
-      decodeURIComponent(encodedSvg),
-      "image/svg+xml"
-    )
+    const svgDocument = parseGlyphSvg(image)
     const svg = svgDocument.documentElement
     const rows = Array.from(svgDocument.querySelectorAll("text"))
     expect(svg.getAttribute("viewBox")).toBe("0 0 200 100")
@@ -88,5 +104,55 @@ describe("AsciiBackdrop SVG image", () => {
       expect(row.getAttribute("textLength")).toBe("200")
       expect(row.getAttribute("lengthAdjust")).toBe("spacingAndGlyphs")
     }
+  })
+
+  it("resamples the grid at the resolution a drag is previewing", async () => {
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver)
+    const { container } = render(
+      <CanvasScope id="canvas-1">
+        <AsciiBackdrop
+          background={{ type: "solid", value: "#fff" }}
+          ascii={{
+            ...DEFAULT_BACKDROP_ASCII,
+            enabled: true,
+            resolution: 20,
+            charset: "stars",
+            colored: false,
+          }}
+        />
+      </CanvasScope>
+    )
+
+    await act(async () => {
+      resize?.(
+        [{ contentRect: { width: 200, height: 100 } } as ResizeObserverEntry],
+        {} as ResizeObserver
+      )
+    })
+
+    const glyphs = () =>
+      container.querySelector<HTMLImageElement>(
+        'img[data-export-ascii-glyphs="true"]'
+      )
+    expect(parseGlyphSvg(glyphs()).querySelectorAll("text")).toHaveLength(5)
+
+    // Twice the columns is twice the rows — a real resample, not a scaled grid,
+    // so the drag can never show a different density than the commit will.
+    await act(async () => {
+      setAsciiResolutionPreview("canvas-1", 40)
+      await nextFrame()
+    })
+    const previewed = parseGlyphSvg(glyphs())
+    expect(previewed.querySelectorAll("text")).toHaveLength(10)
+    expect(previewed.documentElement.getAttribute("viewBox")).toBe(
+      "0 0 200 100"
+    )
+    expect(glyphs()?.style.width).toBe("200px")
+
+    await act(async () => {
+      setAsciiResolutionPreview("canvas-1", null)
+      await nextFrame()
+    })
+    expect(parseGlyphSvg(glyphs()).querySelectorAll("text")).toHaveLength(5)
   })
 })

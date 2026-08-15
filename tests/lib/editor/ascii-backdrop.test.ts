@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 
 import {
   ASCII_CHARSETS,
@@ -6,21 +6,23 @@ import {
   ASCII_MAX_CELLS,
   ASCII_MAX_OPACITY,
   ASCII_MIN_OPACITY,
+  ASCII_MAX_RESOLUTION,
   ASCII_MIN_RESOLUTION,
-  ASCII_RESOLUTION_PREVIEW_VAR,
   asciiGridSize,
   asciiImageCoverRect,
   asciiPlateColor,
-  asciiResolutionPreviewTransform,
   asciiRowCount,
   asciiRunGeometry,
   asciiSamplingSurfaceSize,
   DEFAULT_BACKDROP_ASCII,
+  getAsciiResolutionPreview,
   gridFromImageData,
   isAsciiBackdropActive,
   normalizeAsciiOpacity,
   resolveBackdropAscii,
   sampleBackgroundPixels,
+  setAsciiResolutionPreview,
+  subscribeAsciiResolutionPreview,
   waitForAsciiBackdrops,
 } from "@/lib/editor/ascii-backdrop"
 import type { Background } from "@/lib/editor/state-types"
@@ -335,14 +337,46 @@ describe("normalizeAsciiOpacity", () => {
   })
 })
 
-describe("asciiResolutionPreviewTransform", () => {
-  it("scales the painted grid against the live-preview var", () => {
-    expect(asciiResolutionPreviewTransform(90, 90)).toBe(
-      `scale(calc(90 / var(${ASCII_RESOLUTION_PREVIEW_VAR}, 90)))`
-    )
-    // Stale sample after a commit: keep the drag scale until resample lands.
-    expect(asciiResolutionPreviewTransform(90, 140)).toBe(
-      `scale(calc(90 / var(${ASCII_RESOLUTION_PREVIEW_VAR}, 140)))`
-    )
+describe("ascii resolution preview", () => {
+  afterEach(() => {
+    setAsciiResolutionPreview("canvas-a", null)
+    setAsciiResolutionPreview("canvas-b", null)
+  })
+
+  it("keeps a drag on the canvas it was dragged on", () => {
+    setAsciiResolutionPreview("canvas-a", 160)
+    expect(getAsciiResolutionPreview("canvas-a")).toBe(160)
+    expect(getAsciiResolutionPreview("canvas-b")).toBeNull()
+    expect(getAsciiResolutionPreview(null)).toBeNull()
+  })
+
+  it("clamps what the slider hands it to the renderable range", () => {
+    setAsciiResolutionPreview("canvas-a", ASCII_MAX_RESOLUTION + 500)
+    expect(getAsciiResolutionPreview("canvas-a")).toBe(ASCII_MAX_RESOLUTION)
+    setAsciiResolutionPreview("canvas-a", 0)
+    expect(getAsciiResolutionPreview("canvas-a")).toBe(ASCII_MIN_RESOLUTION)
+  })
+
+  it("falls back to the committed resolution once the drag clears", () => {
+    setAsciiResolutionPreview("canvas-a", 160)
+    setAsciiResolutionPreview("canvas-a", null)
+    expect(getAsciiResolutionPreview("canvas-a")).toBeNull()
+  })
+
+  it("notifies subscribers once per frame, and not at all for a no-op", async () => {
+    const seen: (number | null)[] = []
+    const unsubscribe = subscribeAsciiResolutionPreview(() => {
+      seen.push(getAsciiResolutionPreview("canvas-a"))
+    })
+    setAsciiResolutionPreview("canvas-a", 120)
+    setAsciiResolutionPreview("canvas-a", 140)
+    setAsciiResolutionPreview("canvas-a", 160)
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    expect(seen).toEqual([160])
+
+    setAsciiResolutionPreview("canvas-a", 160)
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    expect(seen).toEqual([160])
+    unsubscribe()
   })
 })

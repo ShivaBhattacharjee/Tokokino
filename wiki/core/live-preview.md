@@ -43,7 +43,7 @@ A preview that pins its own tilt (thumbnail showcase) sets the var on its stage 
 Examples (written by inspector sliders / elastic controls):
 
 - `--editor-padding-preview`
-- `--bd-ascii-resolution` / `--bd-ascii-opacity` — scale/fade the painted ASCII grid while dragging ([ascii-backdrop.md](./ascii-backdrop.md#live-preview))
+- `--bd-ascii-opacity` — fade the painted ASCII grid while dragging. Resolution is the exception to this whole mechanism: it resamples the grid instead of scaling it ([ascii-backdrop.md](./ascii-backdrop.md#live-preview))
 - Shadow / border / scale related preview vars (see call sites in inspector sections)
 
 Pattern: read in canvas components as `var(--editor-…-preview, <committed>)` or apply only while dragging.

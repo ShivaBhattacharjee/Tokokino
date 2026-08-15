@@ -56,14 +56,28 @@ UI: Texture tab in `inspector/backdrop-section-parts/pattern-control.tsx`. Reset
 
 ## Live preview
 
-Resolution and opacity sliders write CSS vars **without** a store commit (same pattern as [live-preview.md](./live-preview.md)):
+Opacity drags write a CSS var **without** a store commit (same pattern as
+[live-preview.md](./live-preview.md)); resolution cannot, because changing the
+column count changes the glyph grid itself:
 
-| Var | Role |
+| Control | Mechanism |
 |---|---|
-| `--bd-ascii-resolution` | Scale the currently painted grid so cell size matches the dragged column count (`asciiResolutionPreviewTransform`) |
-| `--bd-ascii-opacity` | Opacity while dragging |
+| Opacity | `--bd-ascii-opacity`, cleared on pointer-up after the commit paints |
+| Resolution | `setAsciiResolutionPreview(canvasId, cols)` — the grid resamples for real at the dragged column count |
 
-`displayedCols` (last sample) is the scale numerator so the drag does not flash back to 1× on a stale grid. Cleared on pointer-up after the committed sample paints.
+The resolution preview lives in `ascii-backdrop.ts` (a `Map` keyed by canvas +
+`useSyncExternalStore`), not in the editor store, so a drag stays off the undo
+stack and re-renders only the ASCII layers. Notifications coalesce to one per
+animation frame, and the resample is latest-wins.
+
+It is keyed by canvas so a drag doesn't restyle other canvases in bulk edit;
+preset thumbnails resolve their key through `useCanvasSourceId()`, which is how
+they track the drag despite mounting under a synthetic scope id.
+
+Earlier revisions faked the preview by scaling the painted grid with a
+`--bd-ascii-resolution` var. Don't reintroduce that: a scaled stale grid is
+either the wrong glyph density or too small to cover the canvas, and Blink and
+WebKit disagreed about which half of the compensating `calc()` applied.
 
 ---
 
