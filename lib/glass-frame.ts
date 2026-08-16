@@ -1,6 +1,8 @@
 export const GLASS_CARD_FRAME_ID = "glass-card"
 export const GLASS_STACK_FRAME_ID = "glass-stack"
 export const GLASS_STACK_2_FRAME_ID = "glass-stack-2"
+export const GLASS_FRAME_PREVIEW_IMAGE_URL =
+  "https://assets.tokokino.com/frames/glass-preview.webp"
 
 export const GLASS_FRAME_COLORS = ["dark", "light"] as const
 

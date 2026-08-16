@@ -27,7 +27,8 @@
     "prepare": "husky",
     "build:thumbs": "node scripts/build-overlay-thumbs.mjs",
     "build:backgrounds": "node --env-file-if-exists=.env.local scripts/build-background-thumbs.mjs",
-    "build:shapes": "node --env-file-if-exists=.env.local scripts/build-shapes.mjs"
+    "build:shapes": "node --env-file-if-exists=.env.local scripts/build-shapes.mjs",
+    "build:glass-preview": "node --env-file-if-exists=.env.local scripts/upload-glass-frame-preview.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

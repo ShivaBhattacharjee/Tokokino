@@ -67,7 +67,6 @@ import { Chrome } from "@/components/ui/chrome"
 import { Safari } from "@/components/ui/safari"
 import {
   ARC_BROWSER_FRAME_ID,
-  BROWSER_FRAME_PREVIEW_IMAGE_URL,
   BROWSER_FRAMES,
   CHROME_BROWSER_FRAME_ID,
   getBrowserFrame,
@@ -75,6 +74,7 @@ import {
 } from "@/lib/browser-frame"
 import { cn } from "@/lib/utils"
 import {
+  GLASS_FRAME_PREVIEW_IMAGE_URL,
   GLASS_FRAMES,
   getGlassFrame,
   isGlassFrame,
@@ -254,7 +254,6 @@ export function findFrameOptionName(id: string) {
 
 const FRAME_TILE_PREVIEW_WIDTH = 112
 const FRAME_TILE_PREVIEW_VIRTUAL_WIDTH = 240
-const FRAME_TILE_PREVIEW_IMAGE_URL = BROWSER_FRAME_PREVIEW_IMAGE_URL
 
 const FRAME_SEARCH_ALIASES: Record<string, string[]> = {
   iphone_17: ["apple"],
@@ -1235,7 +1234,7 @@ const GlassTilePreview = React.memo(function GlassTilePreview({
   const isVideo = isVideoSrc(screenshot)
   const imageSrc = isVideo
     ? undefined
-    : (screenshot ?? FRAME_TILE_PREVIEW_IMAGE_URL)
+    : (screenshot ?? GLASS_FRAME_PREVIEW_IMAGE_URL)
   const videoSrc = isVideo ? (screenshot ?? undefined) : undefined
 
   return (

@@ -41,6 +41,7 @@ Asset build scripts (run once after adding overlays/backgrounds/shapes):
 pnpm build:thumbs                 # overlay thumbnails
 pnpm build:backgrounds            # background thumbnails
 pnpm build:shapes                 # 3D shape manifest + thumbnails
+pnpm build:glass-preview          # glass-frame picker wallpaper → R2
 ```
 
 ---

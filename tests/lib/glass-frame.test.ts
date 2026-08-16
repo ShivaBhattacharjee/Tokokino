@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 
+import { BROWSER_FRAME_PREVIEW_IMAGE_URL } from "@/lib/browser-frame"
 import {
   GLASS_CARD_FRAME_ID,
+  GLASS_FRAME_PREVIEW_IMAGE_URL,
   GLASS_FRAMES,
   GLASS_STACK_2_FRAME_ID,
   GLASS_STACK_FRAME_ID,
@@ -35,6 +37,15 @@ describe("glass frame registry", () => {
 
   it("returns null for unknown frame ids instead of treating them as glass", () => {
     expect(getGlassFrame("glass-missing")).toBeNull()
+  })
+
+  it("uses a dedicated picker wallpaper instead of the macOS browser preview", () => {
+    expect(GLASS_FRAME_PREVIEW_IMAGE_URL).toBe(
+      "https://assets.tokokino.com/frames/glass-preview.webp"
+    )
+    expect(GLASS_FRAME_PREVIEW_IMAGE_URL).not.toBe(
+      BROWSER_FRAME_PREVIEW_IMAGE_URL
+    )
   })
 })
 

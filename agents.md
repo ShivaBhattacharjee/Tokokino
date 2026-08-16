@@ -26,6 +26,7 @@ Tokokino is a client-heavy Next.js 16 app deployed to Cloudflare Workers through
 | Add a new overlay texture | Drop PNG in the overlays directory, run `pnpm build:thumbs` |
 | Add a background pack | Add source images, run `pnpm build:backgrounds` (regenerates `lib/editor/backgrounds-data.json`) |
 | Add 3D shapes | Add assets, run `pnpm build:shapes` (regenerates `lib/editor/shapes-data.json`); UI in `inspector/shapes-section.tsx` |
+| Change the glass-frame picker wallpaper | `pnpm build:glass-preview` (`scripts/upload-glass-frame-preview.mjs`) + `GLASS_FRAME_PREVIEW_IMAGE_URL` in `lib/glass-frame.ts` |
 | Add a Google Font | `lib/editor/fonts.ts` → add to the fonts array |
 | Add/change a template | `lib/editor/templates/` — new file + entry in `catalog.ts`; applied by `apply.ts` |
 | Change easing options / the bezier editor | `lib/editor/clip-easing.ts` + `components/editor/animate/clip-transition-toolbar.tsx` + `bezier-curve-editor.tsx` |
