@@ -1,7 +1,10 @@
 import type { Template, TemplateTab } from "./types"
 import threeDTilt from "./3d-tilt"
 import animatedBrowser from "./animated-browser"
+import asciiCascade from "./ascii-cascade"
+import asciiCrown from "./ascii-crown"
 import asciiGlass from "./ascii-effect"
+import asciiNumber from "./ascii-number"
 import browserDark from "./browser-dark"
 import galaxySandStage from "./galaxy-sand-stage"
 import ipadShowcase from "./ipad-showcase"
@@ -34,6 +37,9 @@ export const TEMPLATES: Template[] = [
   browserDark,
   screenshotGlow,
   asciiGlass,
+  asciiCrown,
+  asciiCascade,
+  asciiNumber,
   silentReveal,
   // Animations
   productReveal,

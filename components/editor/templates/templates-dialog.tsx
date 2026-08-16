@@ -257,7 +257,7 @@ export function TemplatesDialog({
         {templateCountForTab(tab) === 0 ? (
           <EmptyState tab={tab} />
         ) : (
-          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 [&::-webkit-scrollbar]:w-1">
             <div className="grid grid-cols-1 items-start gap-x-4 gap-y-5 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {templates.map((template) => (
                 <TemplateCard

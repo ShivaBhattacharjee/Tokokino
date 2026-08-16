@@ -52,7 +52,19 @@ const releases: Release[] = [
       },
       {
         title: "ASCII Glass template",
-        text: "A ready-made look that pairs Glass Cascade with a binary ASCII backdrop. Open it from Templates and drop your shot in.",
+        text: "A ready-made look that pairs Glass Card with a blocks ASCII backdrop. Open it from Templates and drop your shot in.",
+      },
+      {
+        title: "ASCII Crown template",
+        text: "Glass Crown, blocks ASCII, and two 3D cones in the corners. Same Templates gallery as ASCII Glass.",
+      },
+      {
+        title: "ASCII Cascade template",
+        text: "Glass Cascade with full-opacity blocks ASCII on a fluid background. Open it from Templates.",
+      },
+      {
+        title: "ASCII Number template",
+        text: "No device frame, a grey border, and binary ASCII on a fluid background. Open it from Templates.",
       },
       {
         title: "Faster animation exports in Safari",

@@ -59,7 +59,7 @@ Template {
 
 Categories drive gallery filters. Animation templates should include a short loop preview when possible.
 
-**ASCII Glass** (`ascii-effect`) is an image template that pairs Glass Cascade with a binary ASCII backdrop — see [ascii-backdrop.md](./ascii-backdrop.md) and [device-frames.md](./device-frames.md#glass-frames).
+**ASCII Glass** (`ascii-effect`) is an image template that pairs Glass Card with a blocks ASCII backdrop. **ASCII Crown** (`ascii-crown`) uses Glass Crown, the same blocks ASCII, and two 3D cone shapes. **ASCII Cascade** (`ascii-cascade`) uses Glass Cascade with full-opacity blocks ASCII on a fluid background. **ASCII Number** (`ascii-number`) is frameless with a binary ASCII fluid backdrop. See [ascii-backdrop.md](./ascii-backdrop.md) and [device-frames.md](./device-frames.md#glass-frames).
 
 ---
 

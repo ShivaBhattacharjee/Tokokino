@@ -1,8 +1,8 @@
 import type { Template } from "./types"
 import { templateMeta } from "./catalog"
 
-const asciiGlass: Template = {
-  ...templateMeta["ascii-effect"],
+const asciiCrown: Template = {
+  ...templateMeta["ascii-crown"],
   state: {
     schemaVersion: 1,
     present: {
@@ -25,10 +25,10 @@ const asciiGlass: Template = {
           videoClips: null,
           background: {
             type: "image",
-            value: "https://assets.tokokino.com/Backgrounds/Mesh/peak.webp",
-            sourceUrl: "https://assets.tokokino.com/Backgrounds/Mesh/peak.webp",
+            value: "https://assets.tokokino.com/Backgrounds/Mesh/mesh7.webp",
+            sourceUrl: "https://assets.tokokino.com/Backgrounds/Mesh/mesh7.webp",
             thumbUrl:
-              "https://assets.tokokino.com/Backgrounds/Mesh/thumbs/peak.webp",
+              "https://assets.tokokino.com/Backgrounds/Mesh/thumbs/mesh7.webp",
           },
           padding: 40,
           borderRadius: 7,
@@ -76,7 +76,7 @@ const asciiGlass: Template = {
           screenshotOffset: { x: 0, y: 0 },
           objectFit: "contain",
           screenshotLayer: {
-            zIndex: 5,
+            zIndex: 3,
             opacity: 100,
             blendMode: "normal",
             hidden: false,
@@ -89,13 +89,44 @@ const asciiGlass: Template = {
           },
           overlay: { id: null, opacity: 50, position: "overlay" },
           frame: {
-            id: "glass-card",
+            id: "glass-stack-2",
             color: "dark",
             orientation: "horizontal",
           },
           portrait: { mode: "off", intensity: 60, position: 50, distance: 50 },
           texts: [],
-          assets: [],
+          assets: [
+            {
+              id: "c526b2aa-45dc-48cb-a864-445a00aa45e5",
+              src: "https://assets.tokokino.com/Shapes/free-1-cone1-transparent.webp",
+              xPct: 0,
+              yPct: 0,
+              widthPct: 25,
+              heightPct: null,
+              rotation: 133,
+              zIndex: 1,
+              opacity: 100,
+              filter: "none",
+              blendMode: "normal",
+              hidden: false,
+            },
+            {
+              id: "d64d271b-29ae-43fb-9d47-55f931dab66e",
+              src: "https://assets.tokokino.com/Shapes/free-1-cone1-transparent.webp",
+              xPct: 100,
+              yPct: 6.835726351351349,
+              widthPct: 25,
+              heightPct: null,
+              rotation: 234,
+              zIndex: 2,
+              opacity: 100,
+              filter: "none",
+              blendMode: "normal",
+              hidden: false,
+              flipX: false,
+              flipY: false,
+            },
+          ],
           enhance: "off",
           mediaAdjustments: {
             blur: 0,
@@ -136,4 +167,4 @@ const asciiGlass: Template = {
   },
 }
 
-export default asciiGlass
+export default asciiCrown

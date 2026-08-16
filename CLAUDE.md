@@ -538,7 +538,7 @@ Each preset has:
 
 ### Templates (`lib/editor/templates/`)
 
-20 ready-made compositions (`TEMPLATE_CATALOG` in `catalog.ts`), several of them animated. `apply.ts` writes a template onto the active canvas — including its animation clips — and `capture.ts` renders template thumbnails. UI lives in `components/editor/templates/templates-dialog.tsx`.
+23 ready-made compositions (`TEMPLATE_CATALOG` in `catalog.ts`), several of them animated. `apply.ts` writes a template onto the active canvas — including its animation clips — and `capture.ts` renders template thumbnails. UI lives in `components/editor/templates/templates-dialog.tsx`.
 
 ### 3D shapes (`lib/editor/shapes-data.json`)
 

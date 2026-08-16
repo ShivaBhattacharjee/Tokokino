@@ -121,7 +121,7 @@ Glass frost then samples the **painted** ASCII (or the background under it) as t
 
 ## Template
 
-**ASCII Glass** (`ascii-effect` in `lib/editor/templates/ascii-effect.ts`) pairs Glass Cascade with a binary, inverted ASCII cloud background. Catalog id `ascii-effect`, display name "ASCII Glass". See [templates.md](./templates.md).
+**ASCII Glass** (`ascii-effect` in `lib/editor/templates/ascii-effect.ts`) pairs Glass Card with a blocks, inverted ASCII mesh background. **ASCII Crown** (`ascii-crown`) uses Glass Crown, the same ASCII settings, mesh7, and two cone shapes in the corners. **ASCII Cascade** (`ascii-cascade`) uses Glass Cascade, full-opacity blocks ASCII, and a fluid background. **ASCII Number** (`ascii-number`) is frameless with full-opacity binary ASCII on the same fluid background. See [templates.md](./templates.md).
 
 ---
 
@@ -136,6 +136,9 @@ Glass frost then samples the **painted** ASCII (or the background under it) as t
 | `components/editor/canvas/canvas-backdrop.tsx` | Stack paint |
 | `components/editor/inspector/backdrop-section-parts/pattern-control.tsx` | Texture tab UI |
 | `lib/editor/templates/ascii-effect.ts` | ASCII Glass template |
+| `lib/editor/templates/ascii-crown.ts` | ASCII Crown template |
+| `lib/editor/templates/ascii-cascade.ts` | ASCII Cascade template |
+| `lib/editor/templates/ascii-number.ts` | ASCII Number template |
 | `tests/lib/editor/ascii-backdrop.test.ts` | Sample wait / paint |
 | `tests/lib/editor/animation-ascii.test.ts` | Stack / ownership |
 | `tests/lib/editor/animation-ascii-frame.test.ts` | Export frame |

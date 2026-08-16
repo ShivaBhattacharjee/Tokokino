@@ -36,8 +36,25 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     id: "ascii-effect",
     name: "ASCII Glass",
     category: "image",
-    thumbnail:
-      "https://assets.tokokino.com/templates/glass-ascii-background.jpg",
+    thumbnail: "https://assets.tokokino.com/templates/ascii-blocks.jpg",
+  },
+  {
+    id: "ascii-crown",
+    name: "ASCII Crown",
+    category: "image",
+    thumbnail: "https://assets.tokokino.com/templates/ascii-crown.jpg",
+  },
+  {
+    id: "ascii-cascade",
+    name: "ASCII Cascade",
+    category: "image",
+    thumbnail: "https://assets.tokokino.com/templates/ascii-cascade.jpg",
+  },
+  {
+    id: "ascii-number",
+    name: "ASCII Number",
+    category: "image",
+    thumbnail: "https://assets.tokokino.com/templates/ascii-number.jpg",
   },
   {
     id: "silent-reveal",

@@ -1,8 +1,8 @@
 import type { Template } from "./types"
 import { templateMeta } from "./catalog"
 
-const asciiGlass: Template = {
-  ...templateMeta["ascii-effect"],
+const asciiCascade: Template = {
+  ...templateMeta["ascii-cascade"],
   state: {
     schemaVersion: 1,
     present: {
@@ -25,10 +25,12 @@ const asciiGlass: Template = {
           videoClips: null,
           background: {
             type: "image",
-            value: "https://assets.tokokino.com/Backgrounds/Mesh/peak.webp",
-            sourceUrl: "https://assets.tokokino.com/Backgrounds/Mesh/peak.webp",
+            value:
+              "https://assets.tokokino.com/Backgrounds/Fluid/solen-feyissa-5nzyshozhx4-unsplash.jpg",
+            sourceUrl:
+              "https://assets.tokokino.com/Backgrounds/Fluid/solen-feyissa-5nzyshozhx4-unsplash.jpg",
             thumbUrl:
-              "https://assets.tokokino.com/Backgrounds/Mesh/thumbs/peak.webp",
+              "https://assets.tokokino.com/Backgrounds/Fluid/thumbs/solen-feyissa-5nzyshozhx4-unsplash.webp",
           },
           padding: 40,
           borderRadius: 7,
@@ -67,7 +69,7 @@ const asciiGlass: Template = {
               colored: true,
               inverted: true,
               color: "#FFFFFF",
-              opacity: 31,
+              opacity: 100,
             },
           },
           tilt: { rx: 0, ry: 0, rz: 0 },
@@ -76,7 +78,7 @@ const asciiGlass: Template = {
           screenshotOffset: { x: 0, y: 0 },
           objectFit: "contain",
           screenshotLayer: {
-            zIndex: 5,
+            zIndex: 3,
             opacity: 100,
             blendMode: "normal",
             hidden: false,
@@ -89,7 +91,7 @@ const asciiGlass: Template = {
           },
           overlay: { id: null, opacity: 50, position: "overlay" },
           frame: {
-            id: "glass-card",
+            id: "glass-stack",
             color: "dark",
             orientation: "horizontal",
           },
@@ -136,4 +138,4 @@ const asciiGlass: Template = {
   },
 }
 
-export default asciiGlass
+export default asciiCascade
