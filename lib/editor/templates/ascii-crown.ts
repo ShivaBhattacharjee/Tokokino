@@ -26,7 +26,8 @@ const asciiCrown: Template = {
           background: {
             type: "image",
             value: "https://assets.tokokino.com/Backgrounds/Mesh/mesh7.webp",
-            sourceUrl: "https://assets.tokokino.com/Backgrounds/Mesh/mesh7.webp",
+            sourceUrl:
+              "https://assets.tokokino.com/Backgrounds/Mesh/mesh7.webp",
             thumbUrl:
               "https://assets.tokokino.com/Backgrounds/Mesh/thumbs/mesh7.webp",
           },
