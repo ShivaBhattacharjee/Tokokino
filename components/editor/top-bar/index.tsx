@@ -1208,7 +1208,16 @@ export function TopBar() {
       const record = await cacheEditorShell(setOfflineProgress)
       setOfflineShell(record)
       capture("offline_install_toggled", { enabled: true })
+      // The last files land in one burst, so the finished bar has no frame to
+      // paint in before the card unmounts below — it reads as a capture that
+      // stopped halfway. Show the full bar, then hold it long enough to see.
+      setOfflineProgress({
+        label: "Saved the editor.",
+        current: record.files,
+        total: record.files,
+      })
       toast.success("The editor now opens without a connection")
+      await new Promise((resolve) => setTimeout(resolve, 900))
     } catch (err) {
       console.error("[offline]", err)
       // A half-cached shell boots into a broken editor — drop it.

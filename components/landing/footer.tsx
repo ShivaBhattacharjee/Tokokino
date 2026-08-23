@@ -53,8 +53,10 @@ const FOOTER_COLUMNS = [
     ],
   },
   {
-    title: "Legal",
+    title: "Project",
     links: [
+      { label: "About", href: "/about" },
+      { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
       { label: "DPA", href: "/dpa" },

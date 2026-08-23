@@ -158,15 +158,15 @@ export function HowItWorks() {
                       >
                         {step.eyebrow}
                       </p>
-                      <h3
+                      <span
                         className={
                           isActive
-                            ? "mt-1 text-[17px] font-semibold tracking-tight text-foreground"
-                            : "mt-1 text-[17px] font-medium tracking-tight text-foreground/82"
+                            ? "mt-1 block text-[17px] font-semibold tracking-tight text-foreground"
+                            : "mt-1 block text-[17px] font-medium tracking-tight text-foreground/82"
                         }
                       >
                         {step.title}
-                      </h3>
+                      </span>
                       <motion.div
                         initial={false}
                         animate={{

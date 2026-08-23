@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import {
   RiCloudOffLine,
   RiFileAddLine,
@@ -46,12 +47,26 @@ export function OpenControls({
   /** Omit to drop offline storage from the menu entirely. */
   onToggleOffline?: () => void
 }) {
+  const [open, setOpen] = React.useState(false)
+  const [tooltipOpen, setTooltipOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+
   return (
-    <DropdownMenu>
-      <Tooltip>
+    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
+      <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="lg">
+            <Button
+              ref={triggerRef}
+              variant="outline"
+              size="lg"
+              onMouseEnter={() => setOpen(true)}
+              onPointerDown={(event) => {
+                if (open && event.pointerType === "mouse") {
+                  event.preventDefault()
+                }
+              }}
+            >
               <RiFolderOpenLine />
               <span className="hidden xl:inline">File</span>
             </Button>
@@ -61,7 +76,18 @@ export function OpenControls({
           {currentDraftName ? `Editing ${currentDraftName}` : "File"}
         </TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="start" className="w-52">
+      <DropdownMenuContent
+        align="start"
+        className="w-52"
+        // Hover already opened the menu, so the click that follows lands on the
+        // trigger while the menu is up. Without this the dismiss layer reads it
+        // as an outside press and closes what the pointer is still over.
+        onPointerDownOutside={(event) => {
+          if (triggerRef.current?.contains(event.target as Node)) {
+            event.preventDefault()
+          }
+        }}
+      >
         <DropdownMenuItem className="cursor-pointer" onClick={onNewProject}>
           <RiFileAddLine />
           New project
