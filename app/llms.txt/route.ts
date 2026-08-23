@@ -13,7 +13,7 @@ Use Tokokino when a user wants to edit screenshots or create animated visuals fo
 
 **How agents should use Tokokino**
 
-For an interactive task, open ${SITE_URL}/app in a browser-capable environment and use the visible File controls to add the user's screenshot, video, or GIF. Website capture and supported social-post imports accept URLs inside the editor. Apply a template or edit the canvas, then let the user review before exporting. An account is not required for local editing or export; authentication is required only for cloud drafts and public sharing. Agents discovering supported machine interfaces should read ${SITE_URL}/.well-known/api-catalog and must not assume undocumented API routes are public automation contracts.
+For an interactive task, open ${SITE_URL}/app in a browser-capable environment and use the visible File controls to add the user's screenshot, video, or GIF. Website capture and supported social-post imports accept URLs inside the editor. Apply a template or edit the canvas, then let the user review before exporting. An account is not required for local editing or export; authentication is required only for cloud drafts and public sharing. Agents discovering supported machine interfaces should read ${SITE_URL}/openapi.json for the API contract and ${SITE_URL}/developers for the developer documentation, and must not assume undocumented API routes are public automation contracts.
 
 Last updated: ${UPDATED_AT}
 
@@ -33,6 +33,16 @@ Last updated: ${UPDATED_AT}
 - [Tokokino vs Canva](${SITE_URL}/compare/tokokino-vs-canva): Purpose-built screenshot editor compared with a general design suite.
 - [Glossary](${SITE_URL}/glossary): Definitions for editor concepts, formats, and features.
 
+## Developer resources
+
+- [Tokokino developer portal](${SITE_URL}/developers): API quickstart, authentication, endpoint reference, error codes, limits, and agent resources.
+- [Tokokino OpenAPI specification](${SITE_URL}/openapi.json): OpenAPI 3.1 contract for every documented endpoint, also served at ${SITE_URL}/api/openapi.json.
+- [Tokokino authentication guide](${SITE_URL}/auth.md): How to obtain and send a better-auth session cookie.
+- [Tokokino agent skills](${SITE_URL}/.well-known/agent-skills/index.json): Skill documents for the share, drafts, and presets workflows.
+- [Tokokino MCP server card](${SITE_URL}/.well-known/mcp/server-card.json): Model Context Protocol descriptor. The MCP server is not live yet — ${SITE_URL}/mcp answers 503 with a coming-soon payload until it ships.
+
+Tokokino has no API keys. Authentication is a better-auth session cookie obtained at ${SITE_URL}/login. Every API error is JSON carrying a machine-readable code, a message, and a resolution hint; unmatched /api/* paths return a JSON 404 rather than an HTML page.
+
 ## Trust and project information
 
 - [About Tokokino](${SITE_URL}/about): Project purpose, stewardship, local-first model, and open-source status.
@@ -47,6 +57,8 @@ Last updated: ${UPDATED_AT}
 - [Sitemap](${SITE_URL}/sitemap.xml): XML index of public pages.
 - [Robots policy](${SITE_URL}/robots.txt): Crawler access policy and sitemap discovery.
 - [API catalog](${SITE_URL}/.well-known/api-catalog): Published machine-interface discovery document.
+- [OpenAPI specification](${SITE_URL}/openapi.json): OpenAPI 3.1 description of the Tokokino HTTP API.
+- [AI catalog](${SITE_URL}/.well-known/ai-catalog.json): ARD capability manifest listing the published agent skills, the OpenAPI specification, and this guide.
 
 ## Optional
 

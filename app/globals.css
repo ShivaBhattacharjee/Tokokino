@@ -215,6 +215,32 @@
       stroke-dashoffset: 0;
     }
   }
+  /*
+    The hero entrance runs on CSS rather than motion's inline styles so the
+    server-rendered H1 and copy are not opacity:0 in the raw HTML — crawlers
+    and AI agents that never execute JS still see the page's primary content.
+    `backwards` holds the from-state through the delay, matching what
+    motion's initial/animate pair did.
+  */
+  @keyframes landing-rise {
+    from {
+      opacity: 0;
+      transform: translateY(var(--landing-rise-from, 8px));
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .landing-rise {
+    animation: landing-rise var(--landing-rise-duration, 0.6s)
+      cubic-bezier(0.22, 1, 0.36, 1) var(--landing-rise-delay, 0s) backwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .landing-rise {
+      animation: none;
+    }
+  }
   @keyframes hiw-float {
     0%,
     100% {

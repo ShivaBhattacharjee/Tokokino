@@ -56,6 +56,7 @@ const FOOTER_COLUMNS = [
     title: "Project",
     links: [
       { label: "About", href: "/about" },
+      { label: "Developers", href: "/developers" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },

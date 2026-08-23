@@ -85,8 +85,9 @@ describe("/api/account", () => {
     const response = await GET(request("GET"))
 
     expect(response.status).toBe(401)
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: "Sign in required",
+      code: "unauthorized",
     })
     expect(mocks.listSessions).not.toHaveBeenCalled()
   })

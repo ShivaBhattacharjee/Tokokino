@@ -1,8 +1,7 @@
 import Link from "next/link"
 import { motion, useMotionValue, useTransform, animate } from "motion/react"
-import { useEffect } from "react"
+import { useEffect, type CSSProperties } from "react"
 import { ArrowRight, StarIcon } from "@/components/landing/landing-svgs"
-import { ease } from "@/components/landing/constants"
 import { MockupFrame } from "@/components/landing/mockup-frame"
 
 function StarCount() {
@@ -63,20 +62,22 @@ function StarCount() {
 export function Hero() {
   return (
     <section className="relative px-4 pt-14 pb-14 sm:px-8 sm:pt-20 sm:pb-20 lg:px-12 lg:pt-20 lg:pb-20">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease }}
-        className="mx-auto flex w-full flex-col items-center gap-8 text-center"
+      <div
+        className="landing-rise mx-auto flex w-full flex-col items-center gap-8 text-center"
+        style={{ "--landing-rise-duration": "0.6s" } as CSSProperties}
       >
         <div className="flex max-w-5xl flex-col items-center text-center">
           <StarCount />
 
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease, delay: 0.1 }}
-            className="mt-3 text-[clamp(1.4rem,0.85rem+3.8vw,1.625rem)] leading-[1.1] font-medium tracking-[-0.035em] sm:text-5xl sm:leading-[1.06] sm:tracking-[-0.03em] lg:text-[4.2rem]"
+          <h1
+            style={
+              {
+                "--landing-rise-from": "12px",
+                "--landing-rise-duration": "0.7s",
+                "--landing-rise-delay": "0.1s",
+              } as CSSProperties
+            }
+            className="landing-rise mt-3 text-[clamp(1.4rem,0.85rem+3.8vw,1.625rem)] leading-[1.1] font-medium tracking-[-0.035em] sm:text-5xl sm:leading-[1.06] sm:tracking-[-0.03em] lg:text-[4.2rem]"
           >
             <span className="whitespace-nowrap">Make every product visual</span>
             <br />
@@ -104,13 +105,16 @@ export function Hero() {
                 />
               </svg>
             </span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease, delay: 0.3 }}
-            className="mt-5 max-w-xl text-[13px] leading-[1.5] text-foreground/60 sm:mt-6 sm:text-[15px] sm:leading-relaxed sm:text-balance"
+          <p
+            style={
+              {
+                "--landing-rise-duration": "0.6s",
+                "--landing-rise-delay": "0.3s",
+              } as CSSProperties
+            }
+            className="landing-rise mt-5 max-w-xl text-[13px] leading-[1.5] text-foreground/60 sm:mt-6 sm:text-[15px] sm:leading-relaxed sm:text-balance"
           >
             <span className="sm:hidden">
               Drop in a capture, post, or screen flow. Frame it, light it,
@@ -122,13 +126,16 @@ export function Hero() {
               animate key moments on a timeline, then export polished stills or
               GIF/WebM demos — fully in the browser.
             </span>
-          </motion.p>
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease, delay: 0.4 }}
-            className="mt-8 flex flex-row flex-wrap items-center justify-center gap-3"
+          <div
+            style={
+              {
+                "--landing-rise-duration": "0.6s",
+                "--landing-rise-delay": "0.4s",
+              } as CSSProperties
+            }
+            className="landing-rise mt-8 flex flex-row flex-wrap items-center justify-center gap-3"
           >
             <Link
               href="/app"
@@ -146,13 +153,13 @@ export function Hero() {
               <StarIcon className="size-3.5 text-yellow-400" />
               Star on GitHub
             </a>
-          </motion.div>
+          </div>
         </div>
 
         <div className="w-full max-w-6xl">
           <MockupFrame compact />
         </div>
-      </motion.div>
+      </div>
     </section>
   )
 }

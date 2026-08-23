@@ -1,7 +1,8 @@
 import "server-only"
 
-import { NextResponse } from "next/server"
+import type { NextResponse } from "next/server"
 
+import { apiError } from "@/lib/api-error"
 import { getAuth } from "@/lib/auth"
 import { env } from "@/lib/env"
 
@@ -27,10 +28,11 @@ export async function requireSession(
   if (!session) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: "Sign in required" },
-        { status: 401 }
-      ),
+      response: apiError({
+        status: 401,
+        code: "unauthorized",
+        message: "Sign in required",
+      }),
     }
   }
   return { ok: true, session }
@@ -45,14 +47,14 @@ export function assertTemplateMaintainer(
 ): NextResponse | null {
   const email = session.user.email?.trim().toLowerCase()
   if (!email) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return apiError({ status: 403, code: "forbidden", message: "Forbidden" })
   }
   const allowed = (env.TEMPLATE_MAINTAINER_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean)
   if (!allowed.includes(email)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return apiError({ status: 403, code: "forbidden", message: "Forbidden" })
   }
   return null
 }
@@ -73,7 +75,7 @@ export function assertOwner({
   ownerId: string | null | undefined
 }): NextResponse | null {
   if (!ownerId || ownerId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 })
+    return apiError({ status: 404, code: "not_found", message: "Not found" })
   }
   return null
 }

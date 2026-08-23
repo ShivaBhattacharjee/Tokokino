@@ -49,7 +49,8 @@ const nextConfig = {
         headers: [
           {
             key: "Link",
-            value: '</llms.txt>; rel="describedby", </sitemap.xml>; rel="sitemap", </.well-known/api-catalog>; rel="api-catalog"',
+            value:
+              '</llms.txt>; rel="describedby", </sitemap.xml>; rel="sitemap", </.well-known/api-catalog>; rel="api-catalog", </.well-known/ai-catalog.json>; rel="ai-catalog"',
           },
         ],
       },

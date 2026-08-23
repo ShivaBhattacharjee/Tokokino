@@ -10,6 +10,7 @@ export function GET() {
       url: SITE_URL,
     },
     endpoint: `${SITE_URL}/mcp`,
+    status: "coming_soon",
     capabilities: {
       tools: {},
       resources: {},

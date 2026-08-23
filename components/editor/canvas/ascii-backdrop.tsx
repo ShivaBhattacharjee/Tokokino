@@ -240,6 +240,9 @@ function AsciiBackdropImpl({
         }}
       >
         {glyphImageUrl ? (
+          // A runtime-generated SVG data URL that export reads back off the
+          // DOM; next/image cannot optimize it and its wrapper breaks capture.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             aria-hidden
             data-export-ascii-glyphs="true"

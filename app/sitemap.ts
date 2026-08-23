@@ -96,6 +96,12 @@ const routes = [
     lastModified: "2026-08-09",
   },
   {
+    path: "/developers",
+    changeFrequency: "monthly",
+    priority: 0.7,
+    lastModified: "2026-08-23",
+  },
+  {
     path: "/about",
     changeFrequency: "monthly",
     priority: 0.6,

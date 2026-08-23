@@ -37,12 +37,12 @@ export default function ContactPage() {
       title="Choose the channel that fits the message."
       summary="Tokokino is an independent open-source project. These routes reach the maintainer without requiring a public phone number, street address, or support form."
     >
-      <article className="max-w-3xl">
+      <article className="w-full">
         <div className="divide-y divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background/55">
           {channels.map((channel, index) => (
             <section
               key={channel.href}
-              className="grid gap-4 p-6 sm:grid-cols-[9rem_1fr] sm:gap-8 sm:p-7"
+              className="grid gap-4 p-6 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-10 sm:p-7"
             >
               <div>
                 <span className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">

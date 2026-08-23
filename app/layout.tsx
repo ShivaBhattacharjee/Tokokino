@@ -231,6 +231,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://assets.tokokino.com" />
         <link rel="dns-prefetch" href="https://assets.tokokino.com" />
+        <link rel="ai-catalog" href="/.well-known/ai-catalog.json" />
         {/*
           The resource-timing buffer holds 250 entries by default and silently
           drops everything after that. A chunk-heavy editor boot can fill it,

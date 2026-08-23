@@ -4,14 +4,27 @@ export function GET() {
   const catalog = {
     linkset: [
       {
-        anchor: `${SITE_URL}/api/share`,
-        "service-doc": [{ href: `${SITE_URL}/llms.txt`, type: "text/plain" }],
+        anchor: `${SITE_URL}/api`,
         "service-desc": [
           {
-            href: `${SITE_URL}/.well-known/api-catalog`,
-            type: "application/linkset+json",
+            href: `${SITE_URL}/openapi.json`,
+            type: "application/vnd.oai.openapi+json",
           },
         ],
+        "service-doc": [
+          { href: `${SITE_URL}/developers`, type: "text/html" },
+          { href: `${SITE_URL}/llms.txt`, type: "text/markdown" },
+        ],
+      },
+      {
+        anchor: `${SITE_URL}/api/share`,
+        "service-desc": [
+          {
+            href: `${SITE_URL}/openapi.json`,
+            type: "application/vnd.oai.openapi+json",
+          },
+        ],
+        "service-doc": [{ href: `${SITE_URL}/llms.txt`, type: "text/plain" }],
       },
       {
         anchor: `${SITE_URL}/api/drafts`,
