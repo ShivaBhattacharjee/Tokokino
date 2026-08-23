@@ -247,7 +247,29 @@ export default function DevelopersPage() {
                 <h3 className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
                   {group.group}
                 </h3>
-                <div className="mt-3 overflow-x-auto">
+                {/* Stacked cards for mobile */}
+                <div className="mt-3 flex flex-col gap-3 sm:hidden">
+                  {group.rows.map(([method, path, purpose]) => (
+                    <div
+                      key={`${method} ${path}`}
+                      className="rounded-md border border-border/40 px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] font-medium text-primary/80">
+                          {method}
+                        </span>
+                        <span className="font-mono text-[11px] text-foreground/75">
+                          {path}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[12px] leading-5 text-foreground/58">
+                        {purpose}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {/* Table for sm+ screens */}
+                <div className="mt-3 hidden sm:block">
                   <table className="w-full border-collapse text-left text-[13px]">
                     <thead>
                       <tr className="border-b border-border/50 text-foreground/45">
@@ -296,7 +318,29 @@ export default function DevelopersPage() {
             repeats <span className="font-mono text-[12px]">message</span> so
             that existing clients reading a plain string keep working.
           </p>
-          <div className="mt-5 overflow-x-auto">
+          {/* Stacked cards for mobile */}
+          <div className="mt-5 flex flex-col gap-3 sm:hidden">
+            {ERROR_CODES.map(([code, status, meaning]) => (
+              <div
+                key={code}
+                className="rounded-md border border-border/40 px-3 py-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] font-medium text-primary/80">
+                    {code}
+                  </span>
+                  <span className="font-mono text-[11px] text-foreground/50">
+                    {status}
+                  </span>
+                </div>
+                <p className="mt-1 text-[12px] leading-5 text-foreground/58">
+                  {meaning}
+                </p>
+              </div>
+            ))}
+          </div>
+          {/* Table for sm+ screens */}
+          <div className="mt-5 hidden sm:block">
             <table className="w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-border/50 text-foreground/45">
