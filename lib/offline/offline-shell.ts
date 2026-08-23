@@ -96,9 +96,10 @@ export async function cacheEditorShell(
   const shell = await caches.open(SHELL_CACHE)
 
   onProgress({ label: "Preparing…", current: 0, total: 0 })
-  const urls = await collectShellUrls(shell)
+  const { urls, optional } = await collectShellUrls(shell)
 
   let stored = 0
+  let done = 0
   let bytes = 0
   // A chunk that never landed means the next offline boot fails on it, so the
   // manifest must not claim success — the caller drops the whole cache instead
@@ -108,14 +109,17 @@ export async function cacheEditorShell(
   await mapWithConcurrency(urls, SHELL_CONCURRENCY, async (url) => {
     const size = await cacheUrl(shell, url)
     if (size === null) {
-      if (!OPTIONAL_SHELL_URLS.includes(url)) missing.push(url)
+      if (!optional.has(url)) missing.push(url)
     } else {
       bytes += size
       stored += 1
     }
+    // Counts files worked through, not files stored: an optional one that 404s
+    // is done with, and leaving it out would strand the bar short of the end.
+    done += 1
     onProgress({
       label: "Saving the editor…",
-      current: stored,
+      current: done,
       total: urls.length,
     })
   })
@@ -150,6 +154,11 @@ export async function cacheEditorShell(
  */
 async function collectShellUrls(shell: Cache) {
   const urls = new Set<string>(OPTIONAL_SHELL_URLS)
+  // Files whose absence must not fail the capture. The markup below names what
+  // the next boot will actually request; anything else is a warm-up that the
+  // worker can also top up later, and in dev a chunk this session loaded may
+  // already have been rebuilt under a new name.
+  const optional = new Set<string>(OPTIONAL_SHELL_URLS)
 
   // The editor's one lazily loaded feature — the AV1 export fallback — is in
   // neither source below until something has triggered it, so a capture taken
@@ -158,7 +167,6 @@ async function collectShellUrls(shell: Cache) {
   const { dav1dWasmUrl, preloadDav1dChunk } =
     await import("@/lib/editor/animation-export/video-media/dav1d-preload")
   await preloadDav1dChunk()
-  urls.add(dav1dWasmUrl)
 
   for (const entry of performance.getEntriesByType("resource")) {
     if (!entry.name.startsWith(`${location.origin}/`)) continue
@@ -167,7 +175,10 @@ async function collectShellUrls(shell: Cache) {
     // Dev-only traffic that is meaningless (and stale) offline.
     if (path.includes("hot-update") || path.includes("webpack-hmr")) continue
     urls.add(entry.name)
+    optional.add(entry.name)
   }
+  urls.add(dav1dWasmUrl)
+  optional.delete(dav1dWasmUrl)
 
   const response = await fetch(EDITOR_PATH, { credentials: "include" })
   if (!response.ok) {
@@ -180,11 +191,46 @@ async function collectShellUrls(shell: Cache) {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     })
   )
-  for (const match of html.matchAll(/\/_next\/static\/[^"'\\\s)]+/g)) {
-    urls.add(new URL(match[0], location.origin).toString())
+  for (const source of [html, flightPayload(html)]) {
+    for (const match of source.matchAll(SHELL_URL_PATTERN)) {
+      if (!isCompleteAssetPath(match[0])) continue
+      const url = new URL(match[0], location.origin).toString()
+      urls.add(url)
+      optional.delete(url)
+    }
   }
 
-  return [...urls]
+  return { urls: [...urls], optional }
+}
+
+const SHELL_URL_PATTERN = /\/_next\/static\/[^"'\\\s)]+/g
+const SHELL_ASSET_EXTENSION =
+  /\.(?:js|mjs|css|wasm|woff2?|ttf|otf|png|jpe?g|webp|avif|gif|svg|ico|json)$/i
+
+/**
+ * The flight payload arrives as a series of `self.__next_f.push` calls whose
+ * string fragments are cut at arbitrary offsets, so a chunk URL can straddle
+ * two of them. Re-joining the fragments is what makes those URLs scrapeable —
+ * scanning the raw markup yields a truncated head that 404s and a tail that no
+ * longer starts with `/_next/`.
+ */
+function flightPayload(html: string) {
+  let payload = ""
+  for (const match of html.matchAll(
+    /self\.__next_f\.push\(\[\d+,\s*("(?:[^"\\]|\\.)*")/g
+  )) {
+    try {
+      payload += JSON.parse(match[1]) as string
+    } catch {
+      // A fragment we cannot decode just contributes no URLs.
+    }
+  }
+  return payload
+}
+
+/** Guards against a fragment boundary that survived the re-join above. */
+function isCompleteAssetPath(path: string) {
+  return SHELL_ASSET_EXTENSION.test(path)
 }
 
 /** Caches one URL. Returns the bytes stored, or null if it did not land. */
