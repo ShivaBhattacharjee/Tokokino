@@ -78,7 +78,9 @@ beforeEach(() => {
     if (url === "/app") {
       return Promise.resolve(new Response(editorHtml(), { status: 200 }))
     }
-    if (url === STALE_CHUNK || !url.startsWith(ORIGIN)) {
+    const resolved = new URL(url, ORIGIN)
+    const isSameOrigin = resolved.origin === ORIGIN
+    if (url === STALE_CHUNK || !isSameOrigin) {
       return Promise.resolve(new Response("", { status: 404 }))
     }
     return Promise.resolve(new Response("chunk", { status: 200 }))
