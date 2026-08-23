@@ -6,7 +6,8 @@ import { RiMailLine } from "@remixicon/react"
 import { GithubGlyph, TwitterGlyph } from "@/components/landing/landing-svgs"
 
 const FOOTER_LINKS = [
-  { label: "About", href: "/" },
+  { label: "About", href: "/about" },
+  { label: "Contact", href: "/contact" },
   { label: "Changelog", href: "/changelog" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
