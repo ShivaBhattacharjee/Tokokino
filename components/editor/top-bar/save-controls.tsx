@@ -78,13 +78,24 @@ export function SaveControls({
   // force it shut while the popover is open — flipping between a boolean and
   // undefined would make Radix warn about switching controlled/uncontrolled.
   const [tooltipOpen, setTooltipOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null)
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="lg">
+            <Button
+              ref={triggerRef}
+              variant="outline"
+              size="lg"
+              onMouseEnter={() => onOpenChange(true)}
+              onPointerDown={(event) => {
+                if (open && event.pointerType === "mouse") {
+                  event.preventDefault()
+                }
+              }}
+            >
               <RiSaveLine />
               <span className="hidden xl:inline">Save</span>
             </Button>
@@ -96,6 +107,14 @@ export function SaveControls({
         align="center"
         sideOffset={12}
         className="w-[min(calc(100vw-2rem),320px)] gap-2 rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-2xl backdrop-blur-md data-open:zoom-in-95 data-closed:zoom-out-95"
+        // Hover already opened the popover, so the click that follows lands on
+        // the trigger while it is up. Without this the dismiss layer reads it
+        // as an outside press and closes what the pointer is still over.
+        onPointerDownOutside={(event) => {
+          if (triggerRef.current?.contains(event.target as Node)) {
+            event.preventDefault()
+          }
+        }}
       >
         <div className="px-1 pt-1 pb-2">
           <p className="text-sm font-medium">Save</p>

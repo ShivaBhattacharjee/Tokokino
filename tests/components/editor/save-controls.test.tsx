@@ -1,3 +1,4 @@
+import * as React from "react"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
@@ -16,6 +17,29 @@ const baseProps = {
 }
 
 describe("SaveControls", () => {
+  it("opens save options when the trigger is hovered", async () => {
+    const user = userEvent.setup()
+
+    function HoverableSaveControls() {
+      const [open, setOpen] = React.useState(false)
+      return (
+        <TooltipProvider>
+          <SaveControls
+            open={open}
+            currentDraft={null}
+            {...baseProps}
+            onOpenChange={setOpen}
+          />
+        </TooltipProvider>
+      )
+    }
+
+    render(<HoverableSaveControls />)
+    await user.hover(screen.getByRole("button", { name: "Save" }))
+
+    expect(await screen.findByText("Save as preset")).toBeVisible()
+  })
+
   it("shows save options when the popover is open", () => {
     render(
       <TooltipProvider>
