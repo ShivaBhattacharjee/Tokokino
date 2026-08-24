@@ -1,8 +1,6 @@
 const VIDEO_EXTENSION_RE = /\.(mp4|webm|ogv|mov|m4v)(\?.*)?$/i
 const DRAFT_MEDIA_URL_RE = /\/api\/drafts\/media\/[0-9a-f-]{36}(?:\?.*)?$/i
 
-export const VIDEO_SIZE_LIMIT = 1024 * 1024 * 1024
-
 // blob: URLs carry no MIME hint, so remember which ones point at a video.
 const videoObjectUrls = new Set<string>()
 

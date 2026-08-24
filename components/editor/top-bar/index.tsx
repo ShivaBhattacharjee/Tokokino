@@ -71,8 +71,8 @@ import {
   createVideoObjectUrl,
   isVideoFile,
   isVideoSrc,
-  VIDEO_SIZE_LIMIT,
 } from "@/lib/editor/media-type"
+import { confirmVideoImport } from "@/lib/editor/video-capacity"
 import {
   downloadDraftVideos,
   inlineDraftImageBlobs,
@@ -396,21 +396,18 @@ export function TopBar() {
         return
       }
 
-      if (file.size > VIDEO_SIZE_LIMIT) {
-        toast.error("Video is too large (max 1 GB)")
-        e.target.value = ""
-        return
-      }
-
-      capture("screenshot_added", {
-        source: "browse",
-        media_kind: "video",
-        size_bytes: file.size,
-        target: "main",
-      })
-      setScreenshot(createVideoObjectUrl(file))
-      toast.success("Video added")
       e.target.value = ""
+      void confirmVideoImport(file).then((proceed) => {
+        if (!proceed) return
+        capture("screenshot_added", {
+          source: "browse",
+          media_kind: "video",
+          size_bytes: file.size,
+          target: "main",
+        })
+        setScreenshot(createVideoObjectUrl(file))
+        toast.success("Video added")
+      })
     },
     [activeCanvasSlotCount, selectedScreenshotSlotId, setScreenshot]
   )

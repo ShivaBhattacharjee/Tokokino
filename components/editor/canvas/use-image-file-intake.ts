@@ -11,8 +11,8 @@ import {
   isGifFile,
   isVideoFile,
   registerObjectUrl,
-  VIDEO_SIZE_LIMIT,
 } from "@/lib/editor/media-type"
+import { confirmVideoImport } from "@/lib/editor/video-capacity"
 
 // Only re-encode screenshots when they're truly oversized — leaves typical
 // 1–5 MB phone screenshots untouched and pixel-perfect.
@@ -93,17 +93,16 @@ export function useImageFileIntake(
           toast.error("Videos can only be used as a single screenshot")
           return
         }
-        if (file.size > VIDEO_SIZE_LIMIT) {
-          toast.error("Video is too large (max 1 GB)")
-          return
-        }
-        capture("screenshot_added", {
-          source,
-          media_kind: "video",
-          size_bytes: file.size,
+        void confirmVideoImport(file).then((proceed) => {
+          if (!proceed) return
+          capture("screenshot_added", {
+            source,
+            media_kind: "video",
+            size_bytes: file.size,
+          })
+          // Play straight from an object URL — no base64, no size blow-up.
+          onImage(createVideoObjectUrl(file))
         })
-        // Play straight from an object URL — no base64, no size blow-up.
-        onImage(createVideoObjectUrl(file))
         return
       }
 

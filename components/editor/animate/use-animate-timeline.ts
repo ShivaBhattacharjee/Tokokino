@@ -25,9 +25,9 @@ import {
   createVideoObjectUrl,
   isVideoFile,
   isVideoSrc,
-  VIDEO_SIZE_LIMIT,
   videoElementHasAudio,
 } from "@/lib/editor/media-type"
+import { confirmVideoImport } from "@/lib/editor/video-capacity"
 import { isApplePlatform } from "@/lib/editor/shortcuts"
 import { fullPageCaptureMediaStyle } from "@/lib/editor/full-page-capture"
 import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
@@ -970,11 +970,9 @@ export function useAnimateTimeline() {
           toast.error("Videos can only be used as a single screenshot")
           return
         }
-        if (file.size > VIDEO_SIZE_LIMIT) {
-          toast.error("Video is too large (max 1 GB)")
-          return
-        }
-        setScreenshot(createVideoObjectUrl(file))
+        void confirmVideoImport(file).then((proceed) => {
+          if (proceed) setScreenshot(createVideoObjectUrl(file))
+        })
         return
       }
       if (!file.type.startsWith("image/")) {

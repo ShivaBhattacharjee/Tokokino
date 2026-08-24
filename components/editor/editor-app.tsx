@@ -6,6 +6,7 @@ import { DeferredMount } from "@/components/editor/deferred-mount"
 import { EffectsSidebar } from "@/components/editor/effects-sidebar"
 import { EditorErrorBoundary } from "@/components/editor/error-boundary"
 import { CanvasSkeleton } from "@/components/editor/canvas-skeleton"
+import { VideoCapacityDialog } from "@/components/editor/canvas/video-capacity-dialog"
 import {
   EffectsSidebarSkeleton,
   InspectorSkeleton,
@@ -372,6 +373,7 @@ export default function EditorApp() {
   return (
     <EditorProvider>
       <EditorLayout />
+      <VideoCapacityDialog />
     </EditorProvider>
   )
 }
