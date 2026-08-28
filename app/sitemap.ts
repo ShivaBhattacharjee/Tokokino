@@ -33,18 +33,6 @@ const routes = [
     lastModified: LANDING_MODIFIED,
   },
   {
-    path: "/#use-cases",
-    changeFrequency: "weekly",
-    priority: 0.8,
-    lastModified: LANDING_MODIFIED,
-  },
-  {
-    path: "/#how-it-works",
-    changeFrequency: "weekly",
-    priority: 0.8,
-    lastModified: LANDING_MODIFIED,
-  },
-  {
     path: "/#faq",
     changeFrequency: "weekly",
     priority: 0.7,
@@ -55,6 +43,18 @@ const routes = [
     changeFrequency: "weekly",
     priority: 0.7,
     lastModified: LANDING_MODIFIED,
+  },
+  {
+    path: "/use-cases",
+    changeFrequency: "monthly",
+    priority: 0.8,
+    lastModified: "2026-08-28",
+  },
+  {
+    path: "/how-it-works",
+    changeFrequency: "monthly",
+    priority: 0.8,
+    lastModified: "2026-08-28",
   },
   {
     path: "/showcase",

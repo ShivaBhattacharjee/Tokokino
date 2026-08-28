@@ -9,7 +9,12 @@ import {
 } from "@/components/ui/accordion"
 import { ease } from "@/components/landing/constants"
 
-const faqs = [
+export type FaqItem = {
+  q: string
+  a: string
+}
+
+const faqs: readonly FaqItem[] = [
   {
     q: "Do I need an account to use Tokokino?",
     a: "No account needed to edit and export. You can drop in a capture, style it, animate it, and download a PNG/JPEG/WebP or GIF/WebM right away — no sign-in required. An account (email or Google) is only needed if you want to create public share links or access your share history.",
@@ -64,11 +69,11 @@ const faqs = [
   },
 ]
 
-function FaqColumn({
+export function FaqColumn({
   items,
   offset = 0,
 }: {
-  items: typeof faqs
+  items: readonly FaqItem[]
   offset?: number
 }) {
   return (

@@ -20,8 +20,8 @@ const links = [
   { label: "Features", href: "#features" },
   { label: "Templates", href: "#templates" },
   { label: "Comparison", href: "#comparison" },
-  { label: "Use cases", href: "#use-cases" },
-  { label: "How it works", href: "#how-it-works" },
+  { label: "Use cases", href: "/use-cases" },
+  { label: "How it works", href: "/how-it-works" },
   { label: "Contact", href: "#contact" },
 ]
 

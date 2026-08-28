@@ -26,6 +26,8 @@ Last updated: ${UPDATED_AT}
 
 ## Product guides
 
+- [How it works](${SITE_URL}/how-it-works): Step-by-step walkthrough of capture, framing, styling, annotation, animation, and export.
+- [Use cases](${SITE_URL}/use-cases): Launch posts, store listings, demo clips, changelog images, docs stills, and social proof.
 - [Comparisons](${SITE_URL}/compare): Tokokino compared with adjacent screenshot and design tools.
 - [Tokokino vs PostSpark](${SITE_URL}/compare/tokokino-vs-postspark): Screenshot, social-post, video, and storage workflow comparison.
 - [Tokokino vs Pika](${SITE_URL}/compare/tokokino-vs-pika): Image-first mockup and animated-demo workflow comparison.

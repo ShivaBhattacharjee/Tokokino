@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { motion } from "motion/react"
+import { ArrowRight } from "@/components/landing/landing-svgs"
 import { ease } from "@/components/landing/constants"
 import { ShimmerImage } from "@/components/ui/shimmer-image"
 
@@ -100,6 +102,14 @@ export function HowItWorks() {
           mockups, and timeline animations. Click a step to move the spotlight
           over the matching part of the flow.
         </p>
+
+        <Link
+          href="/how-it-works"
+          className="group inline-flex w-fit items-center gap-2 rounded-md border border-border/70 bg-background/40 px-4 py-2 text-sm font-medium text-foreground/80 backdrop-blur-sm transition hover:border-primary/50 hover:text-foreground"
+        >
+          Read the full walkthrough
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </motion.div>
 
       <div className="relative overflow-hidden rounded-md border border-border/70 bg-background/55 backdrop-blur-md">
