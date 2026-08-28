@@ -1,14 +1,23 @@
 export const RAIL_V_STYLE: React.CSSProperties = {
   backgroundImage:
-    "repeating-linear-gradient(to bottom, var(--rail) 0px, var(--rail) 6px, transparent 6px, transparent 14px), repeating-linear-gradient(to bottom, var(--rail) 0px, var(--rail) 6px, transparent 6px, transparent 14px)",
-  backgroundSize: "1px 100%, 1px 100%",
+    "linear-gradient(to bottom, var(--rail) 0px, var(--rail) 6px, transparent 6px, transparent 14px), linear-gradient(to bottom, var(--rail) 0px, var(--rail) 6px, transparent 6px, transparent 14px)",
+  backgroundSize: "1px 14px, 1px 14px",
   backgroundPosition: "left top, right top",
-  backgroundRepeat: "no-repeat, no-repeat",
+  backgroundRepeat: "repeat-y, repeat-y",
 }
 
-export const RAIL_H_STYLE: React.CSSProperties = {
+export const RAIL_H_LEFT_STYLE: React.CSSProperties = {
   backgroundImage:
-    "repeating-linear-gradient(to right, var(--rail) 0px, var(--rail) 6px, transparent 6px, transparent 14px)",
-  backgroundSize: "100% 1px",
-  backgroundRepeat: "no-repeat",
+    "linear-gradient(to left, var(--rail) 0px, var(--rail) 6px, transparent 6px, transparent 14px)",
+  backgroundSize: "14px 1px",
+  backgroundPosition: "calc(100% + 3px) top",
+  backgroundRepeat: "repeat-x",
+}
+
+export const RAIL_H_RIGHT_STYLE: React.CSSProperties = {
+  backgroundImage:
+    "linear-gradient(to right, var(--rail) 0px, var(--rail) 6px, transparent 6px, transparent 14px)",
+  backgroundSize: "14px 1px",
+  backgroundPosition: "-3px top",
+  backgroundRepeat: "repeat-x",
 }
