@@ -117,4 +117,4 @@ export const FEATURES = [
     d: "Publish any composition to a public link with view tracking, or copy straight to your clipboard — no export step needed.",
     tone: "primary" as const,
   },
-]
+] as const

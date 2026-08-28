@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react"
 import Link from "next/link"
 
 import { DashedH } from "@/components/landing/dashed-h"
+import { DitherField } from "@/components/landing/dither-field"
 import { FaqColumn } from "@/components/landing/faq"
 import { FinalCta } from "@/components/landing/final-cta"
 import { Footer } from "@/components/landing/footer"
@@ -355,7 +356,20 @@ export default function HowItWorksPage() {
       <DashedH />
 
       <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
-        <section className="landing-page-in relative flex flex-col items-center px-5 pt-14 pb-14 text-center sm:px-8 sm:pt-20 sm:pb-20 lg:px-12">
+        <section className="landing-page-in relative flex flex-col items-center overflow-hidden px-5 pt-14 pb-14 text-center sm:px-8 sm:pt-20 sm:pb-20 lg:px-12">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 opacity-35"
+            style={{
+              maskImage:
+                "linear-gradient(to top left, black 5%, transparent 62%)",
+              WebkitMaskImage:
+                "linear-gradient(to top left, black 5%, transparent 62%)",
+            }}
+          >
+            <DitherField cell={6} speed={0.35} intensity={0.7} />
+          </div>
+
           <span
             style={{ "--landing-rise-duration": "0.6s" } as CSSProperties}
             className="landing-rise font-mono text-[10px] tracking-[0.28em] text-primary/80 uppercase"
@@ -370,7 +384,7 @@ export default function HowItWorksPage() {
                 "--landing-rise-delay": "0.1s",
               } as CSSProperties
             }
-            className="landing-rise mt-5 max-w-4xl text-[clamp(1.4rem,0.85rem+3.8vw,1.625rem)] leading-[1.1] font-medium tracking-[-0.035em] text-balance sm:text-5xl sm:leading-[1.06] sm:tracking-[-0.03em] lg:text-[3.75rem]"
+            className="landing-rise mt-5 max-w-5xl text-[clamp(1.4rem,0.85rem+3.8vw,1.625rem)] leading-[1.1] font-medium tracking-[-0.035em] text-balance sm:text-5xl sm:leading-[1.06] sm:tracking-[-0.03em] lg:text-[3.75rem]"
           >
             From a raw capture to{" "}
             <span className="text-primary">something worth shipping.</span>

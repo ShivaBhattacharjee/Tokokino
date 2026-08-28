@@ -155,7 +155,7 @@ export function TemplatesShowcase() {
       >
         <Link
           href="/showcase"
-          className="group inline-flex items-center gap-2 rounded-md border border-border/70 bg-background/40 px-5 py-2.5 text-sm font-medium text-foreground/80 backdrop-blur-sm transition hover:border-primary/50 hover:text-foreground"
+          className="group inline-flex items-center gap-2 rounded-md border border-border/70 bg-background/40 px-5 py-2.5 text-sm font-medium text-primary backdrop-blur-sm transition hover:border-primary/45 hover:text-primary/80"
         >
           Browse all templates
           <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />

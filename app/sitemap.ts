@@ -15,10 +15,10 @@ const routes = [
     lastModified: LANDING_MODIFIED,
   },
   {
-    path: "/#features",
-    changeFrequency: "weekly",
+    path: "/features",
+    changeFrequency: "monthly",
     priority: 0.8,
-    lastModified: LANDING_MODIFIED,
+    lastModified: "2026-08-28",
   },
   {
     path: "/#templates",

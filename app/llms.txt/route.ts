@@ -1,5 +1,5 @@
 const SITE_URL = "https://tokokino.com"
-const UPDATED_AT = "2026-08-23"
+const UPDATED_AT = "2026-08-28"
 
 const content = `# Tokokino
 
@@ -26,6 +26,7 @@ Last updated: ${UPDATED_AT}
 
 ## Product guides
 
+- [Features](${SITE_URL}/features): Detailed guide to device frames, styling, layers, animation, local-first editing, capture, presets, exports, and sharing.
 - [How it works](${SITE_URL}/how-it-works): Step-by-step walkthrough of capture, framing, styling, annotation, animation, and export.
 - [Use cases](${SITE_URL}/use-cases): Launch posts, store listings, demo clips, changelog images, docs stills, and social proof.
 - [Comparisons](${SITE_URL}/compare): Tokokino compared with adjacent screenshot and design tools.

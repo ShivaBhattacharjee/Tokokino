@@ -17,7 +17,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const links = [
-  { label: "Features", href: "#features" },
+  { label: "Features", href: "/features" },
   { label: "Templates", href: "#templates" },
   { label: "Comparison", href: "/compare" },
   { label: "Use cases", href: "/use-cases" },
