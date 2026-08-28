@@ -14,28 +14,20 @@ import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
 import { ScrollToTop } from "@/components/landing/scroll-to-top"
 import { VectorCard } from "@/components/landing/vector-card"
 import {
-  AppStoreVector,
-  ChangelogVector,
   ClipVector,
   ClipboardVector,
   ContextVector,
-  DeckVector,
-  DemoVector,
   DepthVector,
   DevicesVector,
-  DocsVector,
   EasingVector,
   ExportVector,
   FrameVector,
   ImportVector,
-  LandingVector,
-  LaunchVector,
   LinkCardVector,
   RenderVector,
   ShapesVector,
   ShareVector,
   SlotsVector,
-  SocialVector,
   StyleVector,
   TargetVector,
   TextVector,
@@ -44,14 +36,16 @@ import {
   UrlVector,
 } from "@/components/landing/how-it-works-vectors"
 import { howItWorksStructuredData } from "@/lib/seo/how-it-works-structured-data"
+import { pageMetadata } from "@/lib/seo/page-metadata"
 import { serializeJsonLd } from "@/lib/seo/tokokino-structured-data"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "How Tokokino works — from raw capture to polished export",
   description:
     "A step-by-step walkthrough of the Tokokino editor: import a screenshot, video, URL, or social post, frame it, style the scene, animate a demo on the timeline, and export a PNG, WebP, GIF, or WebM.",
-  alternates: { canonical: "/how-it-works" },
-}
+  path: "/how-it-works",
+  type: "article",
+})
 
 const CONTENT_WIDTH =
   "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
@@ -188,57 +182,6 @@ const EXPORT = [
     vector: <ShareVector />,
     meta: "View tracking",
     body: "Publish a composition to a public page and watch the views land.",
-  },
-] as const
-
-const USE_CASES = [
-  {
-    title: "Launch posts",
-    vector: <LaunchVector />,
-    meta: "16:9 / 1:1",
-    body: "A clean card for X, LinkedIn, or Product Hunt at the ratio the platform crops to.",
-  },
-  {
-    title: "Product demo clips",
-    vector: <DemoVector />,
-    meta: "GIF / WebM",
-    body: "Keyframe zooms and tilts over a recording, in a loop that autoplays inline.",
-  },
-  {
-    title: "App store screenshots",
-    vector: <AppStoreVector />,
-    meta: "9:16 frames",
-    body: "One capture in an iPhone, iPad, Pixel, or Galaxy frame, plus a headline layer.",
-  },
-  {
-    title: "Changelog entries",
-    vector: <ChangelogVector />,
-    meta: "Motion + labels",
-    body: "One image per release, annotated, with the same treatment every time.",
-  },
-  {
-    title: "Docs and guides",
-    vector: <DocsVector />,
-    meta: "Annotated stills",
-    body: "Crop to what matters and draw an arrow at the control you are describing.",
-  },
-  {
-    title: "Landing page visuals",
-    vector: <LandingVector />,
-    meta: "4K / 8K",
-    body: "Hero and feature imagery at widths that survive a retina display.",
-  },
-  {
-    title: "Social proof",
-    vector: <SocialVector />,
-    meta: "Post mockups",
-    body: "Render an X or Bluesky post as a styled card that belongs on your own site.",
-  },
-  {
-    title: "Decks and updates",
-    vector: <DeckVector />,
-    meta: "16:9",
-    body: "Slide-ready shots for investor updates, sales decks, and internal reviews.",
   },
 ] as const
 
@@ -550,27 +493,16 @@ export default function HowItWorksPage() {
             <div className="mt-6">
               <HowItWorksFlow />
             </div>
-          </Section>
 
-          <Section id="use-cases">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
-                {"// Use cases"}
-              </span>
-              <h2 className="text-2xl tracking-tight sm:text-3xl">
-                One workflow, pointed at very different jobs.
-              </h2>
-            </div>
-            <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {USE_CASES.map((useCase) => (
-                <VectorCard
-                  key={useCase.title}
-                  vector={useCase.vector}
-                  meta={useCase.meta}
-                  title={useCase.title}
-                  body={useCase.body}
-                />
-              ))}
+            <div className="mt-12 flex flex-col items-center gap-5 text-center">
+              <p className="max-w-md text-sm leading-7 text-balance text-foreground/58">
+                The steps stay the same whatever you are making. The jobs people
+                point them at do not.
+              </p>
+              <Link href="/use-cases" className={outlineCtaClass}>
+                Use cases
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
             </div>
           </Section>
 

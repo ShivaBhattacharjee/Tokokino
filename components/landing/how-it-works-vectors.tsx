@@ -553,3 +553,70 @@ export function ShareVector() {
     </Vector>
   )
 }
+
+export function MultiDeviceVector() {
+  return (
+    <Vector>
+      <R x={6} y={32} width={56} height={38} rx={5} />
+      <L x1={2} y1={76} x2={66} y2={76} />
+      <Ghost opacity={0.5}>
+        <R x={70} y={28} width={30} height={46} rx={5} />
+        <L x1={81} y1={69} x2={89} y2={69} />
+      </Ghost>
+      <Ghost opacity={0.35}>
+        <R x={104} y={40} width={13} height={34} rx={4} />
+      </Ghost>
+    </Vector>
+  )
+}
+
+export function CompareVector() {
+  return (
+    <Vector>
+      <R x={8} y={26} width={44} height={62} rx={6} />
+      <Ghost opacity={0.45}>
+        <L x1={18} y1={44} x2={42} y2={44} />
+        <L x1={18} y1={56} x2={36} y2={56} />
+      </Ghost>
+      <Ghost opacity={0.5}>
+        <R x={68} y={26} width={44} height={62} rx={6} />
+        <L x1={78} y1={44} x2={102} y2={44} />
+        <L x1={78} y1={56} x2={96} y2={56} />
+      </Ghost>
+      <Ghost opacity={0.4}>
+        <L x1={60} y1={16} x2={60} y2={98} />
+      </Ghost>
+      <C cx={60} cy={57} r={7} />
+    </Vector>
+  )
+}
+
+export function AnnounceVector() {
+  return (
+    <Vector>
+      <Ghost opacity={0.35}>
+        <R x={8} y={32} width={64} height={52} rx={7} />
+      </Ghost>
+      <R x={20} y={46} width={34} height={24} rx={4} />
+      <Ghost opacity={0.6}>
+        <L x1={82} y1={44} x2={92} y2={34} />
+        <L x1={86} y1={58} x2={100} y2={58} />
+        <L x1={82} y1={72} x2={92} y2={82} />
+      </Ghost>
+    </Vector>
+  )
+}
+
+export function WalkthroughVector() {
+  return (
+    <Vector>
+      <Ghost opacity={0.45}>
+        <P d="M14 94 C 40 94, 44 58, 60 58 S 88 26, 106 26" />
+      </Ghost>
+      <C cx={14} cy={94} r={6} />
+      <C cx={60} cy={58} r={7} />
+      <Dot cx={60} cy={58} r={2.4} />
+      <C cx={106} cy={26} r={6} />
+    </Vector>
+  )
+}

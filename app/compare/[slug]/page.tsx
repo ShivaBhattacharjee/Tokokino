@@ -7,6 +7,7 @@ import { Footer } from "@/components/landing/footer"
 import { Nav } from "@/components/landing/nav"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
 import { ScrollToTop } from "@/components/landing/scroll-to-top"
+import { pageMetadata } from "@/lib/seo/page-metadata"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -39,17 +40,12 @@ export async function generateMetadata({
 
   if (!comparison) return {}
 
-  return {
+  return pageMetadata({
     title: comparison.metaTitle,
     description: comparison.metaDescription,
-    alternates: { canonical: `/compare/${comparison.slug}` },
-    openGraph: {
-      title: comparison.metaTitle,
-      description: comparison.metaDescription,
-      url: `/compare/${comparison.slug}`,
-      type: "article",
-    },
-  }
+    path: `/compare/${comparison.slug}`,
+    type: "article",
+  })
 }
 
 export default async function ComparePage({

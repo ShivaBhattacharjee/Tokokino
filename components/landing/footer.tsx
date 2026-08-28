@@ -37,7 +37,7 @@ const FOOTER_COLUMNS = [
     links: [
       { label: "Features", href: "#features" },
       { label: "How it works", href: "/how-it-works" },
-      { label: "Use cases", href: "/how-it-works#use-cases" },
+      { label: "Use cases", href: "/use-cases" },
       { label: "FAQ", href: "#faq" },
       { label: "Glossary", href: "/glossary" },
       { label: "Changelog", href: "/changelog" },
