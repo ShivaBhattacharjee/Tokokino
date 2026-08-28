@@ -9,7 +9,6 @@ import { useTheme } from "next-themes"
 import { ArrowRight } from "@/components/landing/landing-svgs"
 import { BrandLogo } from "@/components/editor/brand-logo"
 import { ease } from "@/components/landing/constants"
-import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
 import {
   scrollToHash,
   landingSectionHref,
@@ -39,7 +38,6 @@ function useMounted() {
 
 export function Nav() {
   const pathname = usePathname()
-  const showRails = pathname === "/"
   const [open, setOpen] = useState(false)
   const mounted = useMounted()
   const { resolvedTheme, setTheme } = useTheme()
@@ -65,100 +63,113 @@ export function Nav() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.28, ease }}
-            className="fixed inset-x-0 top-12 bottom-0 z-[60] flex flex-col bg-background xl:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease }}
+            className="fixed inset-0 z-[60] flex flex-col bg-background xl:hidden"
           >
-            <div
-              className="mx-auto flex h-full min-h-0 w-full max-w-[76rem] flex-col px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-8 lg:px-12"
-              style={showRails ? RAIL_V_STYLE : undefined}
-            >
-              <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <div className="flex flex-col gap-0.5 pb-3">
-                  {links.map((link, i) => (
-                    <motion.div
-                      key={link.href}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.25, delay: i * 0.06, ease }}
-                    >
-                      {link.href.startsWith("#") ? (
-                        <Link
-                          href={landingSectionHref(link.href, pathname)}
-                          onClick={(e) => {
-                            setOpen(false)
-                            if (pathname !== "/") return
-                            e.preventDefault()
-                            setTimeout(() => scrollToHash(link.href), 50)
-                          }}
-                          className="block py-1.5 font-mono text-[1.65rem] leading-tight font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-4xl"
-                        >
-                          {link.label}
-                        </Link>
-                      ) : (
-                        <Link
-                          href={link.href}
-                          onClick={() => setOpen(false)}
-                          className="block py-1.5 font-mono text-[1.65rem] leading-tight font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-4xl"
-                        >
-                          {link.label}
-                        </Link>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              </nav>
+            <div className="mx-auto flex h-full min-h-0 w-[calc(100%-1rem)] max-w-[76rem] flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:w-[calc(100%-2rem)] sm:px-8 md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] lg:px-12">
+              <div className="flex h-12 shrink-0 items-center justify-between">
+                <BrandLogo />
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Close menu"
+                  aria-expanded
+                  className="flex size-9 flex-col items-center justify-center gap-[5px]"
+                >
+                  <span className="block h-[1.5px] w-5 rounded-full bg-foreground" />
+                  <span className="block h-[1.5px] w-5 rounded-full bg-foreground" />
+                  <span className="block h-[1.5px] w-5 rounded-full bg-foreground" />
+                </button>
+              </div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 16 }}
-                transition={{
-                  duration: 0.3,
-                  delay: links.length * 0.06 + 0.05,
-                  ease,
-                }}
-                className="flex shrink-0 flex-col gap-2.5 border-t border-border/40 pt-4"
-              >
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={toggleTheme}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault()
-                      toggleTheme()
-                    }
+              <div className="flex min-h-0 flex-1 flex-col pr-2 pl-2.5 sm:pl-3">
+                <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-5">
+                  <div className="flex flex-col gap-0.5 pb-3">
+                    {links.map((link, i) => (
+                      <motion.div
+                        key={link.href}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.25, delay: i * 0.06, ease }}
+                      >
+                        {link.href.startsWith("#") ? (
+                          <Link
+                            href={landingSectionHref(link.href, pathname)}
+                            onClick={(e) => {
+                              setOpen(false)
+                              if (pathname !== "/") return
+                              e.preventDefault()
+                              setTimeout(() => scrollToHash(link.href), 50)
+                            }}
+                            className="block py-1.5 font-mono text-[1.65rem] leading-tight font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-4xl"
+                          >
+                            {link.label}
+                          </Link>
+                        ) : (
+                          <Link
+                            href={link.href}
+                            onClick={() => setOpen(false)}
+                            className="block py-1.5 font-mono text-[1.65rem] leading-tight font-bold tracking-tight text-foreground/80 uppercase transition-colors hover:text-primary sm:text-4xl"
+                          >
+                            {link.label}
+                          </Link>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                </nav>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 16 }}
+                  transition={{
+                    duration: 0.3,
+                    delay: links.length * 0.06 + 0.05,
+                    ease,
                   }}
-                  className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition hover:border-foreground/40"
+                  className="flex shrink-0 flex-col gap-2.5 border-t border-border/40 pt-4"
                 >
-                  <span className="font-mono text-sm font-bold text-foreground/70 uppercase">
-                    Theme
-                  </span>
-                  <span className="pointer-events-none">
-                    <ThemeToggle />
-                  </span>
-                </div>
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 py-3.5 font-mono text-base font-bold text-foreground/70 uppercase transition hover:border-foreground/40 hover:text-foreground"
-                >
-                  Sign in
-                  <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-                <Link
-                  href="/app"
-                  onClick={() => setOpen(false)}
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-mono text-base font-bold text-primary-foreground uppercase transition hover:opacity-90"
-                >
-                  Start editing
-                  <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </motion.div>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={toggleTheme}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        toggleTheme()
+                      }
+                    }}
+                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition hover:border-foreground/40"
+                  >
+                    <span className="font-mono text-sm font-bold text-foreground/70 uppercase">
+                      Theme
+                    </span>
+                    <span className="pointer-events-none">
+                      <ThemeToggle />
+                    </span>
+                  </div>
+                  <Link
+                    href="/login"
+                    onClick={() => setOpen(false)}
+                    className="group flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 py-3.5 font-mono text-base font-bold text-foreground/70 uppercase transition hover:border-foreground/40 hover:text-foreground"
+                  >
+                    Sign in
+                    <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                  <Link
+                    href="/app"
+                    onClick={() => setOpen(false)}
+                    className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-mono text-base font-bold text-primary-foreground uppercase transition hover:opacity-90"
+                  >
+                    Start editing
+                    <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                </motion.div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -169,7 +180,7 @@ export function Nav() {
   return (
     <>
       <motion.nav
-        initial={showRails ? false : { opacity: 0, y: -6 }}
+        initial={pathname === "/" ? false : { opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease }}
         className="relative z-50 flex h-12 w-full shrink-0 items-center justify-between px-5 sm:px-8 lg:px-12"
