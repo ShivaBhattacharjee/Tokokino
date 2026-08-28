@@ -491,3 +491,25 @@ input[type="number"] {
   -moz-appearance: textfield !important;
   appearance: textfield !important;
 }
+
+@keyframes landing-page-in {
+  from {
+    opacity: 0.72;
+    filter: blur(14px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+.landing-page-in {
+  animation: landing-page-in 1.45s cubic-bezier(0.22, 1, 0.36, 1) 0.18s
+    backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page-in {
+    animation: none;
+  }
+}

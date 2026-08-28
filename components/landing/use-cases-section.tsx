@@ -6,7 +6,9 @@ import {
   RiRocketLine,
   RiWindowLine,
 } from "@remixicon/react"
+import Link from "next/link"
 import { motion } from "motion/react"
+import { ArrowRight } from "@/components/landing/landing-svgs"
 import { ease } from "@/components/landing/constants"
 
 const USE_CASES = [
@@ -90,6 +92,14 @@ export function UseCasesSection() {
               )
             })}
           </div>
+
+          <Link
+            href="/how-it-works#use-cases"
+            className="group inline-flex w-fit items-center gap-2 rounded-md border border-border/70 bg-background/40 px-4 py-2 text-sm font-medium text-foreground/80 backdrop-blur-sm transition hover:border-primary/50 hover:text-foreground"
+          >
+            See every use case
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
         </motion.div>
 
         <div className="grid gap-3 sm:grid-cols-2">

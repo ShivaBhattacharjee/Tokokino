@@ -57,6 +57,12 @@ const routes = [
     lastModified: LANDING_MODIFIED,
   },
   {
+    path: "/how-it-works",
+    changeFrequency: "monthly",
+    priority: 0.8,
+    lastModified: "2026-08-28",
+  },
+  {
     path: "/showcase",
     changeFrequency: "weekly",
     priority: 0.8,
