@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useTheme } from "next-themes"
 
 import { cn } from "@/lib/utils"
 
@@ -51,6 +52,10 @@ export function DitherField({
   intensity?: number
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isInView, setIsInView] = useState(false)
+  // --primary resolves differently per theme, and the value is read once into
+  // the buffer, so the effect has to re-run when the theme flips.
+  const { resolvedTheme } = useTheme()
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -123,32 +128,42 @@ export function DitherField({
     }
 
     const tick = (now: number) => {
-      if (now - last >= FRAME_MS) {
-        last = now
-        paint((now / 1000) * speed)
-      }
+      if (!isInView) return
       frame = requestAnimationFrame(tick)
+
+      if (now - last < FRAME_MS) return
+      last = now
+      paint((now / 1000) * speed)
     }
 
     resize()
 
     if (reduceMotion) {
       paint(0)
-    } else {
+    } else if (isInView) {
       frame = requestAnimationFrame(tick)
+    } else {
+      paint(0)
     }
 
-    const observer = new ResizeObserver(() => {
+    const resizeObserver = new ResizeObserver(() => {
       resize()
-      paint(reduceMotion ? 0 : (performance.now() / 1000) * speed)
+      paint(reduceMotion || !isInView ? 0 : (performance.now() / 1000) * speed)
     })
-    observer.observe(canvas)
+    resizeObserver.observe(canvas)
+
+    const intersectionObserver = new IntersectionObserver(
+      ([entry]) => setIsInView(entry.isIntersecting),
+      { threshold: 0 }
+    )
+    intersectionObserver.observe(canvas)
 
     return () => {
       cancelAnimationFrame(frame)
-      observer.disconnect()
+      resizeObserver.disconnect()
+      intersectionObserver.disconnect()
     }
-  }, [cell, speed, intensity])
+  }, [cell, speed, intensity, isInView, resolvedTheme])
 
   return (
     <canvas
