@@ -98,6 +98,9 @@ const AccentP = (props: ComponentProps<typeof motion.path>) => (
 const AccentC = (props: ComponentProps<typeof motion.circle>) => (
   <motion.circle className="text-primary/75" variants={stroke} {...props} />
 )
+const AccentR = (props: ComponentProps<typeof motion.rect>) => (
+  <motion.rect className="text-primary/75" variants={stroke} {...props} />
+)
 
 export function DeviceFramesVector() {
   return (
@@ -142,7 +145,7 @@ export function ShadowsEffectsVector() {
       <Ghost opacity={0.36}>
         <R x={25} y={29} width={62} height={48} rx={8} />
       </Ghost>
-      <R x={19} y={23} width={62} height={48} rx={8} />
+      <AccentR x={19} y={23} width={62} height={48} rx={8} />
     </Vector>
   )
 }
