@@ -1,14 +1,24 @@
 import type { Metadata } from "next"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
-import { DocPage } from "@/components/landing/doc-page"
+import { DashedH } from "@/components/landing/dashed-h"
+import { Footer } from "@/components/landing/footer"
+import { Nav } from "@/components/landing/nav"
+import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
+import { ScrollToTop } from "@/components/landing/scroll-to-top"
 
-import { GlossaryIndex } from "./glossary-index"
+import { GlossaryAlphabet, type GlossaryLetter } from "./glossary-alphabet"
+
+const CONTENT_WIDTH =
+  "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
+
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
 
 export const metadata: Metadata = {
   title: "Glossary — Tokokino",
   description:
     "Definitions for Tokokino editor terms — from ASCII backdrops and glass frames to keyframes, local-first editing, and export resolutions.",
+  alternates: { canonical: "/glossary" },
 }
 
 type GlossaryTerm = {
@@ -126,6 +136,18 @@ const terms: GlossaryTerm[] = [
     body: "A translucent frame that frosts the background behind a capture. Glass Card uses a single pane, while Glass Cascade and Glass Crown add offset panes for depth; every glass frame has light and dark variants.",
   },
   {
+    term: "Highlighter",
+    body: "A translucent annotation brush — shortcut H — that lays a wide band of color across the capture without hiding what sits under it. Like pen and eraser marks it stays an editable stroke, so it can be recolored or removed later.",
+  },
+  {
+    term: "Inspector",
+    body: "The panel beside the canvas holding the styling controls — Position, Background, Backdrop, Shapes, Border, Padding, Tilt & Scale, Shadow, and the post settings when the canvas holds a social post. Switching to Animate mode swaps it for the timeline.",
+  },
+  {
+    term: "JPEG",
+    body: "A still export format alongside PNG and WebP. It trades transparency for a far smaller file, which is also why share links fall back to it — a PNG capture over the upload ceiling is re-encoded as JPEG at stepped quality until it fits.",
+  },
+  {
     term: "Keyframe",
     body: "A point on the timeline that captures target values — position, zoom, tilt, shadow, lighting, background, filters — so the editor can animate smoothly between states for a demo. In Tokokino a keyframe is expressed as a clip.",
   },
@@ -144,6 +166,14 @@ const terms: GlossaryTerm[] = [
   {
     term: "Local-first editing",
     body: "Tokokino keeps editing and export work in the browser by default. Local screenshots and videos leave the device only when you deliberately save a cloud draft or create a share link; URL capture and online imports are separate network features you explicitly request.",
+  },
+  {
+    term: "MP4",
+    body: "A video export format alongside WebM and GIF, encoded on your device. It is the one to reach for where WebM playback isn't supported — Safari in particular — since the same timeline renders to either.",
+  },
+  {
+    term: "Noise",
+    body: "A grain slider on the backdrop, 0 to 100, that scatters fine speckle across the layer behind the capture. A little of it keeps a flat gradient from reading as synthetic.",
   },
   {
     term: "Object fit",
@@ -176,6 +206,14 @@ const terms: GlossaryTerm[] = [
   {
     term: "Project",
     body: "The working file that groups a composition's canvases, styling, layers, media references, and optional timelines. A project remains local while you edit and becomes a cloud draft only when you explicitly save it to your account.",
+  },
+  {
+    term: "Quoted post",
+    body: "The post nested inside another one in an X or Bluesky mockup. When the fetched post quotes something, a switch in the post settings shows or hides that inner card — next to the avatar, images, stats, and timestamp toggles.",
+  },
+  {
+    term: "Redaction",
+    body: "A blur shape drawn over the parts of a capture you don't want read, in four treatments — Blur, Solid redact, Striped redact, and Pixel redact. It covers the region as an editable layer rather than deleting pixels, so it stays adjustable.",
   },
   {
     term: "Scale",
@@ -246,6 +284,14 @@ const terms: GlossaryTerm[] = [
     body: "An optional mark stamped onto exports or animated renders to attribute the source, applied during the capture step rather than baked into the editable canvas.",
   },
   {
+    term: "X post",
+    body: "A post from X rebuilt as a card on the canvas. Paste its URL and Tokokino fetches the author, text, images, and stats, then renders them in your chosen theme — Bluesky posts import the same way. The aspect picker also carries X sizes for posts, photo posts, headers, and profile photos.",
+  },
+  {
+    term: "YouTube presets",
+    body: "Canvas sizes for YouTube in the aspect picker — Video (1920×1080), Thumbnail (1280×720), Shorts (1080×1920), Channel Cover (2048×1152), and Channel Icon (800×800). One of the platform groups there, beside X, Instagram, TikTok, LinkedIn, and the app stores.",
+  },
+  {
     term: "Zoom",
     body: "The magnification of the editing viewport (canvas zoom). It changes how large the canvas appears while you work and has no effect on export resolution or the final image.",
   },
@@ -261,72 +307,129 @@ const groups: GlossaryGroup[] = terms
   .slice()
   .sort((a, b) => a.term.localeCompare(b.term))
   .reduce<GlossaryGroup[]>((acc, entry) => {
-    const letter = entry.term[0].toUpperCase()
+    const letter = bucketFor(entry.term)
     const existing = acc.find((group) => group.letter === letter)
     if (existing) {
       existing.terms.push(entry)
     } else {
-      acc.push({ letter, id: `letter-${letter.toLowerCase()}`, terms: [entry] })
+      acc.push({ letter, id: letterId(letter), terms: [entry] })
     }
     return acc
   }, [])
 
-const indexItems = groups.map((group) => ({
-  id: group.id,
-  label: group.letter,
-}))
+const letters: GlossaryLetter[] = ["#", ...ALPHABET]
+  .map((letter) => ({
+    id: letterId(letter),
+    label: letter,
+    count: groups.find((group) => group.letter === letter)?.terms.length ?? 0,
+  }))
+  .filter((letter) => letter.label !== "#" || letter.count > 0)
 
 export default function GlossaryPage() {
   return (
-    <DocPage
-      eyebrow="Glossary"
-      title="Glossary"
-      summary={
-        <>
-          A practical guide to Tokokino&apos;s editor vocabulary, from ASCII
-          backdrops and glass frames to keyframes and local-first export.
-          <span className="mt-1 block font-mono text-[10px] tracking-widest text-primary/80 uppercase">
-            {terms.length} terms · {groups.length} sections
-          </span>
-        </>
+    <main
+      className="relative isolate min-h-svh bg-background text-foreground"
+      style={
+        {
+          "--rail": "color-mix(in oklch, var(--foreground) 20%, transparent)",
+        } as CSSProperties
       }
-      index={<GlossaryIndex items={indexItems} />}
     >
-      <article className="max-w-2xl space-y-10">
-        {groups.map((group) => (
-          <section
-            key={group.id}
-            id={group.id}
-            className="scroll-mt-8 border-t border-border/50 pt-10"
-          >
-            <h2 className="flex items-baseline gap-3 text-base font-medium tracking-tight sm:text-lg">
-              <span className="text-primary tabular-nums">{group.letter}</span>
-              <span className="text-xs font-medium text-foreground/40">
-                {group.terms.length}{" "}
-                {group.terms.length === 1 ? "term" : "terms"}
-              </span>
-            </h2>
-            <dl className="mt-5 space-y-6">
-              {group.terms.map((entry) => (
-                <div
-                  key={entry.term}
-                  id={slugify(entry.term)}
-                  className="scroll-mt-8"
-                >
-                  <dt className="text-[15px] font-medium tracking-tight text-foreground sm:text-base">
-                    {entry.term}
-                  </dt>
-                  <dd className="mt-1.5 text-sm leading-7 text-foreground/58">
-                    {entry.body}
-                  </dd>
+      <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
+        <Nav />
+      </div>
+      <DashedH />
+
+      <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
+        <section className="relative px-5 pb-14 sm:px-8 lg:px-12">
+          <div className="flex flex-col gap-1.5 py-10 sm:py-14">
+            <span className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
+              {"// Glossary"}
+            </span>
+            <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">
+              Glossary
+            </h1>
+            <p className="mt-1 max-w-xl text-sm leading-7 text-foreground/58">
+              A practical guide to Tokokino&apos;s editor vocabulary, from ASCII
+              backdrops and glass frames to keyframes and local-first export.
+            </p>
+            <p className="mt-1 font-mono text-[10px] tracking-widest text-primary/80 uppercase">
+              {terms.length} terms · {groups.length} sections
+            </p>
+          </div>
+
+          <GlossaryAlphabet letters={letters} />
+
+          <div className="mt-10 space-y-14 sm:mt-14">
+            {groups.map((group) => (
+              <section key={group.id} id={group.id} className="scroll-mt-20">
+                <div className="flex items-center gap-4">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-[3px] bg-primary font-mono text-xs text-primary-foreground uppercase">
+                    {group.letter}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="h-px flex-1 bg-accent-foreground/30"
+                  />
+                  <span className="font-mono text-[10px] tracking-widest text-foreground/40 uppercase">
+                    {group.terms.length}{" "}
+                    {group.terms.length === 1 ? "term" : "terms"}
+                  </span>
                 </div>
-              ))}
-            </dl>
-          </section>
-        ))}
-      </article>
-    </DocPage>
+
+                <dl className="mt-8 space-y-8">
+                  {group.terms.map((entry) => {
+                    const id = slugify(entry.term)
+
+                    return (
+                      <div
+                        key={entry.term}
+                        id={id}
+                        className="group scroll-mt-20"
+                      >
+                        <dt className="flex items-baseline gap-2">
+                          <a
+                            href={`#${id}`}
+                            className="text-[15px] font-medium tracking-tight text-foreground sm:text-base"
+                          >
+                            {entry.term}
+                          </a>
+                          <span
+                            aria-hidden
+                            className="font-mono text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100"
+                          >
+                            #
+                          </span>
+                        </dt>
+                        <dd className="mt-1.5 max-w-2xl text-sm leading-7 text-foreground/58">
+                          {entry.body}
+                        </dd>
+                      </div>
+                    )
+                  })}
+                </dl>
+              </section>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <DashedH />
+      <div className={`relative ${CONTENT_WIDTH}`} style={RAIL_V_STYLE}>
+        <Footer />
+      </div>
+      <ScrollToTop />
+    </main>
   )
+}
+
+function bucketFor(term: string) {
+  const first = term[0].toUpperCase()
+  return ALPHABET.includes(first) ? first : "#"
+}
+
+function letterId(letter: string) {
+  return letter === "#" ? "letter-hash" : `letter-${letter.toLowerCase()}`
 }
 
 function slugify(value: string) {
