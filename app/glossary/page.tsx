@@ -8,7 +8,7 @@ import { GlossaryIndex } from "./glossary-index"
 export const metadata: Metadata = {
   title: "Glossary — Tokokino",
   description:
-    "Definitions for every term in the Tokokino editor — from backdrops and device frames to keyframes, portrait modes, and export resolutions.",
+    "Definitions for Tokokino editor terms — from ASCII backdrops and glass frames to keyframes, local-first editing, and export resolutions.",
 }
 
 type GlossaryTerm = {
@@ -23,7 +23,7 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Annotation",
-    body: "A mark drawn directly over your capture — arrows, shapes, or freehand strokes. Annotations sit on their own layer so you can point at what matters without touching the underlying screenshot.",
+    body: "A mark drawn over your capture — pen and highlighter strokes, arrows, rectangles, ellipses, blur or redaction areas, and numbered steps. Annotations remain editable layers, so they never alter the source screenshot.",
   },
   {
     term: "Aspect ratio",
@@ -31,7 +31,11 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Asset",
-    body: "An image or SVG layered on top of the canvas — a logo, badge, or decorative element. Each asset carries its own position, rotation, z-index, opacity, blend mode, and filter.",
+    body: "An image or SVG layered on the canvas — a logo, badge, 3D shape, or decorative element. Each asset has its own position, size, rotation, stack order, opacity, blend mode, and filter.",
+  },
+  {
+    term: "ASCII backdrop",
+    body: "A texture that redraws the current background as characters. Choose from seven character sets, adjust the grid resolution and opacity, invert the brightness mapping, and use either one color or colors sampled from the background. ASCII settings can also be animated.",
   },
   {
     term: "Auto palette",
@@ -39,11 +43,15 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Backdrop",
-    body: "The layer behind the screenshot but inside the padding. It carries effects (noise, blur, brightness), an optional pattern, and its own filter — the atmosphere your capture sits against.",
+    body: "The layer behind the capture but inside the canvas padding. It can carry color adjustments, noise, a filter, patterns, directional lighting, overlays, portrait blur, and an ASCII texture — the atmosphere the capture sits against.",
   },
   {
     term: "Background",
-    body: "The fill behind everything on the canvas. It can be none, a solid color, a gradient, an uploaded image, or an auto-sampled palette drawn from your screenshot.",
+    body: "The fill behind everything on the canvas. It can be transparent, a solid color, a gradient, an image from Tokokino's background library or Unsplash, an uploaded image, or an auto palette sampled from the capture.",
+  },
+  {
+    term: "Background library",
+    body: "Tokokino's built-in collection of image backgrounds, organized into packs such as Cloud, Fluid, Gradient, Minimal, and Wood. Library images can be browsed and applied without uploading a file.",
   },
   {
     term: "Blend mode",
@@ -63,7 +71,11 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Canvas",
-    body: "One styled screenshot card — the core unit of a Tokokino document. Each canvas holds its own screenshot, background, effects, layers, and framing. A project can hold up to 20.",
+    body: "One styled composition — the core unit of a Tokokino project. Each canvas holds its own screenshot, video, GIF, or social post along with its background, effects, layers, framing, and optional animation. A project can hold up to 20 canvases.",
+  },
+  {
+    term: "Clipboard copy",
+    body: "A still-image export copied directly to the system clipboard at 1080 pixels wide. It is useful when you want to paste a finished canvas into another app without downloading a file first.",
   },
   {
     term: "Clip",
@@ -79,15 +91,15 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Custom preset",
-    body: "A saved look — layout, styling, and framing bundled together — that you can re-apply across future shots and drafts so a polished treatment only has to be built once.",
+    body: "A reusable snapshot of a layout, styling, and framing. Static presets save a still composition; animate presets can also preserve the timeline, letting the same treatment be applied to future projects.",
   },
   {
     term: "Device frame",
-    body: "A pixel-true mockup wrapper around your capture: iPhone, iPad, Galaxy, Pixel, MacBook, iMac, Apple Watch, or browser chrome such as Safari, Chrome, and Arc. Frames have a color and a vertical or horizontal orientation.",
+    body: "A mockup wrapper around a capture: phones, tablets, watches, laptops, desktops, browser chrome, and Tokokino's glass frames. Hardware frames expose their available colors and vertical or horizontal variants.",
   },
   {
     term: "Draft",
-    body: "A saved, in-progress editor state stored to your account so you can leave and return to the same composition. Drafts keep the full state plus a thumbnail preview.",
+    body: "A project snapshot you explicitly save to your account so you can reopen the same composition later. A draft keeps the editor state and thumbnail; video drafts also upload the media needed to restore the project.",
   },
   {
     term: "Easing",
@@ -98,6 +110,10 @@ const terms: GlossaryTerm[] = [
     body: "A one-tap image treatment applied to the screenshot — Auto, Vivid, Soft, Dramatic, or Sharp — that adjusts brightness, contrast, and saturation without manual sliders.",
   },
   {
+    term: "Export format",
+    body: "The file type Tokokino produces. Still canvases can be exported as PNG, JPEG, or WebP; animated canvases can be rendered as MP4, WebM, or GIF.",
+  },
+  {
     term: "Export resolution",
     body: "The output width your image renders at: HD (1920px), 4K (3840px), or 8K (7680px). Resolution is separate from canvas zoom, which only affects your editing viewport.",
   },
@@ -106,16 +122,28 @@ const terms: GlossaryTerm[] = [
     body: "A named look applied to a screenshot, video, or asset layer — B&W, Sepia, Vintage, Warm, Cool, Fade, Vivid, Noir, Dream, Mono, or Invert. Filters stack on top of any manual color grade.",
   },
   {
+    term: "Glass frame",
+    body: "A translucent frame that frosts the background behind a capture. Glass Card uses a single pane, while Glass Cascade and Glass Crown add offset panes for depth; every glass frame has light and dark variants.",
+  },
+  {
     term: "Keyframe",
     body: "A point on the timeline that captures target values — position, zoom, tilt, shadow, lighting, background, filters — so the editor can animate smoothly between states for a demo. In Tokokino a keyframe is expressed as a clip.",
   },
   {
     term: "Layer",
-    body: "Any stackable element over the capture — text, image, SVG, or annotation. Layers carry a z-index that controls draw order, and can be brought forward or sent back.",
+    body: "Any stackable element in a composition — the main capture, extra screenshot slots, text, images, SVGs, shapes, or annotations. Layers can be hidden, reordered, brought forward, or sent backward.",
   },
   {
     term: "Layout preset",
     body: "A composition that arranges multiple screenshot slots — Side by Side, Depth Duo, Fan Out, Scatter, Perspective, and more — each defining per-slot position, rotation, tilt, and scale.",
+  },
+  {
+    term: "Lighting",
+    body: "A directional color treatment cast on either the backdrop around a capture or the inside of the capture frame. Its direction, intensity, color, and target can be adjusted and keyframed in Animate mode.",
+  },
+  {
+    term: "Local-first editing",
+    body: "Tokokino keeps editing and export work in the browser by default. Local screenshots and videos leave the device only when you deliberately save a cloud draft or create a share link; URL capture and online imports are separate network features you explicitly request.",
   },
   {
     term: "Object fit",
@@ -123,7 +151,7 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Offline editing",
-    body: "The editor keeps working with no network. Drafts persist locally and sync back to your account once you reconnect — only sharing and cloud capture need a connection.",
+    body: "The installed editor can keep loading and editing without a network connection. The current project persists locally in the browser; cloud saves, sharing, URL capture, social-post imports, and Unsplash search require a connection and happen only when requested.",
   },
   {
     term: "Overlay",
@@ -135,7 +163,7 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Pattern",
-    body: "A repeating geometric texture drawn into the backdrop — grids, dots, lines, and more — with adjustable intensity, stroke thickness, and color.",
+    body: "One or more repeating geometric textures drawn into the backdrop — grids, dots, lines, and more — with adjustable intensity, stroke thickness, and color.",
   },
   {
     term: "Portrait mode",
@@ -144,6 +172,10 @@ const terms: GlossaryTerm[] = [
   {
     term: "Preview mode",
     body: "A distraction-free playback of your canvases in sequence, with slide, fade, zoom, or flip transitions and optional auto-scroll — a way to review a set before exporting it.",
+  },
+  {
+    term: "Project",
+    body: "The working file that groups a composition's canvases, styling, layers, media references, and optional timelines. A project remains local while you edit and becomes a cloud draft only when you explicitly save it to your account.",
   },
   {
     term: "Scale",
@@ -155,7 +187,7 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Screenshot slot",
-    body: "An extra capture card placed on a canvas beyond the primary screenshot — up to three per canvas. Slots power multi-shot layouts and each has its own position, tilt, scale, and filter.",
+    body: "An extra capture placed on a canvas alongside the primary media — up to three additional slots. Slots power multi-shot layouts, and each can carry its own crop, frame, position, tilt, scale, border, shadow, lighting, and color treatment.",
   },
   {
     term: "Shadow",
@@ -175,7 +207,7 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "Template",
-    body: "One of 21 ready-made compositions — background, framing, layers, and in several cases a full animation — applied to a canvas in one click as a starting point rather than a locked result.",
+    body: "A ready-made composition containing a background, framing, layers, and sometimes a complete animation. Applying a template gives you an editable starting point rather than a locked result.",
   },
   {
     term: "Text layer",
@@ -199,7 +231,11 @@ const terms: GlossaryTerm[] = [
   },
   {
     term: "URL capture",
-    body: "Screenshotting a live webpage by pasting its address. Tokokino loads the page in a headless browser and returns the capture, optionally as a full-page shot you can scroll within the frame.",
+    body: "Screenshotting a live webpage by pasting its address. Tokokino loads the page in a remote browser and returns either the viewport or a full-page capture whose visible region can be repositioned inside the frame.",
+  },
+  {
+    term: "Unsplash",
+    body: "The searchable photo source built into the image-background picker. Results show photographer credit, and selecting one applies its hosted image as the canvas background while recording the download event required by Unsplash.",
   },
   {
     term: "Video export",
@@ -247,8 +283,8 @@ export default function GlossaryPage() {
       title="Glossary"
       summary={
         <>
-          Definitions for every editor term, from backdrops and device frames to
-          keyframes and export resolutions.
+          A practical guide to Tokokino&apos;s editor vocabulary, from ASCII
+          backdrops and glass frames to keyframes and local-first export.
           <span className="mt-1 block font-mono text-[10px] tracking-widest text-primary/80 uppercase">
             {terms.length} terms · {groups.length} sections
           </span>
