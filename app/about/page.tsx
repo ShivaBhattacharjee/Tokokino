@@ -47,11 +47,11 @@ const PRINCIPLES = [
   },
   {
     title: "One canvas for stills and motion",
-    body: "A demo is the composition you already made, moving. The timeline sits on the same canvas as the still.",
+    body: "Make the still first, then animate the same canvas. There is no need to rebuild it in another tool.",
   },
   {
     title: "Presets over repetition",
-    body: "A look you liked once should be a click on the next shot, not a rebuild in a general design file.",
+    body: "If you like a look, save it and use it again instead of rebuilding it for every screenshot.",
   },
   {
     title: "Open enough to be read",
@@ -59,7 +59,7 @@ const PRINCIPLES = [
   },
   {
     title: "Small on purpose",
-    body: "This is screenshot-led product communication. Illustration and long-form video belong to other tools.",
+    body: "Tokokino focuses on product visuals. Illustration and long-form video are better handled by other tools.",
   },
 ] as const
 
@@ -103,7 +103,7 @@ const FACTS = [
   { label: "Maintainer", value: "Shiva Bhattacharjee" },
   { label: "Based in", value: "Guwahati, India" },
   { label: "License", value: "AGPL-3.0" },
-  { label: "Company", value: "None" },
+  { label: "Project", value: "Independent" },
 ] as const
 
 function SectionHeader({
@@ -233,7 +233,7 @@ export default function AboutPage() {
           >
             Tokokino is an open-source, local-first editor for polished
             screenshots, mockups, social visuals, and short animated product
-            demos. It is an independent project, maintained by one person.
+            demos. I build and maintain it independently.
           </p>
           <div
             style={
@@ -276,21 +276,19 @@ export default function AboutPage() {
               lead={
                 <>
                   <p>
-                    Product work rarely starts as a tidy image. It starts as a
-                    screenshot at an awkward resolution, a recording that runs
-                    too long, or a page that only exists behind a login. The
-                    distance between that and something you would put on a
-                    launch post is mostly repetition: frame it, pad it, choose a
-                    background, point at the part that matters, export it at the
+                    Product visuals rarely begin ready to share. Usually you
+                    have a screenshot at the wrong size, a recording that is too
+                    long, or a page hidden behind a login. Then comes the same
+                    cleanup every time: add a frame, fix the spacing, choose a
+                    background, highlight what matters, and export it at the
                     right size.
                   </p>
                   <p className="mt-4">
-                    Tokokino exists to make that distance short and repeatable.
-                    Instead of rebuilding the same treatment in a general design
-                    suite, you start from the capture and work in an editor
-                    built around it — device mockups, browser chrome, multi-shot
-                    layouts, reusable presets, and high-resolution exports are
-                    all the same workflow.
+                    Tokokino puts that whole workflow in one place. Start with
+                    the capture, add a device mockup or browser frame, combine
+                    multiple shots, save the look as a preset, and export at a
+                    useful resolution without moving everything into a general
+                    design tool.
                   </p>
                 </>
               }
@@ -322,7 +320,7 @@ export default function AboutPage() {
               label="Principles"
               headline="Five decisions"
               subhead="that shape everything else"
-              lead="None of these are neutral. Each one closes off features that a bigger product would ship, and that is the point — the tool stays small enough to stay fast."
+              lead="These choices keep Tokokino fast and focused. It does not need to do everything; it needs to make product visuals really well."
             />
 
             <ol className="mt-12 border-t border-border/50">
@@ -353,13 +351,11 @@ export default function AboutPage() {
               subhead="does not upload it"
               lead={
                 <>
-                  The interactive editor runs in your browser. Ordinary edits
-                  and exports need no account, and server-backed features are
-                  always explicit — signing in enables cloud drafts, and
-                  publishing a share link sends the rendered result that link
-                  needs. The boundary keeps quick, private editing simple while
-                  leaving collaboration available when you choose it. It is also
-                  written down in the{" "}
+                  The editor runs in your browser, and you do not need an
+                  account to edit or export. Online features only run when you
+                  choose them: signing in lets you save cloud drafts, and
+                  creating a share link uploads the finished result. The details
+                  are explained in the{" "}
                   <Link href="/privacy" className={linkClass}>
                     privacy policy
                   </Link>{" "}
@@ -387,7 +383,7 @@ export default function AboutPage() {
               label="Stills and motion"
               headline="One editor for the picture"
               subhead="and for the picture moving"
-              lead="Tokokino handles polished PNG, JPEG, and WebP compositions as well as short animated demos. A per-canvas timeline animates the canvas itself — zoom, tilt, lighting, backgrounds, filters — while video and GIF inputs crop, trim, and mute alongside the framing and backdrop tools used for stills. It is not trying to replace an illustration suite or a long-form video editor."
+              lead="Use the same canvas for polished PNG, JPEG, and WebP images or short animated demos. The timeline can animate zoom, tilt, lighting, backgrounds, and filters, while video and GIF inputs can be cropped, trimmed, and muted. Tokokino is focused on product visuals, not illustration or long-form video editing."
             />
 
             <div className="mt-12 grid gap-3 sm:grid-cols-2">
@@ -395,13 +391,13 @@ export default function AboutPage() {
                 vector={<MotionVector />}
                 meta="Timeline · WebM · GIF"
                 title="Motion on the same canvas"
-                body="Clips own the properties you changed while they were selected, and the encode runs on your device."
+                body="Animate the properties you want, preview the result, and export it on your own device."
               />
               <VectorCard
                 vector={<PresetVector />}
                 meta="Templates · Presets"
                 title="A look you can re-apply"
-                body="Save a finished treatment once and put it on the next twelve captures without rebuilding it."
+                body="Save a finished style once and apply it to the next screenshot without rebuilding it."
               />
             </div>
           </Section>
@@ -411,13 +407,12 @@ export default function AboutPage() {
               eyebrow="Open source"
               label="How it is maintained"
               headline="Published under AGPL-3.0"
-              subhead="so it can be inspected, not just used"
+              subhead="so anyone can see how it works"
               lead={
                 <>
-                  The source is public, so people can read how the product
-                  works, report problems, propose improvements, and self-host it
-                  subject to the license. Development happens in the open, and
-                  every release is written up in the{" "}
+                  The source is public. You can read the code, report a problem,
+                  suggest an improvement, contribute, or self-host it under the
+                  terms of the license. New releases are listed in the{" "}
                   <Link href="/changelog" className={linkClass}>
                     changelog
                   </Link>
@@ -441,9 +436,9 @@ export default function AboutPage() {
                       Get involved
                     </span>
                     <p className="text-sm leading-7 text-foreground/58">
-                      Bug reports and feature requests are the fastest way to
-                      change what ships next. If something in the editor gets in
-                      your way, it is worth an issue.
+                      Found a bug or have an idea that would make the editor
+                      better? Open an issue on GitHub. That is where I keep
+                      track of what needs attention.
                     </p>
                   </div>
                   <div className="mt-8 flex flex-wrap gap-3">
@@ -470,18 +465,17 @@ export default function AboutPage() {
             <SectionHeader
               eyebrow="Who"
               label="The person behind it"
-              headline="An independent project"
-              subhead="not a registered company"
+              headline="Built independently"
+              subhead="from Guwahati, India"
               lead={
                 <>
-                  There is no team behind Tokokino and no company attached to
-                  it, which is why the roadmap stays narrow and the tool keeps
-                  doing one job. Questions, bugs, and ideas all reach the same
-                  inbox — the{" "}
+                  I&apos;m Shiva, and I build and maintain Tokokino. I keep the
+                  project focused on making product visuals, and I read the
+                  questions, bug reports, and ideas people send. The{" "}
                   <Link href="/contact" className={linkClass}>
                     contact page
                   </Link>{" "}
-                  is the shortest route.
+                  is the easiest way to reach me.
                 </>
               }
             />
@@ -490,8 +484,8 @@ export default function AboutPage() {
               <VectorCard
                 vector={<SoloVector />}
                 meta="One maintainer"
-                title="No team, no committee"
-                body="No investors and no roadmap by consensus — just a changelog that says what shipped."
+                title="Made by one person"
+                body="Tokokino is a personal open-source project, built and maintained by Shiva Bhattacharjee."
               />
 
               <div className="h-full rounded-[14px] border border-border/60 bg-background/40 p-1.5 backdrop-blur-sm">

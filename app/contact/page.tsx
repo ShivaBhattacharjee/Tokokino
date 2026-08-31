@@ -6,27 +6,34 @@ import { DocPage } from "@/components/landing/doc-page"
 export const metadata: Metadata = {
   title: "Contact Tokokino",
   description:
-    "Contact the Tokokino project for private support, bug reports, feature requests, contributions, privacy questions, or legal notices.",
+    "Get in touch about Tokokino, report a bug, suggest a feature, or ask a private question.",
 }
 
 const channels = [
   {
-    label: "Private support",
-    value: "hello@theshiva.xyz",
-    href: "mailto:hello@theshiva.xyz",
-    body: "Use email for account-specific questions, privacy requests, legal notices, security details, or anything that should not be posted publicly. Include the affected page or feature and enough context to understand the request, but do not send passwords, authentication tokens, or unnecessary sensitive information.",
+    label: "Project updates",
+    value: "@sh17va on X",
+    href: "https://x.com/sh17va",
+    body: (
+      <>
+        The quickest way to reach me is on X. I am active there, but I follow{" "}
+        <ExternalLink href="https://nohello.net/en/">nohello</ExternalLink>:
+        please do not send only &ldquo;hello.&rdquo; Include a short pitch or
+        summary so I can quickly understand what you need.
+      </>
+    ),
   },
   {
     label: "Bugs and contributions",
     value: "GitHub repository",
     href: "https://github.com/ShivaBhattacharjee/tokokino",
-    body: "GitHub is the best place for reproducible bugs, feature proposals, documentation corrections, and code contributions. Search existing issues first when possible. For a bug, include the browser, operating system, steps to reproduce, expected result, actual result, and a small sample file only when it is safe to share publicly.",
+    body: "Found a bug, have a feature idea, or want to contribute? GitHub is the best place for it. If you are reporting a bug, share what you expected, what happened instead, and the steps needed to reproduce it. Only attach files that are safe to post publicly.",
   },
   {
-    label: "Project updates",
-    value: "@sh17va on X",
-    href: "https://x.com/sh17va",
-    body: "Use X for public project conversation and updates. It is not the right channel for private account, privacy, copyright, or security information; email is preferred for those topics, and GitHub is preferred when a technical report needs details that other contributors can follow.",
+    label: "Private support",
+    value: "hello@theshiva.xyz",
+    href: "mailto:hello@theshiva.xyz",
+    body: "Email me if your message should stay private, including account questions, privacy requests, legal notices, or security reports. Please include enough context for me to understand the issue, but never send passwords or authentication tokens.",
   },
 ] as const
 
@@ -34,8 +41,8 @@ export default function ContactPage() {
   return (
     <DocPage
       eyebrow="Contact"
-      title="Choose the channel that fits the message."
-      summary="Tokokino is an independent open-source project. These routes reach the maintainer without requiring a public phone number, street address, or support form."
+      title="Questions, ideas, or bugs?"
+      summary="The quickest way to reach me is on X, where I am actively available. You can also open an issue on GitHub or email me if your message needs to stay private."
     >
       <article className="w-full">
         <div className="divide-y divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background/55">
@@ -68,19 +75,17 @@ export default function ContactPage() {
           </h2>
           <div className="mt-4 space-y-4 text-sm leading-7 text-foreground/58">
             <p>
-              Tokokino is maintained as a personal project from Guwahati, Assam,
-              India, so support is handled directly rather than through a
-              staffed service desk. Messages are reviewed as availability
-              permits. A clear subject, a direct description of the outcome you
-              need, and a safe reproduction case make it easier to respond.
+              I&apos;m Shiva, and I build Tokokino from Guwahati, India. I read
+              every message myself, so replies may sometimes take a little
+              while. A clear subject and a short explanation of what you need
+              will help me respond faster.
             </p>
             <p>
-              For privacy or account deletion requests, write from the email
-              associated with the account when possible and identify the request
-              precisely. For suspected security issues, email details privately
-              before opening a public issue. For copyright or asset concerns,
-              include the specific URL, the work involved, your relationship to
-              it, and supporting evidence that can be reviewed.
+              For privacy or account deletion requests, email from the address
+              connected to your account when possible. Please report security
+              issues privately before opening a public issue. For copyright or
+              asset concerns, include the relevant URL and enough information
+              for me to review the request.
             </p>
           </div>
         </section>
