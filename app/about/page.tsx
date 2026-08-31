@@ -94,7 +94,7 @@ const linkClass =
   "font-medium text-primary underline decoration-primary/35 underline-offset-4 transition-colors hover:text-primary/80"
 
 const solidCtaClass =
-  "group inline-flex w-fit items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-95"
+  "group inline-flex w-fit items-center gap-2 rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-95"
 
 const outlineCtaClass =
   "group inline-flex w-fit items-center gap-2 rounded-md border border-border/70 bg-background/40 px-4 py-2 text-sm font-medium text-foreground/80 backdrop-blur-sm transition hover:border-primary/45 hover:text-foreground"
