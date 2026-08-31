@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   revokeSessions: vi.fn(),
   retryPendingAccountCleanups: vi.fn(),
   run: vi.fn(),
+  getCloudflareContext: vi.fn(),
 }))
 
 const statement = {
@@ -36,6 +37,10 @@ vi.mock("@/lib/account-management", () => ({
 
 vi.mock("@/lib/d1", () => ({
   getD1Database: () => ({ prepare: mocks.prepare }),
+}))
+
+vi.mock("@opennextjs/cloudflare", () => ({
+  getCloudflareContext: mocks.getCloudflareContext,
 }))
 
 const SESSION = {
@@ -76,6 +81,9 @@ describe("/api/account", () => {
     mocks.revokeSessions.mockResolvedValue({ status: true })
     mocks.requestAccountDeletion.mockResolvedValue({ queued: true })
     mocks.retryPendingAccountCleanups.mockResolvedValue(undefined)
+    mocks.getCloudflareContext.mockReturnValue({
+      cf: { city: "Dispur", region: "Assam", country: "IN" },
+    })
   })
 
   it("requires a session before listing active devices", async () => {
@@ -109,6 +117,32 @@ describe("/api/account", () => {
         },
       ],
     })
+  })
+
+  it("records the current session location from the Cloudflare context", async () => {
+    const { GET } = await loadRoute()
+
+    await GET(request("GET"))
+
+    expect(statement.bind).toHaveBeenCalledWith(
+      "session_current",
+      "Dispur, Assam",
+      expect.any(String)
+    )
+  })
+
+  it("skips the location write when the Cloudflare context has no geo data", async () => {
+    mocks.getCloudflareContext.mockReturnValue({ cf: undefined })
+    const { GET } = await loadRoute()
+
+    const response = await GET(request("GET"))
+
+    expect(response.status).toBe(200)
+    expect(statement.bind).not.toHaveBeenCalledWith(
+      "session_current",
+      expect.any(String),
+      expect.any(String)
+    )
   })
 
   it("revokes only a session owned by the current user", async () => {

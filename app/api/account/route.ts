@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod/v4"
 
 import {
@@ -26,12 +27,8 @@ const sessionActionSchema = z
 
 const deleteAccountSchema = z.object({ confirmation: z.literal("DELETE") })
 
-type CloudflareRequest = Request & {
-  cf?: { city?: string; region?: string; country?: string }
-}
-
-function sessionLocation(request: Request) {
-  const cf = (request as CloudflareRequest).cf
+function sessionLocation() {
+  const cf = getCloudflareContext().cf
   if (!cf) return null
   const parts = [cf.city, cf.region || cf.country].filter(Boolean)
   return parts.length > 0 ? parts.join(", ") : null
@@ -82,7 +79,7 @@ export async function GET(request: Request) {
     console.error("Could not retry pending account cleanups", error)
   })
 
-  const location = sessionLocation(request)
+  const location = sessionLocation()
   if (location) {
     await getD1Database()
       .prepare(
