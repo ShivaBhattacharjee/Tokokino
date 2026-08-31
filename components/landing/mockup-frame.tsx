@@ -46,10 +46,10 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,var(--background)_95%)]" />
               <div className="relative flex h-full w-full items-center justify-center bg-background/35 p-2 sm:p-3">
                 <ShimmerImage
-                  src={`https://assets.tokokino.com/screenshot.png`}
+                  src={`https://assets.tokokino.com/screenshot-v2.webp`}
                   alt="Tokokino demo preview"
-                  width={3020}
-                  height={1816}
+                  width={3024}
+                  height={1764}
                   fetchPriority="high"
                   decoding="async"
                   className="max-h-full max-w-full object-contain"

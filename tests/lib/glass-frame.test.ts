@@ -41,7 +41,7 @@ describe("glass frame registry", () => {
 
   it("uses a dedicated picker wallpaper instead of the macOS browser preview", () => {
     expect(GLASS_FRAME_PREVIEW_IMAGE_URL).toBe(
-      "https://assets.tokokino.com/frames/glass-preview.webp"
+      "https://assets.tokokino.com/frames/glass-preview-v2.webp"
     )
     expect(GLASS_FRAME_PREVIEW_IMAGE_URL).not.toBe(
       BROWSER_FRAME_PREVIEW_IMAGE_URL

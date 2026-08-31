@@ -72,7 +72,7 @@ const MOBILE_SPOTLIGHT_REGIONS = {
   ship: { left: "85.0%", top: "4.5%", width: "11.8%", height: "4%" },
 } as const satisfies Record<StepId, SpotlightRegion>
 
-const DEMO_PREVIEW_SRC = `https://assets.tokokino.com/screenshot.png`
+const DEMO_PREVIEW_SRC = `https://assets.tokokino.com/screenshot-v2.webp`
 
 export function HowItWorks() {
   const [activeStep, setActiveStep] = useState<StepId>("compose")
@@ -231,8 +231,8 @@ function ReadonlyEditorPreview({ activeStep }: { activeStep: StepId }) {
         <ShimmerImage
           src={DEMO_PREVIEW_SRC}
           alt="Tokokino editor demo preview"
-          width={3020}
-          height={1816}
+          width={3024}
+          height={1764}
           loading="lazy"
           decoding="async"
           className="max-h-full max-w-full object-contain contrast-[1.03] saturate-[1.02] dark:opacity-80 dark:saturate-[0.82]"

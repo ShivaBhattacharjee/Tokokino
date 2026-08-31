@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Download the glass-frame picker wallpaper, crop it to the glass screen
+ * Download the glass-frame picker preview, crop it to the glass screen
  * opening (1182×732), compress to WebP, and upload it to R2.
  *
  * Usage:
@@ -23,13 +23,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(__dirname, "..")
 
 const SOURCE_URL =
-  process.env.SOURCE_URL ??
-  "https://images.unsplash.com/photo-1744632040701-6eba26117b67?q=80&w=2400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  process.env.SOURCE_URL ?? "https://assets.tokokino.com/screenshot-v2.webp"
 
 const PUBLIC_BASE = (
   process.env.NEXT_PUBLIC_R2_PUBLIC_BASE ?? "https://assets.tokokino.com"
 ).replace(/\/$/, "")
-const OBJECT_KEY = process.env.OBJECT_KEY ?? "frames/glass-preview.webp"
+const OBJECT_KEY = process.env.OBJECT_KEY ?? "frames/glass-preview-v2.webp"
 
 const TARGET_WIDTH = Number(process.env.WIDTH ?? 1182)
 const TARGET_HEIGHT = Number(process.env.HEIGHT ?? 732)
