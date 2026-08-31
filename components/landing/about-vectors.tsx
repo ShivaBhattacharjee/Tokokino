@@ -298,6 +298,94 @@ export function PresetVector() {
   )
 }
 
+const FAN_X = 452
+const FAN_UP = `M${FAN_X} 101 C 468 93, 482 62, 496 62`
+const FAN_MID = `M${FAN_X} 101 H496`
+const FAN_DOWN = `M${FAN_X} 101 C 468 109, 482 140, 496 140`
+
+const FLOW_CYCLE_S = 4.4
+const FLOW_DUR = `${FLOW_CYCLE_S}s`
+// One speed for every segment, so the dots never slow down at the fan-out.
+const FLOW_SPEED = 62
+// Measured path lengths in viewBox units; the fan curves are cubics.
+const FEED_LEN = 112
+const TRUNK_LEN = 20
+const FAN_CURVE_LEN = 59.86
+const FAN_MID_LEN = 44
+
+const span = (length: number) => length / FLOW_SPEED / FLOW_CYCLE_S
+
+const FEED_START = 0.04
+const FEED_END = FEED_START + span(FEED_LEN)
+const TRUNK_START = FEED_END + 0.1
+const TRUNK_END = TRUNK_START + span(TRUNK_LEN)
+const FAN_END = TRUNK_END + span(FAN_CURVE_LEN)
+const FAN_MID_END = TRUNK_END + span(FAN_MID_LEN)
+
+const at = (value: number) => +value.toFixed(3)
+
+function FlowDot({
+  path,
+  start,
+  end,
+}: {
+  path: string
+  start: number
+  end: number
+}) {
+  const fade = 0.02
+
+  return (
+    <circle r={2.6} className="fill-primary" stroke="none" opacity={0}>
+      <animateMotion
+        dur={FLOW_DUR}
+        repeatCount="indefinite"
+        path={path}
+        keyPoints="0;0;1;1"
+        keyTimes={`0;${at(start)};${at(end)};1`}
+        calcMode="linear"
+      />
+      <animate
+        attributeName="opacity"
+        dur={FLOW_DUR}
+        repeatCount="indefinite"
+        values="0;0;1;1;0;0"
+        keyTimes={`0;${at(start)};${at(start + fade)};${at(end - fade)};${at(end)};1`}
+      />
+    </circle>
+  )
+}
+
+function SplitPulse({ start }: { start: number }) {
+  const keyTimes = `0;${at(start)};${at(start + 0.09)};1`
+
+  return (
+    <circle
+      cx={FAN_X}
+      cy={101}
+      r={2}
+      fill="none"
+      className="stroke-primary"
+      opacity={0}
+    >
+      <animate
+        attributeName="r"
+        dur={FLOW_DUR}
+        repeatCount="indefinite"
+        values="2;2;8;8"
+        keyTimes={keyTimes}
+      />
+      <animate
+        attributeName="opacity"
+        dur={FLOW_DUR}
+        repeatCount="indefinite"
+        values="0;0.55;0;0"
+        keyTimes={keyTimes}
+      />
+    </circle>
+  )
+}
+
 export function AboutBannerVector() {
   const shouldReduceMotion = useReducedMotion()
 
@@ -336,10 +424,13 @@ export function AboutBannerVector() {
       </Ghost>
 
       <Ghost opacity={0.55}>
-        <L x1={432} y1={101} x2={460} y2={101} />
-        <P d="M460 101 C 478 101, 478 62, 496 62" />
-        <L x1={460} y1={101} x2={496} y2={101} />
-        <P d="M460 101 C 478 101, 478 140, 496 140" />
+        <L x1={432} y1={101} x2={FAN_X} y2={101} />
+        <P d={FAN_UP} />
+        <P d={FAN_MID} />
+        <P d={FAN_DOWN} />
+      </Ghost>
+      <Ghost opacity={0.7}>
+        <Dot cx={FAN_X} cy={101} r={1.6} />
       </Ghost>
 
       <R x={496} y={47} width={112} height={30} rx={8} />
@@ -365,29 +456,16 @@ export function AboutBannerVector() {
 
       {shouldReduceMotion ? null : (
         <motion.g variants={solid}>
-          <circle r={2.6} className="fill-primary" stroke="none">
-            <animateMotion
-              dur="3.6s"
-              repeatCount="indefinite"
-              path="M120 101 H232"
-              keyPoints="0;1"
-              keyTimes="0;1"
-              calcMode="spline"
-              keySplines="0.42 0 0.58 1"
-            />
-          </circle>
-          <circle r={2.6} className="fill-primary" stroke="none">
-            <animateMotion
-              dur="3.6s"
-              begin="1.2s"
-              repeatCount="indefinite"
-              path="M436 101 H496"
-              keyPoints="0;1"
-              keyTimes="0;1"
-              calcMode="spline"
-              keySplines="0.42 0 0.58 1"
-            />
-          </circle>
+          <FlowDot path="M120 101 H232" start={FEED_START} end={FEED_END} />
+          <FlowDot
+            path={`M432 101 H${FAN_X}`}
+            start={TRUNK_START}
+            end={TRUNK_END}
+          />
+          <SplitPulse start={TRUNK_END} />
+          <FlowDot path={FAN_UP} start={TRUNK_END} end={FAN_END} />
+          <FlowDot path={FAN_MID} start={TRUNK_END} end={FAN_MID_END} />
+          <FlowDot path={FAN_DOWN} start={TRUNK_END} end={FAN_END} />
         </motion.g>
       )}
     </Vector>
