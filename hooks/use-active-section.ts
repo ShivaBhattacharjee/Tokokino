@@ -2,30 +2,20 @@
 
 import * as React from "react"
 
-import { LineNav, type LineNavItem } from "@/components/line-nav"
-
-export type ChangelogIndexItem = {
-  id: string
-  label: string
-}
-
-export function ChangelogIndex({ items }: { items: ChangelogIndexItem[] }) {
-  const navItems = React.useMemo<LineNavItem[]>(
-    () =>
-      items.map((item) => ({
-        title: item.label,
-        href: `#${item.id}`,
-      })),
-    [items]
-  )
-
-  const [activeHref, setActiveHref] = React.useState(navItems[0]?.href ?? "")
+/**
+ * Tracks which of the given section ids is the one currently being read, and
+ * returns it alongside a setter so a click can claim it before the scroll lands.
+ */
+export function useActiveSection(ids: string[]) {
+  const [activeId, setActiveId] = React.useState(ids[0] ?? "")
+  const idsKey = ids.join("|")
 
   React.useEffect(() => {
-    if (!items.length) return
+    const sectionIds = idsKey ? idsKey.split("|") : []
+    if (!sectionIds.length) return
 
-    const sectionElements = items
-      .map((item) => document.getElementById(item.id))
+    const sectionElements = sectionIds
+      .map((id) => document.getElementById(id))
       .filter((element): element is HTMLElement => Boolean(element))
 
     const syncActiveSection = () => {
@@ -36,7 +26,7 @@ export function ChangelogIndex({ items }: { items: ChangelogIndexItem[] }) {
       if (nearPageBottom) {
         const lastSection = sectionElements.at(-1)
         if (lastSection) {
-          setActiveHref(`#${lastSection.id}`)
+          setActiveId(lastSection.id)
         }
         return
       }
@@ -47,7 +37,7 @@ export function ChangelogIndex({ items }: { items: ChangelogIndexItem[] }) {
           (section) => section.getBoundingClientRect().top <= anchorLine
         ) ?? sectionElements[0]
 
-      if (current) setActiveHref(`#${current.id}`)
+      if (current) setActiveId(current.id)
     }
 
     const observer = new IntersectionObserver(syncActiveSection, {
@@ -65,17 +55,7 @@ export function ChangelogIndex({ items }: { items: ChangelogIndexItem[] }) {
       window.removeEventListener("scroll", syncActiveSection)
       window.removeEventListener("resize", syncActiveSection)
     }
-  }, [items])
+  }, [idsKey])
 
-  return (
-    <div className="sticky top-8">
-      <LineNav
-        className="w-full"
-        items={navItems}
-        activeHref={activeHref}
-        scrollActiveIntoView={false}
-        onItemClick={(item) => setActiveHref(item.href)}
-      />
-    </div>
-  )
+  return [activeId, setActiveId] as const
 }

@@ -2,12 +2,11 @@ import type { Metadata } from "next"
 import type { CSSProperties } from "react"
 
 import { DashedH } from "@/components/landing/dashed-h"
+import { DocIndex, type DocIndexItem } from "@/components/landing/doc-index"
 import { Footer } from "@/components/landing/footer"
 import { Nav } from "@/components/landing/nav"
 import { RAIL_V_STYLE } from "@/components/landing/rail-styles"
 import { ScrollToTop } from "@/components/landing/scroll-to-top"
-
-import { ChangelogIndex, type ChangelogIndexItem } from "./changelog-index"
 
 const CONTENT_WIDTH =
   "mx-auto max-w-[76rem] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] xl:w-full"
@@ -366,7 +365,7 @@ const releases: Release[] = [
 ]
 
 export default function ChangelogPage() {
-  const indexItems: ChangelogIndexItem[] = releases.map((release) => ({
+  const indexItems: DocIndexItem[] = releases.map((release) => ({
     id: release.id,
     label: `v${release.version}`,
   }))
@@ -401,7 +400,7 @@ export default function ChangelogPage() {
 
           <div className="mt-8 grid gap-10 sm:mt-10 md:grid-cols-[11rem_1fr] md:gap-8 lg:grid-cols-[13rem_1fr] lg:gap-12 xl:grid-cols-[14rem_1fr]">
             <aside className="hidden md:block">
-              <ChangelogIndex items={indexItems} />
+              <DocIndex items={indexItems} />
             </aside>
 
             <div className="min-w-0 space-y-14">

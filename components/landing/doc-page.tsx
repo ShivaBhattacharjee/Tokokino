@@ -53,7 +53,7 @@ export function DocPage({
           <div
             className={
               index
-                ? "mt-8 grid gap-10 sm:mt-10 md:grid-cols-[13rem_1fr] md:gap-8 lg:grid-cols-[15rem_1fr] lg:gap-12"
+                ? "mt-8 grid gap-10 sm:mt-10 md:grid-cols-[15rem_1fr] md:gap-8 lg:grid-cols-[17rem_1fr] lg:gap-12"
                 : "mt-8 sm:mt-10"
             }
           >
