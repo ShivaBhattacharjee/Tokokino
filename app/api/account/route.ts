@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod/v4"
 
 import {
@@ -10,6 +9,7 @@ import { requireSession } from "@/lib/api-auth"
 import { getAuth } from "@/lib/auth"
 import { getD1Database } from "@/lib/d1"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { recordSessionLocation, sessionLocation } from "@/lib/session-location"
 import { captureServerEvent } from "@/lib/posthog-server"
 
 export const runtime = "nodejs"
@@ -26,13 +26,6 @@ const sessionActionSchema = z
   })
 
 const deleteAccountSchema = z.object({ confirmation: z.literal("DELETE") })
-
-function sessionLocation() {
-  const cf = getCloudflareContext().cf
-  if (!cf) return null
-  const parts = [cf.city, cf.region || cf.country].filter(Boolean)
-  return parts.length > 0 ? parts.join(", ") : null
-}
 
 function deviceName(userAgent: string | null | undefined) {
   const agent = userAgent ?? ""
@@ -81,12 +74,7 @@ export async function GET(request: Request) {
 
   const location = sessionLocation()
   if (location) {
-    await getD1Database()
-      .prepare(
-        "INSERT INTO session_locations (session_id, location, updated_at) VALUES (?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET location = excluded.location, updated_at = excluded.updated_at"
-      )
-      .bind(current.session.id, location, new Date().toISOString())
-      .run()
+    await recordSessionLocation(current.session.id, location)
   }
 
   const sessions = await getAuth().api.listSessions({

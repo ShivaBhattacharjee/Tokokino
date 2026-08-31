@@ -5,6 +5,7 @@ import { nextCookies } from "better-auth/next-js"
 import { isAccountDeletionPending } from "@/lib/account-deletion"
 import { getD1Database } from "@/lib/d1"
 import { env, requireAuthConfig } from "@/lib/env"
+import { captureSessionLocation } from "@/lib/session-location"
 
 function createAuth() {
   const authConfig = requireAuthConfig()
@@ -68,6 +69,9 @@ function createAuth() {
             }
 
             throw new APIError("FORBIDDEN", { message })
+          },
+          after: async (session) => {
+            await captureSessionLocation(session.id)
           },
         },
       },
