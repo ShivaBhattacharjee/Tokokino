@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { useActiveSection } from "@/hooks/use-active-section"
 import { cn } from "@/lib/utils"
 
 type GlossaryIndexItem = {
@@ -10,60 +11,16 @@ type GlossaryIndexItem = {
 }
 
 export function GlossaryIndex({ items }: { items: GlossaryIndexItem[] }) {
-  const [activeId, setActiveId] = React.useState(items[0]?.id ?? "")
-
-  React.useEffect(() => {
-    if (!items.length) return
-
-    const sectionElements = items
-      .map((item) => document.getElementById(item.id))
-      .filter((element): element is HTMLElement => Boolean(element))
-
-    const syncActiveSection = () => {
-      const nearPageBottom =
-        window.innerHeight + window.scrollY >=
-        document.documentElement.scrollHeight - 24
-
-      if (nearPageBottom) {
-        const lastSection = sectionElements.at(-1)
-        if (lastSection) {
-          setActiveId(lastSection.id)
-        }
-        return
-      }
-
-      const anchorLine = window.innerHeight * 0.4
-      const current =
-        sectionElements.findLast(
-          (section) => section.getBoundingClientRect().top <= anchorLine
-        ) ?? sectionElements[0]
-
-      if (current) setActiveId(current.id)
-    }
-
-    const observer = new IntersectionObserver(syncActiveSection, {
-      rootMargin: "-15% 0px -60% 0px",
-      threshold: [0, 0.1, 0.35, 0.6],
-    })
-
-    sectionElements.forEach((section) => observer.observe(section))
-    syncActiveSection()
-    window.addEventListener("scroll", syncActiveSection, { passive: true })
-    window.addEventListener("resize", syncActiveSection)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener("scroll", syncActiveSection)
-      window.removeEventListener("resize", syncActiveSection)
-    }
-  }, [items])
+  const [activeId, setActiveId] = useActiveSection(
+    React.useMemo(() => items.map((item) => item.id), [items])
+  )
 
   return (
     <div className="sticky top-8">
       <p className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
         {"// Letters"}
       </p>
-      <div className="mt-4 grid grid-cols-5 gap-1">
+      <div className="mt-4 grid max-w-[13rem] grid-cols-5 gap-1">
         {items.map((item) => {
           const isActive = activeId === item.id
 
