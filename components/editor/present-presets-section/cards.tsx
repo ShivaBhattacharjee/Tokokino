@@ -1,9 +1,12 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
+  RiBookmarkLine,
   RiCheckLine,
   RiDeleteBinLine,
+  RiErrorWarningLine,
   RiMore2Fill,
   RiPencilLine,
 } from "@remixicon/react"
@@ -209,6 +212,31 @@ export function PresetCardsBody({
   )
 }
 
+function PresetEmptyState({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: React.ReactNode
+  title: string
+  body: React.ReactNode
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg bg-secondary/40 px-4 py-5 text-center">
+      <span className="inline-flex size-8 items-center justify-center rounded-full bg-foreground/[0.06] text-foreground/60">
+        {icon}
+      </span>
+      <p className="text-[12px] font-medium text-foreground">{title}</p>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        {body}
+      </p>
+      {action ? <div className="mt-1">{action}</div> : null}
+    </div>
+  )
+}
+
 /** Lays preset cards out in a horizontal x-scroll strip (mobile) or the
  * default responsive grid/column. */
 function PresetCardRow({
@@ -308,9 +336,19 @@ function CustomPresetList({
 
   if (!loggedIn) {
     return (
-      <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
-        Sign in to save and reuse your own layout presets.
-      </div>
+      <PresetEmptyState
+        icon={<RiBookmarkLine className="size-4" />}
+        title="Save your own presets"
+        body="Sign in to keep the current layout and reuse it on any canvas."
+        action={
+          <Link
+            href="/login"
+            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+          >
+            Sign in
+          </Link>
+        }
+      />
     )
   }
 
@@ -318,45 +356,44 @@ function CustomPresetList({
   // account that a failed request can't support.
   if (failed) {
     return (
-      <div className="rounded-lg border border-dashed border-destructive/50 bg-destructive/5 p-4 text-center text-[12px] text-muted-foreground">
-        Could not load your presets.
-        {onRetry ? (
-          <>
-            {" "}
+      <PresetEmptyState
+        icon={<RiErrorWarningLine className="size-4 text-destructive" />}
+        title="Could not load your presets"
+        body="Check your connection and try again."
+        action={
+          onRetry ? (
             <button
               type="button"
               onClick={onRetry}
-              className="font-medium text-foreground underline underline-offset-2"
+              className="inline-flex h-8 items-center rounded-md bg-secondary/70 px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
             >
               Try again
             </button>
-          </>
-        ) : null}
-      </div>
+          ) : null
+        }
+      />
     )
   }
 
   if (presets.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border/60 bg-secondary/20 p-4 text-center text-[12px] text-muted-foreground">
-        {isAnimateMode ? (
+      <PresetEmptyState
+        icon={<RiBookmarkLine className="size-4" />}
+        title={
+          isAnimateMode ? "No animate presets yet" : "No custom presets yet"
+        }
+        body={
           <>
-            No animate presets yet. Use{" "}
+            Use{" "}
             <span className="font-medium text-foreground">
               Save → Save as preset
             </span>{" "}
-            while Animate is on to capture the current timeline.
+            {isAnimateMode
+              ? "while Animate is on to capture the current timeline."
+              : "to capture the current layout."}
           </>
-        ) : (
-          <>
-            No custom presets yet. Use{" "}
-            <span className="font-medium text-foreground">
-              Save → Save as preset
-            </span>{" "}
-            to capture the current layout.
-          </>
-        )}
-      </div>
+        }
+      />
     )
   }
 
