@@ -23,7 +23,6 @@ import {
   RiUserLine,
   RiUserSettingsLine,
 } from "@remixicon/react"
-import { LayoutGroup, motion } from "motion/react"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
@@ -36,6 +35,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import {
@@ -116,43 +122,30 @@ export function SettingsDialog({
           </div>
 
           {/* Sidebar — lighter surface */}
-          <nav className="flex w-full shrink-0 flex-row gap-0.5 overflow-x-auto border-b border-border/60 bg-card p-2 lg:w-60 lg:flex-col lg:overflow-visible lg:border-r lg:border-b-0 lg:p-3">
-            <p className="hidden px-2 pt-1 pb-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase lg:block">
+          <nav className="flex w-full shrink-0 flex-row gap-0.5 overflow-x-auto border-b border-border/60 bg-card p-2 lg:w-48 lg:flex-col lg:overflow-visible lg:border-r lg:border-b-0 lg:p-2.5">
+            <p className="hidden px-2 pt-1 pb-2 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase lg:block">
               Settings
             </p>
-            <div className="flex gap-0.5 lg:block">
-              <LayoutGroup id="settings-nav">
-                {NAV_ITEMS.map((item) => {
-                  const active = section === item.id
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSection(item.id)}
-                      className={cn(
-                        "relative flex shrink-0 cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors lg:w-full lg:justify-start",
-                        active
-                          ? "text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {active ? (
-                        <motion.span
-                          layoutId="settings-nav-pill"
-                          className="absolute inset-0 rounded-md bg-primary shadow-sm"
-                          transition={{
-                            type: "spring",
-                            stiffness: 420,
-                            damping: 34,
-                          }}
-                        />
-                      ) : null}
-                      <item.icon className="relative z-10 size-3.5" />
-                      <span className="relative z-10">{item.label}</span>
-                    </button>
-                  )
-                })}
-              </LayoutGroup>
+            <div className="flex gap-1.5 lg:flex-col">
+              {NAV_ITEMS.map((item) => {
+                const active = section === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSection(item.id)}
+                    className={cn(
+                      "relative flex shrink-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors duration-150 lg:w-full lg:justify-start",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="size-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </nav>
 
@@ -186,9 +179,33 @@ function ThemeToggle() {
   React.useEffect(() => setMounted(true), [])
   const active = mounted ? (theme ?? "system") : "system"
 
+  const activeOption =
+    THEME_OPTIONS.find((opt) => opt.value === active) ?? THEME_OPTIONS[2]
+
   return (
-    <LayoutGroup id="settings-theme">
-      <div className="flex w-full max-w-sm items-center gap-1 rounded-xl bg-secondary/50 p-1">
+    <>
+      <Select value={active} onValueChange={setTheme}>
+        <SelectTrigger
+          size="default"
+          aria-label="Appearance"
+          className="w-full text-[13px] data-[size=default]:h-10 sm:hidden"
+        >
+          <SelectValue>
+            <activeOption.icon className="size-4 text-primary" />
+            {activeOption.label}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {THEME_OPTIONS.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              <opt.icon className="size-4" />
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <div className="hidden w-full grid-cols-3 gap-2.5 sm:grid">
         {THEME_OPTIONS.map((opt) => {
           const isActive = active === opt.value
           return (
@@ -196,27 +213,21 @@ function ThemeToggle() {
               key={opt.value}
               type="button"
               onClick={() => setTheme(opt.value)}
+              aria-pressed={isActive}
               className={cn(
-                "relative flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors",
+                "flex cursor-pointer flex-col items-start gap-3 rounded-xl border px-4 py-4 text-left transition-colors",
                 isActive
-                  ? "text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "border-primary bg-primary/8 text-foreground"
+                  : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-border hover:text-foreground"
               )}
             >
-              {isActive ? (
-                <motion.span
-                  layoutId="settings-theme-pill"
-                  className="absolute inset-0 rounded-lg bg-primary shadow-sm"
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                />
-              ) : null}
-              <opt.icon className="relative z-10 size-4" />
-              <span className="relative z-10">{opt.label}</span>
+              <opt.icon className={cn("size-5", isActive && "text-primary")} />
+              <span className="text-[13px] font-medium">{opt.label}</span>
             </button>
           )
         })}
       </div>
-    </LayoutGroup>
+    </>
   )
 }
 
@@ -594,7 +605,7 @@ function AccountSection() {
           size="lg"
           onClick={() => void handleLogOutAll()}
           disabled={isRevokingAll}
-          className="shrink-0"
+          className="shrink-0 border-destructive/50 bg-transparent hover:bg-destructive/10 dark:bg-transparent dark:hover:bg-destructive/10"
         >
           {isRevokingAll ? (
             <RiLoader4Line className="size-4 animate-spin" />
@@ -677,7 +688,7 @@ function AccountSection() {
                   size="default"
                   onClick={() => void handleLogOutSession(item)}
                   disabled={revokingId === item.id}
-                  className="min-w-[7rem] justify-self-end"
+                  className="min-w-[7rem] justify-self-end border-destructive/50 bg-transparent hover:bg-destructive/10 dark:bg-transparent dark:hover:bg-destructive/10"
                 >
                   {revokingId === item.id ? (
                     <>
@@ -685,7 +696,10 @@ function AccountSection() {
                       Logging out
                     </>
                   ) : (
-                    "Log out"
+                    <>
+                      <RiLogoutBoxLine className="size-3.5" />
+                      Log out
+                    </>
                   )}
                 </Button>
               </div>
