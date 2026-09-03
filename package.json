@@ -106,7 +106,7 @@
     "husky": "^9.1.7",
     "jsdom": "^30.0.1",
     "lint-staged": "^17.0.5",
-    "oxfmt": "^0.60.0",
+    "oxfmt": "^0.63.0",
     "postcss": "^8",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
