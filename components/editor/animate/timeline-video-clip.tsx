@@ -86,7 +86,7 @@ export function TimelineVideoClip({
             "group/video absolute top-0 bottom-0 touch-none overflow-hidden rounded-lg border bg-black/20",
             !razorMode && "cursor-grab active:cursor-grabbing",
             selected
-              ? "border-primary ring-1 ring-primary/45"
+              ? "border-primary"
               : "border-border/50 hover:border-foreground/35",
             trimming && "z-30"
           )}

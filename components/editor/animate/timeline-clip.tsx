@@ -37,12 +37,6 @@ export type ClipDragMode = "move" | "trim" | "trim-start"
 
 export const RAZOR_CURSOR = sharedRazorCursor
 
-/** Timeline clip thumbnail — `objectPosition` mirrors full-page canvas crop. */
-export type ClipThumb = {
-  src: string
-  objectPosition?: string
-}
-
 type TimelineClipProps = {
   clip: AnimationClip
   left: number
@@ -65,11 +59,6 @@ type TimelineClipProps = {
    * handled upstream in onPointerDownClip).
    */
   razorMode: boolean
-  /**
-   * Thumbnail(s) of the screenshot(s) this clip animates. One image renders as a
-   * single preview; multiple (an "all" clip) render as a small grid.
-   */
-  images: ClipThumb[]
   /** Which inspector properties this clip animates — rendered as small icons. */
   iconKeys: ClipIconKey[]
   dupShortcut: string
@@ -88,7 +77,10 @@ type TimelineClipProps = {
 const gripHandle =
   "absolute inset-y-0 flex w-3 cursor-ew-resize touch-none items-center justify-center"
 const gripPill =
-  "h-4 w-1 rounded-full bg-foreground/50 opacity-0 shadow transition-opacity duration-150 group-hover/clip:opacity-100"
+  "h-4 w-1 rounded-full bg-white/85 opacity-0 shadow transition-opacity duration-150 group-hover/clip:opacity-100"
+
+const CLIP_GRADIENT =
+  "linear-gradient(to bottom, color-mix(in oklab, var(--primary) 92%, white), color-mix(in oklab, var(--primary) 92%, black))"
 
 // Which inspector properties a clip animates, surfaced as icons on the clip.
 // The timeline clip's icon keys are exactly the animatable effects.
@@ -122,6 +114,28 @@ const ICON_FOR: Record<ClipIconKey, typeof RiDragMove2Line> = {
   crop: RiCropLine,
 }
 
+const LABEL_FOR: Record<ClipIconKey, string> = {
+  position: "Position",
+  zoom: "Zoom",
+  tilt: "Tilt",
+  padding: "Padding",
+  shadow: "Shadow",
+  backdrop: "Backdrop",
+  background: "Background",
+  canvasRadius: "Canvas radius",
+  lighting: "Lighting",
+  filter: "Filter",
+  portrait: "Portrait",
+  pattern: "Pattern",
+  ascii: "ASCII",
+  overlay: "Overlay",
+  mediaEffects: "Effects",
+  mediaFilter: "Filters",
+  border: "Border",
+  borderRadius: "Radius",
+  crop: "Crop",
+}
+
 export function TimelineClip({
   left,
   width,
@@ -132,7 +146,6 @@ export function TimelineClip({
   interacting,
   beyond,
   razorMode,
-  images,
   iconKeys,
   dupShortcut,
   clearEffectsShortcut,
@@ -167,15 +180,18 @@ export function TimelineClip({
           // Selection (and click-to-deselect) is handled in the pointer
           // down/up cycle; this just stops the click from reaching the track.
           onClick={(e) => e.stopPropagation()}
-          // Razor tool overrides the grab cursor with the scissor cursor.
-          style={razorMode ? { cursor: RAZOR_CURSOR } : undefined}
+          style={{
+            background: CLIP_GRADIENT,
+            // Razor tool overrides the grab cursor with the scissor cursor.
+            ...(razorMode ? { cursor: RAZOR_CURSOR } : null),
+          }}
           className={cn(
-            "group/clip absolute top-1 bottom-1 z-20 touch-none overflow-hidden rounded-md border bg-linear-to-b from-neutral-100 to-neutral-200 transition-[border-color] duration-150 ease-out dark:from-neutral-700/70 dark:to-neutral-800",
+            "group/clip absolute top-1 bottom-1 z-20 touch-none overflow-hidden rounded-sm transition-shadow duration-150 ease-out ring-inset",
             !razorMode && "cursor-grab active:cursor-grabbing",
             selected
-              ? "border-primary/60"
-              : "border-black/10 hover:border-black/20 dark:border-white/10 dark:hover:border-white/20",
-            dragging && "z-30 border-foreground/25",
+              ? "ring-1 ring-white/60"
+              : "ring-0 hover:ring-1 hover:ring-white/30",
+            dragging && "z-30 ring-1 ring-white/40",
             // Past the set duration → desaturated to read as "beyond". The blur
             // is applied by the inactive-region overlay (which sits above the
             // clips) so a clip straddling the duration only blurs its overflow
@@ -209,71 +225,23 @@ export function TimelineClip({
               : { duration: 0.22, ease: [0.4, 0, 0.2, 1] }
           }
         >
-          {/* Centered mockup preview — the screenshot(s) this clip animates.
-              A single target shows one thumbnail; an "all" clip shows every
-              image as a compact grid so it reads as spanning all of them. */}
-          <div className="pointer-events-none flex h-full items-center justify-center px-3">
-            {images.length === 0 ? (
-              <span className="h-7 w-12 rounded-[5px] bg-foreground/10 ring-1 ring-foreground/10" />
-            ) : images.length === 1 ? (
-              // Fixed box + object-cover so tall full-page captures crop like the
-              // canvas (not shrink to a 2px-wide intrinsic strip).
-              <span className="relative h-7 w-12 overflow-hidden rounded-[5px] ring-1 ring-foreground/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={images[0].src}
-                  alt=""
-                  className="size-full object-cover"
-                  style={
-                    images[0].objectPosition
-                      ? { objectPosition: images[0].objectPosition }
-                      : undefined
-                  }
-                />
-              </span>
-            ) : (
-              // Up to 4 thumbnails in a 2-col grid; a "+N" chip if there are more.
-              <div className="grid max-w-[68px] grid-cols-2 gap-[2px]">
-                {images.slice(0, 4).map((thumb, i) => (
-                  <div
-                    key={i}
-                    className="relative h-3.5 w-[22px] overflow-hidden rounded-[3px] ring-1 ring-foreground/10"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={thumb.src}
-                      alt=""
-                      className="size-full object-cover"
-                      style={
-                        thumb.objectPosition
-                          ? { objectPosition: thumb.objectPosition }
-                          : undefined
-                      }
-                    />
-                    {i === 3 && images.length > 4 && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[9px] font-semibold text-white">
-                        +{images.length - 3}
-                      </span>
-                    )}
-                  </div>
+          {/* One icon per animated property, then its name — dropped as the
+              clip gets narrower. */}
+          <div className="pointer-events-none flex h-full items-center gap-1.5 px-2.5">
+            {uniqueIcons.length > 0 && width >= 44 && (
+              <span className="flex shrink-0 items-center gap-1">
+                {uniqueIcons.slice(0, 4).map((Icon, i) => (
+                  <Icon key={i} className="size-3.5 shrink-0 text-white/90" />
                 ))}
-              </div>
+              </span>
+            )}
+            {iconKeys.length > 0 && width >= 110 && (
+              <span className="truncate text-[11px] font-medium text-white/90">
+                {LABEL_FOR[iconKeys[0]]}
+                {iconKeys.length > 1 && ` +${iconKeys.length - 1}`}
+              </span>
             )}
           </div>
-
-          {/* Animated-property icons (position / zoom / tilt) — mirrors the
-              inspector's section icons so the clip shows what it animates. Plain
-              muted glyphs, no chrome; only shown when the clip is wide enough. */}
-          {uniqueIcons.length > 0 && width >= 78 && (
-            <div className="pointer-events-none absolute inset-y-0 right-2 flex max-w-[70%] items-center justify-end gap-1 overflow-hidden">
-              {uniqueIcons.map((Icon, i) => (
-                <Icon
-                  key={i}
-                  className="size-3 shrink-0 text-foreground/55 dark:text-foreground/60"
-                />
-              ))}
-            </div>
-          )}
 
           {/* Trim handles — a grip pill on each edge, revealed on hover. */}
           <div

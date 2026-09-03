@@ -32,6 +32,7 @@ import { isApplePlatform } from "@/lib/editor/shortcuts"
 import { fullPageCaptureMediaStyle } from "@/lib/editor/full-page-capture"
 import { useActiveCanvasField, useEditorStore } from "@/lib/editor/store"
 import { useVideoFilmstrip } from "@/lib/editor/video-filmstrip"
+import { useVideoWaveform } from "@/lib/editor/video-waveform"
 import {
   applyVideoMutedToAll,
   getVideoMutedPreferenceSync,
@@ -39,7 +40,7 @@ import {
 } from "@/lib/editor/video-mute-preference"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 
-import type { ClipDragMode, ClipIconKey, ClipThumb } from "./timeline-clip"
+import type { ClipDragMode, ClipIconKey } from "./timeline-clip"
 import type { VideoTrimDragMode } from "./timeline-video-clip"
 
 export function useAnimateTimeline() {
@@ -54,6 +55,7 @@ export function useAnimateTimeline() {
 
   const mainIsVideo = isVideoSrc(screenshot)
   const mainFilmstrip = useVideoFilmstrip(mainIsVideo ? screenshot : null)
+  const mainWaveform = useVideoWaveform(mainIsVideo ? screenshot : null)
   const videoSourceDurationMs = mainFilmstrip?.durationMs ?? durationMs
   const resolvedVideoClips = React.useMemo(() => {
     const source = videoClips?.length
@@ -89,6 +91,7 @@ export function useAnimateTimeline() {
         src: screenshot,
         isVideo: mainIsVideo,
         filmstrip: mainIsVideo ? mainFilmstrip : null,
+        waveform: mainIsVideo ? mainWaveform : null,
         videoClips: mainIsVideo ? resolvedVideoClips : [],
         // Keep timeline thumbs in sync with canvas full-page crop.
         objectPosition: mainIsVideo ? undefined : mainObjectPosition,
@@ -98,6 +101,7 @@ export function useAnimateTimeline() {
         src: slot.src,
         isVideo: false,
         filmstrip: null,
+        waveform: null,
         videoClips: [] as typeof resolvedVideoClips,
         objectPosition: fullPageCaptureMediaStyle(slot.fullPageCapture)
           ?.objectPosition as string | undefined,
@@ -108,6 +112,7 @@ export function useAnimateTimeline() {
       screenshotSlots,
       mainIsVideo,
       mainFilmstrip,
+      mainWaveform,
       resolvedVideoClips,
       mainObjectPosition,
     ]
@@ -1517,83 +1522,6 @@ export function useAnimateTimeline() {
 
   const ticks = computeTicks(timelineEndMs, pxPerSecond)
 
-  const staticMainThumb = React.useMemo<ClipThumb | null>(
-    () =>
-      !mainIsVideo && screenshot
-        ? { src: screenshot, objectPosition: mainObjectPosition }
-        : null,
-    [mainIsVideo, screenshot, mainObjectPosition]
-  )
-
-  // The video frame visible at a given timeline moment: map timeline time →
-  // source time through the covering video clip (respecting trim/offset), then
-  // pick the filmstrip tile sampling that time. This makes a clip's thumbnail
-  // show the frame where the clip starts, not always the video's first frame.
-  const videoThumbAt = React.useCallback(
-    (timelineMs: number): ClipThumb | null => {
-      const strip = mainFilmstrip
-      if (!strip || strip.frames.length === 0) return null
-      // No fallback to a neighbouring clip: a moment in a gap between trimmed
-      // clips has no video, so it gets no thumbnail rather than a frame sampled
-      // from an unrelated clip.
-      const covering = resolvedVideoClips.find(
-        (c) =>
-          timelineMs >= c.timelineStartMs &&
-          timelineMs < c.timelineStartMs + (c.endMs - c.startMs)
-      )
-      if (!covering) return null
-      const sourceMs =
-        covering.startMs + Math.max(0, timelineMs - covering.timelineStartMs)
-      const frac =
-        strip.durationMs > 0
-          ? Math.max(0, Math.min(1, sourceMs / strip.durationMs))
-          : 0
-      const idx = Math.min(
-        strip.frames.length - 1,
-        Math.max(0, Math.floor(frac * strip.targetFrames))
-      )
-      return { src: strip.frames[idx] }
-    },
-    [mainFilmstrip, resolvedVideoClips]
-  )
-
-  const resolveClipImages = React.useCallback(
-    (clip: (typeof clips)[number]): ClipThumb[] => {
-      const mainThumb = mainIsVideo
-        ? videoThumbAt(clip.startMs)
-        : staticMainThumb
-      const target = clip.target ?? { scope: "all" as const }
-      if (target.scope === "slot") {
-        const slot = screenshotSlots.find((s) => s.id === target.slotId)
-        if (slot?.src) {
-          return [
-            {
-              src: slot.src,
-              objectPosition: fullPageCaptureMediaStyle(slot.fullPageCapture)
-                ?.objectPosition as string | undefined,
-            },
-          ]
-        }
-        return mainThumb ? [mainThumb] : []
-      }
-      if (target.scope === "main") {
-        return mainThumb ? [mainThumb] : []
-      }
-      const thumbs: ClipThumb[] = []
-      if (mainThumb) thumbs.push(mainThumb)
-      for (const slot of screenshotSlots) {
-        if (!slot.src) continue
-        thumbs.push({
-          src: slot.src,
-          objectPosition: fullPageCaptureMediaStyle(slot.fullPageCapture)
-            ?.objectPosition as string | undefined,
-        })
-      }
-      return thumbs
-    },
-    [mainIsVideo, videoThumbAt, staticMainThumb, screenshotSlots]
-  )
-
   const resolveClipIcons = React.useCallback(
     (clip: (typeof clips)[number]): ClipIconKey[] => clip.effects ?? [],
     []
@@ -1642,7 +1570,6 @@ export function useAnimateTimeline() {
     ghostRef,
     screenshotInputRef,
 
-    resolveClipImages,
     resolveClipIcons,
 
     ghostVisible,

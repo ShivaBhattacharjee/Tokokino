@@ -34,6 +34,28 @@ type Release = {
 
 const releases: Release[] = [
   {
+    id: "v2-3-0",
+    version: "2.3.0",
+    date: "September 3, 2026",
+    title: "A clearer Animate timeline",
+    summary:
+      "Animation clips now say what they do at a glance, and the video track shows your audio.",
+    changes: [
+      {
+        title: "Clips show what they animate",
+        text: "An animation clip is now a coloured bar with an icon for every property it changes and the name of the first one \u2014 Tilt, Zoom, Backdrop \u2014 instead of a thumbnail of the screenshot. Wide clips show more, narrow clips drop to icons alone.",
+      },
+      {
+        title: "Audio waveform on the video track",
+        text: "Video with sound now draws its waveform along the bottom of the filmstrip, so you can see where speech and beats fall while you place keyframes. Trimmed and split clips each show their own section, and a muted clip fades out.",
+      },
+      {
+        title: "Timeline polish",
+        text: "Lighter selection outlines, no boxed-in track border, and clips no longer clip at the edges of the timeline.",
+      },
+    ],
+  },
+  {
     id: "v2-2-0",
     version: "2.2.0",
     date: "August 14, 2026",

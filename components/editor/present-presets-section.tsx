@@ -692,7 +692,10 @@ export function PresentPresetsSection({
         if (horizontal) return body
         return (
           <ScrollArea
-            className={flat ? "pr-3 pl-4" : "min-h-0 flex-1 pr-3 pl-4"}
+            className={cn(
+              "[&_[data-slot=scroll-area-scrollbar]]:hidden",
+              flat ? "pr-3 pl-4" : "min-h-0 flex-1 pr-3 pl-4"
+            )}
           >
             <div className="pr-1 pb-4">{body}</div>
           </ScrollArea>

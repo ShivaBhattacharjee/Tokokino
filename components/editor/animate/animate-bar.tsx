@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { AnimateControls } from "./animate-controls"
 import { ClipTransitionButton } from "./clip-transition-toolbar"
 import { TimelineClip } from "./timeline-clip"
+import { TimelineWaveform } from "./timeline-waveform"
 import { RAZOR_CURSOR } from "./timeline-clip-interactions"
 import { TimelineVideoClip } from "./timeline-video-clip"
 import { TimelineRuler } from "./timeline-ruler"
@@ -77,7 +78,6 @@ export function AnimateBar() {
     draggingClipId,
     interactingClipId,
     clipsAnimated,
-    resolveClipImages,
     resolveClipIcons,
     dupShortcut,
     clearEffectsShortcut,
@@ -187,7 +187,7 @@ export function AnimateBar() {
 
       <div
         ref={scrollRef}
-        className="mt-3 [scrollbar-width:none] overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-3 [scrollbar-width:none] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-1.5 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="relative" style={{ width: contentWidth }}>
           <div
@@ -267,7 +267,7 @@ export function AnimateBar() {
               onPointerLeave={onClipsRowLeave}
               onClick={onClipsRowClick}
               className={cn(
-                "relative h-11 touch-none overflow-visible rounded-lg border border-border/50 bg-background/40",
+                "relative h-11 touch-none overflow-visible rounded-lg bg-background/40",
                 ghostVisible && "cursor-copy"
               )}
               style={{
@@ -320,7 +320,6 @@ export function AnimateBar() {
                     interacting={
                       clip.id === interactingClipId || !clipsAnimated
                     }
-                    images={resolveClipImages(clip)}
                     iconKeys={resolveClipIcons(clip)}
                     dupShortcut={dupShortcut}
                     clearEffectsShortcut={clearEffectsShortcut}
@@ -349,6 +348,7 @@ export function AnimateBar() {
             />
             {layers.map((layer, i) => {
               const strip = layer.isVideo ? layer.filmstrip : null
+              const waveform = layer.isVideo ? layer.waveform : null
               const rowWidth = pxFor(durationMs)
 
               if (layer.isVideo) {
@@ -434,6 +434,21 @@ export function AnimateBar() {
                                   )
                                 })}
                               </div>
+                              {waveform &&
+                                !waveform.silent &&
+                                strip.durationMs > 0 && (
+                                  <TimelineWaveform
+                                    peaks={waveform.peaks}
+                                    bucketCount={waveform.bucketCount}
+                                    startMs={clip.startMs}
+                                    endMs={clip.endMs}
+                                    durationMs={strip.durationMs}
+                                    muted={
+                                      clip.muted ??
+                                      getVideoMutedPreferenceSync()
+                                    }
+                                  />
+                                )}
                               <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center gap-1.5 bg-linear-to-l from-black/70 via-black/40 to-transparent pr-3 pl-14 text-white">
                                 <RiVidiconFill className="size-4 shrink-0" />
                                 <span className="text-[12px] font-medium whitespace-nowrap">
