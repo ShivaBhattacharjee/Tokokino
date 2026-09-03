@@ -158,7 +158,7 @@ export function ImageBackgroundPanel({
             <Button
               variant="default"
               size="sm"
-              className="h-9 flex-1 cursor-pointer gap-2 bg-[#9BCD64] text-[#10220e] hover:bg-[#8ec25a]"
+              className="strawberry-button-exempt h-9 flex-1 cursor-pointer gap-2 bg-[#9BCD64] text-[#10220e] hover:bg-[#8ec25a]"
             >
               <RiUnsplashLine className="size-4" />
               <span className="text-[11px] font-medium">Unsplash</span>

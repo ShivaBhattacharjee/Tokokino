@@ -551,7 +551,7 @@ export function MobileControls({
                 className={cn(
                   "flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors",
                   isActive
-                    ? "border-[#ff5a6f] bg-[#ff5a6f] text-white"
+                    ? "border-primary bg-primary text-white"
                     : "border-transparent text-foreground/60 hover:bg-[#cfe5b8]/20 hover:text-foreground dark:hover:bg-[#cfe5b8]/10"
                 )}
               >
@@ -584,7 +584,7 @@ export function MobileControls({
                 className={cn(
                   "flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors",
                   penButtonActive
-                    ? "bg-[#ff5a6f] text-white"
+                    ? "bg-primary text-white"
                     : "bg-secondary/50 text-foreground/70 hover:text-foreground"
                 )}
               >

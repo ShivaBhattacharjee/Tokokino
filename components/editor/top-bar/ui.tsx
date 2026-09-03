@@ -46,14 +46,14 @@ export function SegmentedRow({
                 opt.disabled
                   ? "cursor-not-allowed text-muted-foreground/40"
                   : active
-                    ? "cursor-pointer text-foreground"
+                    ? "cursor-pointer text-primary-foreground"
                     : "cursor-pointer text-muted-foreground hover:text-foreground"
               )}
             >
               {active && !opt.disabled ? (
                 <motion.span
                   layoutId={`segmented-pill-${options.map((o) => o.value).join("-")}`}
-                  className="absolute inset-0 rounded-full bg-background shadow-sm ring-1 ring-border/60"
+                  className="strawberry-button absolute inset-0 rounded-full shadow-sm ring-1 ring-primary/40"
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               ) : null}

@@ -44,6 +44,21 @@ export function normalizeAsciiResolution(raw: number): number {
 }
 
 /**
+ * WebKit pays tens of milliseconds for each image-background canvas readback.
+ * Desktop Chromium UAs also contain "AppleWebKit", so exclude the engines that
+ * only carry the compatibility token. iOS browsers intentionally stay on the
+ * WebKit path because Apple requires them to use WebKit underneath.
+ */
+export function isWebKitEngine(
+  userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent
+): boolean {
+  return (
+    userAgent.includes("AppleWebKit/") &&
+    !/(?:Chrome|Chromium|Edg|OPR)\//.test(userAgent)
+  )
+}
+
+/**
  * The resolution a slider drag is currently showing, per canvas.
  *
  * The grid is resampled for real on every step instead of scaling the painted

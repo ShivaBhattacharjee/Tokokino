@@ -15,11 +15,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
 import type { CurrentDraftInfo } from "@/lib/editor/store"
 import { SaveActionRow } from "./ui"
@@ -39,7 +34,6 @@ function saveCopy(
       draftDescription: currentDraft
         ? "Update this project and timeline so you can resume later."
         : "Save the project and timeline so you can resume editing later.",
-      tooltip: "Save animation",
     }
   }
   return {
@@ -52,7 +46,6 @@ function saveCopy(
     draftDescription: currentDraft
       ? "Update this project so you can resume later."
       : "Save the project so you can resume editing later.",
-    tooltip: "Save project",
   }
 }
 
@@ -74,35 +67,26 @@ export function SaveControls({
   onSaveAsDraft: () => void
 }) {
   const copy = saveCopy(isAnimateMode, currentDraft)
-  // Keep the tooltip controlled for its whole lifetime (own hover state) and
-  // force it shut while the popover is open — flipping between a boolean and
-  // undefined would make Radix warn about switching controlled/uncontrolled.
-  const [tooltipOpen, setTooltipOpen] = React.useState(false)
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              ref={triggerRef}
-              variant="outline"
-              size="lg"
-              onMouseEnter={() => onOpenChange(true)}
-              onPointerDown={(event) => {
-                if (open && event.pointerType === "mouse") {
-                  event.preventDefault()
-                }
-              }}
-            >
-              <RiSaveLine />
-              <span className="hidden xl:inline">Save</span>
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">{copy.tooltip}</TooltipContent>
-      </Tooltip>
+      <PopoverTrigger asChild>
+        <Button
+          ref={triggerRef}
+          variant="outline"
+          size="lg"
+          onMouseEnter={() => onOpenChange(true)}
+          onPointerDown={(event) => {
+            if (open && event.pointerType === "mouse") {
+              event.preventDefault()
+            }
+          }}
+        >
+          <RiSaveLine />
+          <span className="hidden xl:inline">Save</span>
+        </Button>
+      </PopoverTrigger>
       <PopoverContent
         align="center"
         sideOffset={12}

@@ -472,6 +472,35 @@
   .tool-cluster {
     @apply flex items-center gap-0.5 rounded-md border border-border/60 bg-secondary/60 p-1;
   }
+
+  /*
+   * Solid strawberry actions share the same dimensional surface as animate
+   * timeline clips: a soft highlight at the top and a darker lower edge.
+   * Keep this scoped to interactive controls so primary progress bars,
+   * selection marks, and other status UI retain their flat fill.
+  */
+  .strawberry-button,
+  :is(button, a, [role="button"]).bg-primary:not(
+      .strawberry-button-exempt
+    ) {
+    background-color: var(--primary);
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--primary) 92%, white),
+      color-mix(in oklab, var(--primary) 92%, black)
+    );
+  }
+
+  .strawberry-button:hover,
+  :is(button, a, [role="button"]).bg-primary:not(
+      .strawberry-button-exempt
+    ):hover {
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--primary) 88%, white),
+      color-mix(in oklab, var(--primary) 88%, black)
+    );
+  }
 }
 
 @layer base {

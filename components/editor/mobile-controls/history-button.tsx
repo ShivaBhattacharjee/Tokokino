@@ -50,7 +50,7 @@ export function MobileHistoryButton({
             className={cn(
               "flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors",
               open
-                ? "border-[#ff5a6f] bg-[#ff5a6f] text-white"
+                ? "border-primary bg-primary text-white"
                 : "border-transparent text-foreground/60 hover:bg-[#cfe5b8]/20 hover:text-foreground dark:hover:bg-[#cfe5b8]/10"
             )}
           >

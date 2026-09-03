@@ -19,14 +19,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 export function OpenControls({
-  currentDraftName,
   isOffline = false,
   isSavingOffline = false,
   onNewProject,
@@ -35,7 +29,8 @@ export function OpenControls({
   onOpenProject,
   onToggleOffline,
 }: {
-  currentDraftName: string | null
+  /** Retained for compatibility; File no longer surfaces a hover tooltip. */
+  currentDraftName?: string | null
   /** The editor is already stored on this device. */
   isOffline?: boolean
   /** The shell is being cached — the item stays put but locks. */
@@ -48,34 +43,26 @@ export function OpenControls({
   onToggleOffline?: () => void
 }) {
   const [open, setOpen] = React.useState(false)
-  const [tooltipOpen, setTooltipOpen] = React.useState(false)
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
 
   return (
     <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
-      <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              ref={triggerRef}
-              variant="outline"
-              size="lg"
-              onMouseEnter={() => setOpen(true)}
-              onPointerDown={(event) => {
-                if (open && event.pointerType === "mouse") {
-                  event.preventDefault()
-                }
-              }}
-            >
-              <RiFolderOpenLine />
-              <span className="hidden xl:inline">File</span>
-            </Button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          {currentDraftName ? `Editing ${currentDraftName}` : "File"}
-        </TooltipContent>
-      </Tooltip>
+      <DropdownMenuTrigger asChild>
+        <Button
+          ref={triggerRef}
+          variant="outline"
+          size="lg"
+          onMouseEnter={() => setOpen(true)}
+          onPointerDown={(event) => {
+            if (open && event.pointerType === "mouse") {
+              event.preventDefault()
+            }
+          }}
+        >
+          <RiFolderOpenLine />
+          <span className="hidden xl:inline">File</span>
+        </Button>
+      </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
         className="w-52"
