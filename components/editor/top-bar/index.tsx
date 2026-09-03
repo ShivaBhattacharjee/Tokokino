@@ -1338,7 +1338,6 @@ export function TopBar() {
       <div className="hidden min-w-0 flex-1 items-center justify-center gap-1.5 md:flex">
         <div className="tool-cluster hidden xl:flex">
           <OpenControls
-            currentDraftName={currentDraft?.name ?? null}
             isOffline={offlineShell !== null}
             isSavingOffline={isStoringOffline}
             onNewProject={() => setShowNewAlert(true)}

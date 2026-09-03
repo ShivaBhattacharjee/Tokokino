@@ -43,6 +43,7 @@ function makeExportStyle(scopeId: string, neutralizePortraitFx = false) {
       transition: none !important;
     }
     ${scope} [data-export-hidden="true"] { display: none !important; }
+    ${scope} [data-export-ascii-vector="true"] { display: block !important; }
     ${scope} [data-selection-border="true"] {
       outline: none !important;
       border: none !important;

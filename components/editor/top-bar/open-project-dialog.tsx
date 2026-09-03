@@ -324,7 +324,7 @@ function ProjectTypeRail({
       <div className="border-t border-border/50 pt-3 sm:mt-auto">
         <Button
           type="button"
-          className="h-9 w-full gap-1.5 border border-green-600/25 bg-green-600/15 text-[12px] text-green-700 hover:bg-green-600/25 hover:text-green-800 dark:border-green-500/30 dark:bg-green-600/20 dark:text-green-400 dark:hover:bg-green-600/30 dark:hover:text-green-300"
+          className="strawberry-button-exempt h-9 w-full gap-1.5 border border-green-600/25 bg-green-600/15 text-[12px] text-green-700 hover:bg-green-600/25 hover:text-green-800 dark:border-green-500/30 dark:bg-green-600/20 dark:text-green-400 dark:hover:bg-green-600/30 dark:hover:text-green-300"
           onClick={onCreateNew}
         >
           <RiAddLine className="size-4" />

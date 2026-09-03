@@ -18,6 +18,7 @@ import {
   getAsciiResolutionPreview,
   gridFromImageData,
   isAsciiBackdropActive,
+  isWebKitEngine,
   normalizeAsciiOpacity,
   resolveBackdropAscii,
   sampleBackgroundPixels,
@@ -196,6 +197,24 @@ describe("ascii backdrop layout", () => {
 })
 
 describe("ascii backdrop state", () => {
+  it("identifies WebKit without mistaking desktop Chromium compatibility tokens", () => {
+    expect(
+      isWebKitEngine(
+        "Mozilla/5.0 AppleWebKit/605.1.15 Version/26.6.2 Safari/605.1.15"
+      )
+    ).toBe(true)
+    expect(
+      isWebKitEngine(
+        "Mozilla/5.0 AppleWebKit/605.1.15 CriOS/140.0 Mobile/15E148 Safari/604.1"
+      )
+    ).toBe(true)
+    expect(
+      isWebKitEngine(
+        "Mozilla/5.0 AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36"
+      )
+    ).toBe(false)
+  })
+
   it("fills missing fields from the defaults on legacy drafts", () => {
     expect(resolveBackdropAscii(undefined)).toEqual(DEFAULT_BACKDROP_ASCII)
     expect(

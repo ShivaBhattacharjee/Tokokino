@@ -6,13 +6,15 @@ vi.mock("@/lib/editor/ascii-backdrop", async (importOriginal) => {
   const actual = await importOriginal<typeof AsciiBackdropModule>()
   return {
     ...actual,
+    isWebKitEngine: vi.fn(() => false),
     sampleBackgroundPixels: vi.fn(
       async (_background: unknown, cols: number, rows: number) => {
         const data = new Uint8ClampedArray(cols * rows * 4)
         for (let i = 0; i < data.length; i += 4) {
-          data[i] = 255
-          data[i + 1] = 255
-          data[i + 2] = 255
+          const even = (i / 4) % 2 === 0
+          data[i] = even ? 255 : 0
+          data[i + 1] = 0
+          data[i + 2] = even ? 0 : 255
           data[i + 3] = 255
         }
         return data
@@ -24,6 +26,7 @@ vi.mock("@/lib/editor/ascii-backdrop", async (importOriginal) => {
 import { AsciiBackdrop } from "@/components/editor/canvas/ascii-backdrop"
 import {
   DEFAULT_BACKDROP_ASCII,
+  isWebKitEngine,
   setAsciiResolutionPreview,
 } from "@/lib/editor/ascii-backdrop"
 import { CanvasScope } from "@/lib/editor/store"
@@ -39,8 +42,9 @@ class FakeResizeObserver {
   disconnect() {}
 }
 
-function parseGlyphSvg(image: HTMLImageElement | null): Document {
-  const source = image?.getAttribute("src") ?? ""
+function parseGlyphSvg(glyphs: HTMLElement | null): Document {
+  const mask = glyphs?.style.maskImage ?? ""
+  const source = mask.match(/url\(["']?(data:[^)"']+)["']?\)/)?.[1] ?? ""
   const encodedSvg = source.slice(source.indexOf(",") + 1)
   return new DOMParser().parseFromString(
     decodeURIComponent(encodedSvg),
@@ -52,13 +56,15 @@ function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
-describe("AsciiBackdrop SVG image", () => {
+describe("AsciiBackdrop SVG mask", () => {
   afterEach(() => {
     resize = null
+    vi.mocked(isWebKitEngine).mockReturnValue(false)
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
-  it("renders fixed-cell rows inside one SVG-backed image", async () => {
+  it("renders fixed-cell rows inside one row-bounded SVG mask", async () => {
     vi.stubGlobal("ResizeObserver", FakeResizeObserver)
     const { container } = render(
       <AsciiBackdrop
@@ -84,17 +90,13 @@ describe("AsciiBackdrop SVG image", () => {
       )
     })
 
-    const image = container.querySelector<HTMLImageElement>(
-      'img[data-export-ascii-glyphs="true"]'
+    const glyphs = container.querySelector<HTMLElement>(
+      '[data-export-ascii-glyphs="true"]'
     )
-    expect(image).not.toBeNull()
+    expect(glyphs).not.toBeNull()
     expect(container.querySelector("svg")).toBeNull()
-    // The plane is always exactly canvas-sized: nothing scales a stale grid.
-    expect(image?.style.width).toBe("200px")
-    expect(image?.style.height).toBe("100px")
-    expect(image?.style.transform).toBe("")
 
-    const svgDocument = parseGlyphSvg(image)
+    const svgDocument = parseGlyphSvg(glyphs)
     const svg = svgDocument.documentElement
     const rows = Array.from(svgDocument.querySelectorAll("text"))
     expect(svg.getAttribute("viewBox")).toBe("0 0 200 100")
@@ -104,6 +106,99 @@ describe("AsciiBackdrop SVG image", () => {
       expect(row.getAttribute("textLength")).toBe("200")
       expect(row.getAttribute("lengthAdjust")).toBe("spacingAndGlyphs")
     }
+  })
+
+  it("keeps source-coloured 200-column grids to one SVG node per row", async () => {
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver)
+    const { container } = render(
+      <AsciiBackdrop
+        background={{ type: "gradient", value: "linear-gradient(red, blue)" }}
+        ascii={{
+          ...DEFAULT_BACKDROP_ASCII,
+          enabled: true,
+          resolution: 200,
+          colored: true,
+        }}
+      />
+    )
+
+    await act(async () => {
+      resize?.(
+        [
+          {
+            contentRect: { width: 1600, height: 900 },
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver
+      )
+    })
+
+    const glyphs = container.querySelector<HTMLElement>(
+      '[data-export-ascii-glyphs="true"]'
+    )
+    const svgDocument = parseGlyphSvg(glyphs)
+    expect(svgDocument.querySelectorAll("text")).toHaveLength(56)
+    expect(glyphs?.style.background).toContain("linear-gradient")
+    expect(glyphs?.style.webkitMaskImage).toBe(glyphs?.style.maskImage)
+  })
+
+  it("uses a flat canvas preview on WebKit and keeps the vector layer for export", async () => {
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver)
+    vi.mocked(isWebKitEngine).mockReturnValue(true)
+    const context = {
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 200 })),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+      drawImage: vi.fn(),
+      createImageData: vi.fn((width: number, height: number) => ({
+        data: new Uint8ClampedArray(width * height * 4),
+      })),
+      putImageData: vi.fn(),
+    }
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      context as never
+    )
+
+    const { container } = render(
+      <AsciiBackdrop
+        background={{ type: "gradient", value: "linear-gradient(red, blue)" }}
+        ascii={{
+          ...DEFAULT_BACKDROP_ASCII,
+          enabled: true,
+          resolution: 200,
+          colored: true,
+        }}
+      />
+    )
+
+    await act(async () => {
+      resize?.(
+        [
+          {
+            contentRect: { width: 1600, height: 900 },
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver
+      )
+    })
+
+    const raster = container.querySelector<HTMLCanvasElement>(
+      'canvas[data-export-hidden="true"]'
+    )
+    const vector = container.querySelector<HTMLElement>(
+      '[data-export-ascii-vector="true"]'
+    )
+    expect(raster).not.toBeNull()
+    expect(raster?.width).toBe(1600)
+    expect(raster?.height).toBe(900)
+    expect(vector?.style.display).toBe("none")
+    expect(context.fillText).toHaveBeenCalledTimes(56)
+    expect(context.drawImage).toHaveBeenCalledOnce()
   })
 
   it("resamples the grid at the resolution a drag is previewing", async () => {
@@ -131,9 +226,7 @@ describe("AsciiBackdrop SVG image", () => {
     })
 
     const glyphs = () =>
-      container.querySelector<HTMLImageElement>(
-        'img[data-export-ascii-glyphs="true"]'
-      )
+      container.querySelector<HTMLElement>('[data-export-ascii-glyphs="true"]')
     expect(parseGlyphSvg(glyphs()).querySelectorAll("text")).toHaveLength(5)
 
     // Twice the columns is twice the rows — a real resample, not a scaled grid,
@@ -147,7 +240,6 @@ describe("AsciiBackdrop SVG image", () => {
     expect(previewed.documentElement.getAttribute("viewBox")).toBe(
       "0 0 200 100"
     )
-    expect(glyphs()?.style.width).toBe("200px")
 
     await act(async () => {
       setAsciiResolutionPreview("canvas-1", null)

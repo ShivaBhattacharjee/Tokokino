@@ -124,7 +124,7 @@ function EditorLayout() {
                   setIsPreviewAutoScroll(false)
                   setSettingsOpen(false)
                 }}
-                className="h-10 cursor-pointer border border-foreground/15 bg-background/80 px-4 text-foreground shadow-xl backdrop-blur-md hover:bg-background/95"
+                className="strawberry-button-exempt h-10 cursor-pointer border border-foreground/15 bg-background/80 px-4 text-foreground shadow-xl backdrop-blur-md hover:bg-background/95"
               >
                 <RiEyeLine className="mr-2 size-4" />
                 Exit Preview

@@ -27,6 +27,7 @@ import {
 } from "@/lib/editor/css-utils"
 import {
   DEFAULT_BACKDROP_ASCII,
+  isWebKitEngine,
   resolveBackdropAscii,
   setAsciiResolutionPreview,
 } from "@/lib/editor/ascii-backdrop"
@@ -120,9 +121,13 @@ export function BackdropSection({
     [setPreviewVar]
   )
   // ASCII resolution can't preview through a CSS var: the glyph grid has to be
-  // resampled to change, so the drag feeds the renderer a resolution instead.
+  // resampled to change. Safari took ~45ms per image readback at 200 columns,
+  // so repeating it for every pointermove blocks the main thread. WebKit keeps
+  // the slider/value responsive and performs the real resample once on commit;
+  // Chromium keeps the live grid preview that it can render cheaply.
   const previewAsciiResolution = React.useCallback(
     (resolution: number | null) => {
+      if (resolution !== null && isWebKitEngine()) return
       setAsciiResolutionPreview(activeCanvasId, resolution)
     },
     [activeCanvasId]

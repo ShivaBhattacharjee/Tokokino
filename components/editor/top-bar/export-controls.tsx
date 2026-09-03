@@ -964,7 +964,7 @@ export function ExportControls({
         onCancel={cancelAnimExport}
       />
 
-      <div className="flex h-8 items-stretch overflow-hidden rounded-md bg-primary text-white shadow-sm transition-all hover:shadow-md">
+      <div className="strawberry-button flex h-8 items-stretch overflow-hidden rounded-md bg-primary text-white shadow-sm transition-all hover:shadow-md">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
