@@ -36,11 +36,19 @@ const releases: Release[] = [
   {
     id: "v2-3-0",
     version: "2.3.0",
-    date: "September 3, 2026",
-    title: "A clearer Animate timeline",
+    date: "September 4, 2026",
+    title: "A smoother, clearer editor",
     summary:
-      "Animation clips now say what they do at a glance, and the video track shows your audio.",
+      "Animation clips are easier to read, dense ASCII backdrops run smoothly in Safari, and background dots stay visible in light mode.",
     changes: [
+      {
+        title: "Faster high-resolution ASCII in Safari",
+        text: "Dense ASCII backdrops, including 200-column source-colour patterns, now use a faster canvas preview in Safari while keeping their vector detail for export. Resolution changes are also applied when you release the slider instead of rebuilding the effect on every movement.",
+      },
+      {
+        title: "Background dots stay visible in light mode",
+        text: "The flickering dot grid on marketing and error pages now uses a light-mode-friendly colour and automatically inverts in dark mode, so the texture remains visible in both themes.",
+      },
       {
         title: "Clips show what they animate",
         text: "An animation clip is now a coloured bar with an icon for every property it changes and the name of the first one \u2014 Tilt, Zoom, Backdrop \u2014 instead of a thumbnail of the screenshot. Wide clips show more, narrow clips drop to icons alone.",
