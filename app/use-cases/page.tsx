@@ -278,12 +278,12 @@ export default function UseCasesPage() {
 
       <div className="pointer-events-none fixed inset-0 z-0">
         <FlickeringGrid
-          color="rgb(255,255,255)"
+          color="rgb(0,0,0)"
           maxOpacity={0.035}
           flickerChance={0.08}
           squareSize={3}
           gridGap={8}
-          className="h-full w-full"
+          className="h-full w-full dark:invert"
         />
       </div>
 
