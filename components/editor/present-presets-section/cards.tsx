@@ -225,14 +225,14 @@ function PresetEmptyState({
 }) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg bg-secondary/40 px-4 py-5 text-center">
-      <span className="inline-flex size-8 items-center justify-center rounded-full bg-foreground/[0.06] text-foreground/60">
+      <span className="inline-flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
         {icon}
       </span>
       <p className="text-[12px] font-medium text-foreground">{title}</p>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         {body}
       </p>
-      {action ? <div className="mt-1">{action}</div> : null}
+      {action ? <div className="mt-1 w-full">{action}</div> : null}
     </div>
   )
 }
@@ -343,7 +343,7 @@ function CustomPresetList({
         action={
           <Link
             href="/login"
-            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+            className="inline-flex h-8 w-full items-center justify-center rounded-md bg-primary px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
           >
             Sign in
           </Link>
@@ -365,7 +365,7 @@ function CustomPresetList({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex h-8 items-center rounded-md bg-secondary/70 px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+              className="inline-flex h-8 w-full items-center justify-center rounded-md bg-secondary/70 px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
             >
               Try again
             </button>
