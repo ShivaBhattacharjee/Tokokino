@@ -359,7 +359,11 @@ function shadowRgba(color: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity.toFixed(3)})`
 }
 
-function shadowLightOffset(lightSource: string): { dx: number; dy: number } {
+/** Light direction as a unit offset; "center" and the middle cell are both 0,0. */
+export function shadowLightOffset(lightSource: string): {
+  dx: number
+  dy: number
+} {
   if (lightSource === "center") return { dx: 0, dy: 0 }
   const [r, c] = lightSource.split("-").map(Number)
   if (!Number.isFinite(r) || !Number.isFinite(c)) return { dx: 0, dy: 0 }
@@ -570,8 +574,14 @@ function boxShadowSegmentToDropShadow(segment: string): string | null {
   const blur = parseFloat(blurRaw ?? "0")
   const spread = parseFloat(spreadRaw ?? "0")
   // Fold spread into blur as an approximation (drop-shadow has no spread).
-  const effectiveBlur = Math.max(0, blur + Math.max(0, spread) * 2)
-  return `drop-shadow(${dx} ${dy} ${effectiveBlur}px ${color})`
+  // A NEGATIVE spread insets the shadow rect, so it has to shrink the blur —
+  // discarding it made the tight casts (drop, contact) export softer and wider
+  // than they render on canvas. It folds at 1x, which matches the extent the
+  // box-shadow actually covers; positive spread keeps its historic 2x.
+  const effectiveBlur = Math.max(0, blur + (spread > 0 ? spread * 2 : spread))
+  // Rounded because the fold is float arithmetic on already-rounded lengths,
+  // and 5.3999999999999995px in a filter chain helps nobody.
+  return `drop-shadow(${dx} ${dy} ${Number(effectiveBlur.toFixed(2))}px ${color})`
 }
 
 export function backgroundCss(bg: Background): React.CSSProperties {

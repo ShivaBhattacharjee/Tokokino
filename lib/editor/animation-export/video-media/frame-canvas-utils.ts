@@ -111,21 +111,49 @@ export function nonBlackPct(canvas: HTMLCanvasElement): number {
  * the texture — the video then ran to the very edge of the plate instead of
  * sitting inside it.
  */
+/** Colour functions removed so their commas and numbers can't be misread. */
+function withoutColorFunctions(source: string): string {
+  return source.replace(/(rgba?|hsla?|color)\([^)]*\)/g, " ")
+}
+
+/** The comma-separated layers of a `box-shadow`. */
+function shadowLayerSegments(source: string): string[] {
+  if (!source || source === "none") return []
+  return withoutColorFunctions(source).split(",")
+}
+
+/**
+ * Each `drop-shadow()` in a filter chain, separately.
+ *
+ * Chained drop-shadows are separated by SPACES, not commas, so splitting the
+ * filter on commas returns the whole chain as one segment — and reading the
+ * first four lengths off that then mixes the first layer's offsets with the
+ * second layer's. A multi-layer shadow (contact, linear, float, or any
+ * cross-blend) reserved margin for a layer that doesn't exist and clipped the
+ * one that reaches furthest.
+ */
+function dropShadowSegments(source: string): string[] {
+  if (!source || source === "none") return []
+  return Array.from(
+    withoutColorFunctions(source).matchAll(/drop-shadow\(([^)]*)\)/g),
+    (m) => m[1]
+  )
+}
+
 export function shadowExtentPx(el: HTMLElement): number {
   const cs = getComputedStyle(el)
   let max = 0
-  for (const source of [cs.boxShadow, cs.filter]) {
-    if (!source || source === "none") continue
-    const cleaned = source.replace(/(rgba?|hsla?|color)\([^)]*\)/g, " ")
-    for (const part of cleaned.split(",")) {
-      const nums = (part.match(/-?\d+(?:\.\d+)?(?=px)/g) ?? []).map(Number)
-      if (nums.length === 0) continue
-      const [dx = 0, dy = 0, blur = 0, spread = 0] = nums
-      max = Math.max(
-        max,
-        Math.abs(dx) + Math.abs(dy) + Math.abs(blur) + Math.abs(spread)
-      )
-    }
+  for (const part of [
+    ...shadowLayerSegments(cs.boxShadow),
+    ...dropShadowSegments(cs.filter),
+  ]) {
+    const nums = (part.match(/-?\d+(?:\.\d+)?(?=px)/g) ?? []).map(Number)
+    if (nums.length === 0) continue
+    const [dx = 0, dy = 0, blur = 0, spread = 0] = nums
+    max = Math.max(
+      max,
+      Math.abs(dx) + Math.abs(dy) + Math.abs(blur) + Math.abs(spread)
+    )
   }
 
   const outlineWidth = parseFloat(cs.outlineWidth) || 0

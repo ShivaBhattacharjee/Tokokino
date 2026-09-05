@@ -15,6 +15,7 @@ import {
   SHADOW_PREVIEW_VAR,
   shadowCss,
   shadowDropFilterCss,
+  shadowLightOffset,
 } from "@/lib/editor/css-utils"
 import { cn } from "@/lib/utils"
 
@@ -387,6 +388,17 @@ export function ShadowSection() {
         lightSource: "2-0",
       })
       return
+    }
+    // Stack derives all three offsets from the light direction, so a light with
+    // no direction collapses them onto each other and renders as one blurred
+    // halo instead of the stepped cast the picker shows. Seed a diagonal, but
+    // only from dead centre — a direction the user chose is theirs to keep.
+    if (nextType === "stack") {
+      const { dx, dy } = shadowLightOffset(shadow.lightSource)
+      if (dx === 0 && dy === 0) {
+        applyShadow({ ...shadow, type: nextType, lightSource: "1-1" })
+        return
+      }
     }
     applyShadow({ ...shadow, type: nextType })
   }

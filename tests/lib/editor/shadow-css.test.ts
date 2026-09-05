@@ -113,3 +113,42 @@ describe("webkit export paths", () => {
     }
   })
 })
+
+describe("chained drop-shadow extent", () => {
+  it("reserves margin for the layer that reaches furthest, not the first", () => {
+    // Chained drop-shadows are space-separated, so reading four lengths off the
+    // whole chain mixed layer 1's offsets with layer 2's and under-reserved.
+    const el = document.createElement("div")
+    el.style.filter =
+      "drop-shadow(-4px 4px 6px rgba(0, 0, 0, 0.7)) " +
+      "drop-shadow(-10px 10px 29px rgba(0, 0, 0, 0.4))"
+    expect(shadowExtentPx(el)).toBe(49)
+  })
+
+  it("still measures the widest box-shadow layer", () => {
+    const el = document.createElement("div")
+    el.style.boxShadow =
+      "-18px 18px 2px 0px rgba(0, 0, 0, 0.62), -54px 54px 2px 0px rgba(0, 0, 0, 0.22)"
+    expect(shadowExtentPx(el)).toBe(110)
+  })
+})
+
+describe("negative spread in the drop-shadow conversion", () => {
+  it("shrinks the blur by the inset instead of discarding it", () => {
+    // Contact at 60%: near blur 7.2 inset 1.8, far blur 22.8 inset 5.4 — each
+    // covers blur-minus-inset past the box edge, which is what the filter has
+    // to reproduce. Discarding the inset exported both layers too wide.
+    const filter = shadowDropFilterCss(shadow({ type: "contact" }))!
+    const blurs = Array.from(
+      filter.matchAll(/drop-shadow\(\S+ \S+ ([\d.]+)px/g),
+      (m) => parseFloat(m[1])
+    )
+    expect(blurs).toEqual([5.4, 17.4])
+  })
+
+  it("keeps the historic 2x fold for positive spread", () => {
+    // glow and soft rely on it — only the negative branch changed.
+    const glow = shadow({ type: "glow", intensity: 100, lightSource: "center" })
+    expect(shadowDropFilterCss(glow)!).toContain("136px")
+  })
+})
