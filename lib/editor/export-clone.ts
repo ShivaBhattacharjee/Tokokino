@@ -3,6 +3,7 @@ import {
   flattenGlassChromeRing,
   neutralizeUnsupportedExportBackdropFilters,
 } from "./export-glass"
+import { redirectBoxShadowToFilter } from "./export-shadow-filter"
 
 const WATERMARK_PREFIX = "Designed by"
 const WATERMARK_APP_NAME = "Tokokino"
@@ -164,8 +165,9 @@ export function prepareExportNode(
   }
   wrapper.appendChild(node)
   document.body.appendChild(wrapper)
-  // Reads computed styles, so it needs the clone laid out in the document.
+  // Both read computed styles, so they need the clone laid out in the document.
   flattenGlassChromeRing(node)
+  redirectBoxShadowToFilter(node)
 
   return {
     node,

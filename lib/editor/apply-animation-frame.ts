@@ -128,6 +128,13 @@ import type {
   Tilt,
 } from "@/lib/editor/state-types"
 
+/**
+ * A filter list can't contain `none` — one invalidates the whole declaration,
+ * taking the colour grade chained beside it down too. So a frame with no shadow
+ * publishes a no-op filter function instead of `none`.
+ */
+const NO_SHADOW_FILTER = "opacity(1)"
+
 const INVISIBLE_SHADOW: Shadow = {
   type: "none",
   intensity: 0,
@@ -762,7 +769,7 @@ export function applyAnimationFrameAtTime({
         .filter((v): v is string => Boolean(v))
         .join(" ")
       setVar(mainScopeEl, SHADOW_PREVIEW_VAR, box || "none")
-      setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, filter || "none")
+      setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, filter || NO_SHADOW_FILTER)
     } else {
       setVar(mainScopeEl, SHADOW_PREVIEW_VAR, null)
       setVar(mainScopeEl, SHADOW_FILTER_PREVIEW_VAR, null)
@@ -1154,7 +1161,7 @@ export function applyAnimationFrameAtTime({
         .filter((v): v is string => Boolean(v))
         .join(" ")
       setVar(slotEl, SHADOW_PREVIEW_VAR, box || "none")
-      setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, filter || "none")
+      setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, filter || NO_SHADOW_FILTER)
     } else {
       setVar(slotEl, SHADOW_PREVIEW_VAR, null)
       setVar(slotEl, SHADOW_FILTER_PREVIEW_VAR, null)

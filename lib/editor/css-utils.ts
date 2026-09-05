@@ -516,7 +516,21 @@ export function borderOffsetCss(border: Border): string {
 export function shadowDropFilterCss(shadow: Shadow): string | undefined {
   const css = shadowCss(shadow)
   if (!css) return undefined
-  const parts = splitTopLevelCommas(css)
+  return boxShadowToDropFilterCss(css)
+}
+
+/**
+ * A `box-shadow` value as the equivalent chain of `drop-shadow()` filters.
+ *
+ * Takes the CSS rather than a `Shadow` so it can convert a value already
+ * resolved by the engine — the export clone reads `getComputedStyle` and has no
+ * `Shadow` object to hand.
+ */
+export function boxShadowToDropFilterCss(
+  boxShadow: string
+): string | undefined {
+  if (!boxShadow || boxShadow === "none") return undefined
+  const parts = splitTopLevelCommas(boxShadow)
     .map(boxShadowSegmentToDropShadow)
     .filter((v): v is string => Boolean(v))
   return parts.length ? parts.join(" ") : undefined
@@ -561,14 +575,19 @@ function boxShadowSegmentToDropShadow(segment: string): string | null {
 
   // Filter out "inset" — drop-shadow doesn't support it.
   const filtered = tokens.filter((t) => t.toLowerCase() !== "inset")
-  // Color is the last token that isn't a length.
+  // Authored box-shadows put the colour last, but a COMPUTED one puts it first,
+  // and the export clone converts computed values — so sort by what each token
+  // is rather than by where it sits. Nothing but a length can look like one:
+  // every colour form is either a keyword, a hash, or a parenthesised function
+  // the tokenizer above keeps whole.
   const lengthRe = /^-?\d+(\.\d+)?(px|em|rem|%)?$/
   const lengths: string[] = []
-  let color = ""
+  const colorParts: string[] = []
   for (const tok of filtered) {
-    if (lengthRe.test(tok) && !color) lengths.push(tok)
-    else color = color ? `${color} ${tok}` : tok
+    if (lengthRe.test(tok)) lengths.push(tok)
+    else colorParts.push(tok)
   }
+  const color = colorParts.join(" ")
   if (lengths.length < 2) return null
   const [dx, dy, blurRaw, spreadRaw] = lengths
   const blur = parseFloat(blurRaw ?? "0")

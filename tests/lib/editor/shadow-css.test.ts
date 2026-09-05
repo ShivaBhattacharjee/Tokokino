@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { shadowCss, shadowDropFilterCss } from "@/lib/editor/css-utils"
+import {
+  boxShadowToDropFilterCss,
+  shadowCss,
+  shadowDropFilterCss,
+} from "@/lib/editor/css-utils"
 import { shadowBetween } from "@/lib/editor/animation-playback"
 import { shadowExtentPx } from "@/lib/editor/animation-export/video-media/frame-canvas-utils"
 import type { Shadow, ShadowType } from "@/lib/editor/state-types"
@@ -150,5 +154,29 @@ describe("negative spread in the drop-shadow conversion", () => {
     // glow and soft rely on it — only the negative branch changed.
     const glow = shadow({ type: "glow", intensity: 100, lightSource: "center" })
     expect(shadowDropFilterCss(glow)!).toContain("136px")
+  })
+})
+
+describe("converting a computed box-shadow", () => {
+  it("reads a colour-first computed value, not just authored order", () => {
+    // getComputedStyle emits the colour FIRST; the authored form puts it last.
+    const computed = "rgba(95, 137, 122, 0.247) 7.2px 7.2px 0.8px 0px"
+    expect(boxShadowToDropFilterCss(computed)).toBe(
+      "drop-shadow(7.2px 7.2px 0.8px rgba(95, 137, 122, 0.247))"
+    )
+  })
+
+  it("round-trips the authored order too", () => {
+    const authored = "7.2px 7.2px 0.8px 0px rgba(95, 137, 122, 0.247)"
+    expect(boxShadowToDropFilterCss(authored)).toBe(
+      boxShadowToDropFilterCss(
+        "rgba(95, 137, 122, 0.247) 7.2px 7.2px 0.8px 0px"
+      )
+    )
+  })
+
+  it("returns nothing for an absent shadow", () => {
+    expect(boxShadowToDropFilterCss("none")).toBeUndefined()
+    expect(boxShadowToDropFilterCss("")).toBeUndefined()
   })
 })
