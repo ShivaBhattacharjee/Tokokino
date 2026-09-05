@@ -24,6 +24,7 @@ import {
   exportScaleStyle,
   rasterizeNodeToCanvas,
 } from "./export-raster"
+import { isRasterEssentiallyEmpty, settleDelayMs } from "./export-settle"
 
 /**
  * Prepare an offscreen clone of the canvas for repeated frame capture (used by
@@ -49,11 +50,51 @@ export type AnimationCapture = {
 }
 
 /**
+ * How many times to re-raster an ASCII glyph tree that came back blank. The
+ * glyphs are painted entirely through a data-URI SVG mask, which is exactly the
+ * subresource WebKit will report as loaded before it has decoded — so the first
+ * raster can be empty even though the layer renders perfectly on screen.
+ */
+const ASCII_RASTER_MAX_ATTEMPTS = 6
+
+/**
+ * Rasterize one ASCII glyph tree, retrying while the result is blank.
+ *
+ * Returns null if every attempt came back empty, which leaves the caller with
+ * the original glyph DOM — slower to capture, but it still paints, and the
+ * per-frame capture has its own WebKit warm-up. Flattening a blank raster in
+ * would delete the ASCII treatment from every frame of the export.
+ */
+async function rasterizeAsciiGlyphs(
+  glyphTree: HTMLElement,
+  width: number,
+  height: number,
+  pixelRatio: number
+): Promise<HTMLCanvasElement | null> {
+  const outWidth = Math.max(1, Math.round(width * pixelRatio))
+  const outHeight = Math.max(1, Math.round(height * pixelRatio))
+  for (let attempt = 1; attempt <= ASCII_RASTER_MAX_ATTEMPTS; attempt++) {
+    const raster = await rasterizeNodeToCanvas(
+      glyphTree,
+      { cacheBust: false },
+      width,
+      height,
+      outWidth,
+      outHeight
+    )
+    if (!isRasterEssentiallyEmpty(raster)) return raster
+    if (supportsObjectViewBox()) return null
+    await new Promise((resolve) => setTimeout(resolve, settleDelayMs(attempt)))
+  }
+  return null
+}
+
+/**
  * Replace each ASCII glyph tree in an animation clone with one transparent,
  * output-resolution PNG. The outer ASCII layer stays in the DOM so its plate,
  * filter, user opacity, and timeline crossfade keep their original geometry.
  */
-async function flattenAnimationAsciiLayers(
+export async function flattenAnimationAsciiLayers(
   node: HTMLElement,
   renderedWidth: number,
   outputWidth: number
@@ -70,14 +111,13 @@ async function flattenAnimationAsciiLayers(
     const { width, height } = size
 
     try {
-      const raster = await rasterizeNodeToCanvas(
+      const raster = await rasterizeAsciiGlyphs(
         glyphTree,
-        { cacheBust: false },
         width,
         height,
-        Math.max(1, Math.round(width * pixelRatio)),
-        Math.max(1, Math.round(height * pixelRatio))
+        pixelRatio
       )
+      if (!raster) continue
       const dataUrl = await readBlobAsDataUrl(
         await canvasToBlob(raster, "image/png")
       )
