@@ -483,6 +483,34 @@ export function ShadowSection() {
       ),
     },
     {
+      id: "contact" as const,
+      label: "Contact",
+      icon: (
+        <div className={cn("size-full rounded-sm px-3 pt-2 pb-5", thumbBg)}>
+          <div
+            className={cn(
+              "size-full shadow-[0_3px_6px_-2px_rgba(0,0,0,0.55),0_8px_16px_-5px_rgba(0,0,0,0.35)] dark:shadow-[0_3px_6px_-2px_rgba(255,255,255,0.55),0_8px_16px_-5px_rgba(255,255,255,0.35)]",
+              thumbCard
+            )}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "stack" as const,
+      label: "Stack",
+      icon: (
+        <div className={cn("size-full rounded-sm p-3 pr-5 pb-5", thumbBg)}>
+          <div
+            className={cn(
+              "size-full shadow-[3px_3px_1px_0_rgba(0,0,0,0.5),6px_6px_1px_0_rgba(0,0,0,0.32),9px_9px_1px_0_rgba(0,0,0,0.18)] dark:shadow-[3px_3px_1px_0_rgba(255,255,255,0.5),6px_6px_1px_0_rgba(255,255,255,0.32),9px_9px_1px_0_rgba(255,255,255,0.18)]",
+              thumbCard
+            )}
+          />
+        </div>
+      ),
+    },
+    {
       id: "linear" as const,
       label: "Linear",
       icon: (

@@ -132,7 +132,7 @@ Edit-time progressive load: [canvas.md](./canvas.md).
 
 | Effect | Types / modes | CSS |
 |---|---|---|
-| Shadow | none, drop, soft, hard, glow, float, linear | `shadowCss` |
+| Shadow | none, drop, soft, hard, glow, float, linear, contact, stack | `shadowCss` |
 | Portrait DoF | off, soft, studio, spot, frame, iris, blur, stage | canvas + export polyfill |
 | Enhance | off, auto, vivid, soft, dramatic, sharp | `enhanceFilterCss` |
 | Overlay | texture id + opacity + overlay/underlay | CSS background-image |

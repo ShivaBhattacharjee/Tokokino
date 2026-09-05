@@ -359,6 +359,13 @@ function shadowRgba(color: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity.toFixed(3)})`
 }
 
+function shadowLightOffset(lightSource: string): { dx: number; dy: number } {
+  if (lightSource === "center") return { dx: 0, dy: 0 }
+  const [r, c] = lightSource.split("-").map(Number)
+  if (!Number.isFinite(r) || !Number.isFinite(c)) return { dx: 0, dy: 0 }
+  return { dx: -(c - 2), dy: -(r - 2) }
+}
+
 export function shadowCss(shadow: Shadow): string | undefined {
   if (shadow.type === "none" || shadow.intensity <= 0) return undefined
   const intensity = shadow.intensity / 100
@@ -372,15 +379,7 @@ export function shadowCss(shadow: Shadow): string | undefined {
   }
 
   if (shadow.type === "soft") {
-    let dx = 0,
-      dy = 0
-    if (shadow.lightSource !== "center") {
-      const [r, c] = shadow.lightSource.split("-").map(Number)
-      if (Number.isFinite(r) && Number.isFinite(c)) {
-        dx = -(c - 2)
-        dy = -(r - 2)
-      }
-    }
+    const { dx, dy } = shadowLightOffset(shadow.lightSource)
     const unit = intensity * 10
     const blur = 40 + intensity * 80
     const spread = intensity * 4
@@ -389,15 +388,7 @@ export function shadowCss(shadow: Shadow): string | undefined {
   }
 
   if (shadow.type === "hard") {
-    let dx = 0,
-      dy = 0
-    if (shadow.lightSource !== "center") {
-      const [r, c] = shadow.lightSource.split("-").map(Number)
-      if (Number.isFinite(r) && Number.isFinite(c)) {
-        dx = -(c - 2)
-        dy = -(r - 2)
-      }
-    }
+    const { dx, dy } = shadowLightOffset(shadow.lightSource)
     const unit = intensity * 12
     const opacity = 0.25 + intensity * 0.45
     return `${(dx * unit).toFixed(1)}px ${(dy * unit).toFixed(1)}px 0px 0px ${shadowRgba(color, opacity)}`
@@ -413,16 +404,34 @@ export function shadowCss(shadow: Shadow): string | undefined {
     return `0 ${dy1.toFixed(1)}px ${blur1.toFixed(1)}px 0px ${shadowRgba(color, opacity1)}, 0 ${dy2.toFixed(1)}px ${blur2.toFixed(1)}px 0px ${shadowRgba(color, opacity2)}`
   }
 
+  // Contact and Stack size EVERY dimension off intensity — offset, blur and
+  // alpha all reach 0 together — so an animated reveal grows out of nothing
+  // instead of popping in at a visible offset, and the release mirrors it.
+  if (shadow.type === "contact") {
+    const { dx, dy } = shadowLightOffset(shadow.lightSource)
+    const unit = intensity * 5
+    const near = `${(dx * unit * 0.4).toFixed(1)}px ${(dy * unit * 0.4).toFixed(1)}px ${(intensity * 12).toFixed(1)}px ${(intensity * -3).toFixed(1)}px ${shadowRgba(color, intensity * 0.7)}`
+    const far = `${(dx * unit).toFixed(1)}px ${(dy * unit).toFixed(1)}px ${(intensity * 38).toFixed(1)}px ${(intensity * -9).toFixed(1)}px ${shadowRgba(color, intensity * 0.4)}`
+    return `${near}, ${far}`
+  }
+
+  if (shadow.type === "stack") {
+    const { dx, dy } = shadowLightOffset(shadow.lightSource)
+    const step = intensity * 9
+    // A zero-blur edge snaps to whole pixels, so a stack sliding out one
+    // fractional step per frame visibly stutters — 2px of blur is invisible at
+    // rest and enough to keep the travel continuous.
+    const blur = intensity * 2
+    return [0.62, 0.4, 0.22]
+      .map((alpha, i) => {
+        const distance = step * (i + 1)
+        return `${(dx * distance).toFixed(1)}px ${(dy * distance).toFixed(1)}px ${blur.toFixed(1)}px 0px ${shadowRgba(color, intensity * alpha)}`
+      })
+      .join(", ")
+  }
+
   if (shadow.type === "linear") {
-    let dx = 0,
-      dy = 0
-    if (shadow.lightSource !== "center") {
-      const [r, c] = shadow.lightSource.split("-").map(Number)
-      if (Number.isFinite(r) && Number.isFinite(c)) {
-        dx = -(c - 2)
-        dy = -(r - 2)
-      }
-    }
+    const { dx, dy } = shadowLightOffset(shadow.lightSource)
     const unit = intensity * 12
     const opacity1 = 0.1 + intensity * 0.15
     const opacity2 = 0.08 + intensity * 0.12
@@ -431,15 +440,7 @@ export function shadowCss(shadow: Shadow): string | undefined {
     return `${(dx * unit * 0.5).toFixed(1)}px ${(dy * unit * 0.5).toFixed(1)}px ${(10 + intensity * 15).toFixed(1)}px 0px ${shadowRgba(color, opacity1)}, ${(dx * unit * 1.2).toFixed(1)}px ${(dy * unit * 1.2).toFixed(1)}px ${(25 + intensity * 35).toFixed(1)}px 0px ${shadowRgba(color, opacity2)}, ${(dx * unit * 2.2).toFixed(1)}px ${(dy * unit * 2.2).toFixed(1)}px ${(45 + intensity * 65).toFixed(1)}px 0px ${shadowRgba(color, opacity3)}, ${(dx * unit * 3.5).toFixed(1)}px ${(dy * unit * 3.5).toFixed(1)}px ${(70 + intensity * 100).toFixed(1)}px 0px ${shadowRgba(color, opacity4)}`
   }
 
-  let dx = 0,
-    dy = 0
-  if (shadow.lightSource !== "center") {
-    const [r, c] = shadow.lightSource.split("-").map(Number)
-    if (Number.isFinite(r) && Number.isFinite(c)) {
-      dx = -(c - 2)
-      dy = -(r - 2)
-    }
-  }
+  const { dx, dy } = shadowLightOffset(shadow.lightSource)
   const unit = intensity * 16
   const blur = 20 + intensity * 60
   const spread = -2

@@ -24,7 +24,7 @@ export const FEATURES = [
   {
     k: "03",
     t: "Shadows & effects",
-    d: "6 shadow types — Drop, Soft, Hard, Glow, Float, Linear — with intensity and custom color.",
+    d: "8 shadow types — Drop, Soft, Hard, Glow, Float, Linear, Contact, Stack — with intensity and custom color.",
     tone: "primary" as const,
   },
   {

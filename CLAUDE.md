@@ -361,7 +361,7 @@ BackdropPattern = { ids: number[], intensity, thickness, color }
 ### Shadows
 
 ```ts
-ShadowType = "none"|"drop"|"soft"|"hard"|"glow"|"float"|"linear"
+ShadowType = "none"|"drop"|"soft"|"hard"|"glow"|"float"|"linear"|"contact"|"stack"
 Shadow = { type, intensity, lightSource, color }
 ```
 

@@ -105,6 +105,8 @@ export type ShadowType =
   | "glow"
   | "float"
   | "linear"
+  | "contact"
+  | "stack"
 
 export type Shadow = {
   type: ShadowType

@@ -62,7 +62,7 @@ function card(key: FeatureKey, meta: string, vector: ReactNode): FeatureCard {
 const FRAME_AND_STYLE = [
   card("01", "Phones · Desktop", <DeviceFramesVector />),
   card("02", "Sampled colour", <AutoPalettesVector />),
-  card("03", "6 shadow types", <ShadowsEffectsVector />),
+  card("03", "8 shadow types", <ShadowsEffectsVector />),
   card("17", "6 portrait modes", <DepthFocusVector />),
 ] as const
 

@@ -18,7 +18,11 @@ const BORDER_PRESETS = [
   "#cfe5b8", // matcha mist
   "#0f172a", // ink
   "#ffffff", // white
+  "#7c9cf0", // blueberry
+  "#f3c969", // honey
 ]
+
+const PRESET_SLOTS = 8
 
 const DEFAULT_BORDER_COLOR = BORDER_PRESETS[0]
 
@@ -166,10 +170,13 @@ export function BorderSection() {
         ]
       : [...BORDER_PRESETS]
 
-  while (presets.length < 6) {
-    presets.push(BORDER_PRESETS[presets.length])
+  for (const fallback of BORDER_PRESETS) {
+    if (presets.length >= PRESET_SLOTS) break
+    if (!presets.includes(fallback.toLowerCase())) {
+      presets.push(fallback.toLowerCase())
+    }
   }
-  const finalPresets = presets.slice(0, 6)
+  const finalPresets = presets.slice(0, PRESET_SLOTS)
 
   const isCustom =
     enabled &&
