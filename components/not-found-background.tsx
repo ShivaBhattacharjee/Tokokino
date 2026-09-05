@@ -1,18 +1,53 @@
 /** Quiet outlines borrowed from the canvas and animation timeline. */
 export function NotFoundBackground() {
   return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 1440 900"
-      preserveAspectRatio="xMidYMid slice"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.15"
-      className="pointer-events-none absolute inset-0 -z-10 h-full w-full text-foreground opacity-[0.22] dark:opacity-[0.13]"
-    >
+    <>
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 390 820"
+        preserveAspectRatio="none"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.15"
+        className="pointer-events-none absolute inset-0 -z-10 h-full w-full text-foreground opacity-[0.22] md:hidden dark:opacity-[0.13]"
+      >
+        <BackgroundMarks mobile />
+      </svg>
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.15"
+        className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-foreground opacity-[0.22] md:block dark:opacity-[0.13]"
+      >
+        <BackgroundMarks />
+      </svg>
+    </>
+  )
+}
+
+function BackgroundMarks({ mobile = false }: { mobile?: boolean }) {
+  const artboardTransform = mobile
+    ? "translate(-16 54) rotate(-12 145 90) scale(.78)"
+    : "translate(80 60) rotate(-12 145 90)"
+  const curveTransform = mobile
+    ? "translate(210 88) scale(.56)"
+    : "translate(1020 65)"
+  const timelineTransform = mobile
+    ? "translate(198 666) rotate(-6 220 70) scale(.58)"
+    : "translate(885 735) rotate(-6 220 70)"
+  const cropTransform = mobile
+    ? "translate(22 650) rotate(8 115 65) scale(.68)"
+    : "translate(140 725) rotate(8 115 65)"
+
+  return (
+    <>
       {/* An artboard with selection handles and a slightly offset layer. */}
-      <g transform="translate(80 60) rotate(-12 145 90)">
+      <g transform={artboardTransform}>
         <rect x="22" y="22" width="290" height="170" rx="5" opacity="0.55" />
         <rect width="290" height="170" rx="2" />
         <path d="M145 0V-22M0 85H290" strokeDasharray="3 7" opacity="0.5" />
@@ -37,7 +72,7 @@ export function NotFoundBackground() {
       </g>
 
       {/* A vector curve with its control points. */}
-      <g transform="translate(1020 65)">
+      <g transform={curveTransform}>
         <path d="M0 160C85 160 180 0 285 0" className="stroke-primary" />
         <path d="M0 160H85M180 0H285" opacity="0.65" />
         <circle cx="85" cy="160" r="4" className="stroke-primary" />
@@ -59,7 +94,7 @@ export function NotFoundBackground() {
       </g>
 
       {/* Staggered clips, keyframes, and a playhead on a timeline. */}
-      <g transform="translate(885 735) rotate(-6 220 70)">
+      <g transform={timelineTransform}>
         <path d="M0 0H500M0 44H500M0 88H500M0 132H500" opacity="0.55" />
         {Array.from({ length: 26 }, (_, i) => (
           <path
@@ -87,7 +122,7 @@ export function NotFoundBackground() {
       </g>
 
       {/* Cropping guides around a small video frame. */}
-      <g transform="translate(140 725) rotate(8 115 65)">
+      <g transform={cropTransform}>
         <path
           d="M0 26V0H26M204 0H230V26M230 104V130H204M26 130H0V104"
           className="stroke-primary"
@@ -98,6 +133,6 @@ export function NotFoundBackground() {
           className="fill-primary/15 stroke-primary"
         />
       </g>
-    </svg>
+    </>
   )
 }
