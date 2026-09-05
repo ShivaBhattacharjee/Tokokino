@@ -677,6 +677,34 @@ describe("sampleShadowLayers", () => {
     expect(sampleShadowLayers([frame(soft)], 2000, none)![0].intensity).toBe(0)
   })
 
+  it("cross-fades the colour when releasing to a differently coloured rest", () => {
+    // Same type, both visible: the release used to take the rest colour on its
+    // first tick, so a green shadow turned black and only THEN faded out.
+    const green: Shadow = { ...soft, color: "#00ff00" }
+    const blackRest: Shadow = { ...soft, intensity: 40 }
+    const start = sampleShadowLayers([frame(green)], 1000, blackRest)!
+    expect(start[0].color).toBe("#00ff00")
+    const mid = sampleShadowLayers([frame(green)], 1500, blackRest)!
+    expect(mid[0].color).toBe("#008000")
+    const end = sampleShadowLayers([frame(green)], 2000, blackRest)!
+    expect(end[0].color).toBe("#000000")
+  })
+
+  it("keeps its own colour retracting to an invisible rest", () => {
+    // Nothing to blend toward — an inert shadow's colour must not drag the hue.
+    const green: Shadow = { ...soft, color: "#00ff00" }
+    const mid = sampleShadowLayers([frame(green)], 1500, none)!
+    expect(mid[0].color).toBe("#00ff00")
+    expect(mid[0].intensity).toBeCloseTo(40, 5)
+  })
+
+  it("reveals straight into its own colour from an invisible rest", () => {
+    const green: Shadow = { ...soft, color: "#00ff00" }
+    expect(sampleShadowLayers([frame(green)], 0, none)![0].color).toBe(
+      "#00ff00"
+    )
+  })
+
   it("cross-blends back when rest is a different visible shadow", () => {
     const mid = sampleShadowLayers([frame(soft)], 1500, glow)!
     expect(mid.map((s) => s.type)).toEqual(["soft", "glow"])

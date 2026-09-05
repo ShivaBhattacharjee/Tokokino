@@ -108,6 +108,30 @@ describe("ShadowSection", () => {
     })
   })
 
+  it("Stack preset seeds a diagonal light so its layers step apart", async () => {
+    // Every Stack offset is derived from the light direction, so the centre
+    // cell would stack all three layers on the same spot — a blurred halo, not
+    // the stepped cast the picker shows.
+    const user = userEvent.setup()
+    render(<ShadowSection />)
+
+    await user.click(screen.getByRole("button", { name: "Stack" }))
+
+    const patch = store.applyStyle.mock.calls[0][0] as { shadow: Shadow }
+    expect(patch.shadow).toMatchObject({ type: "stack", lightSource: "1-1" })
+  })
+
+  it("Stack preset keeps a light direction the user already chose", async () => {
+    store.shadow = { ...store.shadow, lightSource: "0-4" }
+    const user = userEvent.setup()
+    render(<ShadowSection />)
+
+    await user.click(screen.getByRole("button", { name: "Stack" }))
+
+    const patch = store.applyStyle.mock.calls[0][0] as { shadow: Shadow }
+    expect(patch.shadow.lightSource).toBe("0-4")
+  })
+
   it("commits an intensity edit through applyStyle", async () => {
     const user = userEvent.setup()
     render(<ShadowSection />)

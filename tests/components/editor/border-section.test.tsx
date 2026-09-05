@@ -223,11 +223,11 @@ describe("BorderSection", () => {
     expect(frost.querySelector(".text-primary")).toBeNull()
   })
 
-  it("passes six presets and the current color to the color grid", () => {
+  it("passes eight presets and the current color to the color grid", () => {
     render(<BorderSection />)
     expect(screen.getByTestId("color-grid")).toBeInTheDocument()
     const props = store.colorGridProps!
-    expect((props.presets as string[]).length).toBe(6)
+    expect((props.presets as string[]).length).toBe(8)
     expect(props.selected).toBe("#f08a9a")
   })
 

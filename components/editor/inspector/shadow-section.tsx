@@ -15,6 +15,7 @@ import {
   SHADOW_PREVIEW_VAR,
   shadowCss,
   shadowDropFilterCss,
+  shadowLightOffset,
 } from "@/lib/editor/css-utils"
 import { cn } from "@/lib/utils"
 
@@ -388,6 +389,17 @@ export function ShadowSection() {
       })
       return
     }
+    // Stack derives all three offsets from the light direction, so a light with
+    // no direction collapses them onto each other and renders as one blurred
+    // halo instead of the stepped cast the picker shows. Seed a diagonal, but
+    // only from dead centre — a direction the user chose is theirs to keep.
+    if (nextType === "stack") {
+      const { dx, dy } = shadowLightOffset(shadow.lightSource)
+      if (dx === 0 && dy === 0) {
+        applyShadow({ ...shadow, type: nextType, lightSource: "1-1" })
+        return
+      }
+    }
     applyShadow({ ...shadow, type: nextType })
   }
   const previewIntensity = (n: number) =>
@@ -476,6 +488,34 @@ export function ShadowSection() {
           <div
             className={cn(
               "size-full shadow-[0_4px_6px_0px_rgba(0,0,0,0.25),0_12px_20px_0px_rgba(0,0,0,0.2)] dark:shadow-[0_4px_6px_0px_rgba(255,255,255,0.25),0_12px_20px_0px_rgba(255,255,255,0.2)]",
+              thumbCard
+            )}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "contact" as const,
+      label: "Contact",
+      icon: (
+        <div className={cn("size-full rounded-sm px-3 pt-2 pb-5", thumbBg)}>
+          <div
+            className={cn(
+              "size-full shadow-[0_3px_6px_-2px_rgba(0,0,0,0.55),0_8px_16px_-5px_rgba(0,0,0,0.35)] dark:shadow-[0_3px_6px_-2px_rgba(255,255,255,0.55),0_8px_16px_-5px_rgba(255,255,255,0.35)]",
+              thumbCard
+            )}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "stack" as const,
+      label: "Stack",
+      icon: (
+        <div className={cn("size-full rounded-sm p-3 pr-5 pb-5", thumbBg)}>
+          <div
+            className={cn(
+              "size-full shadow-[3px_3px_1px_0_rgba(0,0,0,0.5),6px_6px_1px_0_rgba(0,0,0,0.32),9px_9px_1px_0_rgba(0,0,0,0.18)] dark:shadow-[3px_3px_1px_0_rgba(255,255,255,0.5),6px_6px_1px_0_rgba(255,255,255,0.32),9px_9px_1px_0_rgba(255,255,255,0.18)]",
               thumbCard
             )}
           />
