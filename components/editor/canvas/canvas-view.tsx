@@ -1293,14 +1293,7 @@ function CanvasViewInner({
                   onDemo={handleDemoScreenshot}
                   defaultCaptureDevice={captureDefaultDevice}
                   captureStateKey={mainCaptureStateKey}
-                  compact={
-                    isPortraitOrSquareCanvas ||
-                    tilt.rx !== 0 ||
-                    tilt.ry !== 0 ||
-                    tilt.rz !== 0 ||
-                    scale !== 100 ||
-                    screenshotSlots.length > 0
-                  }
+                  compact
                   onPointerDown={(e) => {
                     if (document.activeElement instanceof HTMLElement) {
                       document.activeElement.blur()
@@ -1328,14 +1321,7 @@ function CanvasViewInner({
                   onDemo={handleDemoScreenshot}
                   defaultCaptureDevice={captureDefaultDevice}
                   captureStateKey={mainCaptureStateKey}
-                  compact={
-                    isPortraitOrSquareCanvas ||
-                    tilt.rx !== 0 ||
-                    tilt.ry !== 0 ||
-                    tilt.rz !== 0 ||
-                    scale !== 100 ||
-                    screenshotSlots.length > 0
-                  }
+                  compact
                   onPointerDown={(e) => {
                     if (document.activeElement instanceof HTMLElement) {
                       document.activeElement.blur()
@@ -1366,13 +1352,7 @@ function CanvasViewInner({
                   isScreenshotDragging={isScreenshotDragging}
                   activeTool={activeTool}
                   scopeToMinSide={shouldScopeFrame}
-                  compact={
-                    tilt.rx !== 0 ||
-                    tilt.ry !== 0 ||
-                    tilt.rz !== 0 ||
-                    scale !== 100 ||
-                    screenshotSlots.length > 0
-                  }
+                  compact
                   onPointerDown={(e) => {
                     if (document.activeElement instanceof HTMLElement) {
                       document.activeElement.blur()
@@ -1415,13 +1395,7 @@ function CanvasViewInner({
                   // previous tall capture as a thin strip after delete.
                   aspectW={aw}
                   aspectH={ah}
-                  compact={
-                    tilt.rx !== 0 ||
-                    tilt.ry !== 0 ||
-                    tilt.rz !== 0 ||
-                    scale !== 100 ||
-                    screenshotSlots.length > 0
-                  }
+                  compact
                   activeTool={activeTool}
                   isBeingDragged={isScreenshotDragging}
                   onPointerDown={(e) => {
