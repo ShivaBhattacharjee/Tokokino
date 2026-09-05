@@ -403,6 +403,23 @@ function parseLightSource(ls: string): { r: number; c: number } {
 }
 
 /**
+ * The colour a `from` → `to` shadow blend renders at progress p. Two visible
+ * shadows CROSS-FADE their colours, so recolouring one (or easing a coloured
+ * keyframe back to a differently coloured base) slides through the mix instead
+ * of snapping to the destination on the first tick. A shadow that renders
+ * nothing has no colour to contribute — it borrows the visible side's, so a
+ * reveal or a retract only moves alpha rather than dragging the hue toward
+ * whatever colour the inert shadow happens to carry.
+ */
+function shadowColorBetween(from: Shadow, to: Shadow, p: number): string {
+  const fromVisible = !shadowInvisible(from)
+  const toVisible = !shadowInvisible(to)
+  if (fromVisible && toVisible) return lerpHexColor(from.color, to.color, p)
+  if (toVisible) return to.color
+  return from.color
+}
+
+/**
  * Shadow at progress p, animating `from` → `to`. Intensity eases from whatever
  * the previous keyframe actually rendered, so back-to-back shadow keyframes stay
  * CONTINUOUS: a drop shadow morphing into a soft one keeps its weight instead of
@@ -422,6 +439,7 @@ export function shadowBetween(from: Shadow, to: Shadow, p: number): Shadow {
   const fromLs = sameType ? parseLightSource(from.lightSource) : toLs
   return {
     ...to,
+    color: shadowColorBetween(from, to, p),
     intensity: lerp(fromIntensity, to.intensity, p),
     lightSource: `${lerp(fromLs.r, toLs.r, p)}-${lerp(fromLs.c, toLs.c, p)}`,
   }
