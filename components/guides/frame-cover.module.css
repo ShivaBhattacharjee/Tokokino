@@ -1,0 +1,15 @@
+.cover { position: relative; isolation: isolate; aspect-ratio: 16 / 10; overflow: hidden; background: var(--background); }
+.grid { position: absolute; inset: 0; opacity: .13; background-image: linear-gradient(var(--foreground) 1px, transparent 1px), linear-gradient(90deg, var(--foreground) 1px, transparent 1px); background-size: 32px 32px; transform: perspective(500px) rotateX(58deg) rotateZ(-25deg) scale(1.5); mask-image: radial-gradient(ellipse, black, transparent 65%); }
+.glow { position: absolute; inset: -45%; background: conic-gradient(from 0deg, transparent 0deg 240deg, color-mix(in oklch, var(--primary) 26%, transparent) 290deg, transparent 330deg); animation: sweep 16s linear infinite; filter: blur(30px); }
+.art { position: absolute; inset: 2% 12% 13%; animation: drift 7s ease-in-out infinite alternate; }
+.label { position: absolute; bottom: 7%; left: 6%; display: flex; flex-direction: column; gap: 6px; font-size: clamp(9px, 1vw, 12px); }
+.label span:first-child { color: var(--primary); font-family: monospace; letter-spacing: .15em; }
+.label span:last-child { color: var(--muted-foreground); }
+.pause { position: absolute; right: 6%; bottom: 7%; color: var(--muted-foreground); font-size: 11px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; }
+.pause:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.cover[data-paused="true"] .art, .cover[data-paused="true"] .glow { animation-play-state: paused; }
+@keyframes drift { from { transform: translateY(4px) rotate(-2deg); } to { transform: translateY(-7px) rotate(1deg); } }
+@keyframes sweep { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .art, .glow { animation: none; } .pause { display: none; } }
+
+.cover[data-preview="true"] .art, .cover[data-preview="true"] .glow { animation-duration: 4s; animation-iteration-count: 1; animation-fill-mode: forwards; }

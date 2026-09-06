@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next"
 
 import { COMPARISONS } from "@/lib/compare/comparisons"
+import { getAllGuides } from "@/lib/guides"
 
 const SITE_URL = "https://tokokino.com"
 
@@ -95,6 +96,21 @@ const routes = [
     priority: 0.6,
     lastModified: "2026-08-09",
   },
+  {
+    path: "/guides",
+    changeFrequency: "weekly",
+    priority: 0.8,
+    lastModified: "2026-09-07",
+  },
+  ...getAllGuides().map(
+    (guide) =>
+      ({
+        path: `/guides/${guide.slug}`,
+        changeFrequency: "weekly",
+        priority: 0.7,
+        lastModified: guide.date,
+      }) as const
+  ),
   {
     path: "/developers",
     changeFrequency: "monthly",

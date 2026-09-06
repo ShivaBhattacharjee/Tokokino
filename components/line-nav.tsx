@@ -104,7 +104,7 @@ const LineNavItemRow = memo(function LineNavItemRow({
       <motion.a
         ref={ref}
         aria-current={active ? "page" : undefined}
-        className="group relative flex h-px items-center gap-3 after:absolute after:top-1/2 after:left-0 after:size-full after:-translate-y-1/2 after:p-3.5"
+        className="group relative flex items-start gap-3 after:absolute after:top-1/2 after:left-0 after:size-full after:-translate-y-1/2 after:p-3.5"
         href={href}
         initial={false}
         animate={active ? "active" : "normal"}
@@ -112,11 +112,11 @@ const LineNavItemRow = memo(function LineNavItemRow({
         onClick={onClick}
       >
         <motion.span
-          className="block h-px shrink-0 bg-primary/30 transition-[background-color] ease-out group-hover:bg-primary group-aria-[current=page]:bg-primary"
+          className="mt-[0.65em] block h-px shrink-0 bg-primary/30 transition-[background-color] ease-out group-hover:bg-primary group-aria-[current=page]:bg-primary"
           variants={lineVariants}
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
         />
-        <span className="text-sm whitespace-nowrap text-muted-foreground transition-[color] ease-out group-hover:text-primary group-aria-[current=page]:text-primary">
+        <span className="min-w-0 flex-1 text-sm leading-snug break-words text-muted-foreground transition-[color] ease-out group-hover:text-primary group-aria-[current=page]:text-primary">
           {title}
         </span>
       </motion.a>

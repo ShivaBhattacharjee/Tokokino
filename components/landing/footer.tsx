@@ -36,6 +36,7 @@ const FOOTER_COLUMNS = [
     title: "Product",
     links: [
       { label: "Features", href: "/features" },
+      { label: "Guides", href: "/guides" },
       { label: "How it works", href: "/how-it-works" },
       { label: "Use cases", href: "/use-cases" },
       { label: "FAQ", href: "#faq" },

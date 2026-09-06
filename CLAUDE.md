@@ -764,3 +764,7 @@ import { MAX_SCREENSHOT_SLOTS } from "@/lib/editor/store"
 ## Deeper docs
 
 `wiki/core/` holds long-form docs per feature — `animate-mode.md`, `animation-export.md`, `video-canvas.md`, `video-export.md`, `templates.md`, `canvas.md`, `editor-store.md`, `share.md`, `drafts.md`, `offline.md`, `architecture.md`, and more. Start at `wiki/core/README.md`. `agents.md` covers task recipes (where to change what, the checklist for adding an animatable effect).
+
+## Public guides and blog writing
+
+When adding or editing guides or blog content, follow [docs/blog-writing.md](docs/blog-writing.md) for voice, source verification, article structure, and SVG illustration style.

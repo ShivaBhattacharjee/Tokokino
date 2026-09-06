@@ -17,30 +17,75 @@ export function pageMetadata({
   description,
   path,
   type = "website",
+  image,
+  publishedTime,
+  modifiedTime,
+  authors,
+  keywords,
 }: {
   title: string
   description: string
   path: string
   type?: "website" | "article"
+  image?: { url: string; alt: string; width?: number; height?: number }
+  publishedTime?: string
+  modifiedTime?: string
+  authors?: string[]
+  keywords?: string[]
 }): Metadata {
+  const ogImages = image
+    ? [
+        {
+          url: image.url,
+          alt: image.alt,
+          ...(image.width ? { width: image.width } : {}),
+          ...(image.height ? { height: image.height } : {}),
+        },
+      ]
+    : [{ ...OG_IMAGE, type: "image/png" }]
+
+  const twitterImages = image
+    ? [{ url: image.url, alt: image.alt }]
+    : [OG_IMAGE]
+
+  const openGraph =
+    type === "article"
+      ? {
+          title,
+          description,
+          url: path,
+          type: "article" as const,
+          siteName: "Tokokino",
+          locale: "en_US",
+          images: ogImages,
+          ...(publishedTime ? { publishedTime } : {}),
+          ...(modifiedTime ? { modifiedTime } : {}),
+          ...(authors && authors.length > 0 ? { authors } : {}),
+        }
+      : {
+          title,
+          description,
+          url: path,
+          type: "website" as const,
+          siteName: "Tokokino",
+          locale: "en_US",
+          images: ogImages,
+        }
+
   return {
     title,
     description,
+    ...(keywords && keywords.length > 0 ? { keywords } : {}),
+    ...(authors && authors.length > 0
+      ? { authors: authors.map((name) => ({ name })) }
+      : {}),
     alternates: { canonical: path },
-    openGraph: {
-      title,
-      description,
-      url: path,
-      type,
-      siteName: "Tokokino",
-      locale: "en_US",
-      images: [{ ...OG_IMAGE, type: "image/png" }],
-    },
+    openGraph,
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [OG_IMAGE],
+      images: twitterImages,
     },
   }
 }
