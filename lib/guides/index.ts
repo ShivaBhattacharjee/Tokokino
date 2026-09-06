@@ -1,5 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs"
-import { basename, join } from "node:path"
+import { GUIDE_SOURCES } from "./sources"
 
 export type GuideAuthor = {
   name: string
@@ -17,8 +16,6 @@ export type Guide = {
   body: string
   readingTime: string
 }
-
-const GUIDES_DIR = join(process.cwd(), "content", "guides")
 
 const FEATURED_SLUG = "meet-tokokino"
 
@@ -71,13 +68,8 @@ function parseFrontmatter(source: string, slug: string) {
 }
 
 function loadGuides(): Guide[] {
-  return readdirSync(GUIDES_DIR)
-    .filter((file) => file.endsWith(".md"))
-    .map((file) => {
-      const slug = basename(file, ".md")
-      const source = readFileSync(join(GUIDES_DIR, file), "utf8")
-      return { slug, ...parseFrontmatter(source, slug) }
-    })
+  return Object.entries(GUIDE_SOURCES)
+    .map(([slug, source]) => ({ slug, ...parseFrontmatter(source, slug) }))
     .sort((a, b) => {
       if (a.slug === FEATURED_SLUG) return -1
       if (b.slug === FEATURED_SLUG) return 1
