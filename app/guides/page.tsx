@@ -137,18 +137,15 @@ export default function GuidesPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2">
             {rest.map((guide, index) => {
-              const isTopRow = index < 2
-              const showTopBorder = !isTopRow
+              const showDividerMobile = index > 0
+              const showDividerDesktop = index >= 2
 
               return (
-                <div
-                  key={guide.slug}
-                  className={`relative ${showTopBorder ? "border-t border-transparent" : ""}`}
-                >
-                  {showTopBorder && (
+                <div key={guide.slug} className="relative">
+                  {showDividerMobile && (
                     <div
                       aria-hidden
-                      className="absolute inset-x-0 top-0 h-px md:col-span-2"
+                      className={`absolute inset-x-0 top-0 h-px ${showDividerDesktop ? "" : "md:hidden"}`}
                       style={H_RAIL_STYLE}
                     />
                   )}
