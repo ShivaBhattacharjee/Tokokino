@@ -11,4 +11,4 @@ Manage custom style presets for the screenshot editor.
 
 ## Authentication
 
-Session cookie required. See [auth.md](https://tokokino.com/auth.md).
+Personal access token (`Authorization: Bearer tk_…`) or session cookie. See [auth.md](https://tokokino.com/auth.md).

@@ -2,7 +2,7 @@ import "server-only"
 
 import { NextResponse } from "next/server"
 
-import { getAuth } from "@/lib/auth"
+import { resolveApiSession } from "@/lib/api-auth"
 import { getShareById } from "@/lib/share-db"
 import {
   getExpiredShareUploads,
@@ -30,7 +30,7 @@ export function isShareUploadContentType(
 }
 
 export async function requireShareUploadUser(request: Request) {
-  const session = await getAuth().api.getSession({ headers: request.headers })
+  const session = await resolveApiSession(request)
   if (!session) {
     return {
       session: null,

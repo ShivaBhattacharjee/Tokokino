@@ -167,6 +167,24 @@ export const shareViews = sqliteTable(
   ]
 )
 
+/** Personal access token for API use without a browser session cookie. */
+export const personalAccessTokens = sqliteTable(
+  "personal_access_tokens",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    /** SHA-256 hex of the token. The plaintext is shown once at creation. */
+    tokenHash: text("token_hash").notNull().unique(),
+    /** Non-secret prefix shown in the UI to identify the token. */
+    prefix: text("prefix").notNull(),
+    createdAt: text("created_at").notNull(),
+    lastUsedAt: text("last_used_at"),
+    expiresAt: text("expires_at"),
+  },
+  (table) => [index("idx_pat_user_created").on(table.userId, table.createdAt)]
+)
+
 /** Durable R2 multipart session for an unpublished animated/video share. */
 export const shareUploads = sqliteTable(
   "share_uploads",

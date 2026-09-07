@@ -354,14 +354,14 @@ export function AccountTile() {
           <Link
             href="/app/shares"
             onClick={() => setExpanded(false)}
-            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
+            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-accent focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
           >
             <RiGalleryLine className="size-4 shrink-0 text-muted-foreground" />
             My Shares
           </Link>
           <button
             type="button"
-            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
+            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-accent focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
             onClick={() => {
               setExpanded(false)
               setStorageOpen(true)
@@ -372,7 +372,7 @@ export function AccountTile() {
           </button>
           <button
             type="button"
-            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-secondary/60 focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
+            className="flex h-7 w-full touch-manipulation items-center gap-2.5 rounded-md px-2 text-xs font-medium text-foreground transition-colors outline-none [-webkit-tap-highlight-color:transparent] hover:bg-accent focus:ring-0 focus-visible:ring-0 sm:focus-visible:ring-2 sm:focus-visible:ring-primary/30"
             onClick={() => {
               setExpanded(false)
               setSettingsOpen(true)

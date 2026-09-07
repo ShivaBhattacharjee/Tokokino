@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { NextResponse } from "next/server"
 
 import { captureServerEvent } from "@/lib/posthog-server"
-import { getAuth } from "@/lib/auth"
+import { resolveApiSession } from "@/lib/api-auth"
 import {
   createShareRecord,
   deleteAllUserShares,
@@ -32,8 +32,7 @@ import {
 export const runtime = "nodejs"
 
 export async function GET(request: Request) {
-  const auth = getAuth()
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await resolveApiSession(request)
   if (!session) {
     return NextResponse.json({ error: "Sign in required" }, { status: 401 })
   }
@@ -62,8 +61,7 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = getAuth()
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await resolveApiSession(request)
   if (!session) {
     return NextResponse.json({ error: "Sign in required" }, { status: 401 })
   }
@@ -90,10 +88,7 @@ export async function DELETE(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = getAuth()
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  })
+  const session = await resolveApiSession(request)
 
   if (!session) {
     return NextResponse.json({ error: "Sign in required" }, { status: 401 })

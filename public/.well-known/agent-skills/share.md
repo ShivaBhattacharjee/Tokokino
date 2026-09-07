@@ -10,14 +10,14 @@ Create and retrieve public share links for beautified screenshots.
 
 ## Authentication
 
-Session cookie required. See [auth.md](https://tokokino.com/auth.md).
+Personal access token (`Authorization: Bearer tk_…`) or session cookie. See [auth.md](https://tokokino.com/auth.md).
 
 ## Request
 
 ```
 POST /api/share
 Content-Type: image/png
-Authorization: session cookie
+Authorization: Bearer tk_<your-personal-access-token>
 Body: raw PNG or JPEG blob (max 20 MB)
 ```
 

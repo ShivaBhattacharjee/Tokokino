@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   RiCheckLine,
   RiCloseLine,
+  RiCodeLine,
   RiComputerLine,
   RiDeleteBinLine,
   RiEyeLine,
@@ -20,6 +21,7 @@ import {
   RiFunctionLine,
   RiImageLine,
   RiKeyboardLine,
+  RiKeyLine,
   RiUserLine,
   RiUserSettingsLine,
 } from "@remixicon/react"
@@ -28,6 +30,16 @@ import { toast } from "sonner"
 
 import { AccountAvatar } from "@/components/editor/account-avatar"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogClose,
@@ -59,7 +71,12 @@ import {
   SHORTCUT_GROUPS,
 } from "@/lib/editor/shortcuts"
 
-type SettingsSection = "profile" | "account" | "export" | "shortcuts"
+type SettingsSection =
+  | "profile"
+  | "account"
+  | "developer"
+  | "export"
+  | "shortcuts"
 
 const NAV_ITEMS: {
   id: SettingsSection
@@ -68,6 +85,7 @@ const NAV_ITEMS: {
 }[] = [
   { id: "profile", label: "Profile", icon: RiUserLine },
   { id: "account", label: "Account", icon: RiUserSettingsLine },
+  { id: "developer", label: "Developer", icon: RiCodeLine },
   { id: "export", label: "Export", icon: RiImageLine },
   { id: "shortcuts", label: "Shortcuts", icon: RiKeyboardLine },
 ]
@@ -89,7 +107,8 @@ export function SettingsDialog({
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
-          Manage your profile, export format, and view keyboard shortcuts.
+          Manage your profile, API tokens, export format, and view keyboard
+          shortcuts.
         </DialogDescription>
 
         <DialogClose asChild>
@@ -153,6 +172,7 @@ export function SettingsDialog({
           <div className="min-w-0 flex-1 [scrollbar-width:none] overflow-y-auto bg-background px-4 py-5 sm:px-8 sm:py-7 [&::-webkit-scrollbar]:hidden">
             {section === "profile" && <ProfileSection />}
             {section === "account" && <AccountSection />}
+            {section === "developer" && <DeveloperSection />}
             {section === "export" && <ExportSection />}
             {section === "shortcuts" && <ShortcutsSection />}
           </div>
@@ -801,6 +821,425 @@ function AccountSection() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+type ApiTokenSummary = {
+  id: string
+  name: string
+  prefix: string
+  createdAt: string
+  lastUsedAt: string | null
+  expiresAt: string | null
+}
+
+const TOKEN_EXPIRY_OPTIONS = [
+  { value: "never", label: "No expiry" },
+  { value: "30d", label: "30 days" },
+  { value: "90d", label: "90 days" },
+  { value: "365d", label: "1 year" },
+] as const
+
+function DeveloperSection() {
+  const { data: session, isPending } = useSession()
+  const user = session?.user
+  const [tokens, setTokens] = React.useState<ApiTokenSummary[] | null>(null)
+  const [name, setName] = React.useState("")
+  const [expiry, setExpiry] = React.useState<string>("never")
+  const [isCreating, setIsCreating] = React.useState(false)
+  const [revokeTarget, setRevokeTarget] =
+    React.useState<ApiTokenSummary | null>(null)
+  const [revokingId, setRevokingId] = React.useState<string | null>(null)
+  const [newToken, setNewToken] = React.useState<string | null>(null)
+  const [copiedToken, setCopiedToken] = React.useState(false)
+  const copyResetRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  React.useEffect(
+    () => () => {
+      if (copyResetRef.current) clearTimeout(copyResetRef.current)
+    },
+    []
+  )
+
+  React.useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch("/api/tokens", { credentials: "include" })
+        if (!response.ok) throw new Error("Could not load tokens")
+        const body: { tokens: ApiTokenSummary[] } = await response.json()
+        if (!cancelled) setTokens(body.tokens)
+      } catch {
+        if (cancelled) return
+        toast.error("Couldn't load API tokens")
+        setTokens([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  const handleCreate = React.useCallback(async () => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      toast.error("Give the token a name first")
+      return
+    }
+    setIsCreating(true)
+    try {
+      const days =
+        expiry === "30d"
+          ? 30
+          : expiry === "90d"
+            ? 90
+            : expiry === "365d"
+              ? 365
+              : null
+      const response = await fetch("/api/tokens", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmed,
+          expiresAt: days
+            ? new Date(Date.now() + days * 86400_000).toISOString()
+            : null,
+        }),
+      })
+      const body = (await response.json().catch(() => null)) as {
+        error?: string
+        token?: string
+        id?: string
+        name?: string
+        prefix?: string
+        createdAt?: string
+        lastUsedAt?: string | null
+        expiresAt?: string | null
+      } | null
+      if (!response.ok) throw new Error(body?.error ?? "Could not create token")
+      if (
+        !body?.token ||
+        !body.id ||
+        !body.name ||
+        !body.prefix ||
+        !body.createdAt
+      ) {
+        throw new Error("Could not create token")
+      }
+      setNewToken(body.token)
+      setCopiedToken(false)
+      setName("")
+      setExpiry("never")
+      // The create response already carries the stored metadata, so add the
+      // row directly instead of refetching the list (no skeleton flash).
+      const record: ApiTokenSummary = {
+        id: body.id,
+        name: body.name,
+        prefix: body.prefix,
+        createdAt: body.createdAt,
+        lastUsedAt: body.lastUsedAt ?? null,
+        expiresAt: body.expiresAt ?? null,
+      }
+      setTokens((current) => [record, ...(current ?? [])])
+      toast.success("API token created")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't create API token"
+      )
+    } finally {
+      setIsCreating(false)
+    }
+  }, [name, expiry])
+
+  const handleRevoke = React.useCallback(async (token: ApiTokenSummary) => {
+    setRevokingId(token.id)
+    try {
+      const response = await fetch(`/api/tokens/${token.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (!response.ok) throw new Error("Could not revoke token")
+      setTokens(
+        (current) => current?.filter((item) => item.id !== token.id) ?? []
+      )
+      setRevokeTarget(null)
+      toast.success("API token revoked")
+    } catch {
+      toast.error("Couldn't revoke that token")
+    } finally {
+      setRevokingId(null)
+    }
+  }, [])
+
+  const copyToken = React.useCallback(async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedToken(true)
+      if (copyResetRef.current) clearTimeout(copyResetRef.current)
+      copyResetRef.current = setTimeout(() => setCopiedToken(false), 1500)
+    } catch {
+      toast.error("Couldn't copy token")
+    }
+  }, [])
+
+  if (!user && !isPending) {
+    return (
+      <div className="space-y-6">
+        <SectionHeader
+          title="Developer"
+          description="Create personal access tokens for the Tokokino API."
+        />
+        <div className="rounded-lg border border-border/60 bg-secondary/30 px-4 py-3 text-[13px] text-muted-foreground">
+          Sign in to generate personal access tokens.
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-7">
+      <SectionHeader
+        title="Developer"
+        description="Personal access tokens authenticate API requests without a browser session. Send one as an Authorization: Bearer header."
+      />
+
+      <Dialog
+        open={newToken !== null}
+        onOpenChange={(open) => {
+          if (!open) setNewToken(null)
+        }}
+      >
+        <DialogContent showCloseButton={false} className="max-w-md p-5">
+          <DialogTitle className="text-base font-semibold">
+            Copy your new token
+          </DialogTitle>
+          <DialogDescription className="mt-2">
+            It won&apos;t be shown again. Store it somewhere safe — it acts as
+            your account on every API call.
+          </DialogDescription>
+          <div className="mt-4 flex min-w-0 items-center gap-2 rounded-md border border-border/60 bg-secondary/30 px-3 py-2.5">
+            <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground">
+              {newToken}
+            </code>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={copiedToken ? "Token copied" : "Copy token"}
+              onClick={() => newToken && void copyToken(newToken)}
+              className="shrink-0 hover:bg-accent hover:text-accent-foreground"
+            >
+              {copiedToken ? (
+                <RiCheckLine className="size-4 animate-in text-emerald-500 duration-200 zoom-in-50" />
+              ) : (
+                <RiFileCopyLine className="size-4" />
+              )}
+            </Button>
+          </div>
+          <div className="mt-5">
+            <Button
+              type="button"
+              onClick={() => setNewToken(null)}
+              className="w-full"
+            >
+              Okay
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <section className="space-y-3 border-b border-border/50 pb-6">
+        <p className="text-base font-medium text-foreground">
+          Generate a new token
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. CI upload script"
+            maxLength={60}
+            autoComplete="off"
+            className="h-10 min-w-0 flex-1 rounded-md border border-border/60 bg-secondary/30 px-3 text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+          />
+          <Select value={expiry} onValueChange={setExpiry}>
+            <SelectTrigger
+              size="default"
+              aria-label="Token expiry"
+              className="w-full text-[13px] data-[size=default]:h-10 sm:w-36"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TOKEN_EXPIRY_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            onClick={() => void handleCreate()}
+            disabled={isCreating || !name.trim()}
+            className="h-10 shrink-0 px-4"
+          >
+            {isCreating ? (
+              <RiLoader4Line className="size-4 animate-spin" />
+            ) : (
+              <RiKeyLine className="size-4" />
+            )}
+            Generate
+          </Button>
+        </div>
+        <p className="text-[12px] text-muted-foreground">
+          Use it with{" "}
+          <code className="rounded bg-secondary/70 px-1.5 py-0.5 font-mono text-[11px]">
+            Authorization: Bearer tk_…
+          </code>{" "}
+          on any documented API endpoint. Tokens act as you. Keep them secret.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-foreground">
+            Active tokens
+          </p>
+          <p className="text-[12px] text-muted-foreground">
+            Revoking a token immediately stops every integration using it.
+          </p>
+        </div>
+        <div className="overflow-x-auto rounded-md border border-border/50">
+          <div className="min-w-[44rem] divide-y divide-border/50">
+            <div className="grid grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_7.5rem] gap-4 bg-secondary/30 px-4 py-2.5 text-[11px] font-medium text-muted-foreground">
+              <span>Token</span>
+              <span>Created</span>
+              <span>Expires</span>
+              <span>Last used</span>
+              <span className="text-right">Action</span>
+            </div>
+            {tokens?.map((token) => (
+              <div
+                key={token.id}
+                className="grid grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_7.5rem] items-center gap-4 px-4 py-3 text-[12px]"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <RiKeyLine className="size-4 shrink-0 text-muted-foreground" />
+                  <p className="truncate text-foreground">{token.name}</p>
+                </div>
+                <span
+                  className="text-muted-foreground"
+                  title={new Date(token.createdAt).toLocaleString()}
+                >
+                  {new Date(token.createdAt).toLocaleDateString()}
+                </span>
+                <span
+                  className="text-muted-foreground"
+                  title={
+                    token.expiresAt
+                      ? new Date(token.expiresAt).toLocaleString()
+                      : undefined
+                  }
+                >
+                  {token.expiresAt
+                    ? new Date(token.expiresAt).toLocaleDateString()
+                    : "No expiry"}
+                </span>
+                <span
+                  className="text-muted-foreground"
+                  title={
+                    token.lastUsedAt
+                      ? new Date(token.lastUsedAt).toLocaleString()
+                      : undefined
+                  }
+                >
+                  {token.lastUsedAt
+                    ? relativeTime(token.lastUsedAt)
+                    : "Never used"}
+                </span>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="default"
+                  onClick={() => setRevokeTarget(token)}
+                  disabled={revokingId === token.id}
+                  className="min-w-[7rem] justify-self-end border-destructive/50 bg-transparent hover:bg-destructive/10 dark:bg-transparent dark:hover:bg-destructive/10"
+                >
+                  <RiDeleteBinLine className="size-3.5" />
+                  Revoke
+                </Button>
+              </div>
+            ))}
+            {tokens === null
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="grid animate-pulse grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_7.5rem] items-center gap-4 px-4 py-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="size-4 shrink-0 rounded bg-foreground/10" />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <span className="block h-3.5 w-32 rounded bg-foreground/10" />
+                        <span className="block h-3 w-24 rounded bg-foreground/10" />
+                      </div>
+                    </div>
+                    <span className="h-3.5 w-20 rounded bg-foreground/10" />
+                    <span className="h-3.5 w-20 rounded bg-foreground/10" />
+                    <span className="h-3.5 w-24 rounded bg-foreground/10" />
+                    <span className="h-7 w-[7rem] justify-self-end rounded-md bg-foreground/10" />
+                  </div>
+                ))
+              : null}
+            {tokens?.length === 0 ? (
+              <div className="px-4 py-5 text-[12px] text-muted-foreground">
+                No tokens yet. Generate one above to call the API from scripts,
+                CI, or agents.
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <AlertDialog
+        open={revokeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRevokeTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke token?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{revokeTarget?.name}&rdquo; will stop working immediately.
+              Every script, CI job, or agent using it will start getting
+              unauthorized errors. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => revokeTarget && void handleRevoke(revokeTarget)}
+              disabled={revokingId !== null}
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+            >
+              {revokingId !== null ? (
+                <>
+                  <RiLoader4Line className="size-3.5 animate-spin" />
+                  Revoking
+                </>
+              ) : (
+                <>
+                  <RiDeleteBinLine className="size-3.5" />
+                  Revoke
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

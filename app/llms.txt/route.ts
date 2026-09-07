@@ -40,11 +40,11 @@ Last updated: ${UPDATED_AT}
 
 - [Tokokino developer portal](${SITE_URL}/developers): API quickstart, authentication, endpoint reference, error codes, limits, and agent resources.
 - [Tokokino OpenAPI specification](${SITE_URL}/openapi.json): OpenAPI 3.1 contract for every documented endpoint, also served at ${SITE_URL}/api/openapi.json.
-- [Tokokino authentication guide](${SITE_URL}/auth.md): How to obtain and send a better-auth session cookie.
+- [Tokokino authentication guide](${SITE_URL}/auth.md): How to generate a personal access token and send it with API requests.
 - [Tokokino agent skills](${SITE_URL}/.well-known/agent-skills/index.json): Skill documents for the share, drafts, and presets workflows.
 - [Tokokino MCP server card](${SITE_URL}/.well-known/mcp/server-card.json): Model Context Protocol descriptor. The MCP server is not live yet — ${SITE_URL}/mcp answers 503 with a coming-soon payload until it ships.
 
-Tokokino has no API keys. Authentication is a better-auth session cookie obtained at ${SITE_URL}/login. Every API error is JSON carrying a machine-readable code, a message, and a resolution hint; unmatched /api/* paths return a JSON 404 rather than an HTML page.
+Authenticate API calls with a personal access token generated in Settings → Developer, sent as an Authorization: Bearer header (a better-auth session cookie from ${SITE_URL}/login also works). Every API error is JSON carrying a machine-readable code, a message, and a resolution hint; unmatched /api/* paths return a JSON 404 rather than an HTML page.
 
 ## Trust and project information
 

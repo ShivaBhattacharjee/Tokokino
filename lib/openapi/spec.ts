@@ -9,7 +9,7 @@ const errorResponse = (description: string) => ({
   },
 })
 
-const sessionSecurity = [{ sessionCookie: [] }]
+const sessionSecurity = [{ sessionCookie: [] }, { patBearer: [] }]
 
 export const openApiSpec = {
   openapi: "3.1.0",
@@ -18,7 +18,7 @@ export const openApiSpec = {
     version: "1.0.0",
     summary: "HTTP API for Tokokino screenshot shares, drafts, and presets.",
     description:
-      "Tokokino is a browser-based screenshot and product-demo editor. Editing and export run entirely on the client; this API covers the server-backed features — public share links, cloud drafts, custom style presets, editor preferences, and a few media proxies used by the editor.\n\nAuthentication uses a better-auth session cookie. Sign in at /login, then send the session cookie with each request. See /auth.md for the full authentication guide.",
+      "Tokokino is a browser-based screenshot and product-demo editor. Editing and export run entirely on the client; this API covers the server-backed features — public share links, cloud drafts, custom style presets, editor preferences, and a few media proxies used by the editor.\n\nAuthentication uses a personal access token (generate one in Settings → Developer and send it as an `Authorization: Bearer tk_…` header) or a better-auth session cookie. Sign in at /login, then send the session cookie with each request. See /auth.md for the full authentication guide.",
     contact: { name: "Tokokino", url: `${SITE_URL}/contact` },
     license: {
       name: "AGPL-3.0",
@@ -37,6 +37,10 @@ export const openApiSpec = {
     },
     { name: "Drafts", description: "Cloud-saved editor state." },
     { name: "Presets", description: "Reusable custom style presets." },
+    {
+      name: "Tokens",
+      description: "Personal access tokens for script and agent use.",
+    },
     { name: "Preferences", description: "Per-user editor preferences." },
     {
       name: "Media",
@@ -871,6 +875,104 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/tokens": {
+      get: {
+        tags: ["Tokens"],
+        operationId: "listTokens",
+        summary: "List personal access tokens",
+        description:
+          "Only metadata is returned — plaintext tokens are shown once at creation and never again.",
+        security: sessionSecurity,
+        responses: {
+          200: {
+            description: "The user's tokens.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["tokens"],
+                  properties: {
+                    tokens: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/TokenSummary" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponse("Not signed in."),
+        },
+      },
+      post: {
+        tags: ["Tokens"],
+        operationId: "createToken",
+        summary: "Generate a personal access token",
+        description:
+          "The plaintext `token` is returned exactly once. It is stored only as a SHA-256 hash.",
+        security: sessionSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", maxLength: 60 },
+                  expiresAt: {
+                    type: ["string", "null"],
+                    format: "date-time",
+                    description: "Optional future expiry timestamp.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "The created token, including its one-time plaintext.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreatedToken" },
+              },
+            },
+          },
+          400: errorResponse("Invalid body."),
+          401: errorResponse("Not signed in."),
+          409: errorResponse("Token limit reached."),
+          429: errorResponse("Rate limited."),
+        },
+      },
+    },
+    "/api/tokens/{id}": {
+      parameters: [{ $ref: "#/components/parameters/TokenId" }],
+      delete: {
+        tags: ["Tokens"],
+        operationId: "revokeToken",
+        summary: "Revoke a personal access token",
+        description:
+          "Revocation takes effect immediately on every request using the token.",
+        security: sessionSecurity,
+        responses: {
+          200: {
+            description: "Token revoked.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["ok"],
+                  properties: { ok: { type: "boolean" } },
+                },
+              },
+            },
+          },
+          401: errorResponse("Not signed in."),
+          404: errorResponse("Token not found."),
+        },
+      },
+    },
     "/api/screenshot": {
       post: {
         tags: ["Media"],
@@ -1088,6 +1190,11 @@ export const openApiSpec = {
   },
   components: {
     securitySchemes: {
+      patBearer: {
+        type: "http",
+        scheme: "bearer",
+        description: `Personal access token generated in Settings → Developer. Send as \`Authorization: Bearer tk_…\`. Full guide at ${SITE_URL}/auth.md.`,
+      },
       sessionCookie: {
         type: "apiKey",
         in: "cookie",
@@ -1122,6 +1229,13 @@ export const openApiSpec = {
         in: "path",
         required: true,
         description: "Preset UUID.",
+        schema: { type: "string", format: "uuid" },
+      },
+      TokenId: {
+        name: "id",
+        in: "path",
+        required: true,
+        description: "Personal access token UUID.",
         schema: { type: "string", format: "uuid" },
       },
     },
@@ -1268,6 +1382,36 @@ export const openApiSpec = {
         type: "object",
         properties: {
           exportFilenameFormat: { type: "string" },
+        },
+      },
+      TokenSummary: {
+        type: "object",
+        required: ["id", "name", "prefix", "createdAt"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string", maxLength: 60 },
+          prefix: {
+            type: "string",
+            description: "Non-secret identifier shown in Settings.",
+          },
+          createdAt: { type: "string" },
+          lastUsedAt: { type: ["string", "null"] },
+          expiresAt: { type: ["string", "null"] },
+        },
+      },
+      CreatedToken: {
+        type: "object",
+        required: ["token", "id", "name", "prefix", "createdAt"],
+        description:
+          "The plaintext `token` is returned exactly once and can never be read back.",
+        properties: {
+          token: { type: "string", description: "One-time plaintext token." },
+          id: { type: "string", format: "uuid" },
+          name: { type: "string", maxLength: 60 },
+          prefix: { type: "string" },
+          createdAt: { type: "string" },
+          lastUsedAt: { type: ["string", "null"] },
+          expiresAt: { type: ["string", "null"] },
         },
       },
       UnsplashPhoto: {
