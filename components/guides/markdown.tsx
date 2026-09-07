@@ -60,6 +60,15 @@ export function Markdown({ source }: { source: string }) {
       continue
     }
 
+    const imageMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/)
+    if (imageMatch) {
+      blocks.push(
+        `<figure class="my-8 overflow-hidden rounded-lg border border-border/60"><img src="${imageMatch[2]}" alt="${escapeHtml(imageMatch[1])}" loading="lazy" class="w-full" /></figure>`
+      )
+      i += 1
+      continue
+    }
+
     if (trimmed.startsWith("> ")) {
       const quoteLines: string[] = []
       while (i < lines.length && lines[i].trim().startsWith("> ")) {

@@ -13,7 +13,9 @@ import { RiHomeLine, RiTimeLine } from "@remixicon/react"
 import { CopyUrlButton } from "@/components/guides/copy-url-button"
 import { FrameIllustration } from "@/components/guides/frame-illustration"
 import { CaptureIllustration } from "@/components/guides/capture-illustration"
+import { BulkIllustration } from "@/components/guides/bulk-illustration"
 import { GuideCover } from "@/components/guides/guide-cover"
+import { PresetIllustration } from "@/components/guides/preset-illustration"
 import { SectionLinkHandler } from "@/components/guides/section-link-handler"
 import { StoryIllustration } from "@/components/guides/story-illustration"
 import { Markdown } from "@/components/guides/markdown"
@@ -72,6 +74,23 @@ const captureIllustrations: Record<string, number> = {
   "Work with the whole page, then narrow down": 3,
   "Style it like any other screenshot": 4,
   "Know what URL capture cannot do": 5,
+}
+
+const presetIllustrations: Record<string, number> = {
+  "Start from a template, not a blank canvas": 0,
+  "Save the look as a custom preset": 1,
+  "Save the project as a cloud draft": 2,
+  "Presets that move: Animate mode and video": 3,
+  "Storage: what counts and what does not": 4,
+  "Build a reusable series in five steps": 5,
+}
+
+const bulkIllustrations: Record<string, number> = {
+  "One workspace for the whole set": 0,
+  "Arrange the canvases": 1,
+  "Edit one canvas at a time": 2,
+  "What bulk mode changes": 3,
+  "A launch set in five steps": 4,
 }
 const storyIllustrations: Record<string, number> = {
   "Why I built Tokokino": 6,
@@ -291,6 +310,8 @@ export default async function GuideDetailPage({
                   "meet-tokokino",
                   "capture-website-from-url",
                   "aspect-ratios-device-frames",
+                  "presets-and-templates",
+                  "bulk-edit",
                 ].includes(guide.slug) ? (
                   guide.body
                     .split(/(?=^## )/m)
@@ -302,13 +323,21 @@ export default async function GuideDetailPage({
                           ? frameIllustrations
                           : guide.slug === "meet-tokokino"
                             ? storyIllustrations
-                            : captureIllustrations
+                            : guide.slug === "presets-and-templates"
+                              ? presetIllustrations
+                              : guide.slug === "bulk-edit"
+                                ? bulkIllustrations
+                                : captureIllustrations
                       const Art =
                         guide.slug === "aspect-ratios-device-frames"
                           ? FrameIllustration
                           : guide.slug === "meet-tokokino"
                             ? StoryIllustration
-                            : CaptureIllustration
+                            : guide.slug === "presets-and-templates"
+                              ? PresetIllustration
+                              : guide.slug === "bulk-edit"
+                                ? BulkIllustration
+                                : CaptureIllustration
                       const artStep = artMap[heading]
                       return (
                         <section key={index}>
