@@ -595,7 +595,8 @@ function CanvasViewInner({
       if (!fullPageCapture || isCanvasPreview) return
       const next = nextFullPageCaptureScrollPosition(
         event.deltaY,
-        fullPageCapture.scrollPosition
+        fullPageCapture.scrollPosition,
+        event.deltaMode
       )
       if (next === fullPageCapture.scrollPosition) return
       event.preventDefault()

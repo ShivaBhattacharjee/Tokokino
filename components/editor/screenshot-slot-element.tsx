@@ -326,7 +326,8 @@ export function ScreenshotSlotRender({
           : (event) => {
               const next = nextFullPageCaptureScrollPosition(
                 event.deltaY,
-                slot.fullPageCapture!.scrollPosition
+                slot.fullPageCapture!.scrollPosition,
+                event.deltaMode
               )
               if (next === slot.fullPageCapture!.scrollPosition) return
               event.preventDefault()
