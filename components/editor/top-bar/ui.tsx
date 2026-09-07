@@ -211,9 +211,9 @@ export function SaveActionRow({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="group flex w-full max-w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-transparent bg-secondary/40 px-3 py-2.5 text-left transition-colors hover:border-border/60 hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-60"
+      className="group flex w-full max-w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-transparent bg-secondary/40 px-3 py-2.5 text-left transition-colors hover:border-primary hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-60"
     >
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-background text-foreground/80 ring-1 ring-border/50">
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-background text-primary ring-1 ring-border/50 transition-colors group-hover:ring-primary/40">
         <Icon className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
