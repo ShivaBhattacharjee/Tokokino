@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Read how Tokokino handles authentication data, shared content, and usage information.",
 }
 
-const EFFECTIVE_DATE = "May 20, 2026"
+const EFFECTIVE_DATE = "September 8, 2026"
 
 type PolicySection = {
   title: string
@@ -31,6 +31,7 @@ const sections: PolicySection[] = [
       "Account and identity data: when you sign in, Tokokino may process information provided by your authentication provider, such as name, email address, profile identifier, and avatar.",
       "Shared content data: if you create a public share link, the rendered exported image and related share metadata are stored so the link can be accessed.",
       "Operational data: Tokokino may process technical information required for service reliability and abuse prevention, such as request timestamps, user agent data, IP-derived logs, and error diagnostics.",
+      "API token metadata: when you generate a personal access token, Tokokino stores the token name, public prefix, creation time, expiry time, and last-used time. Only a one-way hash of the token secret is stored. The plaintext secret is shown once at creation and is never stored.",
       "Editor content is local by default. Screenshots and styling work remain in your browser unless you explicitly upload or share them through a server-backed feature.",
     ],
   },
@@ -63,6 +64,7 @@ const sections: PolicySection[] = [
     body: [
       "Account-related information is retained while your account is active and for a limited period afterward where needed for security, compliance, or dispute resolution.",
       "Shared image records are retained until deleted by you, removed by maintainers for policy reasons, or otherwise removed through normal data lifecycle management.",
+      "API token metadata is retained while the token exists and is removed when you revoke the token or delete your account.",
       "Short-term logs and diagnostic records are retained only as long as reasonably necessary for operational and security needs.",
     ],
   },

@@ -4,6 +4,9 @@ import Link from "next/link"
 import { DocIndex } from "@/components/landing/doc-index"
 import { DocPage } from "@/components/landing/doc-page"
 
+import { CodeSample } from "./code-sample"
+import { EndpointCurl } from "./endpoint-curl"
+
 export const metadata: Metadata = {
   title:
     "Tokokino Developer Portal — API docs, OpenAPI spec, and agent resources",
@@ -162,11 +165,14 @@ function Section({
   )
 }
 
-function Code({ children }: { children: string }) {
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <pre className="mt-4 overflow-x-auto rounded-md border border-border/60 bg-background/80 p-4 font-mono text-[12px] leading-6 text-foreground/75">
-      <code>{children}</code>
-    </pre>
+    <li className="flex gap-3">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border/60 font-mono text-[10px] text-primary/80">
+        {n}
+      </span>
+      <span className="flex-1">{children}</span>
+    </li>
   )
 }
 
@@ -190,7 +196,7 @@ export default function DevelopersPage() {
             Create a share by POSTing raw image bytes with a personal access
             token:
           </p>
-          <Code>{CURL}</Code>
+          <CodeSample className="mt-4" filename="create-share.sh" code={CURL} />
           <p className="mt-4">
             The response carries the public share URL, the stored image URL, and
             your remaining storage quota. The full request and response schemas
@@ -204,19 +210,44 @@ export default function DevelopersPage() {
 
         <Section id="authentication" title="Authentication">
           <p>
-            Generate a personal access token in the editor under Settings →
-            Developer, then send it as an{" "}
-            <span className="font-mono text-[12px]">
-              Authorization: Bearer tk_…
-            </span>{" "}
-            header with each request. Tokens act as your account, can be given
-            an optional expiry, and can be revoked at any time — treat them like
-            passwords.
+            API requests are authenticated with a personal access token. To
+            create one:
+          </p>
+          <ol className="mt-4 flex list-none flex-col gap-3.5">
+            <Step n={1}>
+              Sign in with Google at{" "}
+              <Link href="/login" className={linkClass}>
+                tokokino.com/login
+              </Link>
+              .
+            </Step>
+            <Step n={2}>
+              Open the{" "}
+              <Link href="/app" className={linkClass}>
+                editor
+              </Link>
+              , click your profile icon at the bottom of the left sidebar, and
+              choose <span className="text-foreground/75">Settings</span>.
+            </Step>
+            <Step n={3}>
+              Go to the <span className="text-foreground/75">Developer</span>{" "}
+              tab and click{" "}
+              <span className="text-foreground/75">New token</span>. Name it,
+              and give it an expiry if you want one.
+            </Step>
+            <Step n={4}>
+              Copy the token — it is shown once — and send it with your
+              requests. Every example on this page shows where it goes.
+            </Step>
+          </ol>
+          <p className="mt-4">
+            A token acts as your account, so treat it like a password. You can
+            revoke one at any time from the same screen.
           </p>
           <p className="mt-4">
-            Browser-based callers can also use a{" "}
+            Browser-based callers can use a{" "}
             <span className="font-mono text-[12px]">better-auth</span> session
-            cookie — email and password, or Google OAuth. Sign in at{" "}
+            cookie instead: sign in at{" "}
             <Link href="/login" className={linkClass}>
               /login
             </Link>{" "}
@@ -259,60 +290,29 @@ export default function DevelopersPage() {
             The most-used endpoints are listed here. The specification is the
             complete reference.
           </p>
-          <div className="mt-5 flex flex-col gap-6">
+          <div className="mt-5 flex flex-col gap-10">
             {ENDPOINTS.map((group) => (
               <div key={group.group}>
                 <h3 className="font-mono text-[10px] tracking-widest text-primary/80 uppercase">
                   {group.group}
                 </h3>
-                {/* Stacked cards for mobile */}
-                <div className="mt-3 flex flex-col gap-3 sm:hidden">
+                <div className="mt-4 flex flex-col gap-7">
                   {group.rows.map(([method, path, purpose]) => (
-                    <div
-                      key={`${method} ${path}`}
-                      className="rounded-md border border-border/40 px-3 py-2.5"
-                    >
-                      <div className="flex items-center gap-2">
+                    <div key={`${method} ${path}`}>
+                      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                         <span className="font-mono text-[11px] font-medium text-primary/80">
                           {method}
                         </span>
-                        <span className="font-mono text-[11px] text-foreground/75">
+                        <span className="font-mono text-[12px] text-foreground/75">
                           {path}
                         </span>
                       </div>
-                      <p className="mt-1 text-[12px] leading-5 text-foreground/58">
+                      <p className="mt-1.5 text-[13px] leading-6 text-foreground/58">
                         {purpose}
                       </p>
+                      <EndpointCurl method={method} path={path} />
                     </div>
                   ))}
-                </div>
-                {/* Table for sm+ screens */}
-                <div className="mt-3 hidden sm:block">
-                  <table className="w-full border-collapse text-left text-[13px]">
-                    <thead>
-                      <tr className="border-b border-border/50 text-foreground/45">
-                        <th className="py-2 pr-4 font-normal">Method</th>
-                        <th className="py-2 pr-4 font-normal">Path</th>
-                        <th className="py-2 font-normal">Purpose</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.rows.map(([method, path, purpose]) => (
-                        <tr
-                          key={`${method} ${path}`}
-                          className="border-b border-border/30"
-                        >
-                          <td className="py-2 pr-4 font-mono text-[11px] text-primary/80">
-                            {method}
-                          </td>
-                          <td className="py-2 pr-4 font-mono text-[11px] whitespace-nowrap text-foreground/75">
-                            {path}
-                          </td>
-                          <td className="py-2 text-foreground/58">{purpose}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
               </div>
             ))}
@@ -330,7 +330,12 @@ export default function DevelopersPage() {
             <span className="font-mono text-[12px]">hint</span> describing how
             to resolve it.
           </p>
-          <Code>{ERROR_SAMPLE}</Code>
+          <CodeSample
+            className="mt-4"
+            filename="error.json"
+            language="json"
+            code={ERROR_SAMPLE}
+          />
           <p className="mt-4">
             The <span className="font-mono text-[12px]">error</span> field
             repeats <span className="font-mono text-[12px]">message</span> so

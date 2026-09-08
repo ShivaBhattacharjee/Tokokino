@@ -2,7 +2,7 @@ const SITE_URL = "https://tokokino.com"
 
 const CONTENT = `# auth.md
 
-Tokokino is a browser-based screenshot beautifier. Protected APIs accept a personal access token or an authenticated session obtained via email/password or Google OAuth through [better-auth](https://www.better-auth.com/).
+Tokokino is a browser-based screenshot beautifier. Protected APIs accept a personal access token or an authenticated session obtained via Google OAuth through [better-auth](https://www.better-auth.com/).
 
 ## Discovery
 
@@ -36,16 +36,7 @@ Manage tokens programmatically (these endpoints accept a token or a session):
 
 ## Session cookies (browser callers)
 
-Agents driving a real browser session can sign in through the email/password endpoint instead:
-
-\`\`\`
-POST ${SITE_URL}/api/auth/sign-in/email
-Content-Type: application/json
-
-{ "email": "...", "password": "..." }
-\`\`\`
-
-The response sets a session cookie used for all subsequent API calls. A better-auth session token also works as a bearer token in the \`Authorization\` header:
+Agents driving a real browser session can sign in with Google at ${SITE_URL}/login instead. The flow sets a session cookie used for all subsequent API calls. A better-auth session token also works as a bearer token in the \`Authorization\` header:
 
 \`\`\`
 Authorization: Bearer <session-token>

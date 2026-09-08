@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: "Review the terms governing access to and use of Tokokino.",
 }
 
-const EFFECTIVE_DATE = "May 17, 2026"
+const EFFECTIVE_DATE = "September 8, 2026"
 
 type TermsSection = {
   title: string
@@ -30,6 +30,7 @@ const sections: TermsSection[] = [
     body: [
       "You must be at least 13 years old, or the minimum age required in your jurisdiction, to use the Service. You are responsible for ensuring that your use of the Service is lawful in the jurisdiction from which you access it.",
       "When you sign in using Google or another supported authentication provider, you authorize Tokokino to receive and process the account information made available by that provider for authentication and account management. You are responsible for maintaining the confidentiality and security of your account credentials and for all activity occurring under your account.",
+      "You may generate personal access tokens through the Developer settings to authenticate API requests without a browser session. Each token acts as your account with your permissions. You are responsible for keeping token secrets confidential, for choosing appropriate expiry periods, for revoking tokens you no longer use, and for all activity performed with your tokens. Tokokino displays a token secret only once at creation and cannot recover it afterward. If you believe a token has been exposed, revoke it immediately.",
     ],
   },
   {

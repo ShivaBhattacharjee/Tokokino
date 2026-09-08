@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
+  RiAddLine,
   RiCheckLine,
   RiCloseLine,
   RiCodeLine,
@@ -30,6 +32,7 @@ import { toast } from "sonner"
 
 import { AccountAvatar } from "@/components/editor/account-avatar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +48,8 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
@@ -848,6 +853,7 @@ function DeveloperSection() {
   const [name, setName] = React.useState("")
   const [expiry, setExpiry] = React.useState<string>("never")
   const [isCreating, setIsCreating] = React.useState(false)
+  const [createOpen, setCreateOpen] = React.useState(false)
   const [revokeTarget, setRevokeTarget] =
     React.useState<ApiTokenSummary | null>(null)
   const [revokingId, setRevokingId] = React.useState<string | null>(null)
@@ -933,6 +939,7 @@ function DeveloperSection() {
       setCopiedToken(false)
       setName("")
       setExpiry("never")
+      setCreateOpen(false)
       // The create response already carries the stored metadata, so add the
       // row directly instead of refetching the list (no skeleton flash).
       const record: ApiTokenSummary = {
@@ -1012,15 +1019,17 @@ function DeveloperSection() {
           if (!open) setNewToken(null)
         }}
       >
-        <DialogContent showCloseButton={false} className="max-w-md p-5">
-          <DialogTitle className="text-base font-semibold">
-            Copy your new token
-          </DialogTitle>
-          <DialogDescription className="mt-2">
-            It won&apos;t be shown again. Store it somewhere safe — it acts as
-            your account on every API call.
-          </DialogDescription>
-          <div className="mt-4 flex min-w-0 items-center gap-2 rounded-md border border-border/60 bg-secondary/30 px-3 py-2.5">
+        <DialogContent showCloseButton={false} className="max-w-md gap-3 p-5">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">
+              Copy your new token
+            </DialogTitle>
+            <DialogDescription>
+              It won&apos;t be shown again. Store it somewhere safe. It acts as
+              your account on every API call.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-w-0 items-center gap-2 rounded-md border border-border/60 bg-secondary/30 px-3 py-2.5">
             <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground">
               {newToken}
             </code>
@@ -1039,7 +1048,7 @@ function DeveloperSection() {
               )}
             </Button>
           </div>
-          <div className="mt-5">
+          <div>
             <Button
               type="button"
               onClick={() => setNewToken(null)}
@@ -1051,57 +1060,110 @@ function DeveloperSection() {
         </DialogContent>
       </Dialog>
 
-      <section className="space-y-3 border-b border-border/50 pb-6">
-        <p className="text-base font-medium text-foreground">
-          Generate a new token
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. CI upload script"
-            maxLength={60}
-            autoComplete="off"
-            className="h-10 min-w-0 flex-1 rounded-md border border-border/60 bg-secondary/30 px-3 text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
-          />
-          <Select value={expiry} onValueChange={setExpiry}>
-            <SelectTrigger
-              size="default"
-              aria-label="Token expiry"
-              className="w-full text-[13px] data-[size=default]:h-10 sm:w-36"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TOKEN_EXPIRY_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            onClick={() => void handleCreate()}
-            disabled={isCreating || !name.trim()}
-            className="h-10 shrink-0 px-4"
-          >
-            {isCreating ? (
-              <RiLoader4Line className="size-4 animate-spin" />
-            ) : (
-              <RiKeyLine className="size-4" />
-            )}
-            Generate
-          </Button>
-        </div>
-        <p className="text-[12px] text-muted-foreground">
-          Use it with{" "}
-          <code className="rounded bg-secondary/70 px-1.5 py-0.5 font-mono text-[11px]">
-            Authorization: Bearer tk_…
-          </code>{" "}
-          on any documented API endpoint. Tokens act as you. Keep them secret.
-        </p>
+      <section className="flex justify-end border-b border-border/50 pb-6">
+        <Button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="h-9 shrink-0 px-4"
+        >
+          <RiAddLine className="size-4" />
+          New token
+        </Button>
       </section>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!isCreating) setCreateOpen(open)
+        }}
+      >
+        <DialogContent className="max-w-md gap-3 p-5">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">
+              Create new token
+            </DialogTitle>
+            <DialogDescription>
+              Give it a name and an expiry. The secret is shown once after
+              creation. Tokens act as you, so keep them secret.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void handleCreate()
+            }}
+          >
+            <div className="grid gap-1">
+              <label
+                htmlFor="new-token-name"
+                className="block text-[12px] font-medium text-foreground"
+              >
+                Name
+              </label>
+              <Input
+                id="new-token-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="e.g. CI upload script"
+                maxLength={60}
+                autoComplete="off"
+                className="h-10 px-3 text-[13px] focus:border-primary"
+              />
+            </div>
+            <div className="grid gap-1">
+              <span className="block text-[12px] font-medium text-foreground">
+                Expiry
+              </span>
+              <Select value={expiry} onValueChange={setExpiry}>
+                <SelectTrigger
+                  size="default"
+                  aria-label="Token expiry"
+                  className="w-full text-[13px] data-[size=default]:h-10"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  className="rounded-md border-border/70 bg-popover p-1 shadow-2xl"
+                >
+                  {TOKEN_EXPIRY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="sm:items-center sm:justify-between">
+              <Link
+                href="/developers#authentication"
+                target="_blank"
+                rel="noreferrer"
+                className="hidden items-center gap-1.5 text-[12px] font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline sm:inline-flex"
+              >
+                <RiCodeLine className="size-4" />
+                Developer docs
+              </Link>
+              <div className="flex gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" disabled={isCreating}>
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button type="submit" disabled={isCreating || !name.trim()}>
+                  {isCreating ? (
+                    <RiLoader4Line className="size-4 animate-spin" />
+                  ) : (
+                    <RiKeyLine className="size-4" />
+                  )}
+                  Generate token
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <section className="space-y-3">
         <div className="space-y-1">
@@ -1114,7 +1176,7 @@ function DeveloperSection() {
         </div>
         <div className="overflow-x-auto rounded-md border border-border/50">
           <div className="min-w-[44rem] divide-y divide-border/50">
-            <div className="grid grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_7.5rem] gap-4 bg-secondary/30 px-4 py-2.5 text-[11px] font-medium text-muted-foreground">
+            <div className="grid grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_3.5rem] gap-4 bg-secondary/30 px-4 py-2.5 text-[11px] font-medium text-muted-foreground">
               <span>Token</span>
               <span>Created</span>
               <span>Expires</span>
@@ -1124,7 +1186,7 @@ function DeveloperSection() {
             {tokens?.map((token) => (
               <div
                 key={token.id}
-                className="grid grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_7.5rem] items-center gap-4 px-4 py-3 text-[12px]"
+                className="grid grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_3.5rem] items-center gap-4 px-4 py-3 text-[12px]"
               >
                 <div className="flex min-w-0 items-center gap-2">
                   <RiKeyLine className="size-4 shrink-0 text-muted-foreground" />
@@ -1163,13 +1225,14 @@ function DeveloperSection() {
                 <Button
                   type="button"
                   variant="destructive"
-                  size="default"
+                  size="icon-sm"
                   onClick={() => setRevokeTarget(token)}
                   disabled={revokingId === token.id}
-                  className="min-w-[7rem] justify-self-end border-destructive/50 bg-transparent hover:bg-destructive/10 dark:bg-transparent dark:hover:bg-destructive/10"
+                  aria-label={`Revoke ${token.name}`}
+                  title={`Revoke ${token.name}`}
+                  className="justify-self-end bg-transparent hover:bg-destructive/10 dark:bg-transparent dark:hover:bg-destructive/10"
                 >
                   <RiDeleteBinLine className="size-4" />
-                  Revoke
                 </Button>
               </div>
             ))}
@@ -1177,7 +1240,7 @@ function DeveloperSection() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <div
                     key={i}
-                    className="grid animate-pulse grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_7.5rem] items-center gap-4 px-4 py-3"
+                    className="grid animate-pulse grid-cols-[minmax(10rem,1.6fr)_minmax(7rem,.9fr)_minmax(7rem,.9fr)_minmax(8rem,1fr)_3.5rem] items-center gap-4 px-4 py-3"
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="size-4 shrink-0 rounded bg-foreground/10" />
@@ -1189,14 +1252,14 @@ function DeveloperSection() {
                     <span className="h-3.5 w-20 rounded bg-foreground/10" />
                     <span className="h-3.5 w-20 rounded bg-foreground/10" />
                     <span className="h-3.5 w-24 rounded bg-foreground/10" />
-                    <span className="h-7 w-[7rem] justify-self-end rounded-md bg-foreground/10" />
+                    <span className="size-6 justify-self-end rounded-md bg-foreground/10" />
                   </div>
                 ))
               : null}
             {tokens?.length === 0 ? (
               <div className="px-4 py-5 text-[12px] text-muted-foreground">
-                No tokens yet. Generate one above to call the API from scripts,
-                CI, or agents.
+                No tokens yet. Create one with New token to call the API from
+                scripts, CI, or agents.
               </div>
             ) : null}
           </div>
@@ -1231,10 +1294,7 @@ function DeveloperSection() {
                   Revoking
                 </>
               ) : (
-                <>
-                  <RiDeleteBinLine className="size-4" />
-                  Revoke
-                </>
+                <>Revoke</>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
