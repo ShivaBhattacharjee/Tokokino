@@ -1108,7 +1108,7 @@ function DeveloperSection() {
                 placeholder="e.g. CI upload script"
                 maxLength={60}
                 autoComplete="off"
-                className="h-10 px-3 text-[13px]"
+                className="h-10 px-3 text-[13px] focus:border-primary"
               />
             </div>
             <div className="grid gap-1">

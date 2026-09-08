@@ -8,7 +8,7 @@ import {
   transformerNotationHighlight,
   transformerNotationWordHighlight,
 } from "@shikijs/transformers"
-import { CheckIcon, CopyIcon } from "lucide-react"
+import { RiCheckLine, RiFileCopyLine } from "@remixicon/react"
 import type {
   ComponentProps,
   HTMLAttributes,
@@ -413,7 +413,7 @@ export const CodeBlockFilename = ({
       )}
       {...props}
     >
-      {Icon && <Icon className="h-4 w-4 shrink-0" />}
+      {Icon && <Icon className="size-4 shrink-0" />}
       <span className="flex-1 truncate">{children}</span>
     </div>
   )
@@ -516,7 +516,7 @@ export const CodeBlockCopyButton = ({
     })
   }
 
-  const Icon = isCopied ? CheckIcon : CopyIcon
+  const Icon = isCopied ? RiCheckLine : RiFileCopyLine
 
   return (
     <Button
@@ -526,7 +526,7 @@ export const CodeBlockCopyButton = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <Icon className="text-muted-foreground" size={14} />}
+      {children ?? <Icon className="size-4 text-muted-foreground" />}
     </Button>
   )
 }

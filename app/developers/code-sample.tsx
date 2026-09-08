@@ -43,7 +43,7 @@ export function CodeSample({
         <CodeBlockFilename className="grow" value={language}>
           {filename}
         </CodeBlockFilename>
-        <CodeBlockCopyButton />
+        <CodeBlockCopyButton aria-label="Copy code" />
       </CodeBlockHeader>
       <CodeBlockItem
         value={language}
