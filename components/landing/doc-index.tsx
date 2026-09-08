@@ -25,9 +25,11 @@ export function DocIndex({ items }: { items: DocIndexItem[] }) {
   )
   const activeIndex = navItems.findIndex((item) => item.href === `#${activeId}`)
 
-  React.useEffect(() => {
+  const [previousItems, setPreviousItems] = React.useState(items)
+  if (previousItems !== items) {
+    setPreviousItems(items)
     setExpanded(false)
-  }, [items])
+  }
 
   React.useEffect(() => {
     const root = rootRef.current

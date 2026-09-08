@@ -19,7 +19,7 @@ export function CopyUrlButton() {
   return (
     <button
       type="button"
-      onClick={handleCopy}
+      onClick={() => void handleCopy()}
       className="group inline-flex items-center gap-1.5 font-mono text-[11px] tracking-widest text-foreground/40 uppercase transition-colors hover:text-primary"
     >
       <span

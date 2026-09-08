@@ -1199,7 +1199,7 @@ export const openApiSpec = {
         type: "apiKey",
         in: "cookie",
         name: "better-auth.session_token",
-        description: `Session cookie issued by better-auth. Sign in at ${SITE_URL}/login (email/password or Google OAuth). Full guide at ${SITE_URL}/auth.md.`,
+        description: `Session cookie issued by better-auth. Sign in with Google at ${SITE_URL}/login. Full guide at ${SITE_URL}/auth.md.`,
       },
     },
     parameters: {
