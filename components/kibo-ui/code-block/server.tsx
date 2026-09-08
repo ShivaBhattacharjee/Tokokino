@@ -1,3 +1,7 @@
+import bash from "@shikijs/langs/bash"
+import json from "@shikijs/langs/json"
+import githubDarkDefault from "@shikijs/themes/github-dark-default"
+import githubLight from "@shikijs/themes/github-light"
 import {
   transformerNotationDiff,
   transformerNotationErrorLevel,
@@ -6,15 +10,31 @@ import {
   transformerNotationWordHighlight,
 } from "@shikijs/transformers"
 import type { HTMLAttributes } from "react"
-import {
-  type BundledLanguage,
-  type CodeOptionsMultipleThemes,
-  codeToHtml,
-} from "shiki"
+import { createHighlighterCore } from "shiki/core"
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
+
+// Shiki's default Oniguruma engine instantiates WASM lazily, which Cloudflare
+// Workers reject inside a request handler. The JavaScript RegExp engine is the
+// only one that runs there, and it needs a fine-grained bundle: every language
+// and theme below has to be imported explicitly.
+const LANGS = { bash, json } as const
+const THEMES = {
+  "github-light": githubLight,
+  "github-dark-default": githubDarkDefault,
+} as const
+
+export type CodeBlockLanguage = keyof typeof LANGS
+export type CodeBlockTheme = keyof typeof THEMES
+
+const highlighter = createHighlighterCore({
+  langs: Object.values(LANGS),
+  themes: Object.values(THEMES),
+  engine: createJavaScriptRegexEngine({ forgiving: true }),
+})
 
 export type CodeBlockContentProps = HTMLAttributes<HTMLDivElement> & {
-  themes?: CodeOptionsMultipleThemes["themes"]
-  language?: BundledLanguage
+  themes?: { light: CodeBlockTheme; dark: CodeBlockTheme }
+  language?: CodeBlockLanguage
   children: string
   syntaxHighlighting?: boolean
 }
@@ -27,11 +47,11 @@ export const CodeBlockContent = async ({
   ...props
 }: CodeBlockContentProps) => {
   const html = syntaxHighlighting
-    ? await codeToHtml(children as string, {
-        lang: language ?? "typescript",
+    ? (await highlighter).codeToHtml(children, {
+        lang: language ?? "bash",
         themes: themes ?? {
-          light: "vitesse-light",
-          dark: "vitesse-dark",
+          light: "github-light",
+          dark: "github-dark-default",
         },
         transformers: [
           transformerNotationDiff({

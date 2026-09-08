@@ -32,6 +32,12 @@ importers:
       '@remixicon/react':
         specifier: ^4.9.0
         version: 4.9.0(react@19.2.8)
+      '@shikijs/langs':
+        specifier: ^4.4.3
+        version: 4.4.3
+      '@shikijs/themes':
+        specifier: ^4.4.3
+        version: 4.4.3
       '@shikijs/transformers':
         specifier: ^4.4.3
         version: 4.4.3

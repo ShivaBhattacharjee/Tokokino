@@ -1,17 +1,19 @@
 import type { CSSProperties } from "react"
 
 import {
-  type BundledLanguage,
   CodeBlock,
   CodeBlockCopyButton,
   CodeBlockFilename,
   CodeBlockHeader,
   CodeBlockItem,
 } from "@/components/kibo-ui/code-block"
-import { CodeBlockContent } from "@/components/kibo-ui/code-block/server"
+import {
+  type CodeBlockLanguage,
+  CodeBlockContent,
+} from "@/components/kibo-ui/code-block/server"
 import { cn } from "@/lib/utils"
 
-const THEMES = { light: "github-light", dark: "github-dark-default" }
+const THEMES = { light: "github-light", dark: "github-dark-default" } as const
 
 const THIN_SCROLLBAR = {
   "--scrollbar-size": "5px",
@@ -30,7 +32,7 @@ export function CodeSample({
 }: {
   code: string
   filename: string
-  language?: BundledLanguage
+  language?: CodeBlockLanguage
   className?: string
 }) {
   return (
