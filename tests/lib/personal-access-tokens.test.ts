@@ -8,6 +8,8 @@ import {
   isPersonalAccessTokenFormat,
   isTokenExpired,
   patNameSchema,
+  PAT_LAST_USED_UPDATE_INTERVAL_MS,
+  shouldRefreshLastUsedAt,
   tokenPrefixDisplay,
 } from "@/lib/personal-access-tokens"
 
@@ -83,5 +85,25 @@ describe("personal access token primitives", () => {
     expect(patNameSchema.safeParse("").success).toBe(false)
     expect(patNameSchema.safeParse("   ").success).toBe(false)
     expect(patNameSchema.safeParse("x".repeat(61)).success).toBe(false)
+  })
+
+  it("throttles last-used refreshes to one write per interval", () => {
+    const now = 1_000_000_000_000
+    expect(PAT_LAST_USED_UPDATE_INTERVAL_MS).toBe(3_600_000)
+    expect(shouldRefreshLastUsedAt(null, now)).toBe(true)
+    expect(shouldRefreshLastUsedAt(undefined, now)).toBe(true)
+    expect(shouldRefreshLastUsedAt("not-a-date", now)).toBe(true)
+    expect(
+      shouldRefreshLastUsedAt(new Date(now - 30 * 60_000).toISOString(), now)
+    ).toBe(false)
+    expect(
+      shouldRefreshLastUsedAt(
+        new Date(now - PAT_LAST_USED_UPDATE_INTERVAL_MS).toISOString(),
+        now
+      )
+    ).toBe(true)
+    expect(
+      shouldRefreshLastUsedAt(new Date(now - 2 * 3_600_000).toISOString(), now)
+    ).toBe(true)
   })
 })

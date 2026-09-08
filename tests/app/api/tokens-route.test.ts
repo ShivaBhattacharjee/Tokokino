@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   requireSession: vi.fn(),
   enforceRateLimit: vi.fn(),
   listPersonalAccessTokens: vi.fn(),
-  countPersonalAccessTokens: vi.fn(),
+  countActivePersonalAccessTokens: vi.fn(),
   createPersonalAccessTokenRecord: vi.fn(),
   deletePersonalAccessToken: vi.fn(),
 }))
@@ -24,7 +24,7 @@ vi.mock("@/lib/personal-access-tokens", async (importOriginal) => {
   return {
     ...actual,
     listPersonalAccessTokens: mocks.listPersonalAccessTokens,
-    countPersonalAccessTokens: mocks.countPersonalAccessTokens,
+    countActivePersonalAccessTokens: mocks.countActivePersonalAccessTokens,
     createPersonalAccessTokenRecord: mocks.createPersonalAccessTokenRecord,
     deletePersonalAccessToken: mocks.deletePersonalAccessToken,
     generatePersonalAccessToken: () =>
@@ -95,7 +95,7 @@ describe("POST /api/tokens", () => {
     vi.clearAllMocks()
     mocks.requireSession.mockResolvedValue({ ok: true, session: SESSION })
     mocks.enforceRateLimit.mockResolvedValue(null)
-    mocks.countPersonalAccessTokens.mockResolvedValue(0)
+    mocks.countActivePersonalAccessTokens.mockResolvedValue(0)
     mocks.createPersonalAccessTokenRecord.mockResolvedValue({
       id: "token_1",
       name: "CI",
@@ -148,7 +148,7 @@ describe("POST /api/tokens", () => {
   })
 
   it("enforces the per-user token limit", async () => {
-    mocks.countPersonalAccessTokens.mockResolvedValue(20)
+    mocks.countActivePersonalAccessTokens.mockResolvedValue(20)
     const { POST } = await import("@/app/api/tokens/route")
 
     const response = await POST(
@@ -157,6 +157,26 @@ describe("POST /api/tokens", () => {
 
     expect(response.status).toBe(409)
     expect(mocks.createPersonalAccessTokenRecord).not.toHaveBeenCalled()
+  })
+
+  it("rolls back its own insert when a concurrent creation overflows the cap", async () => {
+    // Pre-insert count passes, post-insert count observes the overflow.
+    mocks.countActivePersonalAccessTokens
+      .mockResolvedValueOnce(19)
+      .mockResolvedValue(21)
+    mocks.deletePersonalAccessToken.mockResolvedValue(true)
+    const { POST } = await import("@/app/api/tokens/route")
+
+    const response = await POST(
+      jsonRequest("http://localhost:3000/api/tokens", { name: "CI" })
+    )
+
+    expect(response.status).toBe(409)
+    expect(mocks.deletePersonalAccessToken).toHaveBeenCalledWith(
+      "token_1",
+      "user_1"
+    )
+    await expect(response.json()).resolves.not.toHaveProperty("token")
   })
 
   it("returns the plaintext token exactly once with its metadata", async () => {

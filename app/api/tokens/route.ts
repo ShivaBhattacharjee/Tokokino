@@ -3,8 +3,9 @@ import { z } from "zod/v4"
 
 import { requireSession } from "@/lib/api-auth"
 import {
-  countPersonalAccessTokens,
+  countActivePersonalAccessTokens,
   createPersonalAccessTokenRecord,
+  deletePersonalAccessToken,
   generatePersonalAccessToken,
   hashPersonalAccessToken,
   listPersonalAccessTokens,
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const existing = await countPersonalAccessTokens(auth.session.user.id)
+  const existing = await countActivePersonalAccessTokens(auth.session.user.id)
   if (existing >= MAX_TOKENS_PER_USER) {
     return NextResponse.json(
       {
@@ -85,6 +86,24 @@ export async function POST(request: Request) {
     prefix: tokenPrefixDisplay(token),
     expiresAt,
   })
+
+  // The pre-insert count can race with concurrent creations (D1 offers no
+  // serializable transaction here), so verify the cap after inserting and
+  // roll our own row back when we overflowed. Every concurrent creator does
+  // the same check, so the account converges back at or under the cap while
+  // only the overflowed requests fail.
+  const active = await countActivePersonalAccessTokens(auth.session.user.id)
+  if (active > MAX_TOKENS_PER_USER) {
+    await deletePersonalAccessToken(record.id, auth.session.user.id).catch(
+      () => {}
+    )
+    return NextResponse.json(
+      {
+        error: `Token limit reached (${MAX_TOKENS_PER_USER}). Revoke an unused token first.`,
+      },
+      { status: 409 }
+    )
+  }
 
   // The plaintext token is returned exactly once — it is stored only as a
   // SHA-256 hash and can never be read back.

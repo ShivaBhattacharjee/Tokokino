@@ -5,7 +5,7 @@ import {
   requestAccountDeletion,
   retryPendingAccountCleanups,
 } from "@/lib/account-management"
-import { requireSession } from "@/lib/api-auth"
+import { requireBrowserSession } from "@/lib/api-auth"
 import { getAuth } from "@/lib/auth"
 import { getD1Database } from "@/lib/d1"
 import { enforceRateLimit } from "@/lib/rate-limit"
@@ -55,7 +55,7 @@ function deviceName(userAgent: string | null | undefined) {
 }
 
 export async function GET(request: Request) {
-  const auth = await requireSession(request)
+  const auth = await requireBrowserSession(request)
   if (!auth.ok) return auth.response
   const current = auth.session
 
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireSession(request)
+  const auth = await requireBrowserSession(request)
   if (!auth.ok) return auth.response
   const current = auth.session
 
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireSession(request)
+  const auth = await requireBrowserSession(request)
   if (!auth.ok) return auth.response
   const current = auth.session
 

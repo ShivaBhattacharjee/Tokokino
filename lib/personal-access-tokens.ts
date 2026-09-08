@@ -2,7 +2,7 @@ import "server-only"
 
 import { createHash } from "node:crypto"
 
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, gt, isNull, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getD1Database, getDb, toD1Date } from "@/lib/d1"
@@ -103,6 +103,47 @@ export async function countPersonalAccessTokens(
   return rows.length
 }
 
+/**
+ * Tokens counting toward `MAX_TOKENS_PER_USER`. Expired tokens can never
+ * authenticate, so they must not block the creation of usable ones.
+ */
+export async function countActivePersonalAccessTokens(
+  userId: string
+): Promise<number> {
+  const now = toD1Date(new Date())
+  const rows = await getDb()
+    .select({ id: personalAccessTokens.id })
+    .from(personalAccessTokens)
+    .where(
+      and(
+        eq(personalAccessTokens.userId, userId),
+        or(
+          isNull(personalAccessTokens.expiresAt),
+          gt(personalAccessTokens.expiresAt, now)
+        )
+      )
+    )
+  return rows.length
+}
+
+/** Minimum age of `last_used_at` before a PAT request refreshes it. */
+export const PAT_LAST_USED_UPDATE_INTERVAL_MS = 60 * 60 * 1000
+
+/**
+ * Whether a successful authentication should rewrite `last_used_at`.
+ * Throttled so bursty scripts and CI cost one metadata write per token per
+ * hour instead of one per request.
+ */
+export function shouldRefreshLastUsedAt(
+  lastUsedAt: string | null | undefined,
+  now = Date.now()
+): boolean {
+  if (!lastUsedAt) return true
+  const seen = new Date(lastUsedAt).getTime()
+  if (!Number.isFinite(seen)) return true
+  return now - seen >= PAT_LAST_USED_UPDATE_INTERVAL_MS
+}
+
 export async function createPersonalAccessTokenRecord({
   id,
   userId,
@@ -182,11 +223,13 @@ export async function verifyPersonalAccessToken(
     .first<{ id: string; name: string | null; email: string | null }>()
   if (!userRow) return null
 
-  await getDb()
-    .update(personalAccessTokens)
-    .set({ lastUsedAt: toD1Date(new Date()) })
-    .where(eq(personalAccessTokens.id, row.id))
-    .catch(() => {})
+  if (shouldRefreshLastUsedAt(row.lastUsedAt)) {
+    await getDb()
+      .update(personalAccessTokens)
+      .set({ lastUsedAt: toD1Date(new Date()) })
+      .where(eq(personalAccessTokens.id, row.id))
+      .catch(() => {})
+  }
 
   return {
     tokenId: row.id,

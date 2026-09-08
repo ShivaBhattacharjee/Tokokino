@@ -79,6 +79,33 @@ export async function requireSession(
 }
 
 /**
+ * Like `requireSession`, but rejects personal access tokens. Use it for
+ * actions that operate on the caller's browser sessions (listing or revoking
+ * them): those go through better-auth with the request headers, so a PAT
+ * would silently match nothing while reporting success.
+ */
+export async function requireBrowserSession(
+  request: Request
+): Promise<
+  | { ok: true; session: AuthorizedSession }
+  | { ok: false; response: NextResponse }
+> {
+  const auth = await requireSession(request)
+  if (!auth.ok) return auth
+  if (auth.session.authMethod !== "session") {
+    return {
+      ok: false,
+      response: apiError({
+        status: 403,
+        code: "forbidden",
+        message: "This action requires a browser session sign-in",
+      }),
+    }
+  }
+  return auth
+}
+
+/**
  * Session must belong to a maintainer email listed in
  * TEMPLATE_MAINTAINER_EMAILS. Fail closed when the allowlist is empty.
  */
