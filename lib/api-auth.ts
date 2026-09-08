@@ -5,6 +5,11 @@ import type { NextResponse } from "next/server"
 import { apiError } from "@/lib/api-error"
 import { getAuth } from "@/lib/auth"
 import { env } from "@/lib/env"
+import {
+  extractBearerToken,
+  isPersonalAccessTokenFormat,
+  verifyPersonalAccessToken,
+} from "@/lib/personal-access-tokens"
 
 export type AuthorizedSession = {
   session: {
@@ -15,6 +20,42 @@ export type AuthorizedSession = {
     name?: string | null
     email?: string | null
   }
+  /** How the caller authenticated: browser session cookie vs PAT. */
+  authMethod: "session" | "pat"
+}
+
+/**
+ * Resolve the caller to a user via a personal access token
+ * (`Authorization: Bearer tk_…`) or a better-auth session (cookie, or a
+ * session token in the Authorization header). Returns null when neither
+ * credential is present or valid.
+ */
+export async function resolveApiSession(
+  request: Request
+): Promise<AuthorizedSession | null> {
+  const bearer = extractBearerToken(request.headers)
+  if (bearer && isPersonalAccessTokenFormat(bearer)) {
+    try {
+      const owner = await verifyPersonalAccessToken(bearer)
+      if (owner) {
+        return {
+          session: { id: `pat:${owner.tokenId}` },
+          user: owner.user,
+          authMethod: "pat",
+        }
+      }
+      // A well-formed but unknown/revoked PAT is a hard failure — don't fall
+      // through to the session cookie and mask a broken integration.
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  const auth = getAuth()
+  const session = await auth.api.getSession({ headers: request.headers })
+  if (!session) return null
+  return { ...session, authMethod: "session" as const }
 }
 
 export async function requireSession(
@@ -23,8 +64,7 @@ export async function requireSession(
   | { ok: true; session: AuthorizedSession }
   | { ok: false; response: NextResponse }
 > {
-  const auth = getAuth()
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await resolveApiSession(request)
   if (!session) {
     return {
       ok: false,
@@ -36,6 +76,33 @@ export async function requireSession(
     }
   }
   return { ok: true, session }
+}
+
+/**
+ * Like `requireSession`, but rejects personal access tokens. Use it for
+ * actions that operate on the caller's browser sessions (listing or revoking
+ * them): those go through better-auth with the request headers, so a PAT
+ * would silently match nothing while reporting success.
+ */
+export async function requireBrowserSession(
+  request: Request
+): Promise<
+  | { ok: true; session: AuthorizedSession }
+  | { ok: false; response: NextResponse }
+> {
+  const auth = await requireSession(request)
+  if (!auth.ok) return auth
+  if (auth.session.authMethod !== "session") {
+    return {
+      ok: false,
+      response: apiError({
+        status: 403,
+        code: "forbidden",
+        message: "This action requires a browser session sign-in",
+      }),
+    }
+  }
+  return auth
 }
 
 /**

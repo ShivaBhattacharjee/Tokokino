@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod/v4"
 
-import { getAuth } from "@/lib/auth"
+import { resolveApiSession } from "@/lib/api-auth"
 import { env } from "@/lib/env"
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit"
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   // Attach the signed-in user's identity when available (best effort).
   let user: { name?: string | null; email?: string | null } | null = null
   try {
-    const session = await getAuth().api.getSession({ headers: request.headers })
+    const session = await resolveApiSession(request)
     if (session) user = { name: session.user.name, email: session.user.email }
   } catch {
     // Auth not configured or no session — feedback stays anonymous.

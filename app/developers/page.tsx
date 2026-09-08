@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title:
     "Tokokino Developer Portal — API docs, OpenAPI spec, and agent resources",
   description:
-    "Developer documentation for the Tokokino API: OpenAPI specification, session authentication, share and draft endpoints, JSON error codes, and the Tokokino agent resources.",
+    "Developer documentation for the Tokokino API: OpenAPI specification, personal access token and session authentication, share and draft endpoints, JSON error codes, and the Tokokino agent resources.",
   alternates: { canonical: "/developers" },
 }
 
@@ -58,6 +58,14 @@ const ENDPOINTS = [
     ],
   },
   {
+    group: "Tokens",
+    rows: [
+      ["GET", "/api/tokens", "List your personal access tokens"],
+      ["POST", "/api/tokens", "Generate a new personal access token"],
+      ["DELETE", "/api/tokens/{id}", "Revoke a personal access token"],
+    ],
+  },
+  {
     group: "Media",
     rows: [
       ["POST", "/api/screenshot", "Capture a screenshot of a public URL"],
@@ -69,7 +77,7 @@ const ENDPOINTS = [
 ]
 
 const ERROR_CODES = [
-  ["unauthorized", "401", "No valid session cookie was sent."],
+  ["unauthorized", "401", "No valid token or session cookie was sent."],
   ["forbidden", "403", "The account may not perform this action."],
   ["not_found", "404", "No such path, or the resource is not yours."],
   ["invalid_request", "400", "Body or query parameters failed validation."],
@@ -88,7 +96,7 @@ const RESOURCES = [
   {
     href: "/auth.md",
     label: "Authentication guide",
-    note: "How to obtain and send a Tokokino session cookie.",
+    note: "How to generate a personal access token and send it with requests.",
   },
   {
     href: "/llms.txt",
@@ -119,14 +127,14 @@ const RESOURCES = [
 
 const CURL = `curl -X POST https://tokokino.com/api/share \\
   -H "Content-Type: image/png" \\
-  -H "Cookie: better-auth.session_token=<your-session-token>" \\
+  -H "Authorization: Bearer tk_<your-personal-access-token>" \\
   --data-binary @screenshot.png`
 
 const ERROR_SAMPLE = `{
   "error": "Sign in required",
   "code": "unauthorized",
   "message": "Sign in required",
-  "hint": "Sign in at https://tokokino.com/login and send the session cookie with the request. See https://tokokino.com/auth.md.",
+  "hint": "Generate a personal access token in Settings → Developer and send it as an Authorization: Bearer header, or sign in at https://tokokino.com/login and send the session cookie. See https://tokokino.com/auth.md.",
   "docs": "https://tokokino.com/developers#errors"
 }`
 
@@ -167,7 +175,7 @@ export default function DevelopersPage() {
     <DocPage
       eyebrow="Developers"
       title="Tokokino developer portal"
-      summary="Build against the Tokokino API. Everything below is served at a stable URL: an OpenAPI 3.1 specification, session authentication, structured JSON errors, and the agent-facing manifests that describe this site to automated clients."
+      summary="Build against the Tokokino API. Everything below is served at a stable URL: an OpenAPI 3.1 specification, personal access token authentication, structured JSON errors, and the agent-facing manifests that describe this site to automated clients."
       index={<DocIndex items={INDEX} />}
     >
       <article className="flex max-w-3xl flex-col gap-8">
@@ -179,7 +187,8 @@ export default function DevelopersPage() {
             preferences, and a few media proxies.
           </p>
           <p className="mt-4">
-            Create a share by POSTing raw image bytes with a session cookie:
+            Create a share by POSTing raw image bytes with a personal access
+            token:
           </p>
           <Code>{CURL}</Code>
           <p className="mt-4">
@@ -195,10 +204,19 @@ export default function DevelopersPage() {
 
         <Section id="authentication" title="Authentication">
           <p>
-            Tokokino uses{" "}
+            Generate a personal access token in the editor under Settings →
+            Developer, then send it as an{" "}
+            <span className="font-mono text-[12px]">
+              Authorization: Bearer tk_…
+            </span>{" "}
+            header with each request. Tokens act as your account, can be given
+            an optional expiry, and can be revoked at any time — treat them like
+            passwords.
+          </p>
+          <p className="mt-4">
+            Browser-based callers can also use a{" "}
             <span className="font-mono text-[12px]">better-auth</span> session
-            cookies — email and password, or Google OAuth. There are no API
-            keys. Sign in at{" "}
+            cookie — email and password, or Google OAuth. Sign in at{" "}
             <Link href="/login" className={linkClass}>
               /login
             </Link>{" "}

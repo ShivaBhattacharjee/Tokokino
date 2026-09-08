@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type * as PatModule from "@/lib/personal-access-tokens"
 
 const mocks = vi.hoisted(() => ({
   requestAccountDeletion: vi.fn(),
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   retryPendingAccountCleanups: vi.fn(),
   run: vi.fn(),
   getCloudflareContext: vi.fn(),
+  verifyPersonalAccessToken: vi.fn(),
 }))
 
 const statement = {
@@ -42,6 +44,14 @@ vi.mock("@/lib/d1", () => ({
 vi.mock("@opennextjs/cloudflare", () => ({
   getCloudflareContext: mocks.getCloudflareContext,
 }))
+
+vi.mock("@/lib/personal-access-tokens", async (importOriginal) => {
+  const actual = await importOriginal<typeof PatModule>()
+  return {
+    ...actual,
+    verifyPersonalAccessToken: mocks.verifyPersonalAccessToken,
+  }
+})
 
 const SESSION = {
   user: { id: "user_1" },
@@ -84,6 +94,7 @@ describe("/api/account", () => {
     mocks.getCloudflareContext.mockReturnValue({
       cf: { city: "Dispur", region: "Assam", country: "IN" },
     })
+    mocks.verifyPersonalAccessToken.mockResolvedValue(null)
   })
 
   it("requires a session before listing active devices", async () => {
@@ -98,6 +109,72 @@ describe("/api/account", () => {
       code: "unauthorized",
     })
     expect(mocks.listSessions).not.toHaveBeenCalled()
+  })
+
+  it("rejects personal access tokens for session listing", async () => {
+    mocks.verifyPersonalAccessToken.mockResolvedValue({
+      tokenId: "token_1",
+      user: { id: "user_1", name: "Shiva", email: "shiva@example.com" },
+    })
+    const { GET } = await loadRoute()
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/account", {
+        headers: {
+          Authorization: "Bearer tk_test-token-value-0123456789abcdef",
+        },
+      })
+    )
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({
+      code: "forbidden",
+    })
+    expect(mocks.listSessions).not.toHaveBeenCalled()
+  })
+
+  it("rejects personal access tokens for session revocation", async () => {
+    mocks.verifyPersonalAccessToken.mockResolvedValue({
+      tokenId: "token_1",
+      user: { id: "user_1", name: "Shiva", email: "shiva@example.com" },
+    })
+    const { POST } = await loadRoute()
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/account", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: "Bearer tk_test-token-value-0123456789abcdef",
+        },
+        body: JSON.stringify({ action: "revoke-all" }),
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(mocks.revokeSessions).not.toHaveBeenCalled()
+  })
+
+  it("rejects personal access tokens for account deletion", async () => {
+    mocks.verifyPersonalAccessToken.mockResolvedValue({
+      tokenId: "token_1",
+      user: { id: "user_1", name: "Shiva", email: "shiva@example.com" },
+    })
+    const { DELETE } = await loadRoute()
+
+    const response = await DELETE(
+      new Request("http://localhost:3000/api/account", {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          Authorization: "Bearer tk_test-token-value-0123456789abcdef",
+        },
+        body: JSON.stringify({ confirmation: "DELETE" }),
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(mocks.requestAccountDeletion).not.toHaveBeenCalled()
   })
 
   it("lists safe session details without returning session tokens", async () => {

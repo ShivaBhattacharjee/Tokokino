@@ -29,7 +29,9 @@
     "build:thumbs": "node scripts/build-overlay-thumbs.mjs",
     "build:backgrounds": "node --env-file-if-exists=.env.local scripts/build-background-thumbs.mjs",
     "build:shapes": "node --env-file-if-exists=.env.local scripts/build-shapes.mjs",
-    "build:glass-preview": "node --env-file-if-exists=.env.local scripts/upload-glass-frame-preview.mjs"
+    "build:glass-preview": "node --env-file-if-exists=.env.local scripts/upload-glass-frame-preview.mjs",
+    "db:migrate:local": "wrangler d1 migrations apply tokokino-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply tokokino-db --remote"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

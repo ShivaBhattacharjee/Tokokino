@@ -61,6 +61,10 @@ const releases: Release[] = [
         title: "Timeline polish",
         text: "Lighter selection outlines, no boxed-in track border, and clips no longer clip at the edges of the timeline.",
       },
+      {
+        title: "Personal access tokens for the API",
+        text: "Generate a token in Settings under Developer and send it as an Authorization Bearer header to call the API from scripts, CI, or agents, with no session cookie to paste. Tokens act as your account, can carry an expiry, and can be revoked at any time. Every documented endpoint accepts them.",
+      },
     ],
   },
   {

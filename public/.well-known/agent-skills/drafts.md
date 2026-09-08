@@ -13,4 +13,4 @@ Save and restore editor state as named drafts.
 
 ## Authentication
 
-Session cookie required. See [auth.md](https://tokokino.com/auth.md).
+Personal access token (`Authorization: Bearer tk_…`) or session cookie. See [auth.md](https://tokokino.com/auth.md).

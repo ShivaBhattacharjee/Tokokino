@@ -17,7 +17,7 @@ export type ApiErrorCode =
   | "internal_error"
 
 const DEFAULT_HINTS: Record<ApiErrorCode, string> = {
-  unauthorized: `Sign in at ${SITE_URL}/login and send the session cookie with the request. See ${SITE_URL}/auth.md.`,
+  unauthorized: `Generate a personal access token in Settings → Developer and send it as an Authorization: Bearer header, or sign in at ${SITE_URL}/login and send the session cookie. See ${SITE_URL}/auth.md.`,
   forbidden: "This account is not permitted to perform that action.",
   not_found: "Check the path and any resource id, then retry.",
   invalid_request:
