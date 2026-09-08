@@ -94,9 +94,15 @@ export async function POST(request: Request) {
   // only the overflowed requests fail.
   const active = await countActivePersonalAccessTokens(auth.session.user.id)
   if (active > MAX_TOKENS_PER_USER) {
-    await deletePersonalAccessToken(record.id, auth.session.user.id).catch(
-      () => {}
-    )
+    try {
+      await deletePersonalAccessToken(record.id, auth.session.user.id)
+    } catch (rollbackError) {
+      console.error("Could not roll back overflow token", rollbackError)
+      return NextResponse.json(
+        { error: "Could not create token. Please try again." },
+        { status: 500 }
+      )
+    }
     return NextResponse.json(
       {
         error: `Token limit reached (${MAX_TOKENS_PER_USER}). Revoke an unused token first.`,

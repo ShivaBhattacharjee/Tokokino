@@ -1168,7 +1168,7 @@ function DeveloperSection() {
                   disabled={revokingId === token.id}
                   className="min-w-[7rem] justify-self-end border-destructive/50 bg-transparent hover:bg-destructive/10 dark:bg-transparent dark:hover:bg-destructive/10"
                 >
-                  <RiDeleteBinLine className="size-3.5" />
+                  <RiDeleteBinLine className="size-4" />
                   Revoke
                 </Button>
               </div>
@@ -1227,12 +1227,12 @@ function DeveloperSection() {
             >
               {revokingId !== null ? (
                 <>
-                  <RiLoader4Line className="size-3.5 animate-spin" />
+                  <RiLoader4Line className="size-4 animate-spin" />
                   Revoking
                 </>
               ) : (
                 <>
-                  <RiDeleteBinLine className="size-3.5" />
+                  <RiDeleteBinLine className="size-4" />
                   Revoke
                 </>
               )}
