@@ -108,7 +108,7 @@ export function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="h-[calc(100dvh-1rem)] max-h-[44rem] w-[calc(100vw-1rem)] gap-0 overflow-hidden rounded-md bg-background p-0 sm:h-160 sm:max-h-[88vh] sm:w-[92vw] sm:max-w-5xl"
+        className="h-[calc(100dvh-1rem)] max-h-[44rem] w-[calc(100vw-1rem)] gap-0 overflow-hidden rounded-xl bg-card p-0 sm:h-160 sm:max-h-[88vh] sm:w-[92vw] sm:max-w-5xl"
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
@@ -121,7 +121,7 @@ export function SettingsDialog({
             variant="ghost"
             size="icon-sm"
             aria-label="Close settings"
-            className="absolute top-3 right-3 z-20 hidden cursor-pointer rounded-sm bg-foreground/8 text-foreground/60 ring-1 ring-border/50 backdrop-blur-sm hover:bg-foreground/12 hover:text-foreground lg:inline-flex"
+            className="absolute top-5 right-5 z-20 hidden cursor-pointer rounded-sm bg-foreground/8 text-foreground/60 ring-1 ring-border/50 backdrop-blur-sm hover:bg-foreground/12 hover:text-foreground lg:inline-flex"
           >
             <RiCloseLine />
           </Button>
@@ -129,7 +129,7 @@ export function SettingsDialog({
 
         <div className="flex h-full min-h-0 min-w-0 flex-col lg:flex-row">
           {/* Mobile header — close button gets its own row so the tabs below it never collide with it */}
-          <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-card px-3 py-2.5 lg:hidden">
+          <div className="flex shrink-0 items-center justify-between px-3 py-2.5 lg:hidden">
             <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
               Settings
             </p>
@@ -146,7 +146,7 @@ export function SettingsDialog({
           </div>
 
           {/* Sidebar — lighter surface */}
-          <nav className="flex w-full shrink-0 flex-row gap-0.5 overflow-x-auto border-b border-border/60 bg-card p-2 lg:w-48 lg:flex-col lg:overflow-visible lg:border-r lg:border-b-0 lg:p-2.5">
+          <nav className="flex w-full shrink-0 flex-row gap-0.5 overflow-x-auto px-2 pt-0 pb-2 lg:w-48 lg:flex-col lg:overflow-visible lg:p-2.5 lg:pt-2.5">
             <p className="hidden px-2 pt-1 pb-2 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase lg:block">
               Settings
             </p>
@@ -174,7 +174,7 @@ export function SettingsDialog({
           </nav>
 
           {/* Content — darker surface; keep scroll, hide scrollbar chrome */}
-          <div className="min-w-0 flex-1 [scrollbar-width:none] overflow-y-auto bg-background px-4 py-5 sm:px-8 sm:py-7 [&::-webkit-scrollbar]:hidden">
+          <div className="mr-2 mb-2 ml-2 min-w-0 flex-1 [scrollbar-width:none] overflow-y-auto rounded-xl border border-border/60 bg-background px-4 py-5 sm:px-8 sm:py-7 lg:my-2.5 lg:mr-2.5 lg:ml-0 [&::-webkit-scrollbar]:hidden">
             {section === "profile" && <ProfileSection />}
             {section === "account" && <AccountSection />}
             {section === "developer" && <DeveloperSection />}
@@ -1060,7 +1060,15 @@ function DeveloperSection() {
         </DialogContent>
       </Dialog>
 
-      <section className="flex justify-end border-b border-border/50 pb-6">
+      <section className="flex items-center justify-between gap-4 border-b border-border/50 pb-6">
+        <div className="min-w-0 space-y-1">
+          <p className="text-base font-semibold text-foreground">
+            Personal access tokens
+          </p>
+          <p className="text-[12px] text-muted-foreground">
+            Create a token to call the API from scripts, CI, or agents.
+          </p>
+        </div>
         <Button
           type="button"
           onClick={() => setCreateOpen(true)}
@@ -1257,7 +1265,7 @@ function DeveloperSection() {
                 ))
               : null}
             {tokens?.length === 0 ? (
-              <div className="px-4 py-5 text-[12px] text-muted-foreground">
+              <div className="px-4 py-6 text-center text-[12px] text-muted-foreground">
                 No tokens yet. Create one with New token to call the API from
                 scripts, CI, or agents.
               </div>
@@ -1549,19 +1557,19 @@ function ShortcutsSection() {
       <div className="space-y-6">
         {SHORTCUT_GROUPS.map((group) => (
           <div key={group.title} className="space-y-1">
-            <p className="px-1 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            <p className="pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
               {group.title}
             </p>
             <div className="divide-y divide-border/50">
               {group.items.map((item) => (
                 <div
                   key={item.label}
-                  className="flex items-center justify-between py-2.5"
+                  className="flex flex-nowrap items-center justify-between gap-3 py-2.5"
                 >
-                  <span className="text-[13px] text-foreground/80">
+                  <span className="min-w-0 text-[13px] text-foreground/80">
                     {item.label}
                   </span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex shrink-0 flex-nowrap items-center gap-1">
                     {item.keys.map((key, i) => (
                       <kbd
                         key={`${item.label}-${i}`}
