@@ -1475,14 +1475,13 @@ export function TopBar() {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
-                <AlertDialogCancel className="cursor-pointer">
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
+                <AlertDialogCancel
                   variant="destructive"
                   className="cursor-pointer"
-                  onClick={reset}
                 >
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction className="cursor-pointer" onClick={reset}>
                   Reset
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -1537,7 +1536,7 @@ export function TopBar() {
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
-                className="cursor-pointer border-green-600/20 bg-green-600/10 text-green-600 hover:bg-green-600/20 dark:bg-green-600/20 dark:hover:bg-green-600/30"
+                className="cursor-pointer"
                 onClick={() => {
                   reset()
                   setShowNewAlert(false)

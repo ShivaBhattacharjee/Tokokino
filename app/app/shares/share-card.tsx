@@ -103,6 +103,7 @@ export function ShareCard({
           <IconAction
             label={downloading ? "Downloading…" : "Download"}
             disabled={downloading}
+            accent
             onClick={() => onDownload(share.id)}
           >
             {downloading ? (
@@ -131,12 +132,14 @@ function IconAction({
   label,
   onClick,
   destructive,
+  accent,
   disabled,
   children,
 }: {
   label: string
   onClick: () => void
   destructive?: boolean
+  accent?: boolean
   disabled?: boolean
   children: React.ReactNode
 }) {
@@ -151,7 +154,9 @@ function IconAction({
         "flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors disabled:pointer-events-none disabled:opacity-60",
         destructive
           ? "hover:bg-destructive/15 hover:text-destructive"
-          : "hover:bg-secondary hover:text-foreground"
+          : accent
+            ? "hover:bg-accent-foreground/15 hover:text-accent-foreground"
+            : "hover:bg-secondary hover:text-foreground"
       )}
     >
       {children}

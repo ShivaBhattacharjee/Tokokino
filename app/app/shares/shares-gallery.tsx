@@ -74,6 +74,17 @@ export function SharesGallery({
   const [dateFilter, setDateFilter] = React.useState<DateFilterId>("all")
   const [sortFilter, setSortFilter] = React.useState<SortFilterId>("latest")
   const [typeFilter, setTypeFilter] = React.useState<TypeFilterId>("all")
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  const goToPage = (next: number) => {
+    setPage(next)
+    // Jump straight to the top of the gallery. `instant` bypasses the
+    // global `scroll-behavior: smooth` — `auto` would still animate.
+    scrollRef.current?.scrollTo({
+      top: 0,
+      behavior: "instant" as ScrollBehavior,
+    })
+  }
 
   const typeCounts = React.useMemo(() => {
     let style = 0
@@ -227,7 +238,10 @@ export function SharesGallery({
   }
 
   return (
-    <div className="h-full min-h-0 w-full overflow-y-auto bg-background text-foreground">
+    <div
+      ref={scrollRef}
+      className="h-full min-h-0 w-full overflow-y-auto bg-background text-foreground"
+    >
       {/* ── Top app bar ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 w-full max-w-7xl items-center px-4 sm:h-16 sm:px-8 lg:px-10">
@@ -355,7 +369,7 @@ export function SharesGallery({
                         text="Prev"
                         onClick={(e) => {
                           e.preventDefault()
-                          if (safePage > 1) setPage(safePage - 1)
+                          if (safePage > 1) goToPage(safePage - 1)
                         }}
                         className={cn(
                           safePage === 1 && "pointer-events-none opacity-50"
@@ -374,7 +388,7 @@ export function SharesGallery({
                             isActive={p === safePage}
                             onClick={(e) => {
                               e.preventDefault()
-                              setPage(p)
+                              goToPage(p)
                             }}
                           >
                             {p}
@@ -387,7 +401,7 @@ export function SharesGallery({
                         href="#"
                         onClick={(e) => {
                           e.preventDefault()
-                          if (safePage < totalPages) setPage(safePage + 1)
+                          if (safePage < totalPages) goToPage(safePage + 1)
                         }}
                         className={cn(
                           safePage === totalPages &&
@@ -428,11 +442,10 @@ export function SharesGallery({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
-            <AlertDialogCancel className="cursor-pointer">
+            <AlertDialogCancel variant="destructive" className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
               className="cursor-pointer"
               onClick={() => void handleDeleteConfirm(deleteTarget!)}
             >
@@ -458,11 +471,10 @@ export function SharesGallery({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
-            <AlertDialogCancel className="cursor-pointer">
+            <AlertDialogCancel variant="destructive" className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
               className="cursor-pointer"
               onClick={() => void handleDeleteAll()}
             >

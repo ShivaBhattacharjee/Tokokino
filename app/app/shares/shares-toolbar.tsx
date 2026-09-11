@@ -148,7 +148,7 @@ export function SharesToolbar({
             <SelectContent
               align="end"
               position="popper"
-              className="min-w-[200px] rounded-md border-border/70 bg-popover p-1 shadow-2xl"
+              className="w-(--radix-select-trigger-width) rounded-md border-border/70 bg-popover p-1 shadow-2xl"
             >
               <SelectGroup>
                 <SelectLabel>Date range</SelectLabel>
@@ -182,7 +182,7 @@ export function SharesToolbar({
             <SelectContent
               align="end"
               position="popper"
-              className="min-w-[190px] rounded-md border-border/70 bg-popover p-1 shadow-2xl"
+              className="w-(--radix-select-trigger-width) rounded-md border-border/70 bg-popover p-1 shadow-2xl"
             >
               <SelectGroup>
                 <SelectLabel>Sort by</SelectLabel>

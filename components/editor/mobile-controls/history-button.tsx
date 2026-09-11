@@ -125,11 +125,10 @@ export function MobileHistoryButton({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
-            <AlertDialogCancel className="cursor-pointer">
+            <AlertDialogCancel variant="destructive" className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
               className="cursor-pointer"
               onClick={() => {
                 reset()
