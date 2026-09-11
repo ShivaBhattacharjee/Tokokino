@@ -164,16 +164,16 @@ function ToggleChip({ active, onClick, children, layoutId }: ToggleChipProps) {
       onClick={onClick}
       onPointerDown={(e) => e.stopPropagation()}
       className={cn(
-        "relative rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+        "relative flex-1 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
         active
-          ? "text-neutral-950 dark:text-white"
+          ? "text-primary-foreground"
           : "text-neutral-500 hover:text-neutral-800 dark:text-white/60 dark:hover:text-white/85"
       )}
     >
       {active && (
         <motion.span
           layoutId={layoutId}
-          className="absolute inset-0 rounded-md bg-neutral-200 shadow-sm dark:bg-white/15"
+          className="strawberry-button absolute inset-0 rounded-md shadow-sm ring-1 ring-primary/40"
           transition={{ type: "spring", stiffness: 420, damping: 34 }}
         />
       )}
@@ -280,7 +280,7 @@ function CaptureSettingsPopover({
           Device
         </span>
         <LayoutGroup id="capture-device">
-          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+          <div className="flex items-center gap-1 rounded-md bg-neutral-100 p-1 dark:bg-white/8">
             {(["desktop", "tablet", "mobile"] as CaptureDevice[]).map((d) => (
               <ToggleChip
                 key={d}
@@ -308,7 +308,7 @@ function CaptureSettingsPopover({
           Aspect Ratio
         </span>
         <LayoutGroup id="capture-aspect">
-          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+          <div className="flex items-center gap-1 rounded-md bg-neutral-100 p-1 dark:bg-white/8">
             {aspectRatiosForDevice(settings.device).map((r) => (
               <ToggleChip
                 key={r}
@@ -327,7 +327,7 @@ function CaptureSettingsPopover({
           Width
         </span>
         <LayoutGroup id="capture-width">
-          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+          <div className="flex items-center gap-1 rounded-md bg-neutral-100 p-1 dark:bg-white/8">
             {widthsForDevice(settings.device).map((w) => (
               <ToggleChip
                 key={w}
@@ -346,7 +346,7 @@ function CaptureSettingsPopover({
           Delay
         </span>
         <LayoutGroup id="capture-delay">
-          <div className="flex items-center gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/8">
+          <div className="flex items-center gap-1 rounded-md bg-neutral-100 p-1 dark:bg-white/8">
             {(["none", "2s", "5s"] as CaptureDelay[]).map((d) => (
               <ToggleChip
                 key={d}

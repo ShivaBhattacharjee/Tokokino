@@ -31,7 +31,7 @@ export function SegmentedRow({
     <LayoutGroup
       id={`segmented-row-${options.map((opt) => opt.value).join("-")}`}
     >
-      <div className="flex w-full items-center gap-1 rounded-full bg-secondary/50 p-1">
+      <div className="flex w-full items-center gap-1 rounded-md bg-secondary/50 p-1">
         {options.map((opt) => {
           const active = opt.value === value
           // Keep disabled options focusable/hoverable (aria-disabled, not the
@@ -42,7 +42,7 @@ export function SegmentedRow({
               aria-disabled={opt.disabled || undefined}
               onClick={opt.disabled ? undefined : () => onChange(opt.value)}
               className={cn(
-                "relative flex-1 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+                "relative flex-1 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
                 opt.disabled
                   ? "cursor-not-allowed text-muted-foreground/40"
                   : active
@@ -53,7 +53,7 @@ export function SegmentedRow({
               {active && !opt.disabled ? (
                 <motion.span
                   layoutId={`segmented-pill-${options.map((o) => o.value).join("-")}`}
-                  className="strawberry-button absolute inset-0 rounded-full shadow-sm ring-1 ring-primary/40"
+                  className="strawberry-button absolute inset-0 rounded-md shadow-sm ring-1 ring-primary/40"
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               ) : null}
