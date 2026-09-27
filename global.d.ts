@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /// <reference types="@cloudflare/workers-types" />
 
 declare module "*.css"
