@@ -34,6 +34,36 @@ type Release = {
 
 const releases: Release[] = [
   {
+    id: "v2-4-1",
+    version: "2.4.1",
+    date: "September 27, 2026",
+    title: "Backdrop pickers that preview your own shot",
+    summary:
+      "Filters, Lighting and Portrait now preview on your screenshot or video instead of a stock gradient, and toasts, confirm dialogs and the mobile Backdrop panel fit the screen better.",
+    changes: [
+      {
+        title: "Filter tiles show your media",
+        text: "Every filter tile used to tint the same purple-to-orange gradient, so you had to apply one to see what it did. The tiles now show your screenshot, or a frame from your video, with the filter already on. With Apply to set to Backdrop they show your canvas background instead.",
+      },
+      {
+        title: "Lighting and Portrait preview the real result",
+        text: "Lighting tiles cast the light on your screenshot for Inner and on the background for Outer, in the colour and strength you picked. Portrait tiles lay each vignette over your shot. With nothing on the canvas yet, all three fall back to the old swatches.",
+      },
+      {
+        title: "Toasts you can read",
+        text: "Notifications were narrow pills with a thin outline icon. They are now a steady 380px on desktop and span the screen on phones, with a larger solid status icon: green for success, blue for info, amber for warnings.",
+      },
+      {
+        title: "Confirm dialogs stack on phones",
+        text: "Reset, New project, Delete and the other confirmations squeezed two buttons side by side on small screens. They now stack full width, with the main action on top.",
+      },
+      {
+        title: "Mobile Backdrop panel fits its content",
+        text: "The Backdrop panel on phones held a fixed height and left a band of empty space under the tiles. It now sizes to what it shows and scrolls past half the screen.",
+      },
+    ],
+  },
+  {
     id: "v2-4-0",
     version: "2.4.0",
     date: "September 14, 2026",
