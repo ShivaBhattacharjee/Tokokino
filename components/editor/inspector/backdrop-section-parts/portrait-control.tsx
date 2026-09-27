@@ -2,7 +2,12 @@
 
 import { RiFocus2Line } from "@remixicon/react"
 
-import type { Portrait } from "@/lib/editor/state-types"
+import { portraitOverlayCss } from "@/components/editor/canvas/helpers"
+import type {
+  Background,
+  Portrait,
+  PortraitMode,
+} from "@/lib/editor/state-types"
 import { cn } from "@/lib/utils"
 
 import { EffectSlider } from "../effect-slider"
@@ -12,6 +17,28 @@ import {
   portraitPreviewCss,
   type BackdropPickerLayout,
 } from "./constants"
+import { useLayerPreviewStyle } from "./use-layer-preview"
+
+// The canvas vignette is sized for a full canvas; a picker tile is ~1/12 of
+// that, so the inset frame shadow has to shrink with it.
+function portraitTileOverlayCss(
+  mode: PortraitMode,
+  portrait: Portrait
+): React.CSSProperties | null {
+  const intensity = portrait.intensity || 60
+  if (mode === "frame") {
+    const t = intensity / 100
+    return {
+      boxShadow: `inset 0 0 ${20 * t}px ${8 * t}px rgba(0,0,0,${0.7 * t})`,
+    }
+  }
+  return portraitOverlayCss(
+    mode,
+    intensity,
+    portrait.position,
+    portrait.distance
+  )
+}
 
 export function PortraitControl({
   popoverSide,
@@ -21,6 +48,8 @@ export function PortraitControl({
   portrait,
   portraitActive,
   pickerLayout,
+  mediaSrc,
+  background,
   onOpenChange,
   onReset,
   setPortrait,
@@ -32,10 +61,20 @@ export function PortraitControl({
   portrait: Portrait
   portraitActive: boolean
   pickerLayout: BackdropPickerLayout
+  mediaSrc: string | null
+  background: Background
   onOpenChange?: (open: boolean) => void
   onReset: () => void
   setPortrait: (portrait: Portrait) => void
 }) {
+  const mediaPreview = useLayerPreviewStyle("media", mediaSrc, background)
+  const backgroundPreview = useLayerPreviewStyle(
+    "background",
+    mediaSrc,
+    background
+  )
+  const preview = mediaPreview ?? backgroundPreview
+
   return (
     <BackdropControlPopover
       popoverSide={popoverSide}
@@ -99,8 +138,15 @@ export function PortraitControl({
               <span
                 aria-hidden
                 className="absolute inset-0"
-                style={portraitPreviewCss(m.id)}
+                style={preview ?? portraitPreviewCss(m.id)}
               />
+              {preview ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-0"
+                  style={portraitTileOverlayCss(m.id, portrait) ?? undefined}
+                />
+              ) : null}
               <span
                 className={cn(
                   "relative z-10 rounded-sm bg-black/60 px-1 text-[9px] font-medium text-white/95 backdrop-blur-sm",

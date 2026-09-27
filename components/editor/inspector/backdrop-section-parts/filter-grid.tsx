@@ -6,16 +6,22 @@ import { cn } from "@/lib/utils"
 
 import { BACKDROP_FILTERS, type BackdropPickerLayout } from "./constants"
 
+const FALLBACK_PREVIEW: React.CSSProperties = {
+  background: "linear-gradient(135deg,#6366f1,#ec4899,#f59e0b)",
+}
+
 export function BackdropFilterGrid({
   current,
   onChange,
   layout = "grid",
   columns = 3,
+  preview = FALLBACK_PREVIEW,
 }: {
   current: AssetFilter
   onChange: (f: AssetFilter) => void
   layout?: BackdropPickerLayout
   columns?: 3 | 4
+  preview?: React.CSSProperties
 }) {
   return (
     <div
@@ -42,11 +48,8 @@ export function BackdropFilterGrid({
             )}
           >
             <div
-              className="aspect-square w-full rounded-sm"
-              style={{
-                background: "linear-gradient(135deg,#6366f1,#ec4899,#f59e0b)",
-                filter: assetFilterCss(f.id),
-              }}
+              className="aspect-square w-full rounded-sm bg-secondary"
+              style={{ ...preview, filter: assetFilterCss(f.id) }}
             />
             <span
               className={cn(

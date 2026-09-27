@@ -83,9 +83,10 @@ export function BackdropSection({
       ? resolveSlotScreenshotStyle(selectedSlot, canvas)
       : resolveMainScreenshotStyle(canvas)
   )
-  const isVideoMedia = useActiveCanvasField((canvas) =>
-    isVideoSrc(selectedSlot ? selectedSlot.src : canvas.screenshot)
+  const mediaSrc = useActiveCanvasField((canvas) =>
+    selectedSlot ? selectedSlot.src : canvas.screenshot
   )
+  const isVideoMedia = isVideoSrc(mediaSrc)
   const mediaLabel = isVideoMedia ? "Video" : "Screenshot"
   const activeCanvasId = useActiveCanvasId()
   const setBackdropEffects = useEditorStore((s) => s.setBackdropEffects)
@@ -412,6 +413,8 @@ export function BackdropSection({
             activeLighting={activeLighting}
             lightingActive={lightingActive}
             pickerLayout={pickerLayout}
+            mediaSrc={mediaSrc}
+            background={background}
             onOpenChange={handleInlineControlOpenChange("lighting")}
             onReset={() =>
               applyLighting({
@@ -481,6 +484,8 @@ export function BackdropSection({
             portrait={portrait}
             portraitActive={portraitActive}
             pickerLayout={pickerLayout}
+            mediaSrc={mediaSrc}
+            background={background}
             onOpenChange={handleInlineControlOpenChange("portrait")}
             onReset={() =>
               setPortrait({
@@ -503,6 +508,8 @@ export function BackdropSection({
             target={filtersTarget}
             onTargetChange={setFiltersTarget}
             mediaLabel={mediaLabel}
+            mediaSrc={mediaSrc}
+            background={background}
             filter={
               filtersTarget === "backdrop" ? backdropFilter : mediaStyle.filter
             }

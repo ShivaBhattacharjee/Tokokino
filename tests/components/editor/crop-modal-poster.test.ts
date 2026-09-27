@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { posterSeekTime } from "@/components/editor/crop-modal"
+import { posterSeekTime } from "@/lib/editor/video-poster"
 
 /**
  * The crop dialog's still preview used to always seek ~0.1s in, so cropping a

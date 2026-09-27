@@ -2,12 +2,13 @@
 
 import { RiMagicLine } from "@remixicon/react"
 
-import type { AssetFilter } from "@/lib/editor/state-types"
+import type { AssetFilter, Background } from "@/lib/editor/state-types"
 
 import { BackdropControlPopover } from "./control-popover"
 import type { BackdropLayerTarget, BackdropPickerLayout } from "./constants"
 import { BackdropFilterGrid } from "./filter-grid"
 import { LayerTargetToggle } from "./layer-target-toggle"
+import { useLayerPreviewStyle } from "./use-layer-preview"
 
 export function FiltersControl({
   popoverSide,
@@ -17,6 +18,8 @@ export function FiltersControl({
   target,
   onTargetChange,
   mediaLabel,
+  mediaSrc,
+  background,
   filter,
   pickerLayout,
   onOpenChange,
@@ -31,6 +34,8 @@ export function FiltersControl({
   onTargetChange: (target: BackdropLayerTarget) => void
   /** "Video" or "Screenshot", depending on the media the filter lands on. */
   mediaLabel: string
+  mediaSrc: string | null
+  background: Background
   /** The filter of whichever layer the toggle points at. */
   filter: AssetFilter
   pickerLayout: BackdropPickerLayout
@@ -38,6 +43,12 @@ export function FiltersControl({
   onReset: () => void
   setFilter: (filter: AssetFilter) => void
 }) {
+  const preview = useLayerPreviewStyle(
+    target === "backdrop" ? "background" : "media",
+    mediaSrc,
+    background
+  )
+
   return (
     <BackdropControlPopover
       popoverSide={popoverSide}
@@ -70,6 +81,7 @@ export function FiltersControl({
         onChange={setFilter}
         layout="grid"
         columns={pickerLayout === "carousel" ? 4 : 3}
+        preview={preview}
       />
     </BackdropControlPopover>
   )

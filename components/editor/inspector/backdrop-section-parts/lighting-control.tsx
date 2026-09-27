@@ -3,8 +3,9 @@
 import { RiGradienterLine, RiSunLine } from "@remixicon/react"
 
 import { ColorPickerPopover } from "@/components/editor/color-picker-popover"
+import { lightingOverlayValues } from "@/components/editor/canvas/helpers"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import type { BackdropLighting } from "@/lib/editor/state-types"
+import type { Background, BackdropLighting } from "@/lib/editor/state-types"
 import { cn } from "@/lib/utils"
 
 import { EffectSlider } from "../effect-slider"
@@ -16,6 +17,7 @@ import {
   lightingDirectionPreview,
   type BackdropPickerLayout,
 } from "./constants"
+import { useLayerPreviewStyle } from "./use-layer-preview"
 
 export function LightingControl({
   popoverSide,
@@ -25,6 +27,8 @@ export function LightingControl({
   activeLighting,
   lightingActive,
   pickerLayout,
+  mediaSrc,
+  background,
   onOpenChange,
   onReset,
   setLighting,
@@ -36,12 +40,19 @@ export function LightingControl({
   activeLighting: BackdropLighting
   lightingActive: boolean
   pickerLayout: BackdropPickerLayout
+  mediaSrc: string | null
+  background: Background
   onOpenChange?: (open: boolean) => void
   onReset: () => void
   setLighting: (patch: Partial<BackdropLighting>) => void
 }) {
   const isPresetColor = LIGHTING_COLOR_PRESETS.some(
     (c) => c.trim().toLowerCase() === activeLighting.color.trim().toLowerCase()
+  )
+  const preview = useLayerPreviewStyle(
+    activeLighting.target === "inner" ? "media" : "background",
+    mediaSrc,
+    background
   )
 
   return (
@@ -150,6 +161,16 @@ export function LightingControl({
         {LIGHTING_DIRECTIONS.map((direction) => {
           const active =
             lightingActive && activeLighting.direction === direction.id
+          const light = preview
+            ? lightingOverlayValues(
+                {
+                  ...activeLighting,
+                  direction: direction.id,
+                  intensity: activeLighting.intensity || 50,
+                },
+                { inner: activeLighting.target === "inner" }
+              )
+            : null
           return (
             <button
               key={direction.id}
@@ -165,11 +186,21 @@ export function LightingControl({
             >
               <div
                 className="relative aspect-square w-full overflow-hidden rounded-sm bg-neutral-950"
-                style={lightingDirectionPreview(
-                  direction.id,
-                  activeLighting.color
-                )}
+                style={
+                  preview ??
+                  lightingDirectionPreview(direction.id, activeLighting.color)
+                }
               >
+                {light ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage: light.image,
+                      opacity: light.opacity,
+                    }}
+                  />
+                ) : null}
                 <span
                   className={cn(
                     "absolute inset-0 m-auto size-1.5 rounded-full bg-white/70 shadow-[0_0_10px_rgba(255,255,255,0.8)]",
