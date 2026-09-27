@@ -124,7 +124,7 @@ export function MobileHistoryButton({
               default state. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+          <AlertDialogFooter>
             <AlertDialogCancel variant="destructive" className="cursor-pointer">
               Cancel
             </AlertDialogCancel>

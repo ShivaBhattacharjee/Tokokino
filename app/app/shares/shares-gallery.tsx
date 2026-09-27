@@ -441,7 +441,7 @@ export function SharesGallery({
               removed. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+          <AlertDialogFooter>
             <AlertDialogCancel variant="destructive" className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
@@ -470,7 +470,7 @@ export function SharesGallery({
               undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+          <AlertDialogFooter>
             <AlertDialogCancel variant="destructive" className="cursor-pointer">
               Cancel
             </AlertDialogCancel>

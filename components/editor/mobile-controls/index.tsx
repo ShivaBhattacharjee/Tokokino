@@ -437,7 +437,7 @@ export function MobileControls({
                         : inlineActive === "move"
                           ? "max-h-[32vh]"
                           : inlineActive === "backdrop"
-                            ? "h-[32vh] max-h-[300px] min-h-[260px]"
+                            ? "max-h-[min(360px,50dvh)]"
                             : inlineActive === "background" ||
                                 inlineActive === "border" ||
                                 inlineActive === "shadow"

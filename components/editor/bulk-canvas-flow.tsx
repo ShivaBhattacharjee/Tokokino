@@ -174,7 +174,7 @@ function CanvasNodeToolbar({
                   This will remove the canvas and all its content.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+              <AlertDialogFooter>
                 <AlertDialogCancel className="cursor-pointer">
                   Cancel
                 </AlertDialogCancel>

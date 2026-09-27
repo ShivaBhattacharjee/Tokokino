@@ -864,7 +864,7 @@ export function OpenProjectDialog({
               undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+          <AlertDialogFooter>
             <AlertDialogCancel className="cursor-pointer">
               Cancel
             </AlertDialogCancel>
@@ -893,7 +893,7 @@ export function OpenProjectDialog({
               want to keep it.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+          <AlertDialogFooter>
             <AlertDialogCancel className="cursor-pointer">
               Cancel
             </AlertDialogCancel>

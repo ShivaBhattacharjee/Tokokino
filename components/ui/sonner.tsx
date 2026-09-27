@@ -2,10 +2,10 @@
 
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import {
-  RiCheckboxCircleLine,
-  RiInformationLine,
-  RiErrorWarningLine,
-  RiCloseCircleLine,
+  RiCheckboxCircleFill,
+  RiInformationFill,
+  RiErrorWarningFill,
+  RiCloseCircleFill,
   RiLoaderLine,
 } from "@remixicon/react"
 
@@ -18,27 +18,30 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // define the box.
       className="toaster group max-[600px]:!w-auto"
       icons={{
-        success: <RiCheckboxCircleLine className="size-4" />,
-        info: <RiInformationLine className="size-4" />,
-        warning: <RiErrorWarningLine className="size-4" />,
-        error: <RiCloseCircleLine className="size-4" />,
-        loading: <RiLoaderLine className="size-4 animate-spin" />,
+        success: <RiCheckboxCircleFill className="size-5 text-emerald-500" />,
+        info: <RiInformationFill className="size-5 text-sky-500" />,
+        warning: <RiErrorWarningFill className="size-5 text-amber-500" />,
+        error: <RiCloseCircleFill className="size-5" />,
+        loading: (
+          <RiLoaderLine className="size-5 animate-spin text-muted-foreground" />
+        ),
       }}
       style={
         {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--border-radius": "var(--radius-md)",
+          "--width": "380px",
         } as React.CSSProperties
       }
       toastOptions={{
         classNames: {
           toast:
-            "cn-toast group !flex !items-center gap-3 !py-3 !px-4 !min-h-0 !w-fit !max-w-[min(22rem,calc(100vw-2rem))] !left-0 !right-0 mx-auto",
-          title: "text-[13px] font-medium text-left leading-snug text-pretty",
+            "cn-toast group !flex !items-center gap-3 !py-3.5 !px-4 !min-h-0 !w-full !left-0 !right-0 shadow-lg",
+          title: "text-sm font-medium text-left leading-snug text-pretty",
           content: "flex flex-col items-start justify-center min-w-0",
-          icon: "m-0 shrink-0",
+          icon: "!m-0 !size-5 shrink-0",
           // Sonner colours `[data-description]` from its own gray scale, which
           // stays dark on the destructive fill, so it needs overriding too.
           error:
