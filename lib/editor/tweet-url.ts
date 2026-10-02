@@ -2,8 +2,8 @@ import { z } from "zod/v4"
 
 /** An x.com / twitter.com status link, e.g. https://x.com/jack/status/20. */
 const STATUS_RE = /(?:twitter\.com|x\.com)\/[^/?#]+\/status(?:es)?\/(\d+)/i
-/** A bsky.app post link, e.g. https://bsky.app/profile/bsky.app/post/3l6oveex3ii2l. */
-const BSKY_POST_RE = /bsky\.app\/profile\/([^/?#]+)\/post\/([^/?#]+)/i
+/** The post path on bsky.app; percent-encoded segments are decoded separately. */
+const BSKY_POST_PATH_RE = /^\/profile\/([^/?#]+)\/post\/([^/?#]+)\/?$/i
 /** A bare numeric tweet id pasted on its own. */
 const BARE_ID_RE = /^\d{1,20}$/
 
@@ -19,13 +19,43 @@ export function parseTweetId(input: string): string | null {
   return trimmed.match(STATUS_RE)?.[1] ?? null
 }
 
+/** Recognizes a Bluesky post link even when its encoded segments are invalid. */
+export function isBlueskyPostUrl(input: string): boolean {
+  return matchBlueskyPost(input) !== null
+}
+
+function matchBlueskyPost(input: string): RegExpMatchArray | null {
+  const trimmed = input.trim()
+  const normalized = /^[a-z][a-z\d+.-]*:/i.test(trimmed)
+    ? trimmed
+    : trimmed.startsWith("//")
+      ? `https:${trimmed}`
+      : `https://${trimmed}`
+  try {
+    const url = new URL(normalized)
+    if (
+      (url.protocol !== "https:" && url.protocol !== "http:") ||
+      url.hostname !== "bsky.app"
+    ) {
+      return null
+    }
+    return url.pathname.match(BSKY_POST_PATH_RE)
+  } catch {
+    return null
+  }
+}
+
 function parseBlueskyPost(input: string): SocialPostRef | null {
-  const match = input.trim().match(BSKY_POST_RE)
+  const match = matchBlueskyPost(input)
   if (!match) return null
-  return {
-    platform: "bluesky",
-    identifier: decodeURIComponent(match[1] ?? ""),
-    rkey: decodeURIComponent(match[2] ?? ""),
+  try {
+    return {
+      platform: "bluesky",
+      identifier: decodeURIComponent(match[1] ?? ""),
+      rkey: decodeURIComponent(match[2] ?? ""),
+    }
+  } catch {
+    return null
   }
 }
 
