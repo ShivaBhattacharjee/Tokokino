@@ -34,6 +34,8 @@ export function TweetUrlPopover({
   const source = parsed.success ? parsed.data.platform : null
   const invalid = url.trim().length > 0 && !parsed.success
   const canSubmit = parsed.success && !loading
+  const displayedError =
+    error ?? (invalid ? parsed.error.issues[0]?.message : null)
 
   const submit = React.useCallback(async () => {
     if (!parsed.success || loading) return
@@ -109,8 +111,10 @@ export function TweetUrlPopover({
               : "border-border focus:border-foreground/30 focus:ring-foreground/20"
           )}
         />
-        {error ? (
-          <p className="text-[11px] leading-tight text-destructive">{error}</p>
+        {displayedError ? (
+          <p className="text-[11px] leading-tight text-destructive">
+            {displayedError}
+          </p>
         ) : null}
         <button
           type="button"

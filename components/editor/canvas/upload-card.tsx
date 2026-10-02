@@ -29,7 +29,7 @@ import {
   TweetThemeSelect,
 } from "@/components/editor/tweet-font-select"
 import { captureUrlSchema } from "@/lib/editor/capture-url"
-import { tweetUrlSchema } from "@/lib/editor/tweet-url"
+import { isBlueskyPostUrl, tweetUrlSchema } from "@/lib/editor/tweet-url"
 import {
   DEFAULT_TWEET_SETTINGS,
   type TweetCardSettings,
@@ -396,7 +396,7 @@ type UploadCardProps = {
   isDragOver?: boolean
   onBrowse: () => void
   onCapture?: (url: string, settings: CaptureSettings) => void | Promise<void>
-  /** When provided, X/Twitter status URLs load a tweet card instead of a screenshot. */
+  /** When provided, X/Twitter and Bluesky post URLs load a card instead of a screenshot. */
   onLoadTweet?: (url: string, settings?: TweetCardSettings) => Promise<void>
   /**
    * Load a pre-captured full-page demo screenshot (hosted on R2). When omitted,
@@ -523,11 +523,17 @@ export function UploadCard({
     : null
   const hasUrlInput = url !== PREFIX
   const isTweetUrl = Boolean(onLoadTweet && parsedTweet.success)
+  const hasInvalidTweetUrl = !parsedTweet.success && isBlueskyPostUrl(url)
   const hasInvalidUrlInput =
-    hasUrlInput && !parsedUrl.success && !parsedTweet.success
+    hasUrlInput &&
+    (hasInvalidTweetUrl || (!parsedUrl.success && !parsedTweet.success))
+  const displayedError =
+    tweetError ??
+    (hasInvalidTweetUrl ? parsedTweet.error.issues[0]?.message : null)
 
   async function handleCapture(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation()
+    if (hasInvalidTweetUrl) return
     if (isTweetUrl) {
       if (!onLoadTweet || isBusy) return
       setIsCapturing(true)
@@ -578,9 +584,9 @@ export function UploadCard({
     }
   }
 
-  const captureDisabled = isTweetUrl
-    ? isBusy
-    : !onCapture || !parsedUrl.success || isBusy
+  const captureDisabled =
+    hasInvalidTweetUrl ||
+    (isTweetUrl ? isBusy : !onCapture || !parsedUrl.success || isBusy)
   const captureLabel = isCapturing
     ? isTweetUrl
       ? "Loading post…"
@@ -791,9 +797,9 @@ export function UploadCard({
           {isLoadingDemo ? "Loading demo…" : "Load demo screenshot"}
         </button>
       ) : null}
-      {tweetError ? (
-        <p className="px-1 text-[11px] leading-tight text-destructive">
-          {tweetError}
+      {displayedError ? (
+        <p className="px-1 text-center text-[11px] leading-tight text-destructive">
+          {displayedError}
         </p>
       ) : null}
       {showHint && (
