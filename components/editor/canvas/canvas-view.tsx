@@ -599,7 +599,10 @@ function CanvasViewInner({
   // scroll gesture only moves a CSS var and the store is written once it settles.
   const liveScrollRef = React.useRef<number | null>(null)
   const scrollCommitTimerRef = React.useRef<number | null>(null)
-  const committedScrollPosition = fullPageCapture?.scrollPosition
+  const setScrollPositionRef = React.useRef(setFullPageScreenshotScrollPosition)
+  React.useLayoutEffect(() => {
+    setScrollPositionRef.current = setFullPageScreenshotScrollPosition
+  })
   const flushFullPageScroll = React.useCallback(() => {
     if (scrollCommitTimerRef.current !== null) {
       window.clearTimeout(scrollCommitTimerRef.current)
@@ -607,12 +610,16 @@ function CanvasViewInner({
     }
     const live = liveScrollRef.current
     if (live === null) return
-    setFullPageScreenshotScrollPosition(live)
-  }, [setFullPageScreenshotScrollPosition])
+    setScrollPositionRef.current(live)
+  }, [])
   React.useLayoutEffect(() => {
+    if (scrollCommitTimerRef.current !== null) {
+      window.clearTimeout(scrollCommitTimerRef.current)
+      scrollCommitTimerRef.current = null
+    }
     liveScrollRef.current = null
     canvasRef.current?.style.removeProperty(FULL_PAGE_SCROLL_VAR)
-  }, [committedScrollPosition])
+  }, [fullPageCapture])
   React.useEffect(() => flushFullPageScroll, [flushFullPageScroll])
   const handleFullPageWheel = React.useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
