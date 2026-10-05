@@ -94,6 +94,7 @@ import { ScreenshotMockup } from "./screenshot-mockup"
 import { TweetCardView } from "./tweet-card"
 import { isVideoSrc } from "@/lib/editor/media-type"
 import {
+  FULL_PAGE_SCROLL_VAR,
   fullPageCaptureMediaStyle,
   fullPageCaptureObjectFit,
   nextFullPageCaptureScrollPosition,
@@ -558,7 +559,10 @@ function CanvasViewInner({
   // The image-box CSS (transform, shadow, filter, radius var, border outline) is
   // shared with every screenshot slot via buildScreenshotImageStyle, so a slot
   // can never drift from the main screenshot's look.
-  const fullPageMediaStyle = fullPageCaptureMediaStyle(fullPageCapture)
+  const fullPageMediaStyle = fullPageCaptureMediaStyle(
+    fullPageCapture,
+    FULL_PAGE_SCROLL_VAR
+  )
   const {
     transform,
     imgStyle,
@@ -591,21 +595,59 @@ function CanvasViewInner({
     fullPageCapture,
     objectFit ?? "cover"
   )
+  // Re-rendering the canvas per wheel event costs Safari 50-100ms frames, so a
+  // scroll gesture only moves a CSS var and the store is written once it settles.
+  const liveScrollRef = React.useRef<number | null>(null)
+  const scrollCommitTimerRef = React.useRef<number | null>(null)
+  const committedScrollPosition = fullPageCapture?.scrollPosition
+  const flushFullPageScroll = React.useCallback(() => {
+    if (scrollCommitTimerRef.current !== null) {
+      window.clearTimeout(scrollCommitTimerRef.current)
+      scrollCommitTimerRef.current = null
+    }
+    const live = liveScrollRef.current
+    if (live === null) return
+    setFullPageScreenshotScrollPosition(live)
+  }, [setFullPageScreenshotScrollPosition])
+  React.useLayoutEffect(() => {
+    liveScrollRef.current = null
+    canvasRef.current?.style.removeProperty(FULL_PAGE_SCROLL_VAR)
+  }, [committedScrollPosition])
+  React.useEffect(() => flushFullPageScroll, [flushFullPageScroll])
   const handleFullPageWheel = React.useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
       if (!fullPageCapture || isCanvasPreview) return
+      const current = liveScrollRef.current ?? fullPageCapture.scrollPosition
       const next = nextFullPageCaptureScrollPosition(
         event.deltaY,
-        fullPageCapture.scrollPosition,
+        current,
         event.deltaMode
       )
-      if (next === fullPageCapture.scrollPosition) return
-      event.preventDefault()
+      if (next === current) return
       event.stopPropagation()
-      setFullPageScreenshotScrollPosition(next)
+      liveScrollRef.current = next
+      canvasRef.current?.style.setProperty(FULL_PAGE_SCROLL_VAR, `${next}%`)
+      if (scrollCommitTimerRef.current !== null) {
+        window.clearTimeout(scrollCommitTimerRef.current)
+      }
+      scrollCommitTimerRef.current = window.setTimeout(flushFullPageScroll, 200)
     },
-    [fullPageCapture, isCanvasPreview, setFullPageScreenshotScrollPosition]
+    [fullPageCapture, isCanvasPreview, flushFullPageScroll]
   )
+  // React's onWheel is passive, so its preventDefault is a no-op and the wheel
+  // falls through to the page — Safari 27 turns that into pull-to-refresh.
+  const hasFullPageCapture = !!fullPageCapture
+  React.useEffect(() => {
+    const el = canvasRef.current
+    if (!el || !hasFullPageCapture || isCanvasPreview) return
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) return
+      if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return
+      event.preventDefault()
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [hasFullPageCapture, isCanvasPreview])
   // Video crop is non-destructive: the src stays the full clip and we crop at
   // render time. Chrome/Edge use object-view-box; Firefox/Safari use an
   // overflow + positioned-media polyfill. Images are cropped destructively

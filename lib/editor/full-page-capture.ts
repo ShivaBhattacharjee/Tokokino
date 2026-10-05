@@ -9,13 +9,18 @@ const MAX_SCROLL_POSITION = 100
 const WHEEL_PIXELS_PER_PERCENT = 36
 const MAX_WHEEL_DELTA_PX = 48
 
+export const FULL_PAGE_SCROLL_VAR = "--full-page-scroll-y"
+
 export function fullPageCaptureMediaStyle(
-  capture: FullPageCapture | null | undefined
+  capture: FullPageCapture | null | undefined,
+  liveScrollVar?: string
 ): CSSProperties | undefined {
   if (!capture) return undefined
+  const position = `${capture.scrollPosition}%`
   return {
-    objectPosition: `50% ${capture.scrollPosition}%`,
-    transition: "object-position 180ms ease-out",
+    objectPosition: liveScrollVar
+      ? `50% var(${liveScrollVar}, ${position})`
+      : `50% ${position}`,
     willChange: "object-position",
   }
 }

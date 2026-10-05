@@ -461,6 +461,11 @@
       0 40px 80px -20px oklch(from var(--foreground) l c h / 0.28);
   }
 
+  html:has([data-editor-canvas-surface]),
+  body:has([data-editor-canvas-surface]) {
+    overscroll-behavior: none;
+  }
+
   [data-editor-canvas-surface],
   [data-editor-canvas-surface] *,
   .nopan {
