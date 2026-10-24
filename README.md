@@ -5,9 +5,9 @@
 <h1 align="center">Tokokino</h1>
 
 <p align="center">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.2.12-black?logo=next.js" />
-  <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.4.2-black?logo=next.js" />
+  <img alt="React" src="https://img.shields.io/badge/React-19.3.1-149ECA?logo=react&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white" />
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white" />
   <img alt="Zustand" src="https://img.shields.io/badge/Zustand-State%20Management-7A3E2B" />
   <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white" />
@@ -17,12 +17,12 @@ Tokokino is a client-heavy screenshot and video composer built with Next.js. It 
 
 ## Stack
 
-- Next.js `16.2.12`, React `19.2.x`, TypeScript `5.9.x`
+- Next.js `16.4.2`, React `19.3.1`, TypeScript `6.0.3`
 - Zustand for editor state
 - Tailwind CSS v4 + shadcn/ui
 - Mediabunny + WebCodecs for local video encoding and audio muxing
 - Bundled AV1 WebAssembly decoder fallback for Safari/WebKit video export (runs entirely client-side when native AV1 decode is unavailable)
-- OpenNext Cloudflare for build/deploy runtime
+- OpenNext Cloudflare `1.20.12` + Wrangler `4.151.2` for build/deploy runtime
 - Cloudflare D1 (`TOKOKINO_DB`) for app/auth metadata
 - Cloudflare R2 for share/draft/media storage
 
@@ -30,8 +30,8 @@ Tokokino is a client-heavy screenshot and video composer built with Next.js. It 
 
 ### Requirements
 
-- Node.js 20+
-- pnpm 9+
+- Node.js 22+ (Node.js 24 is used in CI and Docker)
+- pnpm 10+
 
 ### Install
 

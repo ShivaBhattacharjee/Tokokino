@@ -7,8 +7,8 @@
 The editor is one route (`/app`) — everything else (`/`, `/showcase`, `/compare`, `/glossary`, `/changelog`) is the marketing site.
 
 **Stack:**
-- Next.js 16.2.12 (App Router) + React 19.2, Turbopack in dev
-- OpenNext Cloudflare (`@opennextjs/cloudflare` 1.20) + Wrangler 4 for Cloudflare Workers deployment
+- Next.js 16.4.2 (App Router) + React 19.3.1, Turbopack in dev
+- OpenNext Cloudflare (`@opennextjs/cloudflare` 1.20.12) + Wrangler 4.151.2 for Cloudflare Workers deployment
 - Zustand 5 for all editor state, with undo/redo and IndexedDB persistence
 - Tailwind CSS v4 + shadcn components + Radix UI primitives
 - better-auth (email + Google OAuth), Cloudflare D1 via Drizzle, Cloudflare R2 via AWS S3 SDK

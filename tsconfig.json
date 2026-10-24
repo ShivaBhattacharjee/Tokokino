@@ -32,5 +32,10 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "worker.ts"]
+  "exclude": [
+    "node_modules",
+    "worker.ts",
+    "cloudflare-env.d.ts",
+    "worker-configuration.d.ts"
+  ]
 }

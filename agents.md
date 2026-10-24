@@ -50,7 +50,7 @@ Tokokino is a client-heavy Next.js 16 app deployed to Cloudflare Workers through
 
 ## Runtime and deploy notes
 
-- Framework/runtime versions are pinned in `package.json`: Next.js `16.2.12`, React `19.2.x`, TypeScript `5.9.x`, `@opennextjs/cloudflare` `1.20.x`, and Wrangler `4.110.x`.
+- Framework/runtime versions are declared in `package.json`: Next.js `16.4.2`, React `^19.3.1`, TypeScript `^6.0.3`, `@opennextjs/cloudflare` `^1.20.12`, and Wrangler `^4.151.2`.
 - `pnpm dev` runs `next dev --turbopack`; `next.config.mjs` initializes OpenNext Cloudflare dev bindings.
 - `pnpm build` runs `opennextjs-cloudflare build`; OpenNext then calls `pnpm run build:next` from `open-next.config.ts`.
 - `pnpm preview` and `pnpm deploy` both build through OpenNext first. Do not swap these to plain `next build` unless you are only debugging framework output.
